@@ -3,6 +3,7 @@ Lieutenant Fizz 2
 Licensed under Apache-2.0 OR MIT (LICENSE-APACHE, LICENSE-MIT).
 
 Behaviour, art and story references come from liminal-hq/lieutenant-fizz (Apache-2.0 OR MIT).
+`crates/fizz-phys` is derived from the `lf-sim` crate of liminal-hq/lieutenant-fizz at commit 4bce036 (Apache-2.0 OR MIT), as transformed for no_std by ScottMorris/lieutenant-fizz-dos.
 Hardware-abstraction ideas mirror liminal-hq/desk (Apache-2.0 OR MIT).
 
-Third-party material is listed here when it is shipped beside the game or linked into it. None is present yet.
+Third-party material is listed here when it is shipped beside the game or linked into it. The `libm` crate 0.2.16 (MIT), the Rust port of musl libm, is linked through `crates/fizz-phys`.
