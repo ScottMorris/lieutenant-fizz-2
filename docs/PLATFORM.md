@@ -135,7 +135,7 @@ The crate is `no_std` with no dependencies, denies `clippy::float_arithmetic`, a
 - **Interrupts.** The IRQ handlers share one locked interrupt stack, so handlers never nest. Each returns `Action::Eoi` or `Action::Chain`. Handlers do bounded work, allocate nothing and never use the x87.
 - **No `hlt`.** The instruction is privileged under CWSDPMI. Pacing is a volatile spin on the tick counter.
 - **Keyboard.** The runtime owns IRQ1 and decodes Set 1 scancodes. It restores the BIOS keyboard flag lock bits at `0x417` and clears `0x418` on exit.
-- **Video.** Mode 13h is set through DPMI function 0300h, a real-mode `INT 10h`.
+- **Video.** Mode 13h is set through DPMI function 0300h, a real-mode `INT 10h`. In `/LIVE`, `FIZZ2.EXE` calls `Display::wait_vretrace` once per drawn frame, just before `present`, so the 64,000-byte copy begins at the start of the vertical retrace and the picture does not tear (the method Fizz 1's C port uses, `vga_vsync`). The wait polls bit 3 of port 3DAh, first until any retrace in progress ends and then until one begins, each phase bounded at 1,000,000 reads, so a machine or emulator whose status port never toggles costs a frame's time and not a hang. It only delays the copy: the simulation is still paced by the timer through `Pacer`, and the retrace adds no ticks. `/SLICE` and `/REPLAY` do not wait. Tearing cannot be seen headlessly, so the effect is unverified on real hardware.
 - **Clean-up.** Every vector is restored on exit and on panic through the clean-up list. A panic exits with code 3.
 - **File names** are 8.3 and upper case.
 

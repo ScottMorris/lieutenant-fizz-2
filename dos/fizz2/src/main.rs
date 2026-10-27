@@ -123,6 +123,15 @@ fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep
     let _ = present(display, frame);
 }
 
+/// The live loop's draw: waits for the vertical retrace, then copies, so the copy does not land mid-scan and tear. The wait
+/// is bounded inside `wait_vretrace` (a million status reads per phase), and it only delays the copy: the simulation is paced
+/// by the timer through the `Pacer` and never sees the retrace. `/SLICE` and `/REPLAY` do not wait.
+fn draw_slice_frame_synced(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
+    render_slice(world, frame);
+    let _ = display.wait_vretrace();
+    let _ = present(display, frame);
+}
+
 fn main() -> i32 {
     fpu::set_double_precision();
     let args = env::args();
@@ -313,7 +322,7 @@ fn live(layout: Layout) -> i32 {
     let mut world = level::world();
     let mut quit = false;
 
-    draw_slice_frame(&mut display, &mut frame, &world);
+    draw_slice_frame_synced(&mut display, &mut frame, &world);
     while !quit && world.tick.0 < LIVE_TICK_CAP {
         let due = pacer.due(&clock);
         for _ in 0..due {
@@ -330,7 +339,7 @@ fn live(layout: Layout) -> i32 {
             fizz_ep2::step(&mut world, latch.frame());
         }
         if due > 0 {
-            draw_slice_frame(&mut display, &mut frame, &world);
+            draw_slice_frame_synced(&mut display, &mut frame, &world);
         }
     }
 
