@@ -69,13 +69,13 @@ The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`)
 The slice hash covers, in this order, with floating-point fields as `f64` bits and counts as `u32`:
 
 1. the tick (`u64`);
-2. Ben: `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv`, `shoot_t`, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on the ground, bit 3 bumped);
+2. Ben: `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv`, `shoot_t`, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on the ground, bit 3 bumped), then `look_up`, `look_down` and `look_offset` as `f64` bits and `aim` as one byte (`-1`, `0` or `1`, as an `i8` cast to `u8`);
 3. the `WorldFlags` word (bit 0 red key carried, bit 1 red door open, bit 2 exit reached), `ammo` and `deaths`;
 4. `map.switches`, which holds the red door (a closed door is a set bit on channel 1);
 5. the chicken count, then per chicken `x`, `y`, `vx`, `vy`, `dir`, `stun`, a flags byte (bit 0 on the ground, bit 1 touching Ben, bit 2 dead), the cluck timer (`u32`) and the cluck stream's draw count (`u32`);
 6. the shot count, then per shot `x`, `y`, `vx`, `vy` and `life`.
 
-The camera and the event list are not hashed. Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
+The look timers, the look offset and the aim are hashed because earlier input shapes them and later pictures and poses depend on them. The camera position itself and the event list are not hashed: the camera is a function of Ben's state (see [Looking up and down](#looking-up-and-down)). Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
 
 ## Numeric model decisions
 
@@ -91,7 +91,7 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 
 `fizz-ep2` holds Ben's movement, ported line for line from Fizz 1's `tick_ben_move` (with the alive and dead branches of `tick_ben`, `tick_head_bump` and `fire`) on top of `fizz-phys`; the rest of Fizz 1's `World::step` for the slice lives in `crates/fizz-ep2/src/world.rs`. It is proved against golden traces that Fizz 1's own simulation wrote, committed in `crates/fizz-ep2/tests/fizz1/`: `crates/fizz-ep2/tests/fizz1_traces.rs` parses each shared `.scn` scenario, runs it and compares every tick with the `.trace` as `f64` bit patterns, with no tolerance. The traces are regenerated with `tools/fizz1-trace`, which needs Fizz 1 at its pinned commit; the test needs only the committed files.
 
-Proven bit for bit, all sixteen scenarios:
+Proven bit for bit, all eighteen scenarios:
 
 | Scenario | What it proves |
 | --- | --- |
@@ -102,9 +102,11 @@ Proven bit for bit, all sixteen scenarios:
 | `stomp`, `stomp_pogo` | landing on the chicken: 3 s stun, bounce 12 (20 with the pogo), repeated bounces while it stays stunned |
 | `fizz_stun` | a shot stuns the chicken for 6 s, and a second shot passes through the stunned one; ammo and the shot's flight |
 | `key_door` | picking up the red key and opening the red door by walking into it |
+| `look` | the look timers: Up or Down held alone while idle counts up and resets on release; no look while both are held, while running, in the air or on the pogo |
+| `aim` | the aim and the shot: level, Up on the ground (straight up from the middle of the body), Down on the ground (still level), Down in the air (straight down from the feet) |
 | `route` | a run through a small maze that ends on spikes: one-way ledges, jumps and the spike death |
 
-The harness runs every scenario through the whole `World` and compares every field a trace carries, Ben's and the first Gloop's. One bit is masked in the `switches` field: Fizz 1 rewrites the red door's tile when it opens and never touches its switch word, while Fizz 2 keeps the door as a switched tile on channel 1 (a closed door is a set bit), so the door's bit is left out of that comparison. The facts the traces do not show (the door staying shut without the key, what a death keeps and drops) are covered by unit tests in `crates/fizz-ep2/src/replay.rs`.
+The harness runs every scenario through the whole `World` and compares every field a trace carries, Ben's (including `look_up`, `look_down` and `aim`; trace format 2 adds those three columns after `switches`) and the first Gloop's. One bit is masked in the `switches` field: Fizz 1 rewrites the red door's tile when it opens and never touches its switch word, while Fizz 2 keeps the door as a switched tile on channel 1 (a closed door is a set bit), so the door's bit is left out of that comparison. The facts the traces do not show (the door staying shut without the key, what a death keeps and drops) are covered by unit tests in `crates/fizz-ep2/src/replay.rs`.
 
 The slice level is `crates/fizz-ep2/src/level.rs`: 32 by 48 tiles, written as text and baked at compile time, with the tile alphabet documented in the module. The replay proves it can be finished with the real physics: the script reaches the exit in 1,268 ticks with the door open and the key spent, after one death on the spikes carrying the key (the key drops and lies where it began; the world respawns Ben, resets the chicken and the ammo). It shoots the chicken in the first life and stomps it in the second.
 
@@ -125,7 +127,20 @@ Departures from Fizz 1:
 - A death respawns Ben in place after Fizz 1's 1.4 s instead of reloading the level, so the open door survives it. The key does not: it is dropped and lies where it began unless the door is already open. The chickens, the shots and the ammo (5) start over, and `deaths` counts the respawns.
 - The Gloop's "stray" reset (sent home after three seconds more than four tiles off its floor) is not ported; the slice's chicken cannot leave its floor. It would need a hashed timer.
 - The chicken's cluck timer and stream are new in Fizz 2; Fizz 1's Gloop is silent. They are described under Events and clucks above.
+- The look offset is new in Fizz 2 (see Looking up and down). Fizz 1 keeps the same memory in its camera position. Its up and down aim, the look timers and `aim` are ports and have no departure.
 - Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, wall kicks, lifts and conveyors under Ben are also not ported.
+
+### Looking up and down
+
+Fizz 1 (`world.rs`, `tick_ben_move` and `step`) counts `look_up` and `look_down` while Up or Down is held alone and Ben is idle (on the ground, not on the pogo or a ladder, no horizontal input), and resets the timer to 0 otherwise. Its camera acts on them after 0.2 s. It has two modes. `CamMode::Side` only honours `look_down` (aim point 3.6 below Ben's feet instead of 1.6 above, with a look-ahead of 1.5 tiles in his facing and a vertical chase of 3.5 per second). `CamMode::Tower`, for tall levels, honours both: 3.6 above or below his feet instead of 0.8 above, no look-ahead, a vertical chase of 8 per second. Both chase exponentially (`cam += (target - cam) * min(rate * dt, 1)`) and clamp the camera to the map. The slice's 32 by 48 maze is a tall level, so the Tower mode is the one to match.
+
+Fizz 2 ports the timers exactly (`Ben::look_up`, `Ben::look_down`, in the same place and order, proved by the `look` trace) and the shot's `aim` (`Ben::aim`, proved by the `aim` trace). The camera is Milestone 1's stateless one, so the exponential chase is replaced by a rule that depends on Ben's state alone, with no `exp` and no camera position to carry between ticks:
+
+- `Ben::look_target` is zero until the timer passes `LOOK_DELAY` (0.2 s), then rises linearly over `LOOK_RAMP` (0.35 s) to `LOOK_REACH` (3.6 tiles) up for `look_up` or down for `look_down`. Fizz 1's chase at 8 per second covers 95% of its distance in `ln(20) / 8` = 0.37 s, so a straight ramp of 0.35 s arrives at about the same time as the eased one.
+- Releasing resets the timer, which would snap the view back, so Ben keeps `look_offset`, the stateless camera's memory: each tick it moves toward `look_target` by at most `LOOK_RATE` (12 tiles a second, a little above the ramp's own 10.3). While a button is held the offset equals the target; after a release it returns to 0 in about 0.3 s. It is one `f64` updated in the rules tick beside the timers and is hashed with them.
+- The view adds `look_offset` to the middle of Ben's body before `fizz_view::follow` clamps it to the map, so the view never leaves the map and, since 3.6 tiles is well inside half the 200-pixel view, Ben never leaves the screen.
+
+The reach is measured from the middle of Ben's body, where Fizz 1 measures from his feet (its up-aim of 3.6 sits 2.8 above the baseline aim of 0.8, and its down-aim 4.4 below it); the stateless camera is not meant to be a copy of the Fizz 1 camera, and the eased camera is Milestone 3. Up and Down reach the rules as `Buttons::UP` and `Buttons::DOWN` through the same key tables as the other buttons on Web and DOS (the arrows in both layouts, and `W` and `S` in Modern), so no input change was needed.
 
 ## The hardware abstraction layer
 
