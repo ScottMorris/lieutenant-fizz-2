@@ -2,7 +2,7 @@
 
 ## Project
 
-Lieutenant Fizz 2 is the start of Episode 2 (and the simulation Episode 3 reuses), with Web and DOS developed in parallel. `fizz-sim` is the deterministic rules foundation: `no_std`, no `unsafe`, no platform types. The Milestone 0 platform skeleton is built: a moving marker hashed identically on native, Web (WASM) and DOS (headless DOSBox). A cooker and the real rules and scene arrive with their first consumers.
+Lieutenant Fizz 2 is the start of Episode 2 (and the simulation Episode 3 reuses), with Web and DOS developed in parallel. `fizz-sim` is the deterministic rules foundation: `no_std`, no `unsafe`, no platform types. The Milestone 0 platform skeleton is built: a moving marker hashed identically on native, Web (WASM) and DOS (headless DOSBox). A baker and the real rules and scene arrive with their first consumers.
 
 `AGENTS.md` is authoritative. Its essential rules are Canadian English everywhere, unwrapped markdown, author-facing prose, Conventional Commits but no prefixes in PR titles, merge commits only, no push without instruction, explicit staging, and copyright/SPDX headers on source files.
 
@@ -44,3 +44,5 @@ python3 tools/progress-report/capture.py         # refresh the archive's DOSBox 
 ```
 
 The DOS toolchain is the shared `ci-dos` image pinned by digest; locally `vendor/` is a git-ignored copy of its toolchain layout. Rules crates keep the numeric model in `docs/PLATFORM.md`: `f64`, basic IEEE operations, no `exp` family, the x87 control word set by the program. `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny float arithmetic. Document every new build or emulator check in `docs/PLATFORM.md`. Do not add C or DJGPP glue by default.
+
+The player's manual, `docs/MANUAL.md`, is written in parallel with the game: a change a player can see or do updates it in the same PR (see "Game Manual" in `AGENTS.md`).

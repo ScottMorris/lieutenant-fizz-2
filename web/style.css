@@ -18,7 +18,7 @@ canvas {
   width: min(100%, 960px);
   aspect-ratio: 8 / 5;
   image-rendering: pixelated;
-  background: #000020;
+  background: #0000aa;
   outline: 1px solid #335;
 }
 

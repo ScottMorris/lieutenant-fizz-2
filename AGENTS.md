@@ -49,7 +49,7 @@ Releases add their version section to `CHANGELOG.md` in the release PR. Tags are
 - The rules layer (`fizz-sim` and the game logic built on it) is `no_std` plus `alloc`, forbids `unsafe`, and has no clocks, randomness or platform types. A frame is a function of the steps that led to it. Hosts, presenters, cookers and tools may use `std`.
 - Fizz 1's numeric model is the reference: floating point under the determinism discipline. Use basic IEEE operations only, never reorder floating-point operations for speed, use a software `libm` for transcendental functions, and set x87 to 53-bit precision on DOS before the first tick. Document any departure.
 - The simulation emits intent: a scene of tiles, sprites, lights and a camera, a composition source, and named events. Platform limits (palette depth, OPL patches, voice counts, capacity constants) live in the presenter or backend that needs them, not in the shared contract.
-- Fidelity is lost at cook time, not at run time. Offline host tools produce per-target assets. DOS parses nothing at start-up that a tool could have prepared.
+- Fidelity is lost at bake time, not at run time. Offline host tools produce per-target assets. DOS parses nothing at start-up that a tool could have prepared.
 - The portable layers never use DOS, DPMI, BIOS, port I/O, interrupt vectors or raw video-memory pointers. The DOS platform layer mirrors Desk's hardware abstraction layer; platform boundaries isolate audited `unsafe` with a one-line `SAFETY:` justification.
 - Interrupt handlers do bounded work only, allocate nothing, and hand input or completed work to the game loop through a bounded single-producer/single-consumer queue. Every vector is restored on exit and panic.
 - File names remain 8.3 on the DOS side until a documented compatibility decision changes that rule.
@@ -62,6 +62,14 @@ Run `tools/check.sh` before a PR. Add a test that fails before a bug fix. Keep t
 ## Documentation
 
 Update `docs/ARCHITECTURE.md` when layers, crates or the parity policy change and `README.md` when build or demonstration use changes. Prefer stable reference documents over undocumented decisions in comments or pull requests.
+
+## Game Manual
+
+The player's manual is written in parallel with the game, not at the end. It lives in one file, `docs/MANUAL.md`.
+
+- A pull request that adds or changes anything a player sees or does updates the manual in the same pull request, or says in the PR's Documentation section why no manual change is needed. That covers controls, items, enemies, gadgets, levels and the overworld, screens and menus, options, saves, differences between the Web and DOS presentations, system requirements, and how to run the game.
+- The manual is written for the player, not the developer: second person where it helps, plain words, and no crate names or internals. It describes the controls and behaviour of the current builds only. Planned features are listed in one short "Coming" section at the end, or left out. Where Web and DOS differ, such as reduced effects on DOS, the manual says what differs.
+- Screenshots in the manual are taken from real builds and say which build they show.
 
 ## Licence and Copyright
 

@@ -10,7 +10,7 @@
 
 ### Documentation
 
-- Docs updated (`docs/ARCHITECTURE.md`, `README.md`), or not needed:
+- Docs updated (`docs/ARCHITECTURE.md`, `docs/MANUAL.md`, `README.md`), or not needed:
 
 ## Test plan
 
