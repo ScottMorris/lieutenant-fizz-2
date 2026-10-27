@@ -42,8 +42,9 @@
 //!   instead of being dropped, unless its chicken is more than 50 pixels off screen (Fizz 1's limit), when it is dropped. The captions option gates only the text; the beak always moves.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
 //!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
-//!   `shoot` while the rules' shooting pose runs, `jump` in the air, a run frame while his horizontal speed is above 0.5 tiles
-//!   a second, and `stand` at rest. Fizz 1 keeps a distance counter `anim`, adds `|vx| * dt` to it every step, and shows
+//!   `shoot` while the rules' shooting pose runs (`aimUp` or `aimDown` when the shot went straight up or down, as Fizz 1's
+//!   `render.rs` chooses), `jump` in the air, a run frame while his horizontal speed is above 0.5 tiles a second, `lookUp`
+//!   or `lookDown` while a look timer runs (Fizz 1 shows them after the run frames), and `stand` at rest. Fizz 1 keeps a distance counter `anim`, adds `|vx| * dt` to it every step, and shows
 //!   `run2` when `floor(anim * 1.4)` is odd and `run1` otherwise, so the frame changes every 1/1.4 tiles run and he never
 //!   skates. The rules here keep no such counter and drawing may not add one, so the view uses Ben's x in its place: `run2`
 //!   when `floor(|x| * 1.4)` is odd. The two agree in cadence, and differ only in phase after Ben turns round. The sprites face right, so facing left flips them. While Ben is
@@ -55,7 +56,8 @@
 //! # The camera
 //!
 //! `fizz_view::follow` centres the view on the middle of Ben's body on both axes and clamps it to the map, in whole
-//! logical pixels, so the map scrolls without sub-pixel shimmer. The map's y-axis is flipped with `fizz_view::screen_y`.
+//! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
+//! 3.6 tiles, ramped and returned by the rules) is added to that centre before the clamp, so the view never leaves the map. The map's y-axis is flipped with `fizz_view::screen_y`.
 
 use fizz_ep2::World;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
@@ -192,12 +194,9 @@ pub fn draw_slice_with(
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
-    // The camera centres on the middle of Ben's body.
-    let ben = &world.ben;
-    let target_x = tile_px(ben.b.x + ben.b.w * 0.5);
-    let target_y = screen_y(ben.b.y + ben.b.h * 0.5, map_h);
-    let cam_x = follow(target_x, map_w.saturating_mul(TILE_PX), w as i32);
-    let cam_y = follow(target_y, map_h.saturating_mul(TILE_PX), h as i32);
+    // The camera centres on the middle of Ben's body, raised or lowered by the look offset the rules keep (zero unless Ben is
+    // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
+    let (cam_x, cam_y) = camera(world, w, h);
 
     let door_closed = map.switch(DOOR_RED_CHANNEL);
     // The tile pass meets every visible tile, so it notes the closed doors for the sprites drawn after it; a view with more
@@ -279,6 +278,18 @@ pub fn draw_slice_with(
             draw_caption(frame, w, h, c, &at);
         }
     }
+}
+
+/// The top left of the view in map pixels: Ben's centre plus the look offset, followed and clamped by `fizz_view::follow`.
+fn camera(world: &World, w: usize, h: usize) -> (i32, i32) {
+    let (map_w, map_h) = (world.map.w, world.map.h);
+    let ben = &world.ben;
+    let target_x = tile_px(ben.b.x + ben.b.w * 0.5);
+    let target_y = screen_y(ben.b.y + ben.b.h * 0.5 + ben.look_offset, map_h);
+    (
+        follow(target_x, map_w.saturating_mul(TILE_PX), w as i32),
+        follow(target_y, map_h.saturating_mul(TILE_PX), h as i32),
+    )
 }
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
@@ -367,14 +378,10 @@ const RUN_SPEED: f64 = 0.5;
 /// Run frames swap this many times per tile of distance (Fizz 1's `anim * 1.4`).
 const RUN_STEPS_PER_TILE: f64 = 1.4;
 
-fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At) {
-    let ben = &world.ben;
-    let dead = ben.dead > 0.0;
-    // Invulnerable Ben blinks; dead Ben flickers.
-    if (ben.inv > 0.0 || dead) && phase / 3 % 2 == 1 {
-        return;
-    }
-    let name = if dead {
+/// The name of Ben's sprite, in the order Fizz 1's `ben_sprite` decides: dead, the pogo, a shot's aim pose, the air, a run
+/// frame, a look, then standing.
+fn ben_pose(ben: &fizz_ep2::Ben) -> &'static str {
+    if ben.dead > 0.0 {
         "ben_jump"
     } else if ben.pogo {
         if ben.squash > 0.0 {
@@ -383,7 +390,11 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
             "ben_pogo"
         }
     } else if ben.shoot_t > 0.0 {
-        "ben_shoot"
+        match ben.aim {
+            1 => "ben_aimUp",
+            -1 => "ben_aimDown",
+            _ => "ben_shoot",
+        }
     } else if !ben.b.on_ground {
         "ben_jump"
     } else if ben.b.vx.abs() > RUN_SPEED {
@@ -393,9 +404,23 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
         } else {
             "ben_run1"
         }
+    } else if ben.look_up > 0.0 {
+        "ben_lookUp"
+    } else if ben.look_down > 0.0 {
+        "ben_lookDown"
     } else {
         "ben_stand"
-    };
+    }
+}
+
+fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At) {
+    let ben = &world.ben;
+    let dead = ben.dead > 0.0;
+    // Invulnerable Ben blinks; dead Ben flickers.
+    if (ben.inv > 0.0 || dead) && phase / 3 % 2 == 1 {
+        return;
+    }
+    let name = ben_pose(ben);
     let Some(s) = sprite(name) else {
         return;
     };
@@ -409,6 +434,7 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
 mod tests {
     use super::*;
     use fizz_ep2::level;
+    use fizz_ep2::tiles::FILL;
     use fizz_ep2::world::{WorldFlags, step};
     use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS};
     use fizz_sim::{Buttons, InputFrame};
@@ -638,6 +664,60 @@ mod tests {
         );
     }
 
+    /// A tall arena with a floor two tiles thick under Ben, so the camera has room above and below him.
+    fn tall_world() -> World {
+        let mut map = level::world().map;
+        for y in 0..map.h {
+            for x in 0..map.w {
+                map.set(x, y, if y == 23 || y == 24 { FILL } else { 0 });
+            }
+        }
+        World::new(map, (16.0, 25.0))
+    }
+
+    /// Steps `world` with `held` for `ticks` ticks, continuing from `prev`.
+    fn hold(world: &mut World, prev: &mut Buttons, held: Buttons, ticks: u32) {
+        for _ in 0..ticks {
+            step(world, InputFrame::from_transition(*prev, held));
+            *prev = held;
+        }
+    }
+
+    #[test]
+    fn the_pose_follows_fizz_1s_precedence() {
+        let mut ben = fizz_ep2::Ben::new(0.0, 0.0);
+        ben.b.on_ground = true;
+        assert_eq!(ben_pose(&ben), "ben_stand");
+        ben.look_down = 0.1;
+        assert_eq!(ben_pose(&ben), "ben_lookDown");
+        ben.look_up = 0.1;
+        assert_eq!(ben_pose(&ben), "ben_lookUp", "Up wins if both somehow run");
+        ben.b.vx = 1.0;
+        assert_eq!(ben_pose(&ben), "ben_run1", "running beats looking");
+        ben.b.on_ground = false;
+        assert_eq!(ben_pose(&ben), "ben_jump", "the air beats running");
+        ben.shoot_t = 0.1;
+        assert_eq!(ben_pose(&ben), "ben_shoot");
+        ben.aim = 1;
+        assert_eq!(ben_pose(&ben), "ben_aimUp", "a shot beats the air");
+        ben.aim = -1;
+        assert_eq!(ben_pose(&ben), "ben_aimDown");
+        ben.pogo = true;
+        assert_eq!(ben_pose(&ben), "ben_pogo", "the pogo beats a shot");
+        ben.pogo = false;
+        ben.dead = 0.5;
+        assert_eq!(ben_pose(&ben), "ben_jump", "dead beats everything");
+        ben.dead = 0.0;
+        ben.shoot_t = 0.0;
+        ben.b.on_ground = true;
+        ben.b.vx = 0.0;
+        assert_eq!(
+            ben_pose(&ben),
+            "ben_lookUp",
+            "an expired shot leaves the look"
+        );
+    }
+
     #[test]
     fn an_open_beak_and_a_caption_show_on_screen() {
         for v in 0..4u8 {
@@ -800,6 +880,103 @@ mod tests {
             }
         });
         assert_eq!(seen, PINNED_CLUCKS);
+    }
+
+    #[test]
+    fn the_look_camera_ramps_clamps_and_returns() {
+        let mut w = tall_world();
+        let mut prev = Buttons::NONE;
+        hold(&mut w, &mut prev, Buttons::NONE, 10);
+        let rest = camera(&w, VIEW_W, VIEW_H);
+        let mut last = rest.1;
+        for _ in 0..60 {
+            hold(&mut w, &mut prev, Buttons::UP, 1);
+            let y = camera(&w, VIEW_W, VIEW_H).1;
+            assert!(y <= last, "the view only rises while Up is held");
+            last = y;
+        }
+        // 3.6 tiles of 16 pixels is 57.6 pixels: the floor in `tile_px` gives 57 going up and 58 going down.
+        assert_eq!(rest.1 - last, 57);
+        let mut down = last;
+        loop {
+            hold(&mut w, &mut prev, Buttons::NONE, 1);
+            let y = camera(&w, VIEW_W, VIEW_H).1;
+            assert!(y >= down, "the view only comes back");
+            down = y;
+            if w.ben.look_offset == 0.0 {
+                break;
+            }
+        }
+        assert_eq!(camera(&w, VIEW_W, VIEW_H), rest);
+        for _ in 0..60 {
+            hold(&mut w, &mut prev, Buttons::DOWN, 1);
+        }
+        assert_eq!(camera(&w, VIEW_W, VIEW_H).1 - rest.1, 58);
+    }
+
+    #[test]
+    fn the_look_never_loses_ben_or_leaves_the_map() {
+        let mut w = tall_world();
+        let (map_px_h, map_px_w) = (w.map.h * TILE_PX, w.map.w * TILE_PX);
+        for y in [0.0, 5.0, 25.0, 40.0, 46.0] {
+            for off in [-3.6, -1.0, 0.0, 1.0, 3.6] {
+                w.ben.b.y = y;
+                w.ben.look_offset = off;
+                let (cx, cy) = camera(&w, VIEW_W, VIEW_H);
+                assert!((0..=map_px_w - VIEW_W as i32).contains(&cx));
+                assert!(
+                    (0..=map_px_h - VIEW_H as i32).contains(&cy),
+                    "y {y} off {off}"
+                );
+                // Ben's body, in map pixels measured from the top, is inside the view.
+                let top = screen_y(w.ben.b.y + w.ben.b.h, w.map.h);
+                let bottom = screen_y(w.ben.b.y, w.map.h);
+                assert!(top >= cy && bottom <= cy + VIEW_H as i32, "y {y} off {off}");
+            }
+        }
+    }
+
+    #[test]
+    fn scripted_looks_and_aims_are_pinned() {
+        let mut w = tall_world();
+        let mut prev = Buttons::NONE;
+        let mut seen = Vec::new();
+        hold(&mut w, &mut prev, Buttons::NONE, 10);
+        seen.push(("stand", fnv(&picture(&w, 0))));
+        hold(&mut w, &mut prev, Buttons::UP, 60);
+        assert_eq!(ben_pose(&w.ben), "ben_lookUp");
+        seen.push(("look up", fnv(&picture(&w, 0))));
+        hold(&mut w, &mut prev, Buttons::NONE, 30);
+        hold(&mut w, &mut prev, Buttons::DOWN, 60);
+        assert_eq!(ben_pose(&w.ben), "ben_lookDown");
+        seen.push(("look down", fnv(&picture(&w, 0))));
+        hold(&mut w, &mut prev, Buttons::NONE, 30);
+        hold(&mut w, &mut prev, Buttons::FIRE, 3);
+        assert_eq!(ben_pose(&w.ben), "ben_shoot");
+        seen.push(("aim level", fnv(&picture(&w, 0))));
+        hold(&mut w, &mut prev, Buttons::NONE, 30);
+        hold(&mut w, &mut prev, Buttons::UP.union(Buttons::FIRE), 3);
+        assert_eq!(w.ben.aim, 1);
+        assert_eq!(ben_pose(&w.ben), "ben_aimUp");
+        seen.push(("aim up", fnv(&picture(&w, 0))));
+        hold(&mut w, &mut prev, Buttons::NONE, 30);
+        hold(&mut w, &mut prev, Buttons::JUMP, 1);
+        hold(&mut w, &mut prev, Buttons::NONE, 6);
+        hold(&mut w, &mut prev, Buttons::DOWN.union(Buttons::FIRE), 3);
+        assert_eq!(w.ben.aim, -1);
+        assert_eq!(ben_pose(&w.ben), "ben_aimDown");
+        seen.push(("aim down", fnv(&picture(&w, 0))));
+        assert_eq!(
+            seen,
+            [
+                ("stand", 0x3685_3ba7_d340_af03),
+                ("look up", 0x0814_4c64_8495_d0e4),
+                ("look down", 0x6efd_b16a_7546_e7cd),
+                ("aim level", 0xb78e_4f97_b6ae_b26e),
+                ("aim up", 0xac57_d4e8_fdef_dbe6),
+                ("aim down", 0x6c31_2cb2_b5dd_365e),
+            ]
+        );
     }
 
     #[test]
