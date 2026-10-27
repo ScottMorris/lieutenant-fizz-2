@@ -7,7 +7,7 @@ Nobody has listened to any of this. The cluck is a placeholder built from the pr
 ## The pipeline
 
 ```text
-assets/sfx/cluck.ts            the rich source: layered Undertone voices, three variants
+assets/sfx/cluck.ts            the rich source: layered Undertone voices, four variants
         |
         |  tools/sfx/downmix.ts  (convert.ts, opl.ts, patches.ts)
         v
@@ -26,13 +26,16 @@ The Web presenter reads `assets/sfx/cluck.ts` directly and hands the voices to U
 
 A pitch curve is a chain of short notes, one every 25 ms, each at the next pitch, because Undertone's `slide` only falls and only from an octave above the note. Fizz 1's `curveVoices` does the same. `curve()` builds a chain; `breath()` builds a short burst of noise.
 
-`assets/sfx/cluck.ts` exports `CLUCK`, indexed by `Event::Cluck { variant }` (`CLUCK_VARIANTS` is 3), and an `EFFECTS` table the downmix reads. The three variants are all short, none sustains, and each has a noise breath at the attack:
+`assets/sfx/cluck.ts` exports `CLUCK`, indexed by `Event::Cluck { variant }` (`CLUCK_VARIANTS` is 4), and an `EFFECTS` table the downmix reads. The four variants are all short, none sustains, and each has a noise breath at the attack:
 
 | Variant | Intent | Voices | Source length |
 | --- | --- | --- | --- |
 | 0 | "buh-GAWK": a low square "buh" nudging up a major third, then a loud sawtooth "GAWK" falling an octave and a half, with a square an octave under it for body | 20 | 300 ms |
 | 1 | The short single cluck: one quick falling square note with a small noise rasp | 5 | 127 ms |
 | 2 | The double cluck: two quick falling clucks a little apart, the second higher and longer | 10 | 305 ms |
+| 3 | The repeated cluck: variant 1 played twice, "cluck, cluck" | 10 | 328 ms |
+
+Variant 3 is not written note by note. `repeat()` in `voice.ts` takes a base effect and plays it twice: the base voices as they are, then a copy shifted to start 75 ms after the base ends (`REPEAT_GAP`), its pitched voices a semitone lower and every gain a tenth quieter. The base is `REPEAT_BASE`, set to variant 1, so repeating a different variant (or changing the gap, pitch or gain) is a one-line change in `cluck.ts`. Variants 1 and 3 are both meant to be usable: 1 is the quick single, 3 the same cluck twice.
 
 Two layering rules make the source downmix well. Voices that share a start time put the main layer at the highest gain, and a noise breath starts a little before the pitched note it belongs to.
 
@@ -49,6 +52,7 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 | 0 | 160 | 640 | 184 | 329 ms |
 | 1 | 74 | 296 | 88 | 157 ms |
 | 2 | 147 | 588 | 188 | 336 ms |
+| 3 | 150 | 600 | 200 | 357 ms |
 
 **PC speaker.** The list has one PIT channel 2 divisor per frame, where the tone is 1,193,180 divided by the divisor and 0 closes the speaker gate. The last entry is always 0. Pitches are clamped to 60 to 9000 Hz. Quiet frames are thinned: below 10% of the loudest level the speaker is silent, and below 30% it sounds every other frame. A noise voice becomes a random pitch.
 
@@ -57,8 +61,9 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 | 0 | 42 | 84 | 300 ms |
 | 1 | 16 | 32 | 114 ms |
 | 2 | 42 | 84 | 300 ms |
+| 3 | 46 | 92 | 328 ms |
 
-In all, the three variants take 1,524 bytes of OPL2 records and 200 bytes of speaker divisors.
+In all, the four variants take 2,124 bytes of OPL2 records and 292 bytes of speaker divisors.
 
 ### What is lost, and where
 
