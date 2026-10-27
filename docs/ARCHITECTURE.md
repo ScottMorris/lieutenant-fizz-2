@@ -70,7 +70,7 @@ Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `ti
 
 ## Web view and pixel-locking
 
-This is the plan for Milestone 3; nothing is built. The Web page today scales a fixed 320 by 200 canvas to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
+This is the plan for Milestone 3; the view itself is not built. The Web page today scales a fixed 320 by 200 canvas to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
 
 - **The Web view is not a projection of a fixed frame.** It fills the window and shows more of the level on larger screens, as Fizz 1's does. DOS keeps its fixed 320 by 200 mode 13h frame.
 - **Pixels are square.** The Web view does not stretch to the 4:3 shape of a CRT.
@@ -78,6 +78,7 @@ This is the plan for Milestone 3; nothing is built. The Web page today scales a 
 - **Fizz 1 is the model.** Its camera works from a target tile count (13 tiles tall for levels, 12 for the map, 14 for cinematics). Its Sharp mode picks a whole-number scale, `max(2, floor(viewport height / (16 x target tiles)))`, and the leftover height shows more of the level. Its Fast mode draws one canvas pixel per sprite pixel and sizes the canvas box so the browser's upscale is an exact whole number. Its camera snaps to the canvas-pixel grid, so scenes move by whole pixels and nothing shimmers. A zoom, from a close-up of 3 times to a whole-level overview, changes how many tiles are visible. Fizz 1's desktop default is its Soft mode, which uses a fractional scale on a device-pixel canvas; its whole-number modes are Sharp and Fast. Fizz 2's Web view uses the whole-number behaviour so the image stays crisp.
 - **Fizz 1 sets no maximum scale.** The scale grows with the window, so a larger screen shows the same number of tiles at a larger size unless the player zooms out. A pixel budget of 3840 by 2160 limits the canvas backing, not the scale.
 - **Rounding is decided once.** The Web marker is drawn with `Math.round` and DOS truncates with `as i32`, so the two can differ by a pixel. One shared rule, written in Rust and tested, replaces both.
+- **What exists in `fizz-view`.** `pixel` is the floor rule. `tile_px(v)` is `pixel(v * 16.0)`, and `screen_y(world_y, map_h_tiles)` flips the rules' y-up heights to screen rows, flooring first. `follow(target_px, map_px, view_px)` is a stateless, clamped camera origin for one axis (called once per axis each frame, with no easing; the eased camera stays Milestone 3), and it centres a map that is smaller than the view. `blit_sprite`, `fill_rect` and `draw_tilemap` draw into a plain palette-indexed `&mut [u8]` of any width and height, clipped for every position. The slice's DOS and Web presenters consume these so neither repeats the pixel rule.
 
 The open question is whether Fizz 2 shows more level on large screens by default, with a larger target tile count or a capped scale, or leaves that to a zoom control as Fizz 1 does. It is decided at Milestone 3 with real levels, because the size of the view changes how much of a maze the player can see.
 
@@ -90,7 +91,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-sim` | Rules | Fixed tick, state hash, and the input types (`Buttons`, `InputFrame`, `InputLatch`) | Exists |
 | `fizz-hello` | Rules | Throwaway Milestone 0 rules: a marker moved by input, used to prove parity. Deleted when real rules arrive | Exists, Milestone 0 only |
 | `fizz-hal` | Platform | Hardware abstraction traits mirrored from Desk: clock and pacer, input, display, and the interrupt hand-off ring. Storage and audio traits join with their consumers | Exists (clock, input, display) |
-| `fizz-view` | Presenter base | Platform-neutral placement: turns the rules' positions into logical pixels that each presenter places in its own environment. The camera snap and the scene-to-screen step of Milestone 3 join it | Exists (the pixel rule) |
+| `fizz-view` | Presenter base | Platform-neutral placement: turns the rules' positions into logical pixels that each presenter places in its own environment. The eased camera and the scene-to-screen step of Milestone 3 join it | Exists (the pixel rule, tile and y-flip helpers, the follow camera, clipped sprite, rectangle and tile drawing, generated sprite data) |
 | `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
