@@ -1,0 +1,205 @@
+<!-- Hero banner for the Lieutenant Fizz 2 README, drawn in the 16-colour EGA palette the Fizz games use. -->
+<!-- -->
+<!-- (c) Copyright 2026 Liminal HQ, Scott Morris -->
+<!-- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+<svg width="1200" height="320" viewBox="0 0 1200 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hero-title hero-desc">
+  <title id="hero-title">Lieutenant Fizz 2</title>
+  <desc id="hero-desc">Lieutenant Fizz: Episode 2, drawn in 16-colour EGA. A coastal night on Earth: a lighthouse sweeps a dithered beam across the sea, a magenta Zarg saucer lifts cocoa beans from a chocolate factory with a tractor beam, and Ben, alone in his bicycle helmet, bounces on his pogo stick. The text reads Web and DOS.</desc>
+
+  <style>
+    @media (prefers-reduced-motion: reduce) {
+      .motion { display: none; }
+    }
+    text { paint-order: stroke; }
+  </style>
+
+  <defs>
+    <!-- EGA palette: black 000000, blue 0000aa, green 00aa00, cyan 00aaaa, red aa0000, magenta aa00aa, brown aa5500, grey aaaaaa,
+         dark grey 555555, light blue 5555ff, light green 55ff55, light cyan 55ffff, light red ff5555, light magenta ff55ff,
+         yellow ffff55, white ffffff. -->
+
+    <!-- 50% dither: the EGA way to fake a translucent beam. -->
+    <pattern id="dither-yellow" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="2" height="2" fill="#ffff55"/>
+      <rect x="2" y="2" width="2" height="2" fill="#ffff55"/>
+    </pattern>
+    <pattern id="dither-cyan" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="2" height="2" fill="#55ffff"/>
+      <rect x="2" y="2" width="2" height="2" fill="#55ffff"/>
+    </pattern>
+    <!-- Horizon haze: blue dithered into the black sky. -->
+    <pattern id="dither-blue" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="2" height="2" fill="#0000aa"/>
+      <rect x="2" y="2" width="2" height="2" fill="#0000aa"/>
+    </pattern>
+
+    <clipPath id="frame">
+      <rect width="1200" height="320" rx="18"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="320" rx="18" fill="#000000"/>
+
+  <g clip-path="url(#frame)" shape-rendering="crispEdges">
+    <!-- Sky haze bands towards the horizon -->
+    <rect x="600" y="176" width="600" height="16" fill="url(#dither-blue)"/>
+    <rect x="600" y="192" width="600" height="24" fill="url(#dither-blue)"/>
+    <rect x="600" y="216" width="600" height="24" fill="#0000aa"/>
+    <rect x="596" y="176" width="4" height="144" fill="#555555"/>
+
+    <!-- Starfield -->
+    <g>
+      <rect x="560" y="40" width="4" height="4" fill="#ffffff"/>
+      <rect x="640" y="96" width="4" height="4" fill="#aaaaaa"/>
+      <rect x="760" y="28" width="4" height="4" fill="#ffffff"/>
+      <rect x="1060" y="104" width="4" height="4" fill="#aaaaaa"/>
+      <rect x="1150" y="150" width="4" height="4" fill="#ffffff"/>
+      <rect x="420" y="30" width="4" height="4" fill="#555555"/>
+      <rect x="40" y="250" width="4" height="4" fill="#555555"/>
+      <rect x="610" y="150" width="4" height="4" fill="#aaaaaa"/>
+      <rect x="1100" y="44" width="4" height="4" fill="#ffffff"/>
+      <rect x="230" y="20" width="4" height="4" fill="#555555"/>
+    </g>
+    <g class="motion" fill="#ffff55">
+      <rect x="884" y="22" width="6" height="6">
+        <animate attributeName="opacity" values="1;0.2;1" dur="2.6s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="520" y="120" width="6" height="6">
+        <animate attributeName="opacity" values="0.8;0.2;0.8" dur="4.1s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+
+    <!-- Sea -->
+    <rect x="600" y="240" width="600" height="80" fill="#0000aa"/>
+    <g class="motion" fill="#5555ff">
+      <rect x="650" y="262" width="28" height="4">
+        <animate attributeName="x" values="650;664;650" dur="2.6s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="720" y="290" width="36" height="4">
+        <animate attributeName="x" values="720;706;720" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="1120" y="270" width="32" height="4">
+        <animate attributeName="x" values="1120;1134;1120" dur="2.2s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+
+    <!-- Lighthouse beam, swept around the lamp and dithered like the game's translucent effects -->
+    <g class="motion">
+      <g>
+        <path d="M700,150 L1000,112 L1000,188 Z" fill="url(#dither-yellow)"/>
+        <animateTransform attributeName="transform" type="rotate" values="-14 700 150;14 700 150;-14 700 150" dur="6s" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1" repeatCount="indefinite"/>
+      </g>
+    </g>
+
+    <!-- Headland: dark grey rock under a green cap, outlined in black -->
+    <path d="M640,320 L640,246 L664,232 L692,226 L720,230 L756,238 L780,242 L780,320 Z" fill="#555555" stroke="#000000" stroke-width="4"/>
+    <path d="M640,246 L664,232 L692,226 L720,230 L756,238 L780,242 L780,254 L640,262 Z" fill="#00aa00"/>
+    <path d="M640,254 L664,240 L692,234 L720,238 L756,246 L780,250 L780,254 L640,262 Z" fill="#55ff55" opacity="0"/>
+
+    <!-- Lighthouse: white tower, red bands, yellow lamp, brown roof -->
+    <g stroke="#000000" stroke-width="4" stroke-linejoin="miter">
+      <path d="M686,228 L696,160 L704,160 L714,228 Z" fill="#ffffff"/>
+    </g>
+    <path d="M692,194 L708,194 L710,208 L690,208 Z" fill="#aa0000"/>
+    <path d="M694,170 L706,170 L707,182 L693,182 Z" fill="#aa0000"/>
+    <rect x="690" y="148" width="20" height="12" fill="#ffff55" stroke="#000000" stroke-width="4"/>
+    <path d="M688,148 L700,136 L712,148 Z" fill="#aa5500" stroke="#000000" stroke-width="4"/>
+    <rect x="696" y="214" width="8" height="14" fill="#aa5500"/>
+
+    <!-- Shore and chocolate factory -->
+    <path d="M796,320 L796,262 L880,258 L1200,252 L1200,320 Z" fill="#555555" stroke="#000000" stroke-width="4"/>
+    <path d="M796,262 L880,258 L1200,252 L1200,268 L796,274 Z" fill="#00aa00"/>
+    <g stroke="#000000" stroke-width="4">
+      <rect x="940" y="208" width="150" height="46" fill="#aa5500"/>
+      <rect x="1048" y="168" width="16" height="42" fill="#555555"/>
+    </g>
+    <rect x="940" y="208" width="150" height="8" fill="#ff5555"/>
+    <rect x="1044" y="164" width="24" height="8" fill="#aaaaaa"/>
+    <g fill="#ffff55">
+      <rect x="956" y="226" width="16" height="12"/>
+      <rect x="984" y="226" width="16" height="12"/>
+      <rect x="1012" y="226" width="16" height="12"/>
+      <rect x="1040" y="226" width="16" height="12"/>
+    </g>
+    <rect x="1066" y="230" width="14" height="24" fill="#aa0000"/>
+    <g class="motion" fill="#aaaaaa">
+      <rect x="1052" y="148" width="8" height="8">
+        <animateMotion dur="3s" repeatCount="indefinite" path="M0,0 L10,-30"/>
+        <animate attributeName="opacity" values="0.9;0" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      <rect x="1052" y="148" width="6" height="6" fill="#ffffff">
+        <animateMotion dur="3s" begin="1.5s" repeatCount="indefinite" path="M0,0 L-6,-30"/>
+        <animate attributeName="opacity" values="0.9;0" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+
+    <!-- Zarg saucer: magenta hull, light-cyan dome, yellow running lights, dithered tractor beam -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-6;0,0" dur="3s" repeatCount="indefinite"/>
+      <path d="M978,116 L1060,116 L1094,204 L944,204 Z" fill="url(#dither-cyan)"/>
+      <g class="motion" fill="#aa5500" stroke="#000000" stroke-width="2">
+        <rect x="1006" y="192" width="8" height="6">
+          <animateMotion dur="2.4s" repeatCount="indefinite" path="M0,0 L10,-74"/>
+          <animate attributeName="opacity" values="1;1;0" dur="2.4s" repeatCount="indefinite"/>
+        </rect>
+        <rect x="1026" y="192" width="8" height="6">
+          <animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite" path="M0,0 L-2,-74"/>
+          <animate attributeName="opacity" values="1;1;0" dur="2.4s" begin="0.8s" repeatCount="indefinite"/>
+        </rect>
+        <rect x="1046" y="192" width="8" height="6">
+          <animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M0,0 L-14,-74"/>
+          <animate attributeName="opacity" values="1;1;0" dur="2.4s" begin="1.6s" repeatCount="indefinite"/>
+        </rect>
+      </g>
+      <path d="M996,104 L1004,86 L1034,86 L1042,104 Z" fill="#55ffff" stroke="#000000" stroke-width="4"/>
+      <path d="M956,106 L976,98 L1062,98 L1082,106 L1074,118 L964,118 Z" fill="#aa00aa" stroke="#000000" stroke-width="4"/>
+      <path d="M976,98 L1062,98 L1082,106 L956,106 Z" fill="#ff55ff"/>
+      <g fill="#ffff55">
+        <rect x="974" y="108" width="6" height="6"/>
+        <rect x="996" y="110" width="6" height="6"/>
+        <rect x="1016" y="110" width="6" height="6"/>
+        <rect x="1036" y="110" width="6" height="6"/>
+        <rect x="1058" y="108" width="6" height="6"/>
+      </g>
+    </g>
+
+    <!-- Ben on his pogo stick, bouncing (EGA pixel art, 4px per pixel) -->
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-44;0,0" dur="1.4s" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.2 0.6 0.4 1;0.6 0 0.8 0.4" repeatCount="indefinite"/>
+      <g transform="translate(822,194) scale(4)">
+        <rect x="2" y="0" width="4" height="1" fill="#55ffff"/>
+        <rect x="1" y="1" width="6" height="1" fill="#55ffff"/>
+        <rect x="1" y="1" width="1" height="1" fill="#00aaaa"/>
+        <rect x="2" y="2" width="4" height="2" fill="#ff5555"/>
+        <rect x="5" y="2" width="1" height="1" fill="#000000"/>
+        <rect x="2" y="4" width="4" height="4" fill="#ffff55"/>
+        <rect x="1" y="5" width="1" height="2" fill="#ff5555"/>
+        <rect x="6" y="5" width="1" height="2" fill="#ff5555"/>
+        <rect x="2" y="8" width="4" height="2" fill="#0000aa"/>
+        <rect x="2" y="10" width="1" height="1" fill="#ff5555"/>
+        <rect x="5" y="10" width="1" height="1" fill="#ff5555"/>
+        <rect x="1" y="11" width="2" height="1" fill="#ffffff"/>
+        <rect x="5" y="11" width="2" height="1" fill="#ffffff"/>
+        <rect x="3" y="12" width="2" height="1" fill="#aaaaaa"/>
+        <rect x="3.5" y="13" width="1" height="5" fill="#55ff55"/>
+        <rect x="2.5" y="18" width="3" height="1" fill="#ffffff"/>
+      </g>
+    </g>
+    <rect x="822" y="268" width="36" height="4" fill="#000000"/>
+
+    <!-- Title block: white with a blue drop shadow, as EGA title screens did -->
+    <g font-family="'JetBrains Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace" font-weight="bold">
+      <text x="59" y="135" font-size="56" fill="#0000aa" letter-spacing="2">LIEUTENANT FIZZ</text>
+      <text x="56" y="132" font-size="56" fill="#ffffff" letter-spacing="2">LIEUTENANT FIZZ</text>
+      <text x="61" y="187" font-size="28" fill="#aa0000" letter-spacing="9">EPISODE 2</text>
+      <text x="58" y="184" font-size="28" fill="#ffff55" letter-spacing="9">EPISODE 2</text>
+      <text x="60" y="226" font-size="17" fill="#ff55ff" letter-spacing="2">BEN, ON HIS OWN</text>
+      <g font-size="14" letter-spacing="3">
+        <rect x="60" y="250" width="62" height="24" fill="#0000aa" stroke="#55ffff" stroke-width="2"/>
+        <text x="72" y="267" fill="#55ffff">WEB</text>
+        <rect x="134" y="250" width="62" height="24" fill="#aa5500" stroke="#ffff55" stroke-width="2"/>
+        <text x="148" y="267" fill="#ffff55">DOS</text>
+      </g>
+    </g>
+  </g>
+</svg>
