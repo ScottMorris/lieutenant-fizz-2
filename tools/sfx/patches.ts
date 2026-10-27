@@ -1,0 +1,57 @@
+// The OPL2 instruments the sound-effect downmix uses, chosen by the oscillator an Undertone voice gives.
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+//
+// Provenance: adapted from `m4/sound/fizz-dos/patches.ts` of ScottMorris/lieutenant-fizz-dos at commit 221dd6c, the same
+// author's code, MIT there and dual-licensed here. What changed: only the four effect patches are kept (`fxSquare`, `fxSaw`,
+// `fxSoft` and `noise`); the music patches, drums and part-role logic are not used by effects and are left behind. The
+// operator settings are the originals, which that repository's own notes call first guesses to be tuned by ear.
+
+import type { Wave } from '../../assets/sfx/voice.ts';
+import type { Operator, Patch } from './opl.ts';
+
+const op = (o: Partial<Operator> & Pick<Operator, 'mult' | 'tl'>): Operator => ({
+  ar: 15,
+  dr: 4,
+  sl: 3,
+  rr: 7,
+  sustain: true,
+  ...o,
+});
+
+export const PATCHES = {
+  /** A held, clean tone: the carrier does the work and the level is moved a frame at a time. */
+  fxSquare: {
+    name: 'effect (square)',
+    mod: op({ mult: 1, tl: 26, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    car: op({ mult: 1, tl: 0, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    feedback: 4,
+  },
+  /** High feedback is the buzzy, saw-like edge. */
+  fxSaw: {
+    name: 'effect (saw)',
+    mod: op({ mult: 1, tl: 16, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    car: op({ mult: 1, tl: 0, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    feedback: 7,
+  },
+  fxSoft: {
+    name: 'effect (triangle/sine)',
+    mod: op({ mult: 1, tl: 44, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    car: op({ mult: 1, tl: 0, ar: 15, dr: 0, sl: 0, rr: 12 }),
+    feedback: 1,
+  },
+  /** A noisy buzz for noise bursts: high feedback at a jittering pitch. */
+  noise: {
+    name: 'noise',
+    mod: op({ mult: 1, tl: 8, ar: 15, dr: 6, sl: 8 }),
+    car: op({ mult: 1, tl: 0, ar: 15, dr: 6, sl: 8, rr: 8 }),
+    feedback: 7,
+  },
+} satisfies Record<string, Patch>;
+
+/** The effect patch for a voice's oscillator. */
+export function patchForEffect(wave: Wave | undefined): Patch {
+  const w = wave ?? 'triangle';
+  return w === 'square' ? PATCHES.fxSquare : w === 'sawtooth' ? PATCHES.fxSaw : PATCHES.fxSoft;
+}

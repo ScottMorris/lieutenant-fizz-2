@@ -1,0 +1,13 @@
+[package]
+name = "fizz-sfx"
+description = "Generated OPL2 and PC speaker data for Lieutenant Fizz 2's sound effects, with allocation-free steppers"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
+# Host tests only: proves the generated variant count matches the rules' `Event::Cluck` variants.
+fizz-ep2 = { path = "../fizz-ep2" }
