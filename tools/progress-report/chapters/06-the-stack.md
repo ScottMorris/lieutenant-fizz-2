@@ -3,8 +3,8 @@ id: stack
 n: 6
 title: Eight pull requests, one merge
 date: 2026-10-27
-summary: Milestone 0 was built as a stack of eight pull requests, each based on the branch below it, and landed on main as one merge commit; the banner fix followed as its own.
-prs: [1, 2, 3, 4, 5, 6, 7, 8, 10]
+summary: Milestone 0 was built as a stack of eight pull requests, each based on the branch below it, and landed on main as one merge commit; pull requests for the banner, the asset packs, the archive, the lore, the manual rule and the Web colours followed as merges of their own.
+prs: [1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 17]
 ---
 Milestone 0 was written as eight branches, each based on the one below: `feat/m0-hello-rules` on `main`, `feat/m0-hal` on it, then the DOS tooling, the DOS presenter, the DOS program, the Web presenter, the parity gate and the platform documents on top. Each branch had its own pull request, with CI on its own head. The branches were stacked with the `gh stack` extension.
 
@@ -20,12 +20,23 @@ Before the merge, CI ran on each head. The `check` job ran on all eight; the `pa
 
 <!-- figure ci -->
 
+## After the stack
+
+Six more pull requests merged after the stack, each as its own merge commit:
+
+- #10 and #17: the README banner's Ben, drawn from Fizz 1's pogo sprites, and the pogo squash shown after each bounce.
+- #11: authored assets live in baked Fizz Asset Packs, and the packs are named for that (`docs/ARCHITECTURE.md`).
+- #12: this archive and its generator.
+- #13: the Episode 2 setting and the proposed level lore.
+- #14: the player's manual, `docs/MANUAL.md`, is written in parallel with the game (`AGENTS.md`, Game Manual).
+- #15: the Web page uses the same EGA blue field and light-grey border as DOS.
+
 ## The shelves
 
 ### Catalogued
 - All eight pull requests of the stack are merged, with every check green on each head and CI {{stack.ci}} on `{{stack.merge}}` (`gh pr list`, `gh run list --branch main`).
 - The merge commit `gh` names for each of #1 to #8 is the commit where `git` first finds its head on `main`; the generator warns when they differ.
-- #10 is merged with CI {{pr10.ci}} on `{{pr10.merge}}`.
+- #10 is merged with CI {{pr10.ci}} on `{{pr10.merge}}`, #11 is {{pr11.state}} on `{{pr11.merge}}`, #12 is {{pr12.state}} on `{{pr12.merge}}`, #13 is {{pr13.state}} on `{{pr13.merge}}`, #14 is {{pr14.state}} on `{{pr14.merge}}`, #15 is {{pr15.state}} on `{{pr15.merge}}` and #17 is {{pr17.state}} on `{{pr17.merge}}`.
 
 ### Uncatalogued
 - The tool and commands that merged the stack: the repository records the result, one merge commit and eight merged pull requests, and not how it was produced.
