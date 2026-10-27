@@ -44,7 +44,7 @@ Fizz 1's physics are continuous and tuned by feel, so Fizz 2 keeps Fizz 1's nume
 
 Where floating point is allowed follows from that model:
 
-- Rules crates (`fizz-sim`, `fizz-hello` and the game logic that replaces it) use `f64` under the discipline above, and may not use the `exp` family (`exp`, `exp2`, `exp10`) because `libm` runs x87 assembly for those on x86 targets without SSE.
+- Rules crates (`fizz-sim`, `fizz-phys`, `fizz-hello` and the game logic that replaces it) use `f64` under the discipline above, and may not use the `exp` family (`exp`, `exp2`, `exp10`) because `libm` runs x87 assembly for those on x86 targets without SSE.
 - The Web presenter may use floats freely for display, because WebAssembly floating point is IEEE and the rules already agree across platforms.
 - `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny `clippy::float_arithmetic`. The DOS presenter works in integers, and interrupt handlers never touch the x87, so a handler cannot disturb the control word or the register stack of the interrupted game loop.
 
@@ -64,6 +64,7 @@ The executable holds code and small constant tables. Sprites, tile sets, backdro
 - **Pack format:** a header with a format version, the build version and a checksum, then an offset table, then data in the layout the loader uses as read. DOS reads a pack with one file read into memory and parses nothing. Pack names follow the 8.3 rule, for example `FIZZ.FAP` and one pack per world, such as `LIGHT.FAP`. The executable refuses a pack whose build version differs from its own.
 - **Costs:** file-reading code in the DOS runtime (DOS function calls it already wraps), an error path for a missing or mismatched pack, and slower loads from a real floppy, so a level's pack loads when the level starts and not all packs at once.
 - **Saves and configuration** stay in separate files, as in Fizz 1.
+- **Sprites before packs:** sprites are committed text grids under `assets/sprites/`, lowered to `const` data in `fizz-view` until the pack format exists. `SPRITES.md` specifies the format and the tools.
 
 Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `titles.bin` (54,488 bytes) in its DOS executable. That is about 436 KB of its 862 KB stripped executable, and sound is the largest part. The size budget in [`PLATFORM.md`](PLATFORM.md#size-budget) counts the executable and the packs together.
 
@@ -93,6 +94,8 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
+| `fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy, with `libm` giving the maths functions method syntax (no `exp`). Function bodies stay identical to Fizz 1's; `tools/lf-sim-drift.sh` reports any drift | Exists |
+| `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`: Ben's movement, enemies, shots, world flags, levels, the replay and the hash. Replaces `fizz-hello` | Planned |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
 | `fizz-bake` | Baking | Host tool: bakes scripts, art and music into per-target Fizz Asset Packs (`.FAP`) | Planned |
 | `fizz-fap` | Baking | The Fizz Asset Pack format and loader that `fizz-bake` writes and both platforms read. The name is provisional | Planned |
@@ -113,7 +116,10 @@ Names are provisional. Rules that depend on a presenter are a bug.
 
 ## Open questions
 
-- Is Fizz 1's pogo physics reused directly or ported with the same constants and proved by golden traces?
+- Fizz 1's physics (answered): `fizz-phys` is an owned `no_std` copy of Fizz 1's tile map, body, platform and rng code, proved by golden traces from Fizz 1. The reasons:
+  - Fizz 1's `lf-sim` is `std`, so it cannot be a path dependency of the rules crates that also build for DOS and Web.
+  - Fizz 2 will diverge from Fizz 1 (new tiles, Episode 2 mechanics), so a vendored copy kept in step by a sync script would fight the changes it exists to allow.
+  - An upstream change to make `lf-sim` `no_std` would break the sync check that Fizz 1's DOS port runs against it.
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later?
 - Which language does the baker use? Rust is preferred so it shares types.
 - Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?

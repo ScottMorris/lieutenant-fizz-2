@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/fizz-sim", "crates/fizz-hello", "crates/fizz-hal", "crates/fizz-view", "crates/fizz-present-dos", "crates/fizz-present-web"]
+members = ["crates/fizz-sim", "crates/fizz-phys", "crates/fizz-hello", "crates/fizz-hal", "crates/fizz-view", "crates/fizz-present-dos", "crates/fizz-present-web"]
 resolver = "2"
 
 [workspace.package]

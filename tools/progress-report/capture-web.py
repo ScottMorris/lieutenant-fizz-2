@@ -27,12 +27,12 @@ import time
 import urllib.request
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-KEYS = {"ArrowRight": 39, "ArrowDown": 40, "ArrowLeft": 37, "ArrowUp": 38, "Space": 32}
+KEYS = {"ArrowRight": 39, "ArrowDown": 40, "ArrowLeft": 37, "ArrowUp": 38, "Space": 32, "ControlLeft": 17}
 # (file, [(action, argument)]): actions run in order; "wait" is seconds of real time.
 PLAN = [
     ("web-start.png", [("wait", 1.5)]),
     ("web-moved.png", [("down", "ArrowRight"), ("wait", 1.2), ("up", "ArrowRight"), ("down", "ArrowDown"), ("wait", 0.6), ("up", "ArrowDown"), ("wait", 0.3)]),
-    ("web-dash.png", [("down", "Space"), ("wait", 0.1), ("up", "Space"), ("wait", 0.5)]),
+    ("web-dash.png", [("down", "ControlLeft"), ("wait", 0.1), ("up", "ControlLeft"), ("wait", 0.5)]),
 ]
 
 
@@ -96,7 +96,7 @@ def free_port():
 
 
 def key(ws, kind, code):
-    args = {"type": "keyDown" if kind == "down" else "keyUp", "code": code, "key": " " if code == "Space" else code, "windowsVirtualKeyCode": KEYS[code]}
+    args = {"type": "keyDown" if kind == "down" else "keyUp", "code": code, "key": {"Space": " ", "ControlLeft": "Control"}.get(code, code), "windowsVirtualKeyCode": KEYS[code]}
     ws.call("Input.dispatchKeyEvent", **args)
 
 

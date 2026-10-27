@@ -39,8 +39,20 @@
     5,
     6
    ],
-   "evidence": "On DOS, `tools/check-dos.sh` types Right, Right, Down and Esc with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc ends `/LIVE` with status 0. The host test `every_mapped_key_drives_its_button` covers the arrows, `W` `A` `S` `D` and Space. On the Web, the captures send ArrowRight, ArrowDown and Space as key events, and the HUD counts the dash ([chapter 4](chapter:m0-presenters)).",
-   "gaps": "`W` `A` `S` `D` on the Web page, and a real keyboard on either version."
+   "evidence": "On DOS, `tools/check-dos.sh` types Ctrl, Right, Right, Down and Esc with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc ends `/LIVE` with status 0. The host tests `keen_layout_is_arrows_ctrl_alt_space` and `modern_layout_is_wasd_or_arrows_zxc` check every key of both layouts, and the decoder tests cover Z, X, C and both Ctrl and Alt keys, including that a Pause is never a Ctrl press. On the Web, headless Chromium was sent key events for both layouts over the DevTools protocol: the square moved, Ctrl and Z made it dash, and keys of the other layout did nothing.",
+   "gaps": "a real keyboard on either version; Pogo and Fire, which the preview does not act on; and Alt on DOS, which the smoke does not type."
+  },
+  {
+   "section": "Choosing your keys",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-dos.sh` runs `/MODERN` (it moves on Z) and checks that the default Keen keys ignore W, A, S, D, Z, X and C. On the Web, headless Chromium toggled the Keys button, saw the hint change and the choice survive a reload.",
+   "gaps": "a browser where `localStorage` is blocked; the page is written to carry on without it, but no run covered that."
+  },
+  {
+   "section": "Fullscreen and browser shortcuts",
+   "shelf": "uncatalogued",
+   "evidence": "The page calls `navigator.keyboard.lock` on entering fullscreen where the API exists; headless Chromium reported the API present.",
+   "gaps": "everything the section promises about real browsers: fullscreen itself, Keyboard Lock holding Ctrl and Alt on a desktop, and the shortcuts (Ctrl+W, workspace shortcuts) that a tab cannot block. A headless browser shows none of these."
   },
   {
    "section": "DOS modes",

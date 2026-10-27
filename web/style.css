@@ -32,3 +32,31 @@ canvas {
   color: #8aa;
   font-size: 14px;
 }
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  font-size: 14px;
+  color: #cfe8ff;
+  background: #1a1a33;
+  border: 1px solid #335;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+  border-color: #8aa;
+}
+
+.note {
+  margin: 0;
+  max-width: 640px;
+  color: #6c7f8f;
+  font-size: 12px;
+  text-align: center;
+}

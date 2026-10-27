@@ -59,7 +59,7 @@ pub fn step(w: &mut World, f: InputFrame) {
         w.heading = libm::atan2(dy, dx);
     }
 
-    if f.pressed.contains(Buttons::ACTION) {
+    if f.pressed.contains(Buttons::JUMP) {
         w.vx += DASH_SPEED * libm::cos(w.heading);
         w.vy += DASH_SPEED * libm::sin(w.heading);
         w.dashes += 1;
@@ -122,12 +122,12 @@ const R: Buttons = Buttons::RIGHT;
 const L: Buttons = Buttons::LEFT;
 const U: Buttons = Buttons::UP;
 const D: Buttons = Buttons::DOWN;
-const A: Buttons = Buttons::ACTION;
+const A: Buttons = Buttons::JUMP;
 
 /// The Milestone 0 input script as `(frames, held buttons)` runs. It sums to 600 ticks.
 ///
-/// An ACTION held for exactly one frame is a press edge, so each one-frame run containing
-/// ACTION is a dash. The script covers idle, a right run, a diagonal, dashes while moving and
+/// An JUMP held for exactly one frame is a press edge, so each one-frame run containing
+/// JUMP is a dash. The script covers idle, a right run, a diagonal, dashes while moving and
 /// idle, a left run into the left clamp, an up run, and a long idle tail so velocity decays
 /// to the snap-to-zero.
 pub const M0_SCRIPT: &[(u16, Buttons)] = &[
@@ -219,8 +219,8 @@ mod tests {
     fn a_dash_adds_a_burst_along_the_heading() {
         let mut w = World::new();
         let tap = InputFrame {
-            held: Buttons::RIGHT | Buttons::ACTION,
-            pressed: Buttons::ACTION,
+            held: Buttons::RIGHT | Buttons::JUMP,
+            pressed: Buttons::JUMP,
         };
         step(&mut w, tap);
         // (3.0 + 0.25) * 0.875
@@ -233,7 +233,7 @@ mod tests {
         w.heading = core::f64::consts::PI;
         let tap = InputFrame {
             held: Buttons::NONE,
-            pressed: Buttons::ACTION,
+            pressed: Buttons::JUMP,
         };
         step(&mut w, tap);
         assert!(w.vx < 0.0);

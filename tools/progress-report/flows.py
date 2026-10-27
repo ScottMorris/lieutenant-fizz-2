@@ -24,7 +24,7 @@ INPUT_DOS = [
 ]
 INPUT_WEB = [
     ("keydown event", "the browser", None, None),
-    ("KEYS table", "web/main.js", "web/main.js", "const KEYS"),
+    ("LAYOUTS tables", "web/main.js", "web/main.js", "const LAYOUTS"),
     ("App.key(bits, down)", "fizz-present-web", "crates/fizz-present-web/src/lib.rs", "pub fn key"),
 ]
 INPUT_SHARED = [
@@ -92,7 +92,7 @@ def input_path(D, root):
         raise ValueError("the input and frame path diagrams name code that moved: " + "; ".join(problems))
     W, w, gap = 980, 150, 30
     o = ['<svg viewBox="0 0 %d 300" role="img" class="diagram" aria-label="%s">%s' % (W, esc(
-        "The input path. On DOS: a key press, the IRQ 1 handler, the byte ring, the Set 1 decoder and key_to_buttons. On Web: a keydown event, the KEYS table in main.js and App.key. "
+        "The input path. On DOS: a key press, the IRQ 1 handler, the byte ring, the Set 1 decoder and key_to_buttons. On Web: a keydown event, the LAYOUTS tables in main.js and App.key. "
         "Both feed the InputLatch in fizz-sim, which hands an InputFrame of held and pressed buttons to step once per tick."), arrow_defs("in-arrow"))]
     o.append('<text x="0" y="16" font-size="13" class="a-t1">DOS: FIZZ2.EXE /LIVE</text>')
     dos = _row(o, INPUT_DOS, 26, 0, w, gap, "in-arrow")

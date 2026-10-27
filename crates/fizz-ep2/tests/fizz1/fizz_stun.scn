@@ -1,0 +1,21 @@
+# A fizz shot stuns an approaching Gloop; a second shot passes through the stunned one.
+scenario fizz_stun
+map
+........................
+........................
+........................
+........................
+........................
+........................
+########################
+########################
+end
+start 3 2
+gloop 12 2 -1
+input
+5 -
+1 F
+60 -
+1 F
+233 -
+end
