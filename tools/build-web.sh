@@ -20,5 +20,9 @@ rm -rf dist/web
 mkdir -p dist/web
 wasm-bindgen --target web --no-typescript --out-dir dist/web/pkg \
     target/wasm32-unknown-unknown/release/fizz_present_web.wasm
-cp web/* dist/web/
+cp web/index.html web/style.css dist/web/
+# The page's script and its one dependency, Undertone, become one file. The wasm bindings stay external and relative, so the
+# bundle works from any base path; `bun install --frozen-lockfile` is the only step that needs a network, and only on a cold cache.
+bun install --frozen-lockfile
+bun build web/main.js --outdir dist/web --target browser --minify --external './pkg/*'
 printf 'Built dist/web\n'

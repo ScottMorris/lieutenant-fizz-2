@@ -1,0 +1,10 @@
+{
+  "name": "lieutenant-fizz-2-web",
+  "private": true,
+  "description": "Build-time dependencies of the Web presenter's page; tools/build-web.sh bundles them into dist/web.",
+  "license": "Apache-2.0 OR MIT",
+  "type": "module",
+  "dependencies": {
+    "@liminal-hq/undertone": "0.2.0"
+  }
+}

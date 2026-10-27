@@ -6,6 +6,7 @@
 // Every URL is relative so the bundle works under any base path. The wasm module is the only import. The Rust side draws the frame
 // into its own memory; this file only copies those pixels onto the canvas and prints the HUD.
 import init, { App } from "./pkg/fizz_present_web.js";
+import { Sfx } from "./sfx.ts";
 
 // Button bits match `fizz_sim::Buttons`.
 const UP = 1;
@@ -65,6 +66,7 @@ const hint = document.getElementById("hint");
 const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
 const fullscreenButton = document.getElementById("fullscreen");
+const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
 
 function loadLayout() {
@@ -129,6 +131,21 @@ async function main() {
   const wasm = await init();
   const app = new App();
 
+  // Sound: made on the first key press or click (browsers insist on a gesture), muted with M. Neither layout uses M.
+  const sfx = new Sfx();
+  const showSound = () => {
+    soundButton.textContent = `Sound: ${sfx.muted ? "off" : "on"}, M to toggle`;
+    soundButton.setAttribute("aria-pressed", String(!sfx.muted));
+  };
+  showSound();
+  soundButton.addEventListener("click", () => {
+    sfx.unlock();
+    sfx.toggleMute();
+    showSound();
+    soundButton.blur();
+  });
+  document.addEventListener("visibilitychange", () => sfx.sync());
+
   let layout = loadLayout();
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
   const held = new Map();
@@ -169,6 +186,15 @@ async function main() {
   document.addEventListener("fullscreenchange", () => setKeyLock(Boolean(document.fullscreenElement)));
 
   const handle = (event, down) => {
+    if (down) sfx.unlock();
+    if (event.code === "KeyM" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (down && !event.repeat) {
+        sfx.toggleMute();
+        showSound();
+      }
+      return;
+    }
     if (event.code === "KeyF" && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (down && !event.repeat && document.fullscreenEnabled) toggleFullscreen();
@@ -190,6 +216,8 @@ async function main() {
 
   const loop = () => {
     app.frame(performance.now());
+    // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
+    for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v);
     draw(app, wasm.memory);
     showHud(app);
     requestAnimationFrame(loop);
