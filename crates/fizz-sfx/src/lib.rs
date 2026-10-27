@@ -339,10 +339,11 @@ mod tests {
     /// the output before the bank bit and the pan existed. If the data or the player changes the plain path, this fails.
     #[test]
     fn the_plain_opl2_path_is_unchanged() {
-        const PINNED: [(u64, usize); 3] = [
+        const PINNED: [(u64, usize); 4] = [
             (0xee4ff76e489e1e4f, 160),
             (0x90045cf8eef35856, 74),
             (0xea01205b3ac03f53, 147),
+            (0x6e624a38ea72199c, 150),
         ];
         for (v, &(want, count)) in PINNED.iter().enumerate() {
             let (writes, ticks) = run_opl(v);
@@ -358,6 +359,25 @@ mod tests {
             }
             assert_eq!((h, writes.len()), (want, count), "variant {v}");
         }
+    }
+
+    /// Variant 3 is variant 1 twice: the same count of key-ons, doubled, and the same patch writes, in under 450 ms.
+    #[test]
+    fn variant_3_is_variant_1_twice() {
+        let key_ons = |v: usize| {
+            let (writes, _) = run_opl(v);
+            let mut on = false;
+            let mut n = 0;
+            for w in writes.iter().filter(|w| w.2 == 0xb0 + EFFECT_CHANNEL) {
+                let now = w.3 & 0x20 != 0;
+                n += usize::from(now && !on);
+                on = now;
+            }
+            n
+        };
+        assert_eq!(key_ons(3), 2 * key_ons(1));
+        assert!(opl_ticks(3) > opl_ticks(1) * 2 && opl_ticks(3) * 1000 / 560 < 450);
+        assert!(speaker_steps(3).len() > speaker_steps(1).len() * 2);
     }
 
     #[test]

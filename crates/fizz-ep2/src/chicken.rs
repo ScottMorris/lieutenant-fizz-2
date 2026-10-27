@@ -30,7 +30,7 @@ pub const SHOT_STUN: f64 = 6.0;
 
 /// How many cluck variants the chicken has. A presenter maps `Event::Cluck { variant }` with `variant < CLUCK_VARIANTS` to
 /// one sound.
-pub const CLUCK_VARIANTS: u8 = 3;
+pub const CLUCK_VARIANTS: u8 = 4;
 /// The shortest wait between clucks, in ticks (1.5 s).
 pub const CLUCK_MIN_TICKS: u32 = 90;
 /// The longest wait between clucks, in ticks (6 s).
