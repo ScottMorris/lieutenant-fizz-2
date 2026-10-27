@@ -147,7 +147,7 @@ mod tests {
         g.draw_text(312, 190, "HELLO", 15);
         g.draw_text(-100, -100, "NOTHING", 15);
         g.draw_text(0, 400, "NOTHING", 15);
-        assert!(g.pixels().iter().any(|&p| p == 15));
+        assert!(g.pixels().contains(&15));
     }
 
     #[test]
