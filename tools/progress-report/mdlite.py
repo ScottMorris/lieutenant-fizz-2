@@ -5,7 +5,7 @@
 #
 # Copied from Desk's tools/progress-report/mdlite.py (same author, same licence), with Fizz 2's repository as the default link target.
 #
-# The dialect is small and follows the repository's markdown rules (one line per paragraph). Inline: **bold**, *em*,
+# The dialect is small and follows the repository's markdown rules (one line per paragraph). Inline: **bold**, *em*, ![alt](src),
 # `code`, [text](url) and {{m.key}} placeholders. Links may use the schemes chapter:ID, pr:N, commit:HASH and repo:PATH, which the
 # builder resolves. Block directives are HTML comments on their own line: <!-- explainer ID -->, <!-- figure ID -->,
 # <!-- facts KEY ... -->. A block quote that starts with **From the stacks** is a sidebar; `### Catalogued`, `### Uncatalogued` and
@@ -13,8 +13,8 @@
 import html
 import re
 
-LINK_RX = r"(\[[^\]]+\]\((?:[^()\s]|\([^()\s]*\))+\))"
-LINK_PART = re.compile(r"^\[([^\]]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)$")
+LINK_RX = r"(!?\[[^\]]*\]\((?:[^()\s]|\([^()\s]*\))+\))"
+LINK_PART = re.compile(r"^(!?)\[([^\]]*)\]\(((?:[^()\s]|\([^()\s]*\))+)\)$")
 
 
 class Raw(str):
@@ -108,9 +108,17 @@ def inline(s, ctx):
     for i, part in enumerate(re.split(LINK_RX, s)):
         if i % 2:
             m = LINK_PART.match(part)
-            target = m.group(2)
+            bang, label, target = m.group(1), m.group(2), m.group(3)
+            if bang:
+                # an image: ![alt](src); the alt text is required and the source is resolved like a link
+                if not label.strip():
+                    raise MdError("an image without alt text: %s" % target)
+                out.append('<img src="%s" alt="%s" loading="lazy">' % (esc(ctx.href(target)), esc(label)))
+                continue
+            if not label:
+                raise MdError("a link without text: %s" % target)
             ext = ' target="_blank" rel="noopener"' if re.match(r"^(https?://|pr:|commit:|repo:)", target) else ""
-            out.append('<a href="%s"%s>%s</a>' % (esc(ctx.href(target)), ext, _text(m.group(1), ctx)))
+            out.append('<a href="%s"%s>%s</a>' % (esc(ctx.href(target)), ext, _text(label, ctx)))
         else:
             out.append(_text(part, ctx))
     return "".join(out)

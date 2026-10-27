@@ -30,6 +30,7 @@ import drawings as dr  # noqa: E402
 import figures  # noqa: E402
 import flows  # noqa: E402
 import gather  # noqa: E402
+import manual  # noqa: E402
 import mdlite  # noqa: E402
 from mdlite import Ctx, esc, inline  # noqa: E402
 
@@ -44,7 +45,7 @@ SHELF_TEXT = {
     "uncatalogued": ("Uncatalogued", "Built, and not verified in the way that matters: no real hardware, no real browser session, or a run nobody has repeated."),
     "wish": ("Wish list", "Planned or an idea. Nothing here is built."),
 }
-NAV = [("index", "index.html", "Contents"), ("gallery", "gallery.html", "Gallery"), ("roadmap", "roadmap.html", "Roadmap"),
+NAV = [("index", "index.html", "Contents"), ("gallery", "gallery.html", "Gallery"), ("manual", "manual.html", "Manual"), ("roadmap", "roadmap.html", "Roadmap"),
        ("findings", "findings.html", "Findings"), ("archive", "archive.html", "How this is made")]
 
 
@@ -248,8 +249,12 @@ def measured_block(data):
 # ---- the site -----------------------------------------------------------------------------------------------------------------
 
 class Site:
-    def __init__(self, data, chapters, pages_dir, out, assets=True):
+    def __init__(self, data, chapters, pages_dir, out, assets=True, manual_root=None):
         self.data, self.chapters, self.pages_dir, self.out, self.assets = data, chapters, pages_dir, out, assets
+        # docs/MANUAL.md from the working tree of the repository (or of manual_root in the tests); None skips the page
+        self.manual_root = manual_root or gather.ROOT
+        self.manual_text = manual.read(self.manual_root)
+        self.manual_images = []
         self.ids = [c["id"] for c in chapters]
         self.ctx = Ctx(values_of(data), self.ids, data["repo"]["url"], data["prs"])
         self.shelf_items = []
@@ -344,7 +349,23 @@ class Site:
         return "%d %s %d" % (d.day, d.strftime("%B"), d.year)
 
     def extra_ids(self):
-        return ["gallery"] if self.registry else []
+        return (["gallery"] if self.registry else []) + (["manual"] if self.manual_text is not None else [])
+
+    def render_manual(self):
+        """The Manual page: one line saying what the page is and where its text comes from, the manual itself in its own words,
+        and the table of what is checked."""
+        title, blocks = manual.parse(self.manual_text)
+        mctx = manual.ManualCtx(self.manual_root, self.data["repo"]["url"], self.ids)
+        body, _ = mdlite.render(blocks, mctx, lambda n, a: "")
+        if mctx.problems:
+            raise mdlite.MdError("; ".join(mctx.problems))
+        self.manual_images = sorted(set(mctx.images))
+        mapping = gather.read_json(os.path.join(HERE, "manual-evidence.json"))["sections"]
+        table = manual.evidence_table(blocks, mapping, self.data, self.ctx, chapter_state, tag)
+        intro = '<p class="lead">The player\'s manual of Lieutenant Fizz 2, %s.</p>' % inline(manual.source_of(self.manual_root), Ctx())
+        main = ('<main id="main" class="wrap chapter"><article><header class="chead"><div class="eyebrow">Manual</div><h1>%s</h1>%s</header>'
+                '<div class="prose manual">%s</div>%s</article></main>') % (esc(title), intro, body, table)
+        self.pages["manual.html"] = document("%s · Manual" % TITLE, site_header("manual", self.ids + self.extra_ids()) + main + site_footer(self.data, None, None))
 
     def fig_state(self, rec):
         if rec.get("state"):
@@ -436,6 +457,8 @@ class Site:
         intro, _ = mdlite.render(mdlite.parse_blocks(read_text(os.path.join(self.pages_dir, "front.md"))), ctx, lambda n, a: "")
         for i in range(len(self.chapters)):
             self.pages.update([self.render_chapter(i)])
+        if self.manual_text is not None:
+            self.render_manual()
         if self.registry:
             self.render_gallery()
         sh = []
@@ -458,6 +481,10 @@ class Site:
                 tag(chapter_state(d, c["prs"])) if c["prs"] else "", esc(", ".join("#%d" % n for n in c["prs"]))))
         if not placed:
             toc.append(coming_html())
+        if self.manual_text is not None:
+            toc.append('<tr><td class="n">·</td><td><a href="manual.html"><b>The player\'s manual</b></a><div class="sub">The manual from <code>docs/MANUAL.md</code>, with what the archive has checked for each section.</div></td><td></td><td></td><td></td></tr>')
+        else:
+            toc.append('<tr class="coming"><td class="n">·</td><td><b>The player\'s manual</b> <span class="pill pill-coming">coming</span><div class="sub">Shown here once <code>docs/MANUAL.md</code> is in the repository.</div></td><td class="nw">not written</td><td class="nw">%s</td><td></td></tr>' % tag("planned"))
         if self.registry:
             toc.append('<tr><td class="n">·</td><td><a href="gallery.html"><b>Gallery</b></a><div class="sub">%d figures from %d chapters, each linked to where it lives.</div></td><td></td><td></td><td></td></tr>' % (
                 len(self.registry), len({r["chapter"] for r in self.registry})))
@@ -489,6 +516,11 @@ class Site:
         os.makedirs(os.path.join(out, "_publish"))
         copied = (self.copy_assets() + self.copy_media()) if self.assets else []
         index_body = self.render_index()
+        for rel in self.manual_images:
+            dst = os.path.join(out, "manual", rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(os.path.join(self.manual_root, rel), dst)
+            copied.append("manual/" + rel.replace(os.sep, "/"))
         footer = site_footer(self.data, None, self.chapters[0] if self.chapters else None)
         files = {"index.html": document(TITLE, index_body + footer), "_publish/index.html": fragment(TITLE, index_body + footer)}
         files.update(self.pages)
