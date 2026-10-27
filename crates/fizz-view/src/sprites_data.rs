@@ -531,6 +531,20 @@ pub static SPRITES: &[Sprite] = &[
             255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
         ],
     },
+    // ep2-cluckzarg-extra.json: cluckzarg_beak, source drawn
+    Sprite {
+        name: "cluckzarg_beak",
+        w: 4,
+        h: 4,
+        ax: -8,
+        ay: 15,
+        pixels: &[
+            0, 0, 0, 0,
+            0, 12, 12, 0,
+            0, 14, 14, 0,
+            255, 0, 0, 255,
+        ],
+    },
     // ep2-cluckzarg.json: cluckzarg_idle, source generated:ep2-canvas
     Sprite {
         name: "cluckzarg_idle",
