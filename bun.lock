@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "lieutenant-fizz-2-web",
+      "dependencies": {
+        "@liminal-hq/undertone": "0.2.0",
+      },
+    },
+  },
+  "packages": {
+    "@liminal-hq/undertone": ["@liminal-hq/undertone@0.2.0", "", {}, "sha512-2y93+93xlz83H27fI5/q2ed4e6fJSpmjxhn2aJ0akUsJlW9vuh8YteqzE4iNOgf3nwAdpw1266dCbReofjjsJw=="],
+  }
+}

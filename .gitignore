@@ -4,3 +4,4 @@
 /dist/
 /vendor
 /out/
+node_modules/
