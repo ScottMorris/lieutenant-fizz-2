@@ -215,6 +215,41 @@ DOS_TOOLCHAIN=/path/to/toolchain tools/setup-dos.sh
 
 Only the DJGPP stub and CWSDPMI are used at run time; they are data, not a compiler. Do not install system packages to make a build pass.
 
+## Performance
+
+`FIZZ2.EXE /BENCH` and `cargo run --release -p fizz-ep2 --example bench` measure what the slice costs per tick. The budget is one tick at 60 Hz, 16,667 us, shared by the simulation step, the drawing and the copy to the screen.
+
+### How `/BENCH` measures
+
+The run plays the slice script once from a fresh level (1,268 ticks), unpaced, and times three sections of every tick: the step (`fizz_ep2::step`), the drawing (`render_slice`: the picture from `draw_slice` into the 320 by 200 buffer plus the HUD text) and the copy of the buffer to video memory (`present`). It prints their average and largest cost in microseconds, a total, and the final state hash, which must equal the golden's (`BENCH HASH`), so a bench run also proves the world it timed was the slice. It then prints `EXIT`, `FPU CW` and `VECTORS RESTORED` like the other modes.
+
+A 486 has no `rdtsc`, so the stopwatch is PIT channel 0, which the 60 Hz interrupt already programs: `timer::clocks()` is the interrupt count times the divisor (19,886) plus how far the counter has counted down in the current period, read with the latch command. One count is 0.838 us (1,193,182 Hz). That is fine enough for sections of tens of microseconds or more, and each section is timed per tick rather than in a loop, so the maxima are real. A reading costs two port reads and a port write, about 24 counts (20 us) in DOSBox; `/BENCH` measures that first (`reading cost` on the `BENCH TIMER` line) and subtracts it from each section. Two edge cases are handled: an interrupt between the counter read and the interrupt count (the pair is read again), and the counter having reloaded before IRQ 0 has run, which makes a reading one period low (the stopwatch adds a period when a reading goes backwards). The 60 Hz handler itself still runs during the bench and appears in the maxima. Interrupts, vectors and pacing are unchanged, and the vectors are restored on exit and on panic like the other modes.
+
+### DOSBox settings
+
+`tools/check-dos.sh` runs the bench with `core=normal` and `cpu_cycles = fixed 26800`, about a 486DX2-66 (26.8 million cycles a second), through `DOS_CYCLES='fixed 26800' tools/dosrun.sh`. Other modes keep `cpu_cycles = max`. The bench takes about four minutes to emulate at that setting, so its timeout is 580 seconds. The check asserts the line shapes, the hash, the platform lines, positive averages for every section and a step average under 16,667 us, and prints the figures. It sets no tight bound on any of them.
+
+### Numbers
+
+Measured on 2026-10-27 with `FIZZ2.EXE` of 66,560 bytes, built from the `feat/slice-bench` branch on `main` at 60f7c5e, in DOSBox Staging 0.83.0 with the settings above:
+
+| Section | Average (us) | Largest (us) | Share of 16,667 us |
+| --- | --- | --- | --- |
+| Step | 934 | 1,255 | 5.6% |
+| Drawing | 161,146 | 195,838 | 967% |
+| Copy to video memory | 32,441 | 32,474 | 195% |
+| Total | 194,522 | 229,409 | 1,167% |
+
+Natively (`cargo run --release -p fizz-ep2 --example bench`, 200 repetitions of the script, stepping only) the step costs about 88 ns a tick on the development machine, wall clock. `valgrind` was not available there, so the instruction count the example is written for (`valgrind --tool=callgrind`, with the command in the example's header) has not been taken; wall-clock time on a modern machine says little about a 486 and is an extra.
+
+### What the numbers say
+
+The step is cheap: about 25,000 emulated cycles a tick, 5.6% of the budget, and the largest tick is under 8%. The drawing is not. At 26,800 cycles a millisecond it took about 161 ms a tick, ten times the budget, so at this emulated speed the slice would draw at roughly 6 frames a second, or about 5 with the copy. The step and the draw are separate, so the simulation can still run at 60 Hz with the draw skipped or reduced, but a 486DX2-66 would not hold 60 Hz drawing as written. The drawing is the cost to reduce first (it redraws the whole buffer each tick).
+
+The copy figure is DOSBox's cost for writing 64,000 bytes to its emulated video memory and does not stand for a real card: a real VGA's bus speed decides it. Treat it as a lower-confidence figure than the other two.
+
+These numbers do not say how a real 486DX behaves. DOSBox cycles are an approximation: it counts instructions at a fixed rate and does not model cache, memory or bus timing. The cost of x87 instructions on a 486DX, which the step uses for every `f64` operation, is not measured, and DOSBox charges them the same as other instructions. A figure that hides x87 cost is a floor for the step, not an estimate. The 486 floor claim therefore stands on the order of magnitude only until the drawing has been reduced and the build run on hardware or a cycle-accurate model such as Fizz 1's `cyc486.py`.
+
 ## Size budget
 
 A 1.44 MB floppy holds 1,474,560 bytes raw, about 1,457,664 bytes of data area. Fizz 1's release scripts set the reserves:
@@ -224,7 +259,7 @@ A 1.44 MB floppy holds 1,474,560 bytes raw, about 1,457,664 bytes of data area. 
 | FreeDOS-bootable | About 1.17 MB | FreeDOS needs about 153 KB and 64 KB is kept free for saves |
 | Plain | About 1.39 MB | 8 KB kept free |
 
-The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped; with the slice (the rules, the level, the sprite data and the drawing) it was 72,192 bytes, and deleting the marker's rules, drawing and replay took it to 61,440 bytes, about 5.6% of the budget.
+The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped; with the slice (the rules, the level, the sprite data and the drawing) it was 72,192 bytes, and deleting the marker's rules, drawing and replay took it to 61,440 bytes, about 5.6% of the budget. The `/BENCH` mode adds about 3.6 KB (62,976 to 66,560 bytes).
 
 For scale, Fizz 1 embeds about 436 KB of assets in an 862 KB stripped executable: `sprites.bin` 102,252 bytes, `sound.bin` 279,348 bytes and `titles.bin` 54,488 bytes. The Episode 2 sprite design canvas holds 211 sprites, about 146 KB at one byte per pixel and about 73 KB at four bits per pixel. That count includes variants of Ben and three enemy rosters, so the sprites that ship will be fewer. Music and the larger backdrops are likely to take more room than sprites do.
 
@@ -245,7 +280,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 ## Not verified
 
 - Real 486 hardware. Every DOS result comes from DOSBox.
-- x87 cycle cost. DOSBox with `cycles=max` hides it.
+- x87 cycle cost. DOSBox with `cycles=max` hides it, and `fixed 26800` charges every instruction alike; the `/BENCH` figures are DOSBox's, not a 486's (see [Performance](#performance)).
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
 - Audio. Nothing in the builds makes sound yet; the cluck events are proved by the transcript, and no result here says how a cluck sounds.
