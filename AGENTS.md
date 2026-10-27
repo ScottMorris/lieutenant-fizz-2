@@ -61,6 +61,14 @@ Run `tools/check.sh` before a PR. Add a test that fails before a bug fix. Keep t
 
 Update `docs/ARCHITECTURE.md` when layers, crates or the parity policy change and `README.md` when build or demonstration use changes. Prefer stable reference documents over undocumented decisions in comments or pull requests.
 
+## Game Manual
+
+The player's manual is written in parallel with the game, not at the end. It lives in one file, `docs/MANUAL.md`.
+
+- A pull request that adds or changes anything a player sees or does updates the manual in the same pull request, or says in the PR's Documentation section why no manual change is needed. That covers controls, items, enemies, gadgets, levels and the overworld, screens and menus, options, saves, differences between the Web and DOS presentations, system requirements, and how to run the game.
+- The manual is written for the player, not the developer: second person where it helps, plain words, and no crate names or internals. It describes the controls and behaviour of the current builds only. Planned features are listed in one short "Coming" section at the end, or left out. Where Web and DOS differ, such as reduced effects on DOS, the manual says what differs.
+- Screenshots in the manual are taken from real builds and say which build they show.
+
 ## Licence and Copyright
 
 The project is dual-licensed under Apache-2.0 OR MIT. New or substantially rewritten `.rs`, `.c`, `.h`, `.ts`, `.js`, `.py`, `.sh` and workflow YAML files begin with a summary, copyright and SPDX header:

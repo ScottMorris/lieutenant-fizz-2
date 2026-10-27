@@ -40,3 +40,5 @@ tools/check-parity.sh                            # native, Web and DOS transcrip
 ```
 
 The DOS toolchain is the shared `ci-dos` image pinned by digest; locally `vendor/` is a git-ignored copy of its toolchain layout. Rules crates keep the numeric model in `docs/PLATFORM.md`: `f64`, basic IEEE operations, no `exp` family, the x87 control word set by the program. `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny float arithmetic. Document every new build or emulator check in `docs/PLATFORM.md`. Do not add C or DJGPP glue by default.
+
+The player's manual, `docs/MANUAL.md`, is written in parallel with the game: a change a player can see or do updates it in the same PR (see "Game Manual" in `AGENTS.md`).
