@@ -3,13 +3,11 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_hello::replay`'s.
+// Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc ends it. The default when no mode is given
-//   FIZZ2.EXE /SLICE    runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
-//                       v1 plus the platform lines: the parity gate for the slice
-//   FIZZ2.EXE /REPLAY   runs the Milestone 0 script for 600 ticks at 60 Hz and prints its transcript plus platform lines. It
-//                       stays until the Milestone 0 gate is retired
+//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /PANIC    hooks IRQ 0 and panics, to show the clean-up list runs (exit status 3)
@@ -27,8 +25,7 @@ use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
-use fizz_hello::{M0_SCRIPT, M0_TICKS, World, hash, step};
-use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render, render_slice};
+use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render_slice};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -113,11 +110,6 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &ega_palette())
 }
 
-fn draw(display: &mut DosDisplay, frame: &mut Frame, world: &World) {
-    render(world, frame);
-    let _ = present(display, frame);
-}
-
 fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
     render_slice(world, frame);
     let _ = present(display, frame);
@@ -125,7 +117,7 @@ fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep
 
 /// The live loop's draw: waits for the vertical retrace, then copies, so the copy does not land mid-scan and tear. The wait
 /// is bounded inside `wait_vretrace` (a million status reads per phase), and it only delays the copy: the simulation is paced
-/// by the timer through the `Pacer` and never sees the retrace. `/SLICE` and `/REPLAY` do not wait.
+/// by the timer through the `Pacer` and never sees the retrace. `/REPLAY` does not wait.
 fn draw_slice_frame_synced(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
     render_slice(world, frame);
     let _ = display.wait_vretrace();
@@ -147,8 +139,6 @@ fn main() -> i32 {
         .unwrap_or("/LIVE");
     if mode.eq_ignore_ascii_case("/REPLAY") {
         replay()
-    } else if mode.eq_ignore_ascii_case("/SLICE") {
-        slice_replay()
     } else if mode.eq_ignore_ascii_case("/PANIC") {
         if let Err(e) = timer::hook_60hz() {
             println!("HOOK FAILED {:?}", e);
@@ -161,72 +151,9 @@ fn main() -> i32 {
     }
 }
 
+/// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
+/// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
 fn replay() -> i32 {
-    let session = match start_session(false) {
-        Ok(s) => s,
-        Err(e) => {
-            println!("HOOK FAILED {:?}", e);
-            return 1;
-        }
-    };
-    let mut display = DosDisplay;
-    if open_display(&mut display).is_err() {
-        end_session(&mut display);
-        println!("DISPLAY FAILED");
-        return 1;
-    }
-
-    let clock = DosClock;
-    let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-    let mut frame = Frame::new();
-    let mut world = World::new();
-    let mut out = Transcript::new();
-    let mut prev = Buttons::NONE;
-    let mut run = 0usize;
-    let mut left = M0_SCRIPT.first().map_or(0, |r| r.0);
-
-    let _ = writeln!(out, "M0 REPLAY 1");
-    let _ = writeln!(out, "TICK 0 HASH {:016x}", hash(&world).finish());
-    draw(&mut display, &mut frame, &world);
-
-    while world.tick.0 < M0_TICKS {
-        for _ in 0..pacer.due(&clock) {
-            if world.tick.0 >= M0_TICKS {
-                break;
-            }
-            while left == 0 && run + 1 < M0_SCRIPT.len() {
-                run += 1;
-                left = M0_SCRIPT[run].0;
-            }
-            let now = M0_SCRIPT[run].1;
-            left = left.saturating_sub(1);
-            step(&mut world, InputFrame::from_transition(prev, now));
-            prev = now;
-            if world.tick.0.is_multiple_of(60) {
-                let _ = writeln!(out, "TICK {} HASH {:016x}", world.tick.0, hash(&world).finish());
-            }
-            draw(&mut display, &mut frame, &world);
-        }
-    }
-    let _ = writeln!(out, "FINAL TICK {} HASH {:016x}", world.tick.0, hash(&world).finish());
-
-    let cw = fpu::control_word();
-    let bios_end = timer::bios_ticks();
-    end_session(&mut display);
-    let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
-
-    for line in out.text().lines() {
-        println!("{}", line);
-    }
-    println!("FPU CW {:04X}", cw);
-    println!("BIOS TICKS {}", bios_end.wrapping_sub(session.bios_start));
-    println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
-    0
-}
-
-/// The slice's scripted run, with the same platform lines as `/REPLAY` plus whether Ben reached the exit. The script is
-/// played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
-fn slice_replay() -> i32 {
     let session = match start_session(false) {
         Ok(s) => s,
         Err(e) => {
