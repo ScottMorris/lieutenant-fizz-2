@@ -80,3 +80,5 @@ Bun runs all of them. The first three need no Fizz 1 checkout and run in the `pa
 - `bun tools/sprites/roundtrip.ts` checks that every grid file is canonical; with `FIZZ1` set it also checks that a fresh Fizz 1 export equals `fizz1-slice.json`.
 - `FIZZ1=<path> bun tools/sprites/export-fizz1.ts` rewrites `fizz1-slice.json` from a Fizz 1 checkout (default `~/source/liminal-hq/lieutenant-fizz`). It only reads Fizz 1, and two runs give identical bytes.
 - `bun tools/sprites/import-canvas.ts <ep2-sprites.json>` documents the one-off canvas import.
+
+The drawing routines in `fizz-view` treat only 255 as transparent. Index 0 is black and is drawn, because the grids use it for outlines. A sprite is placed with its anchor at the entity's screen position, and a horizontal flip mirrors about the vertical line at the left edge of the anchor's pixel column, so an even-width sprite with a centred anchor covers the same box either way.
