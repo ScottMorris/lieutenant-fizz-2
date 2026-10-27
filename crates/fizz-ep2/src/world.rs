@@ -361,7 +361,7 @@ impl World {
 ///
 /// 1. the tick (`u64`);
 /// 2. Ben: `x y vx vy face squash dead inv shoot_t` as `f64` bits, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on
-///    the ground, bit 3 bumped);
+///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits and `aim` as one byte (`i8` as `u8`);
 /// 3. the [`WorldFlags`] word (`u32`), `ammo` (`u32`) and `deaths` (`u32`);
 /// 4. `map.switches` (`u32`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
@@ -392,6 +392,10 @@ pub fn hash(w: &World) -> StateHash {
             | u8::from(ben.b.on_ground) << 2
             | u8::from(ben.bumped) << 3,
     );
+    for v in [ben.look_up, ben.look_down, ben.look_offset] {
+        h.write_f64(v);
+    }
+    h.write_u8(ben.aim as u8);
     h.write_u32(w.flags.0);
     h.write_u32(w.ammo);
     h.write_u32(w.deaths);
@@ -457,6 +461,10 @@ mod tests {
         w.ben.shoot_t = 0.375;
         w.ben.pogo = true;
         w.ben.b.on_ground = true;
+        w.ben.look_up = 0.5;
+        w.ben.look_down = 0.75;
+        w.ben.look_offset = 1.25;
+        w.ben.aim = -1;
         w.flags = WorldFlags(WorldFlags::KEY_RED | WorldFlags::EXIT_REACHED);
         w.ammo = 3;
         w.deaths = 2;
@@ -491,6 +499,10 @@ mod tests {
             f(&mut b, v);
         }
         b.push(0b0101); // Ben: pogo, on the ground
+        for v in [0.5, 0.75, 1.25] {
+            f(&mut b, v); // look up, look down, look offset
+        }
+        b.push(0xff); // aim -1 as a byte
         b.extend_from_slice(&5u32.to_le_bytes()); // flags: key and exit
         b.extend_from_slice(&3u32.to_le_bytes()); // ammo
         b.extend_from_slice(&2u32.to_le_bytes()); // deaths
@@ -515,13 +527,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0xc212_3c93_4cb6_a3ca);
+        assert_eq!(hash(&populated()).finish(), 0x4763_4dcf_4449_e880);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 24] = [
+        let edits: [fn(&mut World); 28] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -533,6 +545,10 @@ mod tests {
             |w| w.ben.inv += 1.0,
             |w| w.ben.shoot_t += 1.0,
             |w| w.ben.cut = true,
+            |w| w.ben.look_up += 1.0,
+            |w| w.ben.look_down += 1.0,
+            |w| w.ben.look_offset += 1.0,
+            |w| w.ben.aim = 1,
             |w| w.flags.clear(WorldFlags::KEY_RED),
             |w| w.ammo += 1,
             |w| w.deaths += 1,

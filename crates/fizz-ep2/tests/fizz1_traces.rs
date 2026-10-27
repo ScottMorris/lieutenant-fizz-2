@@ -8,7 +8,7 @@
 //! The tolerance is zero: positions, velocities, squash and the Gloop's stun are compared as `f64` bit patterns.
 //!
 //! The scenarios run through the whole world, so the chicken, the shots, the red key and door and the hazards are proved
-//! by the same traces as Ben's movement, and every field a trace carries is compared, including the first Gloop's. One
+//! by the same traces as Ben's movement, and every field a trace carries is compared, including the look timers, the aim and the first Gloop's. One
 //! departure is masked: Fizz 1 rewrites the red door's tile when it opens and never touches the switch word, while Fizz 2
 //! keeps the door as a switched tile on its own channel, so that one bit is left out of the `switches` comparison (see
 //! `tiles::DOOR_RED_BIT`).
@@ -158,7 +158,7 @@ fn row(tick: u32, w: &World) -> String {
     let (ben, b) = (&w.ben, &w.ben.b);
     let _ = write!(
         out,
-        "{tick} {} {} {} {} {} {} {} {} {} {} {:08x}",
+        "{tick} {} {} {} {} {} {} {} {} {} {} {:08x} {} {} {}",
         hex(b.x),
         hex(b.y),
         hex(b.vx),
@@ -170,6 +170,9 @@ fn row(tick: u32, w: &World) -> String {
         u8::from(ben.dead > 0.0),
         u8::from(w.flags.contains(WorldFlags::KEY_RED)),
         w.map.switches & !DOOR_RED_BIT,
+        hex(ben.look_up),
+        hex(ben.look_down),
+        ben.aim,
     );
     if let Some(c) = w.chickens.first() {
         let _ = write!(
@@ -212,9 +215,30 @@ fn simulate(s: &Scenario) -> Vec<String> {
     rows
 }
 
-const FIELDS: [&str; 20] = [
-    "tick", "x", "y", "vx", "vy", "face", "squash", "pogo", "ground", "dead", "keys_red",
-    "switches", "|", "gx", "gy", "gvx", "gvy", "gdir", "gstun", "gdead",
+const FIELDS: [&str; 23] = [
+    "tick",
+    "x",
+    "y",
+    "vx",
+    "vy",
+    "face",
+    "squash",
+    "pogo",
+    "ground",
+    "dead",
+    "keys_red",
+    "switches",
+    "look_up",
+    "look_down",
+    "aim",
+    "|",
+    "gx",
+    "gy",
+    "gvx",
+    "gvy",
+    "gdir",
+    "gstun",
+    "gdead",
 ];
 
 fn check(name: &str) {
@@ -261,4 +285,6 @@ traces!(
     fizz_stun,
     key_door,
     route,
+    look,
+    aim,
 );
