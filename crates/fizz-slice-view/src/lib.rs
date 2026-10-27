@@ -25,8 +25,8 @@
 //!
 //! # Choices that are ours
 //!
-//! - **Chicken.** The art faces right, so a chicken walking left is flipped. It walks (the `walk` and `idle` frames
-//!   alternating with the distance it has travelled) and shows the `alert` frame while it touches Ben. A stunned chicken is
+//! - **Chicken.** The art faces right, so a chicken walking left is flipped. It walks with both legs stepping (`walk`,
+//!   `idle`, `walk2`, `idle` as the distance it has travelled grows, four pixels to a step) and shows the `alert` frame while it touches Ben. A stunned chicken is
 //!   shown as the `alert` frame sunk two pixels, so it reads as knocked flat, and it flashes (disappears every other four
 //!   ticks) for its last second of stun to warn that it is about to wake.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
@@ -164,8 +164,13 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
         ("cluckzarg_alert", 2)
     } else if c.touch {
         ("cluckzarg_alert", 0)
-    } else if c.b.on_ground && (tile_px(c.b.x) / 4) % 2 == 0 {
-        ("cluckzarg_walk", 0)
+    } else if c.b.on_ground {
+        // Four steps of four pixels: one leg forward, legs together, the other leg forward, legs together.
+        match (tile_px(c.b.x) / 4) % 4 {
+            0 => ("cluckzarg_walk", 0),
+            2 => ("cluckzarg_walk2", 0),
+            _ => ("cluckzarg_idle", 0),
+        }
     } else {
         ("cluckzarg_idle", 0)
     };
@@ -359,6 +364,32 @@ mod tests {
             assert_ne!(*a, SKY);
         }
         assert_eq!(tile_colour(0), None);
+    }
+
+    #[test]
+    fn a_walking_chicken_steps_with_both_legs() {
+        let rows = |name: &str| {
+            let s = sprite(name).unwrap();
+            assert_eq!((s.w, s.h, s.ax, s.ay), (24, 24, 12, 24));
+            s.pixels
+                .chunks(usize::from(s.w))
+                .map(<[u8]>::to_vec)
+                .collect::<Vec<_>>()
+        };
+        let (idle, walk, walk2) = (
+            rows("cluckzarg_idle"),
+            rows("cluckzarg_walk"),
+            rows("cluckzarg_walk2"),
+        );
+        // Above the legs the walk frames are the same chicken.
+        assert_eq!(walk[..19], walk2[..19]);
+        // Each walk frame moves a different leg: the left foot is out in `walk2` only, the right foot in `walk` only.
+        let col = |r: &[u8]| r.iter().position(|&p| p != 255).unwrap();
+        let right = |r: &[u8]| r.iter().rposition(|&p| p != 255).unwrap();
+        assert_eq!(col(&walk[22]), col(&idle[22]));
+        assert!(right(&walk[22]) > right(&idle[22]));
+        assert!(col(&walk2[22]) < col(&idle[22]));
+        assert_eq!(right(&walk2[22]), right(&idle[22]));
     }
 
     #[test]
