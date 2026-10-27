@@ -1,0 +1,12 @@
+[package]
+name = "fizz-ep2"
+description = "Episode 2 rules for Lieutenant Fizz, starting with Ben's movement ported from Fizz 1"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-sim = { path = "../fizz-sim" }
+fizz-phys = { path = "../fizz-phys" }
+libm = { version = "=0.2.16", default-features = false }
