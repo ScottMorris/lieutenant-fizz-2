@@ -1,0 +1,14 @@
+[package]
+name = "fizz-slice-view"
+description = "The one scene-drawing routine the Web and DOS presenters share for the Episode 2 slice"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-ep2 = { path = "../fizz-ep2" }
+fizz-view = { path = "../fizz-view" }
+
+[dev-dependencies]
+fizz-sim = { path = "../fizz-sim" }

@@ -108,6 +108,12 @@ impl World {
             && !self.flags.contains(WorldFlags::DOOR_RED_OPEN)
     }
 
+    /// The centre of the red key while it is lying in the world, for presenters that draw it. `None` once Ben carries it or
+    /// the door has spent it.
+    pub fn key_position(&self) -> Option<(f64, f64)> {
+        if self.key_in_world() { self.key } else { None }
+    }
+
     /// Advances the world by one tick (the level branch of Fizz 1's `step`).
     pub fn step(&mut self, input: InputFrame) {
         self.tick = self.tick.next();
