@@ -5,6 +5,10 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+mod input;
+
+pub use input::{Buttons, InputFrame, InputLatch};
+
 /// Simulation steps per second. Presenters call the rules this often and never faster.
 pub const TICK_HZ: u32 = 60;
 
