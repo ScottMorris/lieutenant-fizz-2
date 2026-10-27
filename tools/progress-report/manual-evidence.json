@@ -4,7 +4,7 @@
   {
    "section": "What this is",
    "shelf": "none",
-   "evidence": "An overview. The status it states matches the front page: a marker, a clock and a hash, and no game."
+   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story, menu or sound."
   },
   {
    "section": "Running it",
@@ -40,7 +40,7 @@
     6
    ],
    "evidence": "On DOS, `tools/check-dos.sh` types Ctrl, Right, Right, Down and Esc with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc ends `/LIVE` with status 0. The host tests `keen_layout_is_arrows_ctrl_alt_space` and `modern_layout_is_wasd_or_arrows_zxc` check every key of both layouts, and the decoder tests cover Z, X, C and both Ctrl and Alt keys, including that a Pause is never a Ctrl press. On the Web, headless Chromium was sent key events for both layouts over the DevTools protocol: the square moved, Ctrl and Z made it dash, and keys of the other layout did nothing.",
-   "gaps": "a real keyboard on either version; Pogo and Fire, which the preview does not act on; and Alt on DOS, which the smoke does not type."
+   "gaps": "a real keyboard on either version; Pogo and Fire as live key presses on DOS, which only the replay feeds (as buttons); and Alt on DOS, which the smoke does not type."
   },
   {
    "section": "Choosing your keys",
@@ -60,8 +60,73 @@
    "prs": [
     5
    ],
-   "evidence": "`tools/check-dos.sh` runs all three: `/REPLAY` must print the golden transcript, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
-   "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it."
+   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the Milestone 0 golden transcript, `/SLICE` must print the slice's golden transcript (`FINAL TICK 1268 HASH d1a225bf14ab4828`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it; and that `/SLICE` takes about 21 seconds, which the BIOS tick bound of 383 to 387 covers only as a count."
+  },
+  {
+   "section": "The slice on DOS",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-dos.sh` runs `/SLICE` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD strip is tested in `fizz-present-dos` (`the_slice_hud_shows_ammo_key_deaths_and_tick`). The screenshot is a real DOSBox Staging grab of `/SLICE` under a virtual X server.",
+   "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which does not exist yet."
+  },
+  {
+   "section": "The Web slice",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-web-slice.sh` runs the 1,268-tick slice replay inside the built WASM module under Node or Bun and compares every `TICK` and `FINAL` line with `crates/fizz-ep2/slice-replay.txt`, and the `SliceApp` host tests step the same script through the Web presenter's pacer and key latch and compare its hash with the rules after every tick. Headless Chromium loaded the built page, drew the level, moved Ben on real key events in the Keen layout and fired a shot (`AMMO` fell to 4). The screenshot is of that build.",
+   "gaps": "a person playing it; the Modern layout on this page, which headless Chromium was only partly sent; the look of the level, which is a first drawing; and any real display scaling."
+  },
+  {
+   "section": "The level on DOS",
+   "shelf": "catalogued",
+   "evidence": "The level's tests in `fizz-ep2` check its size, the named places and that the door starts closed; the replay climbs from the spawn through the door to the exit, which `check-dos.sh` repeats on DOS (`EXIT yes`). The colours are the `tile_colour` table of `fizz-slice-view`, with a test that the tile types have distinct colours.",
+   "gaps": "that the level is pleasant to play; the colour names in the section were read from the code and the screenshot, not checked by a test."
+  },
+  {
+   "section": "Moves",
+   "shelf": "catalogued",
+   "evidence": "Walking, jumping with a cut, the pogo and its held high bounce and the stun shots are proved bit for bit against Fizz 1's golden traces (`tests/fizz1`), and the slice replay uses them. The key mapping of both layouts is tested in `fizz-present-dos`.",
+   "gaps": "the Alt key on DOS, which the keyboard smoke does not type, and the pogo and Fizz keys in a live DOSBox session (the replay feeds them as buttons, not as key presses)."
+  },
+  {
+   "section": "The red key and the door",
+   "shelf": "catalogued",
+   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, and the `key_door` trace against Fizz 1. The replay on DOS opens the door."
+  },
+  {
+   "section": "The chicken",
+   "shelf": "catalogued",
+   "evidence": "The `gloop_patrol`, `stomp`, `stomp_pogo` and `fizz_stun` traces against Fizz 1; the replay stuns the chicken once by a shot and once by a stomp. A test in `fizz-slice-view` checks that a stunned chicken is drawn differently from a walking one.",
+   "gaps": "the look of the chicken (a placeholder) and its flashing, which are drawn in the code and seen in a screenshot only."
+  },
+  {
+   "section": "Death and respawn on DOS",
+   "shelf": "catalogued",
+   "evidence": "The replay dies once on the spikes carrying the key, and `the_script_exercises_every_rule_of_the_slice` checks that the key drops, the ammo refills and the door switch resets; `check-dos.sh` repeats the run on DOS.",
+   "gaps": "the look of Ben's tumble, which uses a borrowed pose because the first game has no dead pose."
+  },
+  {
+   "section": "The level on the Web",
+   "shelf": "catalogued",
+   "evidence": "The replay test `the_script_exercises_every_rule_of_the_slice` plays the level through the key, the chicken, the door and the exit, and the level's own tests lock its tiles; the Fizz 1 traces `key_door`, `gloop_patrol`, `stomp`, `fizz_stun` and `route` match bit for bit.",
+   "gaps": "how the level reads to a first-time player, and whether the door and key are easy to find."
+  },
+  {
+   "section": "Moving, jumping, the pogo stick and the blaster",
+   "shelf": "catalogued",
+   "evidence": "Walk, jump, the cut jump, the pogo and its held bounce are the golden Fizz 1 traces `run`, `jump_full`, `jump_cut`, `pogo_idle` and `pogo_held`, compared bit for bit by `tests/fizz1_traces.rs`; the shots are the `fizz_stun` trace and the replay.",
+   "gaps": "how the keys feel on a real keyboard."
+  },
+  {
+   "section": "Death and respawn on the Web",
+   "shelf": "catalogued",
+   "evidence": "The replay dies once on the spikes carrying the key; `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` check what a death keeps and what it resets, and `the_script_exercises_every_rule_of_the_slice` checks the ammo.",
+   "gaps": "the fall off the bottom of the level and the exact length of the death pause on a real display."
+  },
+  {
+   "section": "The Web heads-up text",
+   "shelf": "catalogued",
+   "evidence": "Headless Chromium read the seven lines from the page: they start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The values come from the `SliceApp` getters the host tests read.",
+   "gaps": "`KEY`, `DOOR` and `EXIT` changing in the browser: the replay reaches all three in the host tests, but no browser run has played that far."
   },
   {
    "section": "The screen",
@@ -71,7 +136,7 @@
     4,
     7
    ],
-   "evidence": "The HUD's text and the frame are pinned by golden checksums in `fizz-present-dos`; the hash is the parity gate's, equal on native, Web and DOS ([chapter 5](chapter:parity)); 60 steps a second is the pacer of `fizz-hal` and the timer of [chapter 3](chapter:m0-core#the-60-hz-timer-that-keeps-the-bios-clock); `clamping_zeroes_velocity_on_that_axis_only` keeps the square inside the screen, and the drag and snap-to-zero bring it to a stop."
+   "evidence": "The HUD's text and the frame are pinned by golden checksums in `fizz-present-dos`; the hash is the parity gate's, equal on native, Web and DOS ([chapter 5](chapter:parity)); 60 steps a second is the pacer of `fizz-hal` and the timer of [chapter 3](chapter:m0-core#the-60-hz-timer-that-keeps-the-bios-clock). The Web lines are read from the `SliceApp` getters by the host tests."
   },
   {
    "section": "Web and DOS compared",
@@ -79,8 +144,8 @@
    "prs": [
     7
    ],
-   "evidence": "Same moves, same `TICK` and `HASH`: the parity gate ([chapter 5](chapter:parity)).",
-   "gaps": "no check compares the two screens' colours or border: they match by reading `web/main.js` and `fizz-present-dos` (EGA blue field, light-grey border, yellow marker with a light-cyan outline); the screenshots of chapter 4 were retaken after that match and show both screens; the Web marker position is rounded while the DOS one is truncated; and the Web HUD is page text below the canvas, while DOS draws it in the frame."
+   "evidence": "Same moves, same `TICK` and `HASH`: the parity gate ([chapter 5](chapter:parity)), and the slice replay that `tools/check-dos.sh` and `tools/check-web-slice.sh` each compare with `crates/fizz-ep2/slice-replay.txt`.",
+   "gaps": "no check compares the two screens side by side: both call `fizz_slice_view::draw_slice`, so the picture is shared by construction, but the Web HUD is page text below the canvas while DOS draws it in the frame, and the Web build in a browser has not been played by a person."
   },
   {
    "section": "Coming",

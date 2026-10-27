@@ -57,7 +57,12 @@ A grid is integers and letters, so an editor shows it directly as a `w` by `h` a
 
 - `fizz1-slice.json`: Fizz 1's 16-pixel-wide `ben_stand`, `ben_run1`, `ben_run2`, `ben_jump`, `ben_shoot` (16 by 24), `ben_pogo` and `ben_pogo2` (16 by 32; `ben_pogo2` is the squash frame, drawn two rows lower), `keyRed` and `doorRed` (16 by 16) and `bubble` (8 by 8, the fizz bubble shot). Fizz 1 has no hurt or dead pose for Ben.
 - `ep2-ben-a.json`: Ben variant A, 24 by 32 (`benA_pogoUp` and `benA_pogoDown` are 24 by 40): `benA_idle`, `benA_run1` to `benA_run4`, `benA_jump`, `benA_fall`, `benA_shoot`, `benA_hurt`, `benA_pogoUp`, `benA_pogoDown`. Provisional. It is drawn against Fizz 1's physics body, anchored at the feet and centre; the body does not change.
-- `ep2-cluckzarg.json`: `cluckzarg_idle`, `cluckzarg_walk`, `cluckzarg_alert`, 24 by 24. Provisional.
+- `ep2-cluckzarg.json`: `cluckzarg_idle`, `cluckzarg_walk`, `cluckzarg_alert`, 24 by 24. Provisional. In `idle` the legs are together; in `walk` the right leg is out to the right.
+- `ep2-cluckzarg-extra.json`: `cluckzarg_walk2`, 24 by 24, `drawn` by hand: `walk` with the opposite stride (the left leg out to the left, the right leg planted), so the slice's cycle of `walk`, `idle`, `walk2`, `idle` steps with both legs. It lives in its own set because the imported `ep2-cluckzarg.json` stays as the canvas produced it. Provisional.
+
+## Which Ben frame the slice shows
+
+`fizz_slice_view::draw_slice` chooses Ben's frame by the rule in Fizz 1's `design/melting/engine.js`. Dead is `ben_jump`. On the pogo stick it is `ben_pogo2` during the squash and `ben_pogo` otherwise; the pogo wins over the shooting pose, as it does in Fizz 1. Then `ben_shoot` while the shooting pose runs, `ben_jump` in the air, a run frame while his horizontal speed is above 0.5 tiles a second, and `ben_stand` at rest. Fizz 1 adds `|vx| * dt` to a distance counter `anim` every step and shows `ben_run2` when `floor(anim * 1.4)` is odd and `ben_run1` otherwise, so the frame changes every 1/1.4 tiles run. Fizz 1 has no turn or idle animation. Fizz 2's rules keep no such counter and drawing may not add one, so the view uses `floor(|x| * 1.4)` of Ben's position instead: the same cadence, and a different phase only after he turns round. The screenshots in `docs/img` were taken before this change and may show the earlier run frame.
 
 ## Build data
 

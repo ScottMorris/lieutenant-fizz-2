@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Lieutenant Fizz 2 — Milestone 0</title>
+    <title>Lieutenant Fizz 2 — First Slice</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -11,13 +11,19 @@
       <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
       <pre id="hud">TICK 0
 HASH 0000000000000000
-DASH 0</pre>
+AMMO 5
+KEY  no
+DOOR shut
+DEATHS 0
+EXIT not yet</pre>
+      <p id="goal" class="help">Climb the lighthouse: fetch the red key, walk into the red door with it, and reach the exit. Mind the spikes and the chicken.</p>
       <p id="hint" class="help">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.</p>
       <div class="controls">
         <button id="layout" type="button">Keys: Keen</button>
+        <button id="reset" type="button">Restart</button>
         <button id="fullscreen" type="button" hidden>Fullscreen (F)</button>
       </div>
-      <p class="note">A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game.</p>
+      <p class="note">A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. There is no sound yet.</p>
     </main>
     <script type="module" src="./main.js"></script>
   </body>

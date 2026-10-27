@@ -46,9 +46,11 @@ dependencies = [
 name = "fizz-present-dos"
 version = "0.1.0"
 dependencies = [
+ "fizz-ep2",
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-slice-view",
  "fizz-view",
 ]
 
@@ -56,9 +58,11 @@ dependencies = [
 name = "fizz-present-web"
 version = "0.1.0"
 dependencies = [
+ "fizz-ep2",
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-slice-view",
  "fizz-view",
  "wasm-bindgen",
 ]
@@ -66,6 +70,15 @@ dependencies = [
 [[package]]
 name = "fizz-sim"
 version = "0.1.0"
+
+[[package]]
+name = "fizz-slice-view"
+version = "0.1.0"
+dependencies = [
+ "fizz-ep2",
+ "fizz-sim",
+ "fizz-view",
+]
 
 [[package]]
 name = "fizz-view"

@@ -1,10 +1,11 @@
-// Browser shell for the Web presenter: keyboard in, canvas and HUD out.
+// Browser shell for the Web presenter: keyboard in, the slice drawn to the canvas, a text HUD out.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// Every URL is relative so the bundle works under any base path. The wasm module is the only import.
-import init, { App } from "./pkg/fizz_present_web.js";
+// Every URL is relative so the bundle works under any base path. The wasm module is the only import. The Rust side draws the frame
+// into its own memory; this file only copies those pixels onto the canvas and prints the HUD.
+import init, { SliceApp } from "./pkg/fizz_present_web.js";
 
 // Button bits match `fizz_sim::Buttons`.
 const UP = 1;
@@ -20,7 +21,7 @@ const FIRE = 64;
 const LAYOUTS = {
   keen: {
     label: "Keen",
-    hint: "Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.",
+    hint: "Arrow keys move, Ctrl jumps, Alt switches the pogo stick on and off, Space fires.",
     keys: {
       ArrowUp: UP,
       ArrowDown: DOWN,
@@ -35,7 +36,7 @@ const LAYOUTS = {
   },
   modern: {
     label: "Modern",
-    hint: "Arrow keys or W A S D move, Z jumps, X uses the pogo stick, C or Space fires.",
+    hint: "Arrow keys or W A S D move, Z jumps, X switches the pogo stick on and off, C or Space fires.",
     keys: {
       ArrowUp: UP,
       KeyW: UP,
@@ -61,7 +62,8 @@ const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.key
 const canvas = document.getElementById("screen");
 const hud = document.getElementById("hud");
 const hint = document.getElementById("hint");
-const layoutButton = document.getElementById("layout");
+const resetButton = document.getElementById("reset");
+const layoutButton =document.getElementById("layout");
 const fullscreenButton = document.getElementById("fullscreen");
 const ctx = canvas.getContext("2d");
 
@@ -83,22 +85,23 @@ function saveLayout(name) {
   }
 }
 
-function draw(app) {
-  ctx.fillStyle = "#0000aa";
-  ctx.fillRect(0, 0, 320, 200);
-  ctx.strokeStyle = "#aaaaaa";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0.5, 0.5, 319, 199);
-  const x = app.marker_px_x();
-  const y = app.marker_px_y();
-  ctx.fillStyle = "#55ffff";
-  ctx.fillRect(x - 1, y - 1, 10, 10);
-  ctx.fillStyle = "#ffff55";
-  ctx.fillRect(x, y, 8, 8);
+// Copies the frame the module just drew onto the canvas. The view is made again each frame because the module's memory can move
+// when it grows, which would leave an older view pointing at nothing.
+function draw(app, memory) {
+  app.render();
+  const pixels = new Uint8ClampedArray(memory.buffer, app.rgba_ptr(), app.rgba_len());
+  ctx.putImageData(new ImageData(pixels, app.width(), app.height()), 0, 0);
 }
 
 function showHud(app) {
-  hud.textContent = `TICK ${app.tick()}\nHASH ${app.hash_hex()}\nDASH ${app.dashes()}`;
+  hud.textContent =
+    `TICK ${app.tick()}\n` +
+    `HASH ${app.hash_hex()}\n` +
+    `AMMO ${app.ammo()}\n` +
+    `KEY  ${app.has_key() ? "carried" : "no"}\n` +
+    `DOOR ${app.door_open() ? "open" : "shut"}\n` +
+    `DEATHS ${app.deaths()}\n` +
+    `EXIT ${app.exit_reached() ? "reached" : "not yet"}`;
 }
 
 // Keyboard Lock (Chromium) keeps the browser from taking the game's keys while fullscreen. Elsewhere this does nothing.
@@ -123,8 +126,8 @@ async function toggleFullscreen() {
 }
 
 async function main() {
-  await init();
-  const app = new App();
+  const wasm = await init();
+  const app = new SliceApp();
 
   let layout = loadLayout();
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
@@ -148,6 +151,12 @@ async function main() {
     saveLayout(layout);
     showLayout();
     layoutButton.blur();
+  });
+
+  resetButton.addEventListener("click", () => {
+    releaseAll();
+    app.reset();
+    resetButton.blur();
   });
 
   if (document.fullscreenEnabled) {
@@ -181,7 +190,7 @@ async function main() {
 
   const loop = () => {
     app.frame(performance.now());
-    draw(app);
+    draw(app, wasm.memory);
     showHud(app);
     requestAnimationFrame(loop);
   };

@@ -11,6 +11,8 @@ fizz-sim = { path = "../fizz-sim" }
 fizz-hello = { path = "../fizz-hello" }
 fizz-hal = { path = "../fizz-hal" }
 fizz-view = { path = "../fizz-view" }
+fizz-ep2 = { path = "../fizz-ep2" }
+fizz-slice-view = { path = "../fizz-slice-view" }
 
 [dev-dependencies]
 fizz-hal = { path = "../fizz-hal", features = ["mock"] }

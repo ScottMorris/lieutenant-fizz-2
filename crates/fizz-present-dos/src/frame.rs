@@ -26,6 +26,11 @@ impl Frame {
         &self.pixels
     }
 
+    /// The pixels for a routine that draws a whole picture into the frame, as `fizz_slice_view::draw_slice` does.
+    pub fn pixels_mut(&mut self) -> &mut [u8] {
+        &mut self.pixels
+    }
+
     /// Sets one pixel; coordinates outside the frame are ignored.
     pub fn put(&mut self, x: i32, y: i32, colour: u8) {
         if (0..WIDTH as i32).contains(&x) && (0..HEIGHT as i32).contains(&y) {

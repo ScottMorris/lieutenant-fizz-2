@@ -1,0 +1,39 @@
+{
+  "set": "ep2-cluckzarg-extra",
+  "note": "Provisional: a second walk frame for Cluckzarg, the opposite stride of cluckzarg_walk, so both legs step. Drawn by hand against the imported ep2-cluckzarg set.",
+  "sprites": [
+    {
+      "name": "cluckzarg_walk2",
+      "w": 24,
+      "h": 24,
+      "anchor": [12, 24],
+      "source": "drawn",
+      "rows": [
+        "...............kkck.....",
+        "..............kckckk....",
+        "..............kckckck...",
+        "..............kcCcCck...",
+        ".............kNNNNNNk...",
+        "....k........kNNNNNNk...",
+        "..kkRk......kNNNNNrWNk..",
+        ".kRNRNkkkkkkkNNNNNrrNkk.",
+        "kNRNRNNNNNNNNNNNNNNNkyyk",
+        "kNRNNNNyyyyyyyNNNNNNkyNk",
+        "kNNNNNNNyLLNyNNNNNkrkkk.",
+        "kNNNNNNLLLLLLNNNNNNrk...",
+        ".kNNNNLLLWLLLLNNNNNk....",
+        "..kNNNLLDLLDLLNNNNNk....",
+        "..kNNNNLLLLLLNNNNNNk....",
+        "...kNNNNNLLNNNNNNNk.....",
+        "....kRRRRRRRRRRRRk......",
+        ".....kRRRRRRRRRRk.......",
+        "......kkkLkkkLkk........",
+        ".......kLk..kLk.........",
+        ".....kkLk...kLkk........",
+        "....kDDDDk.kDDDDk.......",
+        ".....kkkk...kkkk........",
+        "........................"
+      ]
+    }
+  ]
+}

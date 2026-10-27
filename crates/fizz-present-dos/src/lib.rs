@@ -90,6 +90,51 @@ pub fn render(world: &World, frame: &mut Frame) {
     }
 }
 
+/// Height of the black strip that carries the slice's HUD text.
+const SLICE_HUD_H: i32 = 10;
+
+/// Draws the slice: the shared picture from `fizz_slice_view`, then the text HUD over a black strip along the top (ammo,
+/// whether Ben carries the key, deaths and the tick), and a banner once Ben has reached the exit. The text is this
+/// presenter's own; the picture beneath it is the one the Web draws too.
+pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
+    fizz_slice_view::draw_slice(
+        frame.pixels_mut(),
+        WIDTH,
+        HEIGHT,
+        world,
+        world.tick.0 as u32,
+    );
+    frame.fill_rect(0, 0, WIDTH as i32, SLICE_HUD_H, BLACK);
+    let key = world.flags.contains(fizz_ep2::WorldFlags::KEY_RED);
+    let mut line = TextBuf::new();
+    if write!(line, "AMMO {}", world.ammo).is_ok() {
+        frame.draw_text(4, 1, line.as_str(), WHITE);
+    }
+    let mut line = TextBuf::new();
+    if write!(line, "KEY {}", if key { "RED" } else { "-" }).is_ok() {
+        frame.draw_text(
+            76,
+            1,
+            line.as_str(),
+            if key { LIGHT_RED } else { LIGHT_GREY },
+        );
+    }
+    let mut line = TextBuf::new();
+    if write!(line, "DEATHS {}", world.deaths).is_ok() {
+        frame.draw_text(148, 1, line.as_str(), WHITE);
+    }
+    let mut line = TextBuf::new();
+    if write!(line, "TICK {}", world.tick.0).is_ok() {
+        frame.draw_text(244, 1, line.as_str(), LIGHT_GREY);
+    }
+    if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
+        let text = "LEVEL CLEAR";
+        let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
+        frame.fill_rect(x - 4, 146, text.len() as i32 * GLYPH as i32 + 8, 16, BLACK);
+        frame.draw_text(x, 150, text, YELLOW);
+    }
+}
+
 /// Which keys drive the buttons. The two sets are exclusive: a key of the other layout does nothing.
 ///
 /// `Keen` is Fizz 1's classic layout and the default everywhere. `Modern` keeps the keys away from the Ctrl and Alt
@@ -286,6 +331,48 @@ mod tests {
         assert_eq!(at(168, 108), LIGHT_CYAN);
         assert_eq!(at(169, 100), BLUE);
         assert_eq!(at(0, 199), LIGHT_GREY);
+    }
+
+    #[test]
+    fn the_slice_hud_shows_ammo_key_deaths_and_tick() {
+        let mut world = fizz_ep2::level::world();
+        let mut frame = Frame::new();
+        render_slice(&world, &mut frame);
+        let expect = |text: &str, x: i32, colour: u8, frame: &Frame| {
+            let mut e = Frame::new();
+            e.draw_text(x, 1, text, colour);
+            for y in 0..8usize {
+                for px in 0..WIDTH {
+                    if e.pixels()[(y + 1) * WIDTH + px] == colour {
+                        assert_eq!(frame.pixels()[(y + 1) * WIDTH + px], colour, "{text}");
+                    }
+                }
+            }
+        };
+        expect("AMMO 5", 4, WHITE, &frame);
+        expect("KEY -", 76, LIGHT_GREY, &frame);
+        expect("DEATHS 0", 148, WHITE, &frame);
+        expect("TICK 0", 244, LIGHT_GREY, &frame);
+        world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
+        render_slice(&world, &mut frame);
+        expect("KEY RED", 76, LIGHT_RED, &frame);
+        // Below the strip the picture is the shared one.
+        let mut bare = Frame::new();
+        fizz_slice_view::draw_slice(bare.pixels_mut(), WIDTH, HEIGHT, &world, 0);
+        let below = SLICE_HUD_H as usize * WIDTH..;
+        assert_eq!(frame.pixels()[below.clone()], bare.pixels()[below]);
+    }
+
+    #[test]
+    fn the_slice_banner_appears_at_the_exit() {
+        let mut world = fizz_ep2::level::world();
+        let mut frame = Frame::new();
+        render_slice(&world, &mut frame);
+        let before = frame.pixels().to_vec();
+        world.flags.set(fizz_ep2::WorldFlags::EXIT_REACHED);
+        render_slice(&world, &mut frame);
+        assert_ne!(before, frame.pixels());
+        assert!(frame.pixels().contains(&YELLOW));
     }
 
     #[test]
