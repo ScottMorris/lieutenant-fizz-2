@@ -52,6 +52,21 @@ Where floating point is allowed follows from that model:
 
 Fixed-point rules remain the alternative if a later episode drops continuous physics. The 486DX has an on-chip FPU. A 486SX would need software floating point and is out of scope. Measure before changing the model: Fizz 1's `m5/bench` and its 486 cycle estimator are the reference tools, and DOSBox at fixed cycles hides x87 cost.
 
+## Assets and packs
+
+The executable holds code and small constant tables. Sprites, tile sets, backdrops, levels and music live in cooked packs: files that the cooker writes and each platform loads. This is the plan for Milestone 2; no pack exists yet.
+
+- **In the executable:** the palette, trigonometry tables and dither patterns. They are small, they need no parsing and a table in read-only data costs nothing at start-up.
+- **In packs:** everything authored. Pixel data is an opaque byte array to the compiler, so embedding it gives the optimiser nothing to specialise on.
+- **Memory:** the DOS stub loads the whole executable image at start-up, so embedded art stays resident for the whole run. A pack loads for the level in play and is freed afterwards, which matters on a 486 with 4 to 8 MB.
+- **Iteration:** a change to art or a level is a re-cook of one file, with no Rust rebuild or relink.
+- **One layout, two platforms:** the Web build fetches the same pack layout (cached by the browser, or bundled by Tauri) and does not carry the assets inside the WASM module. A pack is cooked per target, so the DOS and Web packs differ in content but not in structure.
+- **Pack format:** a header with a format version, the build version and a checksum, then an offset table, then data in the layout the loader uses as read. DOS reads a pack with one file read into memory and parses nothing. Pack names follow the 8.3 rule, for example `FIZZ.DAT` and one pack per world. The executable refuses a pack whose build version differs from its own.
+- **Costs:** file-reading code in the DOS runtime (DOS function calls it already wraps), an error path for a missing or mismatched pack, and slower loads from a real floppy, so a level's pack loads when the level starts and not all packs at once.
+- **Saves and configuration** stay in separate files, as in Fizz 1.
+
+Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `titles.bin` (54,488 bytes) in its DOS executable. That is about 436 KB of its 862 KB stripped executable, and sound is the largest part. The size budget in [`PLATFORM.md`](PLATFORM.md#size-budget) counts the executable and the packs together.
+
 ## Crate plan
 
 Crates arrive with their first consumer and test. Milestone 0 built the platform skeleton, a marker moved by input and hashed on every platform, so the crates below marked Exists are real but carry only that much behaviour. [`PLATFORM.md`](PLATFORM.md) describes how they fit together.
@@ -65,7 +80,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
-| `fizz-cook` | Cooking | Host tool: scripts to level data, art and music to per-target assets | Planned |
+| `fizz-cook` | Cooking | Host tool: scripts to level data, art and music to per-target packs | Planned |
 
 `InputFrame` first appeared in this plan under `fizz-engine`. It now lives in `fizz-sim` next to `Tick`, because both presenters and the rules need it before any scene intent exists, and it has no dependency on scenes or events. `fizz-engine` keeps `Game` and the scene when they arrive.
 
@@ -88,3 +103,5 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - Which language does the cooker use? Rust is preferred so it shares types.
 - Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits?
+- What pack granularity and compression does Episode 2 use: one pack per world or per level, and whether packs are compressed, which trades load time against floppy space?
+- How are sprites laid out in a pack: bits per pixel, a mask or a transparent colour, and whether a sprite is stored as runs?
