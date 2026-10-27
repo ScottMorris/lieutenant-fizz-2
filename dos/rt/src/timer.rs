@@ -91,6 +91,28 @@ pub fn ticks() -> u32 {
     TICKS.load(Ordering::Acquire)
 }
 
+/// Input clocks since `hook_60hz`, at 1,193,182 Hz (0.838 microseconds each): the interrupt count times the divisor, plus how far
+/// channel 0 has counted down in the current period. This is the 486's stopwatch, which has no `rdtsc`.
+///
+/// The count is read with the latch command (a write of 0 to port 0x43 freezes channel 0's counter for two byte reads at 0x40).
+/// An interrupt can land between the reads and the interrupt count; the count is then read again, so the pair always belongs
+/// to one period. One more case remains: the counter has reloaded but IRQ 0 has not yet run, so `ticks` is a period behind.
+/// That window is a few microseconds and rare, and the value then reads one period (16,667 us) too low, so a caller that
+/// subtracts two readings must treat a result that goes backwards as that case and add `PIT_DIVISOR_60HZ`. A reading costs
+/// two port reads and a port write, about 3 to 5 us on a 486.
+pub fn clocks() -> u64 {
+    loop {
+        let before = ticks();
+        port::outb(PIT_COMMAND, 0x00);
+        let lo = port::inb(PIT_CHANNEL0);
+        let hi = port::inb(PIT_CHANNEL0);
+        if before == ticks() {
+            let remaining = (u32::from(hi) << 8 | u32::from(lo)).min(u32::from(PIT_DIVISOR_60HZ));
+            return u64::from(before) * u64::from(PIT_DIVISOR_60HZ) + u64::from(PIT_DIVISOR_60HZ) - u64::from(remaining);
+        }
+    }
+}
+
 /// The BIOS tick counter at 0040:006C, 18.2065 Hz.
 pub fn bios_ticks() -> u32 {
     // SAFETY: conventional memory is mapped at linear 0 and the counter is dword-aligned; the BIOS updates it behind our back.
