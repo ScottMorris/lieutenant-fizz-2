@@ -185,7 +185,7 @@ impl App {
     /// Queues the cluck variants the step that just ran emitted.
     fn collect_events(&mut self) {
         for event in self.world.events() {
-            let fizz_ep2::Event::Cluck { variant } = *event;
+            let fizz_ep2::Event::Cluck { variant, .. } = *event;
             queue_cluck(&mut self.clucks, variant);
         }
     }
@@ -499,7 +499,7 @@ mod tests {
                 InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
             );
             for e in w.events() {
-                let fizz_ep2::Event::Cluck { variant } = *e;
+                let fizz_ep2::Event::Cluck { variant, .. } = *e;
                 out.push((w.tick.0, variant));
             }
         }
