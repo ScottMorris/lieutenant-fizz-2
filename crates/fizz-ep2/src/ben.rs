@@ -4,10 +4,13 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: `Player::level`,
-// `tick_ben` (the alive and dead branches), `tick_ben_move`, `tick_head_bump` and the fall check of `tick_ben_contacts`.
-// Left out on purpose: mantle (automatic and in progress), ladders and vines, wall kicks, moving platforms under Ben,
-// jokes and counters, captions and sound, and the camera. Departure: velocities below 2^-1000 snap to zero.
+// `tick_ben` (the alive and dead branches), `tick_ben_move`, `tick_head_bump` and `fire`.
+// `fire`. Left out on purpose: mantle (automatic and in progress), ladders and vines, wall kicks, moving platforms under
+// Ben, jokes and counters, captions and sound, and the camera. What Fizz 1's `tick_ben_contacts` does with tiles, items
+// and enemies lives in `world.rs`. Departure: velocities below 2^-1000 snap to zero.
 
+use crate::shot::Shot;
+use alloc::vec::Vec;
 use fizz_phys::{Body, GRAVITY, Platform, STEP, TileMap};
 use fizz_sim::{Buttons, InputFrame};
 
@@ -19,8 +22,14 @@ pub const POGO_DRAWN_HEIGHT: f64 = 2.0;
 pub const HEAD_BUMP_MIN_SPEED: f64 = 1.0;
 /// How far Ben must have risen above his last footing for a bump to count.
 pub const HEAD_BUMP_MIN_RISE: f64 = 0.05;
-/// Ben dies when his body's bottom is below this height: he has fallen out of the map.
+/// Ben dies when his body's bottom is below this height: he has fallen out of the map. The world applies it.
 pub const FALL_DEATH_Y: f64 = -1.5;
+/// The speed of a Fizz Blaster shot in tiles per second.
+pub const SHOT_SPEED: f64 = 16.0;
+/// Seconds a shot flies before it fizzles.
+pub const SHOT_LIFE: f64 = 1.1;
+/// Seconds of the shooting pose after a shot.
+pub const SHOOT_POSE: f64 = 0.25;
 /// Below this magnitude a velocity snaps to zero, so an idle pogo's drag never reaches the subnormal range, where x87 at
 /// 53 bits and SSE2 round differently. This is a departure from Fizz 1, which lets the value decay. It is 2^-1000.
 const SNAP: f64 = f64::from_bits((1023 - 1000) << 52);
@@ -87,8 +96,16 @@ impl Ben {
         }
     }
 
-    /// Advances Ben by one tick (Fizz 1's `tick_ben`, alive and dead branches).
-    pub fn tick(&mut self, map: &TileMap, plats: &[Platform], input: InputFrame) {
+    /// Advances Ben by one tick (Fizz 1's `tick_ben`, alive and dead branches). A shot Ben fires is pushed onto `shots`
+    /// and costs one of `ammo`.
+    pub fn tick(
+        &mut self,
+        map: &TileMap,
+        plats: &[Platform],
+        input: InputFrame,
+        ammo: &mut u32,
+        shots: &mut Vec<Shot>,
+    ) {
         let dt = STEP;
         self.b.px = self.b.x;
         self.b.py = self.b.y;
@@ -108,8 +125,7 @@ impl Ben {
         if self.wall_t > 0.0 {
             self.wall_t -= dt;
         }
-        self.tick_move(map, plats, input, dt);
-        self.tick_contacts();
+        self.tick_move(map, plats, input, ammo, shots, dt);
     }
 
     /// Kills Ben as Fizz 1's `kill_by` does, minus the shake and the sound.
@@ -124,7 +140,15 @@ impl Ben {
     }
 
     /// Ben's own movement for one tick: input, jumps, pogo and physics (Fizz 1's `tick_ben_move`).
-    fn tick_move(&mut self, map: &TileMap, plats: &[Platform], input: InputFrame, dt: f64) {
+    fn tick_move(
+        &mut self,
+        map: &TileMap,
+        plats: &[Platform],
+        input: InputFrame,
+        ammo: &mut u32,
+        shots: &mut Vec<Shot>,
+        dt: f64,
+    ) {
         let (h, e) = (input.held, input.pressed);
         if e.contains(Buttons::POGO) {
             self.pogo = !self.pogo;
@@ -185,7 +209,9 @@ impl Ben {
             }
             self.b.vy = (self.b.vy - GRAVITY * dt).max(-22.0);
         }
-        // Fizz 1 fires a shot here on the Fire edge; the shots arrive with the Fizz Blaster.
+        if e.contains(Buttons::FIRE) {
+            self.fire(h, ammo, shots);
+        }
         let rising = self.b.vy;
         // Only a rising pogo has the taller head: walking, falling and standing use the body alone.
         self.b.head = if self.pogo && rising > 0.0 {
@@ -222,12 +248,29 @@ impl Ben {
         self.bumped = true;
     }
 
-    /// The part of Fizz 1's `tick_ben_contacts` that involves only Ben: falling out of the map. Hazard tiles, doors,
-    /// items and enemies belong to the level and the entities.
-    fn tick_contacts(&mut self) {
-        if self.b.y < FALL_DEATH_Y {
-            self.kill();
+    /// Fires the Fizz Blaster (Fizz 1's `fire`). With no ammo nothing happens. Up fires straight up; Down fires straight
+    /// down while Ben is in the air; otherwise the shot leaves from the front of his body, level.
+    fn fire(&mut self, h: Buttons, ammo: &mut u32, shots: &mut Vec<Shot>) {
+        if *ammo == 0 {
+            return;
         }
+        *ammo -= 1;
+        let b = &self.b;
+        let (mut vx, mut vy) = (self.face * SHOT_SPEED, 0.0);
+        let (mut sx, mut sy) = (b.x + b.w / 2.0 + self.face * 0.6, b.y + 0.85);
+        if h.contains(Buttons::UP) {
+            (vx, vy, sx, sy) = (0.0, SHOT_SPEED, b.x + b.w / 2.0, b.y + 1.5);
+        } else if h.contains(Buttons::DOWN) && !b.on_ground {
+            (vx, vy, sx, sy) = (0.0, -SHOT_SPEED, b.x + b.w / 2.0, b.y);
+        }
+        shots.push(Shot {
+            x: sx,
+            y: sy,
+            vx,
+            vy,
+            life: SHOT_LIFE,
+        });
+        self.shoot_t = SHOOT_POSE;
     }
 }
 
@@ -259,7 +302,13 @@ mod tests {
             } else {
                 Buttons::NONE
             };
-            ben.tick(&map, &[], InputFrame::from_transition(prev, held));
+            ben.tick(
+                &map,
+                &[],
+                InputFrame::from_transition(prev, held),
+                &mut 0,
+                &mut Vec::new(),
+            );
             prev = held;
             for v in [ben.b.vx, ben.b.vy] {
                 assert!(v == 0.0 || v.abs() >= SNAP, "tick {tick}: {v:e}");
