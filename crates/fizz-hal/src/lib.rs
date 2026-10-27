@@ -16,6 +16,8 @@ extern crate alloc;
 extern crate std;
 
 pub mod input;
+#[cfg(feature = "mock")]
+pub mod mock;
 pub mod ring;
 pub mod scancode;
 pub mod time;
