@@ -1,0 +1,21 @@
+# The DOS workspace: a custom 32-bit target built with -Zbuild-std, kept apart from the root workspace so the host checks never
+# need rust-src or the nightly-only flags. Run cargo from this directory (see .cargo/config.toml).
+[workspace]
+members = ["rt", "rtsmoke"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+version = "0.1.0"
+authors = ["Liminal HQ, Scott Morris"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 0
+
+[profile.dev]
+panic = "abort"
