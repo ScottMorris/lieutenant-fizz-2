@@ -214,8 +214,12 @@ class RoadmapTests(unittest.TestCase):
             self.assertIn(n["milestone"], ms, n["id"])
             self.assertIn(n["state"], dr.STATE_LABEL, n["id"])
             self.assertTrue(n["what"] and n["evidence"], n["id"])
-            if n["milestone"] != "m0":
-                self.assertNotIn(n["state"], ("done", "done-emu"), "%s: a later milestone cannot be catalogued yet" % n["id"])
+            if n["state"] in ("done", "done-emu"):
+                self.assertTrue(n.get("prs"), "%s: a catalogued step names the pull requests that back it" % n["id"])
+
+    def test_milestones_are_listed_in_plan_order(self):
+        road = gather.read_json(os.path.join(TOOL, "roadmap.json"))
+        self.assertEqual([m["id"] for m in road["milestones"]], ["m0", "m1", "m1_5", "m2", "m3", "m4", "m5"])
 
 
 def fixture_data():
@@ -357,6 +361,14 @@ class DrawingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.D = gather.gather(gather.ROOT, "HEAD", offline=True, dry_run=True)
+
+    def test_milestone_chart_and_table_put_m1_5_between_m1_and_m2(self):
+        html = dr.milestone_progress(self.D)
+        at = [html.index(label) for label in ("M1 · The first playable slice", "M1.5 · Machine, settings and DOS audio", "M2 · Content pipeline")]
+        self.assertEqual(at, sorted(at))
+        table = dr.roadmap_table(self.D, mdlite.Ctx())
+        rows = [table.index(">%s<" % m) for m in ("M1", "M1.5", "M2")]
+        self.assertEqual(rows, sorted(rows))
 
     def test_every_drawing_renders_with_a_title(self):
         D, ctx = self.D, mdlite.Ctx()

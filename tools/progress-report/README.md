@@ -41,7 +41,7 @@ The site is living: after new pull requests merge, rebuilding refreshes the coun
 | `capture.py`, `capture-dos.sh`, `capture-web.py` | The tools that make `media/` |
 | `chapters/NN-id.md` | One chapter per stretch of the work, in reading order; reference pages at the end |
 | `pages/front.md`, `pages/coming.json` | The front page's text, and the chapters not yet written |
-| `roadmap.json` | The steps of Milestones 0 to 5 with state and evidence |
+| `roadmap.json` | The steps of Milestones 0 to 5 (including 1.5, id `m1_5`) with state and evidence |
 | `anatomy-dos.json` | The boxes, arrows, statuses and evidence of the FIZZ2.EXE anatomy |
 | `not-verified.json` | The "Not verified" panel |
 | `snapshots/gh.json`, `snapshots/measured.json` | `gh` data for offline builds, and numbers that need a build to measure, with the commands |
