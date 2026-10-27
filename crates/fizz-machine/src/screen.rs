@@ -8,7 +8,7 @@
 // the same positions. What changed: the cell buffer is a fixed `[u16; 2000]` and an attribute is written whole instead of as
 // separate colours; the title is `LIEUTENANT FIZZ 2 - SYSTEM CHECK`; the speed test and the "14 lighting shades" row are gone;
 // the input is a `Probe` and a `Resolved` instead of a list of integers; the Sound panel shows three states (missing, available,
-// in use) from the probe and the resolved plan, with the Sound Blaster's DSP version and base on its row; the memory floor is
+// in use) from the probe and the resolved plan, with the Sound Blaster's device and chip on its row (the DSP version and base text is kept behind `SHOW_SB_DETAIL`); the memory floor is
 // `MEMORY_FLOOR_KB` and a low value warns without blocking; and a monochrome adapter gets its own attribute set.
 //
 // A cell is the character (code page 437) in the low byte and the attribute in the high byte: foreground in bits 0-3,
@@ -156,8 +156,34 @@ pub fn ready(probe: &Probe) -> bool {
     probe.video.has_vga() && probe.x87
 }
 
-/// The Sound Blaster row's words: the DSP version and base as plain text, and what the FM chip is.
-fn sb_label(probe: &Probe, line: &mut Line) {
+/// Whether the Sound Blaster row carries the detailed text from `sound_blaster_detail` (DSP version, base and FM words). It is off
+/// because the check screen shows only the device and its chip; a later detailed or verbose view can turn it on.
+pub const SHOW_SB_DETAIL: bool = false;
+
+/// The Sound Blaster row's short words: the device and its FM chip, such as `Sound Blaster (OPL3)`, `Sound Blaster (OPL2)` or
+/// `Sound Blaster (2 x OPL2)` for a Pro 1. No DSP version and no base. Without a Sound Blaster (or an OPL3 chip standing for
+/// one) the row is just `Sound Blaster`, and a card with no FM chip also shows no brackets.
+fn sound_blaster_short(probe: &Probe, line: &mut Line) {
+    let chip = match probe.fm {
+        FmKind::None => None,
+        FmKind::Opl2 => Some("OPL2"),
+        FmKind::DualOpl2 => Some("2 x OPL2"),
+        FmKind::Opl3 => Some("OPL3"),
+    };
+    let present = probe.sb.is_some() || probe.fm == FmKind::Opl3;
+    match chip {
+        Some(chip) if present => {
+            let _ = write!(line, "Sound Blaster ({chip})");
+        }
+        _ => {
+            let _ = write!(line, "Sound Blaster");
+        }
+    }
+}
+
+/// The Sound Blaster row's detailed words: the DSP version and base as plain text, and what the FM chip is. Used by the row only
+/// while `SHOW_SB_DETAIL` is true.
+fn sound_blaster_detail(probe: &Probe, line: &mut Line) {
     let fm = match probe.fm {
         FmKind::None => "no FM",
         FmKind::Opl2 => "OPL2",
@@ -214,7 +240,11 @@ fn rows(probe: &Probe, resolved: &Resolved, mut f: impl FnMut(usize, usize, &[u8
     f(2, 0, b"PC speaker", states.speaker.into());
     f(2, 1, b"AdLib (OPL2)", states.adlib.into());
     let mut line = Line::new();
-    sb_label(probe, &mut line);
+    if SHOW_SB_DETAIL {
+        sound_blaster_detail(probe, &mut line);
+    } else {
+        sound_blaster_short(probe, &mut line);
+    }
     f(2, 2, line.as_bytes(), states.sb.into());
 
     let cpu = match probe.cpu {
@@ -510,24 +540,52 @@ mod tests {
         }
     }
 
-    #[test]
-    fn dsp_version_and_base_are_plain_text() {
-        let out = screen(&sb16());
-        let sound = row_text(&out, 12 + 3);
-        assert!(sound.contains("Sound Blaster 4.05 at 220, OPL3"), "{sound}");
-        let pro1 = Probe {
-            fm: FmKind::DualOpl2,
+    fn short(probe: &Probe) -> String {
+        let mut line = Line::new();
+        sound_blaster_short(probe, &mut line);
+        core::str::from_utf8(line.as_bytes()).unwrap().into()
+    }
+
+    fn detail(probe: &Probe) -> String {
+        let mut line = Line::new();
+        sound_blaster_detail(probe, &mut line);
+        core::str::from_utf8(line.as_bytes()).unwrap().into()
+    }
+
+    fn sb_with(fm: FmKind, major: u8, minor: u8) -> Probe {
+        Probe {
+            fm,
             sb: Some(SoundBlaster {
-                dsp_major: 3,
-                dsp_minor: 0,
+                dsp_major: major,
+                dsp_minor: minor,
                 base: 0x220,
             }),
             ..Probe::BARE
-        };
-        let sound = row_text(&screen(&pro1), 15);
-        assert!(
-            sound.contains("2 x OPL2 (mono)") && sound.contains("3.00 at 220"),
-            "{sound}"
+        }
+    }
+
+    #[test]
+    fn sound_blaster_row_shows_only_device_and_chip() {
+        let out = screen(&sb16());
+        assert!(row_text(&out, 12 + 3).contains("Sound Blaster (OPL3)"));
+        assert_eq!(short(&sb16()), "Sound Blaster (OPL3)");
+        assert_eq!(short(&sb_with(FmKind::Opl2, 2, 1)), "Sound Blaster (OPL2)");
+        assert_eq!(
+            short(&sb_with(FmKind::DualOpl2, 3, 0)),
+            "Sound Blaster (2 x OPL2)"
+        );
+        assert_eq!(short(&Probe::BARE), "Sound Blaster");
+        let pro1 = row_text(&screen(&sb_with(FmKind::DualOpl2, 3, 0)), 15);
+        assert!(pro1.contains("Sound Blaster (2 x OPL2)"), "{pro1}");
+        assert!(!pro1.contains("3.00") && !pro1.contains("at 220"), "{pro1}");
+    }
+
+    #[test]
+    fn detail_text_keeps_dsp_version_and_base() {
+        assert_eq!(detail(&sb16()), "Sound Blaster 4.05 at 220, OPL3");
+        assert_eq!(
+            detail(&sb_with(FmKind::DualOpl2, 3, 0)),
+            "SB 3.00 at 220, 2 x OPL2 (mono)"
         );
     }
 

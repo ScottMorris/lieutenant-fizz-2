@@ -27,7 +27,7 @@ The check is an 80 by 25 text screen (code page 437 cells at `0xB8000`, or `0xB0
 - **Title:** `LIEUTENANT FIZZ 2 - SYSTEM CHECK`, centred in the top box.
 - **Video:** the adapter and its best mode. A game needs a VGA, so any other adapter marks the mode row as needed.
 - **Input:** keyboard, mouse and joystick.
-- **Sound:** the PC speaker, `AdLib (OPL2)` and the Sound Blaster, each in one of three states. The Sound Blaster row carries its DSP version and base as plain text, such as `Sound Blaster 4.05 at 220, OPL3`, and a Pro 1 reads `SB 3.00 at 220, 2 x OPL2 (mono)`.
+- **Sound:** the PC speaker, `AdLib (OPL2)` and the Sound Blaster, each in one of three states. The Sound Blaster row shows only the device and its chip: `Sound Blaster (OPL3)`, `Sound Blaster (OPL2)` for an SB 1.x or 2.0, and `Sound Blaster (2 x OPL2)` for a Pro 1; with no Sound Blaster it reads `Sound Blaster`. The detailed text (DSP version, base and `mono` wording, such as `Sound Blaster 4.05 at 220, OPL3`) is still built by `sound_blaster_detail` and is switched on by `SHOW_SB_DETAIL` in `screen.rs`, which is `false`, for a later detailed view.
 - **Machine:** the processor class, the x87 (needed) and the free memory.
 - **Footer:** the resolved plan as a read-only phrase (`Music: Sound Blaster (OPL3)   Effects: PC speaker`), then `Press Enter to play, Esc to quit`, or, if a VGA or an x87 is missing, `! Needs VGA and x87: Esc to quit`.
 
