@@ -8,7 +8,7 @@
 # The dialect is small and follows the repository's markdown rules (one line per paragraph). Inline: **bold**, *em*, ![alt](src),
 # `code`, [text](url) and {{m.key}} placeholders. Links may use the schemes chapter:ID, pr:N, commit:HASH and repo:PATH, which the
 # builder resolves. Block directives are HTML comments on their own line: <!-- explainer ID -->, <!-- figure ID -->,
-# <!-- facts KEY ... -->. A block quote that starts with **From the stacks** is a sidebar; `### Catalogued`, `### Uncatalogued` and
+# <!-- facts KEY ... -->. A block quote that starts with **From the workbench** is a sidebar; `### Catalogued`, `### Uncatalogued` and
 # `### Wish list` followed by a list are the three shelves.
 import html
 import re
@@ -226,14 +226,14 @@ def render(blocks, ctx, directive):
             out.append('<div class="tbl"><table><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>' % (head, rows))
         elif t == "quote":
             first = b["lines"][0] if b["lines"] else ""
-            if first.startswith("**From the stacks"):
-                m = re.match(r"^\*\*From the stacks(?:\s*[:—.-]\s*)?(.*?)\*\*\s*(.*)$", first)
+            if first.startswith("**From the workbench"):
+                m = re.match(r"^\*\*From the workbench(?:\s*[:—.-]\s*)?(.*?)\*\*\s*(.*)$", first)
                 title = (m.group(1) if m else "").strip(" .:—")
                 text = m.group(2) if m else first
                 paras = ["<p>%s</p>" % inline(text, ctx)] + ["<p>%s</p>" % inline(x, ctx) for x in b["lines"][1:] if not x.startswith("Source")]
                 srcs = [x for x in b["lines"][1:] if x.startswith("Source")]
                 src_html = "".join('<p class="src">%s</p>' % inline(x, ctx) for x in srcs)
-                out.append('<aside class="stacks" aria-label="From the stacks: background history, not evidence"><div class="stacks-tag">From the stacks%s</div>%s%s<p class="stacks-note">Background history. It is not evidence about Fizz 2.</p></aside>' % (
+                out.append('<aside class="workbench" aria-label="From the workbench: background history, not evidence"><div class="workbench-tag">From the workbench%s</div>%s%s<p class="workbench-note">Background history. It is not evidence about Fizz 2.</p></aside>' % (
                     (" · " + esc(title)) if title else "", "".join(paras), src_html))
             else:
                 out.append("<blockquote>%s</blockquote>" % "".join("<p>%s</p>" % inline(x, ctx) for x in b["lines"]))

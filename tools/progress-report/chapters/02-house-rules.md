@@ -47,5 +47,5 @@ And the rules that shape the prose and history: Canadian English, markdown with 
 ### Wish list
 - Release notes grouped by label, configured in `.github/release.yml` and unused until the first release.
 
-> **From the stacks — Merge commits.** Git's `--first-parent` option follows only the first parent of each merge commit, which turns a history of merged branches into one line per merge. With merge commits only, that line holds one commit per landed branch and the branches keep their own commits.
+> **From the workbench — Merge commits.** Git's `--first-parent` option follows only the first parent of each merge commit, which turns a history of merged branches into one line per merge. With merge commits only, that line holds one commit per landed branch and the branches keep their own commits.
 > Source: [git-log documentation](https://git-scm.com/docs/git-log)

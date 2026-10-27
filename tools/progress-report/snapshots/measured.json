@@ -1,8 +1,8 @@
 {
  "note": "Numbers that need a build or an emulator run, which the generator cannot repeat from the tree. Update by hand when the build changes, with the commands and the commit.",
- "commit": "3d5a2d2",
- "parityWhen": "27 October 2026, on the tree of main at 3d5a2d2",
- "how": "On the tree of main at 3d5a2d2, with vendor/ linked to a local copy of the ci-dos toolchain layout (DJGPP, DOSBox Staging 0.83.0, CWSDPMI): `DOS_TOOLCHAIN=... tools/setup-dos.sh`, then `tools/check-dos.sh` (which printed the replay, the platform lines, MOVED yes, PANIC exit 3, SIZE 32768, BUDGET 1100000 and DOS CHECK ok), `tools/build-web.sh`, and `tools/check-parity.sh` (which printed native, web and dos matches and PARITY ok efc699079baa6a88). Rust 1.98.0, wasm-bindgen 0.2.125, Node 22.21.1. The lines below are copied from that output unedited, carriage returns removed. The next commit on main, efd5f68 (#10), changed only assets/hero.svg.",
+ "commit": "e657aa2",
+ "parityWhen": "27 October 2026, on the tree of main at e657aa2",
+ "how": "On the tree of main at e657aa2, with vendor/ linked to a local copy of the ci-dos toolchain layout (DJGPP, DOSBox Staging 0.83.0, CWSDPMI): `DOS_TOOLCHAIN=... tools/setup-dos.sh`, then `tools/check-dos.sh` (which printed the replay, the platform lines, MOVED yes, PANIC exit 3, SIZE 32768, BUDGET 1100000 and DOS CHECK ok), `tools/build-web.sh`, and `tools/check-parity.sh` (which printed native, web and dos matches and PARITY ok efc699079baa6a88). Rust 1.98.0, wasm-bindgen 0.2.125, Node 22.21.1. The lines below are copied from that output unedited, carriage returns removed.  Every figure was unchanged from the run at 3d5a2d2.",
  "commands": ["tools/check-dos.sh", "tools/build-web.sh", "tools/check-parity.sh"],
  "dosReplay": [
   "M0 REPLAY 1",

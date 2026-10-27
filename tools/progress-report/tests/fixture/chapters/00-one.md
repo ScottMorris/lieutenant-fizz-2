@@ -19,5 +19,5 @@ A paragraph with `code`, **bold**, a link to [the next chapter](chapter:two#seco
 ### Wish list
 - One wish.
 
-> **From the stacks — A fixture.** A sidebar of two sentences. It is only here to be rendered.
+> **From the workbench — A fixture.** A sidebar of two sentences. It is only here to be rendered.
 > Source: [example](https://example.com)

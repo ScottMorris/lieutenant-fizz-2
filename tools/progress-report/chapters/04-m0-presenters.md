@@ -57,7 +57,7 @@ These are headless Chromium screenshots of the page, with real key events sent t
 - A FreeDOS-bootable floppy image built in CI, with its free space as a tracked number.
 - A launcher that bundles `dist/web` under its own path.
 
-> **From the stacks — DPMI.** The DOS Protected Mode Interface, published in 1990, lets a DOS program run in 32-bit protected mode and still call DOS and the BIOS through the host. CWSDPMI is a free DPMI host written for DJGPP, and `FIZZ2.EXE` loads under it with DJGPP's stub and no DJGPP library.
+> **From the workbench — DPMI.** The DOS Protected Mode Interface, published in 1990, lets a DOS program run in 32-bit protected mode and still call DOS and the BIOS through the host. CWSDPMI is a free DPMI host written for DJGPP, and `FIZZ2.EXE` loads under it with DJGPP's stub and no DJGPP library.
 > Source: [DOS Protected Mode Interface, Wikipedia](https://en.wikipedia.org/wiki/DOS_Protected_Mode_Interface)
 
 ```figures
@@ -92,7 +92,7 @@ id: web-shots
 kind: screenshot
 track: web
 title: The Web page in headless Chromium
-alt: Screenshots of the Web page: a dark canvas with a yellow marker and a HUD with the tick, the hash and the dash count below it, before and after key presses.
+alt: Screenshots of the Web page: an EGA blue field with a light-grey border, a yellow marker and a HUD with the tick, the hash and the dash count below it, before and after key presses.
 caption: The page at start, after Right and Down, and after a dash.
 at: figure shots web-start.png web-moved.png web-dash.png
 thumb: img:media/web-moved.png

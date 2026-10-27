@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T12:14:36-04:00",
+ "capturedAt": "2026-10-27T12:29:35-04:00",
  "data": {
   "prs": [
    {
@@ -481,7 +481,7 @@
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/11"
    },
    {
-    "additions": 5944,
+    "additions": 6220,
     "baseRefName": "main",
     "changedFiles": 57,
     "checks": [
@@ -501,7 +501,7 @@
     "createdAt": "2026-10-27T15:42:34Z",
     "deletions": 0,
     "headRefName": "docs/progress-report",
-    "headRefOid": "b361f2cc5a55dca4ed82b5e90a6d7b5dc8e0db4b",
+    "headRefOid": "35dc495f36e66c3256a6d43135511121f646c67b",
     "isDraft": false,
     "labels": [
      {
@@ -517,10 +517,12 @@
       "name": "design-docs"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "e657aa2ae263c1e9d9a522ff2a2622a498a43cdc"
+    },
+    "mergedAt": "2026-10-27T16:17:35Z",
     "number": 12,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Add the Fizz 2 progress archive and its generator",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/12"
    },
@@ -713,16 +715,82 @@
     "state": "MERGED",
     "title": "Show the banner's pogo squash after each bounce, as Fizz 1 does",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/17"
+   },
+   {
+    "additions": 5,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T16:26:12Z",
+    "deletions": 4,
+    "headRefName": "fix/hal-clippy-comment",
+    "headRefOid": "aa5504e5827c8129eca28d351471415c47b09d96",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "ededed",
+      "description": "Maintenance and housekeeping",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXskg",
+      "name": "chore"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "bf7afc1a6ab72eefa996bc9cac5cfeb57686f27f"
+    },
+    "mergedAt": "2026-10-27T16:29:33Z",
+    "number": 18,
+    "state": "MERGED",
+    "title": "Point the HAL clippy comment at this repository's docs",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/18"
    }
   ],
   "runs": [
    {
     "conclusion": "",
+    "createdAt": "2026-10-27T16:29:36Z",
+    "displayTitle": "Point the HAL clippy comment at this repository's docs (#18)",
+    "event": "push",
+    "headSha": "bf7afc1a6ab72eefa996bc9cac5cfeb57686f27f",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40541439753",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T16:17:38Z",
+    "displayTitle": "Add the Fizz 2 progress archive and its generator (#12)",
+    "event": "push",
+    "headSha": "e657aa2ae263c1e9d9a522ff2a2622a498a43cdc",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40539475738",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
     "createdAt": "2026-10-27T16:14:22Z",
     "displayTitle": "Match the Web screen to the DOS colours (#15)",
     "event": "push",
     "headSha": "47fb25e7f201c4c33525f743d7802833ccfa6896",
-    "status": "pending",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538934591",
     "workflowName": "CI"
    },
@@ -747,12 +815,12 @@
     "workflowName": "CI"
    },
    {
-    "conclusion": "",
+    "conclusion": "cancelled",
     "createdAt": "2026-10-27T16:13:36Z",
     "displayTitle": "Show the banner's pogo squash after each bounce, as Fizz 1 does (#17)",
     "event": "push",
     "headSha": "cad3018a98ad536dab8c8d28c483174d87352e11",
-    "status": "in_progress",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538808503",
     "workflowName": "CI"
    },

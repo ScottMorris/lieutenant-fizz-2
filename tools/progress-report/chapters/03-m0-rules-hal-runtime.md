@@ -53,7 +53,7 @@ Under CWSDPMI `hlt` is privileged, so the game loop paces itself with a volatile
 - The real Desk crates in place of `fizz-hal` and `fizz-dos-rt` (`docs/ARCHITECTURE.md`, What is mirrored from where).
 - Storage and audio traits, which join the HAL with their first consumers.
 
-> **From the stacks — 18.2 Hz.** The PC's programmable interval timer runs from a 1,193,182 Hz clock, and the BIOS programs channel 0 with the largest divisor, 65,536, which gives about 18.2 interrupts a second. DOS's time of day counts those ticks at 0040:006C.
+> **From the workbench — 18.2 Hz.** The PC's programmable interval timer runs from a 1,193,182 Hz clock, and the BIOS programs channel 0 with the largest divisor, 65,536, which gives about 18.2 interrupts a second. DOS's time of day counts those ticks at 0040:006C.
 > Source: [Intel 8253, Wikipedia](https://en.wikipedia.org/wiki/Intel_8253)
 
 ```figures

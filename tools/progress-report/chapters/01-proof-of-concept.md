@@ -40,5 +40,5 @@ The seven principles of `docs/POC-1-FINDINGS.md` became the house rules of the n
 - The scene contract's vertical slice: one lighthouse beam drawn as a `Cone` on Web and rasterised with dither on DOS (`docs/SCENE-CONTRACT.md`, Vertical slice).
 - A composition source for music that is not limited by AdLib, lowered to IMF or OPL2 by a build step (Milestone 4).
 
-> **From the stacks — Mode 13h.** IBM introduced the VGA in 1987 with its PS/2 computers, and BIOS mode 13h, 320 by 200 pixels in 256 colours with one byte per pixel at segment A000h, became the usual mode for DOS games. The proof of concept's scene was shaped by that mode; Fizz 2 keeps it in the DOS presenter only.
+> **From the workbench — Mode 13h.** IBM introduced the VGA in 1987 with its PS/2 computers, and BIOS mode 13h, 320 by 200 pixels in 256 colours with one byte per pixel at segment A000h, became the usual mode for DOS games. The proof of concept's scene was shaped by that mode; Fizz 2 keeps it in the DOS presenter only.
 > Source: [Mode 13h, Wikipedia](https://en.wikipedia.org/wiki/Mode_13h)
