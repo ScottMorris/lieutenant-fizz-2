@@ -1,0 +1,224 @@
+// Implements the throwaway Milestone 0 rules: a marker moved and dashed by input, with a state hash.
+//
+// (c) Copyright 2026 Liminal HQ, Scott Morris
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+#![no_std]
+#![forbid(unsafe_code)]
+
+use core::f64::consts::FRAC_1_SQRT_2;
+use fizz_sim::{Buttons, InputFrame, Tick};
+
+/// Everything the Milestone 0 rules remember between ticks.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct World {
+    pub tick: Tick,
+    pub x: f64,
+    pub y: f64,
+    pub vx: f64,
+    pub vy: f64,
+    pub heading: f64,
+    pub dashes: u32,
+}
+
+impl World {
+    pub const fn new() -> Self {
+        Self {
+            tick: Tick::ZERO,
+            x: 160.0,
+            y: 100.0,
+            vx: 0.0,
+            vy: 0.0,
+            heading: 0.0,
+            dashes: 0,
+        }
+    }
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+const MAX_X: f64 = 312.0;
+const MAX_Y: f64 = 192.0;
+const ACCEL: f64 = 0.25;
+const DRAG: f64 = 0.875;
+const DASH_SPEED: f64 = 3.0;
+/// Velocities smaller than this snap to zero, which keeps subnormals out of the simulation.
+/// Subnormals round differently on x87 (53-bit), SSE2 and WebAssembly.
+const SNAP: f64 = 1.0 / 1024.0;
+
+/// Advances the world by one tick. The order of operations is part of the determinism contract.
+pub fn step(w: &mut World, f: InputFrame) {
+    let b = f.held | f.pressed;
+    let dx = axis(b, Buttons::RIGHT, Buttons::LEFT);
+    let dy = axis(b, Buttons::DOWN, Buttons::UP);
+
+    if dx != 0.0 || dy != 0.0 {
+        w.heading = libm::atan2(dy, dx);
+    }
+
+    if f.pressed.contains(Buttons::ACTION) {
+        w.vx += DASH_SPEED * libm::cos(w.heading);
+        w.vy += DASH_SPEED * libm::sin(w.heading);
+        w.dashes += 1;
+    }
+
+    let diagonal = dx != 0.0 && dy != 0.0;
+    let mut ax = dx * ACCEL;
+    let mut ay = dy * ACCEL;
+    if diagonal {
+        ax *= FRAC_1_SQRT_2;
+        ay *= FRAC_1_SQRT_2;
+    }
+
+    w.vx = (w.vx + ax) * DRAG;
+    w.vy = (w.vy + ay) * DRAG;
+
+    if w.vx.abs() < SNAP {
+        w.vx = 0.0;
+    }
+    if w.vy.abs() < SNAP {
+        w.vy = 0.0;
+    }
+
+    w.x += w.vx;
+    w.y += w.vy;
+
+    if w.x < 0.0 {
+        w.x = 0.0;
+        w.vx = 0.0;
+    } else if w.x > MAX_X {
+        w.x = MAX_X;
+        w.vx = 0.0;
+    }
+    if w.y < 0.0 {
+        w.y = 0.0;
+        w.vy = 0.0;
+    } else if w.y > MAX_Y {
+        w.y = MAX_Y;
+        w.vy = 0.0;
+    }
+
+    w.tick = w.tick.next();
+}
+
+fn axis(b: Buttons, positive: Buttons, negative: Buttons) -> f64 {
+    let p = if b.contains(positive) { 1.0 } else { 0.0 };
+    let n = if b.contains(negative) { 1.0 } else { 0.0 };
+    p - n
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn held(b: Buttons) -> InputFrame {
+        InputFrame {
+            held: b,
+            pressed: Buttons::NONE,
+        }
+    }
+
+    #[test]
+    fn a_new_world_starts_at_rest_in_the_middle() {
+        let w = World::new();
+        assert_eq!(
+            (w.x, w.y, w.vx, w.vy, w.heading),
+            (160.0, 100.0, 0.0, 0.0, 0.0)
+        );
+        assert_eq!((w.tick, w.dashes), (Tick::ZERO, 0));
+    }
+
+    #[test]
+    fn the_first_three_ticks_moving_right_are_exact() {
+        let mut w = World::new();
+        step(&mut w, held(Buttons::RIGHT));
+        assert_eq!((w.vx, w.x, w.tick), (0.21875, 160.21875, Tick(1)));
+        step(&mut w, held(Buttons::RIGHT));
+        assert_eq!((w.vx, w.x), (0.41015625, 160.62890625));
+        step(&mut w, held(Buttons::RIGHT));
+        assert_eq!((w.vx, w.x), (0.57763671875, 161.20654296875));
+        assert_eq!((w.vy, w.y, w.heading), (0.0, 100.0, 0.0));
+    }
+
+    #[test]
+    fn a_dash_adds_a_burst_along_the_heading() {
+        let mut w = World::new();
+        let tap = InputFrame {
+            held: Buttons::RIGHT | Buttons::ACTION,
+            pressed: Buttons::ACTION,
+        };
+        step(&mut w, tap);
+        // (3.0 + 0.25) * 0.875
+        assert_eq!((w.vx, w.x, w.dashes), (2.84375, 162.84375, 1));
+    }
+
+    #[test]
+    fn a_dash_at_rest_uses_the_last_heading() {
+        let mut w = World::new();
+        w.heading = core::f64::consts::PI;
+        let tap = InputFrame {
+            held: Buttons::NONE,
+            pressed: Buttons::ACTION,
+        };
+        step(&mut w, tap);
+        assert!(w.vx < 0.0);
+        assert_eq!(w.dashes, 1);
+    }
+
+    #[test]
+    fn a_pressed_direction_counts_even_if_not_held() {
+        let mut w = World::new();
+        let f = InputFrame {
+            held: Buttons::NONE,
+            pressed: Buttons::DOWN,
+        };
+        step(&mut w, f);
+        assert!(w.vy > 0.0);
+    }
+
+    #[test]
+    fn diagonal_acceleration_is_scaled() {
+        let mut w = World::new();
+        step(&mut w, held(Buttons::RIGHT | Buttons::DOWN));
+        let expected = (0.25 * FRAC_1_SQRT_2) * 0.875;
+        assert_eq!(w.vx, expected);
+        assert_eq!(w.vy, expected);
+        assert_eq!(w.heading, libm::atan2(1.0, 1.0));
+    }
+
+    #[test]
+    fn clamping_zeroes_velocity_on_that_axis_only() {
+        let mut w = World::new();
+        w.x = 0.5;
+        w.vx = -3.0;
+        w.vy = 1.0;
+        step(&mut w, held(Buttons::LEFT));
+        assert_eq!((w.x, w.vx), (0.0, 0.0));
+        assert!(w.vy > 0.0);
+        w.y = 191.9;
+        w.vy = 2.0;
+        step(&mut w, held(Buttons::NONE));
+        assert_eq!((w.y, w.vy), (192.0, 0.0));
+    }
+
+    #[test]
+    fn velocity_never_goes_subnormal() {
+        let mut w = World::new();
+        for _ in 0..10_000 {
+            step(&mut w, held(Buttons::RIGHT | Buttons::UP));
+            assert!(ok(w.vx) && ok(w.vy));
+        }
+        for _ in 0..10_000 {
+            step(&mut w, held(Buttons::NONE));
+            assert!(ok(w.vx) && ok(w.vy));
+        }
+        assert_eq!((w.vx, w.vy), (0.0, 0.0));
+    }
+
+    fn ok(v: f64) -> bool {
+        v == 0.0 || v.is_normal()
+    }
+}
