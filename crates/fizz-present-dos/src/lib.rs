@@ -67,20 +67,12 @@ impl Write for TextBuf {
     }
 }
 
-/// The screen pixel of the marker's top-left corner: the rules' position cut down to a whole pixel.
-///
-/// The cast truncates toward zero, which is a floor because the rules keep the marker at zero or above. Every presentation
-/// places the marker with this function, so the Web and DOS screens never differ by a pixel.
-pub fn marker_origin(world: &World) -> (i32, i32) {
-    (world.x as i32, world.y as i32)
-}
-
 /// Draws the world: dark blue field, border, yellow marker with a light-cyan outline and a white HUD.
 pub fn render(world: &World, frame: &mut Frame) {
     frame.clear(BLUE);
     frame.stroke_rect(0, 0, WIDTH as i32, HEIGHT as i32, LIGHT_GREY);
 
-    let (mx, my) = marker_origin(world);
+    let (mx, my) = (fizz_view::pixel(world.x), fizz_view::pixel(world.y));
     frame.fill_rect(mx, my, MARKER_SIZE, MARKER_SIZE, YELLOW);
     frame.stroke_rect(mx - 1, my - 1, MARKER_SIZE + 2, MARKER_SIZE + 2, LIGHT_CYAN);
 
@@ -118,23 +110,6 @@ pub fn present<D: Display>(display: &mut D, frame: &Frame) -> Result<(), HalErro
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_marker_origin_cuts_the_position_down_to_a_pixel() {
-        let mut world = World::new();
-        for (x, y, expected) in [
-            (10.0, 20.0, (10, 20)),
-            (10.4, 20.4, (10, 20)),
-            (10.5, 20.5, (10, 20)),
-            (10.999, 20.999, (10, 20)),
-            (0.0, 0.0, (0, 0)),
-            (312.0, 192.0, (312, 192)),
-        ] {
-            world.x = x;
-            world.y = y;
-            assert_eq!(marker_origin(&world), expected);
-        }
-    }
 
     #[test]
     fn every_mapped_key_drives_its_button() {

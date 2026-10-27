@@ -25,10 +25,15 @@ dependencies = [
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-view",
 ]
 
 [[package]]
 name = "fizz-sim"
+version = "0.1.0"
+
+[[package]]
+name = "fizz-view"
 version = "0.1.0"
 
 [[package]]

@@ -23,6 +23,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-sim` | Rules | The 60 Hz `Tick`, the FNV-1a `StateHash`, and the input types `Buttons`, `InputFrame` and `InputLatch`. `no_std`, no `unsafe`, no platform types |
 | `crates/fizz-hello` | Rules | Throwaway rules for the marker; deleted when real rules arrive. Holds the golden transcript `m0-replay.txt` |
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
+| `crates/fizz-view` | Presenter base | The placement rule both presenters share: a position in game units to a logical pixel, rounding down. Neither presenter depends on the other |
 | `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD and key mapping; no DOS calls |
 | `crates/fizz-present-web` | Presenter | The `wasm-bindgen` `App` and `WebClock` |
 | `dos/rt` | Platform | `fizz-dos-rt`, the self-contained DOS runtime and the only DOS-aware code |
