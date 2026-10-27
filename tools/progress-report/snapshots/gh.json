@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T11:36:33-04:00",
+ "capturedAt": "2026-10-27T12:14:36-04:00",
  "data": {
   "prs": [
    {
@@ -423,9 +423,9 @@
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/10"
    },
    {
-    "additions": 21,
+    "additions": 36,
     "baseRefName": "main",
-    "changedFiles": 2,
+    "changedFiles": 5,
     "checks": [
      {
       "conclusion": "SUCCESS",
@@ -441,9 +441,9 @@
      }
     ],
     "createdAt": "2026-10-27T15:33:44Z",
-    "deletions": 2,
+    "deletions": 16,
     "headRefName": "docs/asset-packs",
-    "headRefOid": "8eb8f8bd906b7f8cfa92c0998e0a21ef7bed7fc8",
+    "headRefOid": "3c8ba00b999245ecbf3c8d1bb90f23aad67fe2de",
     "isDraft": false,
     "labels": [
      {
@@ -471,15 +471,291 @@
       "name": "design-docs"
      }
     ],
+    "mergeCommit": {
+     "oid": "d92422f77c64d9fcddbb7eaa1ad6407c947789d3"
+    },
+    "mergedAt": "2026-10-27T16:13:47Z",
+    "number": 11,
+    "state": "MERGED",
+    "title": "Record that authored assets live in baked Fizz Asset Packs",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/11"
+   },
+   {
+    "additions": 5944,
+    "baseRefName": "main",
+    "changedFiles": 57,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:42:34Z",
+    "deletions": 0,
+    "headRefName": "docs/progress-report",
+    "headRefOid": "b361f2cc5a55dca4ed82b5e90a6d7b5dc8e0db4b",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
     "mergeCommit": null,
     "mergedAt": null,
-    "number": 11,
+    "number": 12,
     "state": "OPEN",
-    "title": "Record that authored assets live in cooked packs",
-    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/11"
+    "title": "Add the Fizz 2 progress archive and its generator",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/12"
+   },
+   {
+    "additions": 46,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:44:02Z",
+    "deletions": 0,
+    "headRefName": "docs/episode-2-lore",
+    "headRefOid": "b49223f8cb7541488e033c41363d2e75c9cc414b",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5ea46806781551334c7b3117b42e8413b4aa19c6"
+    },
+    "mergedAt": "2026-10-27T16:13:55Z",
+    "number": 13,
+    "state": "MERGED",
+    "title": "Record the Episode 2 setting and proposed level lore",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/13"
+   },
+   {
+    "additions": 67,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:49:22Z",
+    "deletions": 1,
+    "headRefName": "docs/manual-rule",
+    "headRefOid": "2751b7c9c25e4fc544a4fcfef7fa49f9b22b2cc9",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47fb25e7f201c4c33525f743d7802833ccfa6896"
+    },
+    "mergedAt": "2026-10-27T16:14:16Z",
+    "number": 14,
+    "state": "MERGED",
+    "title": "Require the player's manual to be written in parallel",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/14"
+   },
+   {
+    "additions": 7,
+    "baseRefName": "docs/manual-rule",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T16:02:04Z",
+    "deletions": 4,
+    "headRefName": "fix/web-ega-blue",
+    "headRefOid": "acdaacd924e9188bfc1b1762eafe60dbee412510",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47fb25e7f201c4c33525f743d7802833ccfa6896"
+    },
+    "mergedAt": "2026-10-27T16:14:18Z",
+    "number": 15,
+    "state": "MERGED",
+    "title": "Match the Web screen to the DOS colours",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/15"
+   },
+   {
+    "additions": 3,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T16:04:05Z",
+    "deletions": 3,
+    "headRefName": "fix/banner-pogo-timing",
+    "headRefOid": "faf1b647979f35e00378096d4182e1f642b5d18a",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     },
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "cad3018a98ad536dab8c8d28c483174d87352e11"
+    },
+    "mergedAt": "2026-10-27T16:13:33Z",
+    "number": 17,
+    "state": "MERGED",
+    "title": "Show the banner's pogo squash after each bounce, as Fizz 1 does",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/17"
    }
   ],
   "runs": [
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T16:14:22Z",
+    "displayTitle": "Match the Web screen to the DOS colours (#15)",
+    "event": "push",
+    "headSha": "47fb25e7f201c4c33525f743d7802833ccfa6896",
+    "status": "pending",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538934591",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-27T16:13:58Z",
+    "displayTitle": "Record the Episode 2 setting and proposed level lore (#13)",
+    "event": "push",
+    "headSha": "5ea46806781551334c7b3117b42e8413b4aa19c6",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538868388",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-27T16:13:50Z",
+    "displayTitle": "Record that authored assets live in baked Fizz Asset Packs (#11)",
+    "event": "push",
+    "headSha": "d92422f77c64d9fcddbb7eaa1ad6407c947789d3",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538847242",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T16:13:36Z",
+    "displayTitle": "Show the banner's pogo squash after each bounce, as Fizz 1 does (#17)",
+    "event": "push",
+    "headSha": "cad3018a98ad536dab8c8d28c483174d87352e11",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538808503",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-27T15:06:49Z",
