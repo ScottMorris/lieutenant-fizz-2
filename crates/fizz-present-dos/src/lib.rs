@@ -130,8 +130,8 @@ pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
     if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
         let text = "LEVEL CLEAR";
         let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
-        frame.fill_rect(x - 4, 92, text.len() as i32 * GLYPH as i32 + 8, 16, BLACK);
-        frame.draw_text(x, 96, text, YELLOW);
+        frame.fill_rect(x - 4, 146, text.len() as i32 * GLYPH as i32 + 8, 16, BLACK);
+        frame.draw_text(x, 150, text, YELLOW);
     }
 }
 
