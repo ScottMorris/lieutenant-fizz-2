@@ -111,9 +111,9 @@ fn cases() -> Vec<(&'static str, Probe, Settings)> {
             auto(),
         ),
         (
-            "i486, VGA, SB16, low memory (2 MB)",
+            "i486, VGA, SB16, low memory (512 KB)",
             Probe {
-                free_kb: 2048,
+                free_kb: 512,
                 ..sb16
             },
             auto(),

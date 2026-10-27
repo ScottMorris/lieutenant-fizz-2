@@ -30,10 +30,11 @@ pub const COLS: usize = 80;
 pub const ROWS: usize = 25;
 pub const CELLS: usize = COLS * ROWS;
 
-/// Free memory, in kilobytes, below which the Machine panel warns. Fizz 1's 10 MB does not apply: Fizz 2 loads a level's pack
-/// and little else. This is a placeholder until the DOS memory ladder (DOSBox at 4, 2 and 1 MB) measures what the slice needs;
-/// a value below it only warns and never stops the game.
-pub const MEMORY_FLOOR_KB: u32 = 4096;
+/// Free memory, in kilobytes, below which the Machine panel warns. The slice's scripted replay passes in DOSBox down to its smallest
+/// memory size, 1 MB, where 168 KB is still free after the program has loaded and taken its heap, so the slice itself needs nothing
+/// more than it already holds. One megabyte free leaves room for the audio buffers and a level's pack that later milestones add, and
+/// it is a warning only: a value below it never stops the game. `docs/DOS-CHECK.md` gives the measurements.
+pub const MEMORY_FLOOR_KB: u32 = 1024;
 
 // Code page 437 characters.
 const CP_TICK: u8 = 0xFB;
@@ -265,16 +266,7 @@ fn rows(probe: &Probe, resolved: &Resolved, mut f: impl FnMut(usize, usize, &[u8
         let _ = write!(line, "{} MB memory free", kb / 1024);
         Row::Found
     } else {
-        if kb >= 1024 {
-            let _ = write!(
-                line,
-                "{} MB free, {} MB wanted",
-                kb / 1024,
-                MEMORY_FLOOR_KB / 1024
-            );
-        } else {
-            let _ = write!(line, "{kb} KB free, {} MB wanted", MEMORY_FLOOR_KB / 1024);
-        }
+        let _ = write!(line, "{kb} KB free, {} MB wanted", MEMORY_FLOOR_KB / 1024);
         Row::Warn
     };
     f(3, 2, line.as_bytes(), row);
@@ -631,7 +623,7 @@ mod tests {
             ..Probe::BARE
         };
         assert!(ready(&low));
-        assert!(row_text(&screen(&low), 15).contains("MB free, 4 MB wanted"));
+        assert!(row_text(&screen(&low), 15).contains("1023 KB free, 1 MB wanted"));
         let tiny = Probe {
             free_kb: 700,
             ..Probe::BARE
@@ -641,7 +633,7 @@ mod tests {
             free_kb: MEMORY_FLOOR_KB,
             ..Probe::BARE
         };
-        assert!(row_text(&screen(&enough), 15).contains("4 MB memory free"));
+        assert!(row_text(&screen(&enough), 15).contains("1 MB memory free"));
     }
 
     #[test]
