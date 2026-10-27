@@ -12,7 +12,12 @@
       <pre id="hud">TICK 0
 HASH 0000000000000000
 DASH 0</pre>
-      <p class="help">Arrow keys or WASD to move, Space to dash.</p>
+      <p id="hint" class="help">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.</p>
+      <div class="controls">
+        <button id="layout" type="button">Keys: Keen</button>
+        <button id="fullscreen" type="button" hidden>Fullscreen (F)</button>
+      </div>
+      <p class="note">A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game.</p>
     </main>
     <script type="module" src="./main.js"></script>
   </body>
