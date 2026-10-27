@@ -58,3 +58,7 @@ jobs:
         run: tools/build-web.sh
       - name: Check parity
         run: tools/check-parity.sh
+      - name: Check the sprite grids and generated data
+        run: |
+          bun tools/sprites/emit-rust.ts --check
+          bun tools/sprites/roundtrip.ts

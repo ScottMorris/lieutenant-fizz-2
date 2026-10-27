@@ -64,6 +64,7 @@ The executable holds code and small constant tables. Sprites, tile sets, backdro
 - **Pack format:** a header with a format version, the build version and a checksum, then an offset table, then data in the layout the loader uses as read. DOS reads a pack with one file read into memory and parses nothing. Pack names follow the 8.3 rule, for example `FIZZ.FAP` and one pack per world, such as `LIGHT.FAP`. The executable refuses a pack whose build version differs from its own.
 - **Costs:** file-reading code in the DOS runtime (DOS function calls it already wraps), an error path for a missing or mismatched pack, and slower loads from a real floppy, so a level's pack loads when the level starts and not all packs at once.
 - **Saves and configuration** stay in separate files, as in Fizz 1.
+- **Sprites before packs:** sprites are committed text grids under `assets/sprites/`, lowered to `const` data in `fizz-view` until the pack format exists. `SPRITES.md` specifies the format and the tools.
 
 Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `titles.bin` (54,488 bytes) in its DOS executable. That is about 436 KB of its 862 KB stripped executable, and sound is the largest part. The size budget in [`PLATFORM.md`](PLATFORM.md#size-budget) counts the executable and the packs together.
 
