@@ -352,3 +352,129 @@ pub fn hash(w: &World) -> StateHash {
 pub fn step(w: &mut World, f: InputFrame) {
     w.step(f);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tiles;
+    use fizz_phys::TileMap;
+
+    extern crate std;
+    use std::vec::Vec;
+
+    /// FNV-1a 64 over raw bytes, written out again here so the test does not lean on `StateHash`.
+    fn fnv(bytes: &[u8]) -> u64 {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for &b in bytes {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0000_0100_0000_01b3);
+        }
+        h
+    }
+
+    fn f(out: &mut Vec<u8>, v: f64) {
+        out.extend_from_slice(&v.to_bits().to_le_bytes());
+    }
+
+    /// A world with every hashed field set to a distinct value.
+    fn populated() -> World {
+        let mut w = World::new(TileMap::new(4, 4, tiles::props()), (1.0, 2.0));
+        w.tick = Tick(7);
+        w.ben.b.x = 1.5;
+        w.ben.b.y = 2.5;
+        w.ben.b.vx = 0.25;
+        w.ben.b.vy = -0.5;
+        w.ben.face = -1.0;
+        w.ben.squash = 0.0625;
+        w.ben.dead = 0.125;
+        w.ben.inv = 3.0;
+        w.ben.shoot_t = 0.375;
+        w.ben.pogo = true;
+        w.ben.b.on_ground = true;
+        w.flags = WorldFlags(WorldFlags::KEY_RED | WorldFlags::EXIT_REACHED);
+        w.ammo = 3;
+        w.deaths = 2;
+        w.map.switches = 0x0a;
+        w.add_chicken(5.0, 6.0, 1.0);
+        w.add_chicken(8.0, 9.0, -1.0);
+        w.chickens[0].b.vx = 1.5;
+        w.chickens[0].b.vy = -2.0;
+        w.chickens[0].stun = 4.0;
+        w.chickens[0].touch = true;
+        w.chickens[1].b.on_ground = true;
+        w.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 16.0,
+            vy: 0.0,
+            life: 0.5,
+        });
+        w
+    }
+
+    #[test]
+    fn the_hash_field_order_is_fixed() {
+        let w = populated();
+        let mut b = Vec::new();
+        b.extend_from_slice(&7u64.to_le_bytes());
+        for v in [1.5, 2.5, 0.25, -0.5, -1.0, 0.0625, 0.125, 3.0, 0.375] {
+            f(&mut b, v);
+        }
+        b.push(0b0101); // Ben: pogo, on the ground
+        b.extend_from_slice(&5u32.to_le_bytes()); // flags: key and exit
+        b.extend_from_slice(&3u32.to_le_bytes()); // ammo
+        b.extend_from_slice(&2u32.to_le_bytes()); // deaths
+        b.extend_from_slice(&0x0au32.to_le_bytes()); // switches
+        b.extend_from_slice(&2u32.to_le_bytes()); // chicken count
+        for (i, ch) in w.chickens.iter().enumerate() {
+            for v in [ch.b.x, ch.b.y, ch.b.vx, ch.b.vy, ch.dir, ch.stun] {
+                f(&mut b, v);
+            }
+            b.push([0b010, 0b001][i]); // touching; on the ground
+        }
+        b.extend_from_slice(&1u32.to_le_bytes()); // shot count
+        for v in [10.0, 11.0, 16.0, 0.0, 0.5] {
+            f(&mut b, v);
+        }
+        assert_eq!(hash(&w).finish(), fnv(&b));
+    }
+
+    #[test]
+    fn the_hash_of_a_known_world_is_locked() {
+        // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
+        // still caught. `slice-replay.txt` pins the slice itself.
+        assert_eq!(hash(&populated()).finish(), 0x942a_7cf6_f650_4099);
+    }
+
+    #[test]
+    fn every_hashed_field_changes_the_digest() {
+        let base = hash(&populated()).finish();
+        let edits: [fn(&mut World); 20] = [
+            |w| w.tick = Tick(8),
+            |w| w.ben.b.x += 1.0,
+            |w| w.ben.b.y += 1.0,
+            |w| w.ben.b.vx += 1.0,
+            |w| w.ben.b.vy += 1.0,
+            |w| w.ben.face = 1.0,
+            |w| w.ben.squash += 1.0,
+            |w| w.ben.dead += 1.0,
+            |w| w.ben.inv += 1.0,
+            |w| w.ben.shoot_t += 1.0,
+            |w| w.ben.cut = true,
+            |w| w.flags.clear(WorldFlags::KEY_RED),
+            |w| w.ammo += 1,
+            |w| w.deaths += 1,
+            |w| w.map.switches ^= 1,
+            |w| w.chickens[0].dir = -1.0,
+            |w| w.chickens[0].stun += 1.0,
+            |w| w.chickens[1].b.x += 1.0,
+            |w| w.shots[0].life += 1.0,
+            |w| w.shots.clear(),
+        ];
+        for (i, edit) in edits.iter().enumerate() {
+            let mut w = populated();
+            edit(&mut w);
+            assert_ne!(hash(&w).finish(), base, "edit {i} left the hash alone");
+        }
+    }
+}
