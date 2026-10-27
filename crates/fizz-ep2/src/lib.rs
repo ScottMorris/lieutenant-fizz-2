@@ -24,7 +24,7 @@ pub mod tiles;
 pub mod world;
 
 pub use ben::Ben;
-pub use chicken::Chicken;
+pub use chicken::{CLUCK_VARIANTS, Chicken};
 pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay};
 pub use shot::Shot;
-pub use world::{World, WorldFlags, hash, step};
+pub use world::{Event, World, WorldFlags, hash, step};

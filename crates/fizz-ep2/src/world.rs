@@ -11,7 +11,7 @@
 // instead of reloading the level, so the open door survives it.
 
 use crate::ben::{Ben, FALL_DEATH_Y};
-use crate::chicken::{Chicken, SHOT_STUN, STOMP_STUN};
+use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
 use crate::shot::Shot;
 use crate::tiles::{DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
 use alloc::vec::Vec;
@@ -24,6 +24,14 @@ use fizz_sim::{InputFrame, StateHash, Tick};
 pub const START_AMMO: u32 = 5;
 /// Seconds Ben lies dead before the world respawns him (Fizz 1's `dead > 1.4` in `tick_ben`).
 pub const RESPAWN_AFTER: f64 = 1.4;
+
+/// Something the rules did that a presenter may want to show or play. Events are output only: they are not rules state,
+/// and they are not hashed (the cluck timer and stream counter behind a [`Event::Cluck`] are).
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Event {
+    /// A chicken clucked. `variant` is below [`CLUCK_VARIANTS`](crate::chicken::CLUCK_VARIANTS).
+    Cluck { variant: u8 },
+}
 
 /// The progress bits that live outside any one body.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -63,6 +71,8 @@ pub struct World {
     pub deaths: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
+    /// What the last [`step`](World::step) emitted, in chicken order.
+    events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
     /// Where the red key lies, as its centre, while it is in the world.
@@ -84,6 +94,7 @@ impl World {
             deaths: 0,
             chickens: Vec::new(),
             shots: Vec::new(),
+            events: Vec::new(),
             spawn,
             key: None,
             chicken_spawns: Vec::new(),
@@ -93,7 +104,15 @@ impl World {
     /// Adds a chicken at Fizz 1's spawn point `(x, y)`, walking in direction `dir` (1 or -1).
     pub fn add_chicken(&mut self, x: f64, y: f64, dir: f64) {
         self.chicken_spawns.push((x, y, dir));
-        self.chickens.push(Chicken::new(x, y, dir));
+        let id = self.chickens.len() as u32;
+        self.chickens.push(Chicken::new(x, y, dir, id, self.tick.0));
+    }
+
+    /// The events the last [`step`](World::step) emitted, in the order they happened (chickens in list order). All of
+    /// them happened on [`World::tick`]. The next step clears the list, so a presenter reads it once per step; a presenter
+    /// that runs several steps between frames must read after each one.
+    pub fn events(&self) -> &[Event] {
+        &self.events
     }
 
     /// Lays the red key with its centre at `(x, y)`.
@@ -116,12 +135,16 @@ impl World {
 
     /// Advances the world by one tick (the level branch of Fizz 1's `step`).
     pub fn step(&mut self, input: InputFrame) {
+        self.events.clear();
         self.tick = self.tick.next();
         self.ben.b.px = self.ben.b.x;
         self.ben.b.py = self.ben.b.y;
         self.tick_ben(input);
         for c in &mut self.chickens {
-            c.tick(&self.map);
+            if let Some(variant) = c.tick(&self.map, self.tick.0) {
+                debug_assert!(variant < CLUCK_VARIANTS);
+                self.events.push(Event::Cluck { variant });
+            }
         }
         self.tick_shots();
         if self.ben.dead > RESPAWN_AFTER {
@@ -284,7 +307,8 @@ impl World {
         self.chickens = self
             .chicken_spawns
             .iter()
-            .map(|&(x, y, dir)| Chicken::new(x, y, dir))
+            .enumerate()
+            .map(|(id, &(x, y, dir))| Chicken::new(x, y, dir, id as u32, self.tick.0))
             .collect();
         self.map.set_switch(
             DOOR_RED_CHANNEL,
@@ -306,11 +330,10 @@ impl World {
 /// 3. the [`WorldFlags`] word (`u32`), `ammo` (`u32`) and `deaths` (`u32`);
 /// 4. `map.switches` (`u32`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
-///    ground, bit 1 touching Ben, bit 2 dead);
+///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
 /// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits.
 ///
-/// The camera is not hashed. The chicken's cluck timer and stream counter join the chicken record with the sound
-/// package.
+/// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
     let mut h = StateHash::new();
     h.write_u64(w.tick.0);
@@ -344,6 +367,8 @@ pub fn hash(w: &World) -> StateHash {
             h.write_f64(v);
         }
         h.write_u8(c.flags());
+        h.write_u32(c.cluck_timer);
+        h.write_u32(c.cluck_draws);
     }
     h.write_u32(w.shots.len() as u32);
     for s in &w.shots {
@@ -408,6 +433,10 @@ mod tests {
         w.chickens[0].stun = 4.0;
         w.chickens[0].touch = true;
         w.chickens[1].b.on_ground = true;
+        w.chickens[0].cluck_timer = 123;
+        w.chickens[0].cluck_draws = 6;
+        w.chickens[1].cluck_timer = 200;
+        w.chickens[1].cluck_draws = 4;
         w.shots.push(Shot {
             x: 10.0,
             y: 11.0,
@@ -437,6 +466,8 @@ mod tests {
                 f(&mut b, v);
             }
             b.push([0b010, 0b001][i]); // touching; on the ground
+            b.extend_from_slice(&[123u32, 200][i].to_le_bytes()); // cluck timer
+            b.extend_from_slice(&[6u32, 4][i].to_le_bytes()); // cluck stream draws
         }
         b.extend_from_slice(&1u32.to_le_bytes()); // shot count
         for v in [10.0, 11.0, 16.0, 0.0, 0.5] {
@@ -449,13 +480,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0x942a_7cf6_f650_4099);
+        assert_eq!(hash(&populated()).finish(), 0xc212_3c93_4cb6_a3ca);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 20] = [
+        let edits: [fn(&mut World); 24] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -474,6 +505,10 @@ mod tests {
             |w| w.chickens[0].dir = -1.0,
             |w| w.chickens[0].stun += 1.0,
             |w| w.chickens[1].b.x += 1.0,
+            |w| w.chickens[0].cluck_timer += 1,
+            |w| w.chickens[0].cluck_draws += 1,
+            |w| w.chickens[1].cluck_timer += 1,
+            |w| w.chickens[1].cluck_draws += 1,
             |w| w.shots[0].life += 1.0,
             |w| w.shots.clear(),
         ];
@@ -482,5 +517,108 @@ mod tests {
             edit(&mut w);
             assert_ne!(hash(&w).finish(), base, "edit {i} left the hash alone");
         }
+    }
+
+    fn idle() -> InputFrame {
+        InputFrame::from_transition(fizz_sim::Buttons::NONE, fizz_sim::Buttons::NONE)
+    }
+
+    /// The `(tick, variant)` of every cluck over `ticks` idle steps of the slice level.
+    fn clucks(w: &mut World, ticks: u32) -> Vec<(u64, u8)> {
+        let mut out = Vec::new();
+        for _ in 0..ticks {
+            w.step(idle());
+            for e in w.events() {
+                let Event::Cluck { variant } = *e;
+                out.push((w.tick.0, variant));
+            }
+        }
+        out
+    }
+
+    /// A slice world whose chicken is the only thing that happens: Ben stays dead-safe by being invulnerable.
+    fn quiet() -> World {
+        let mut w = crate::level::world();
+        w.ben.inv = 1e9;
+        w
+    }
+
+    #[test]
+    fn the_same_world_clucks_the_same_clucks() {
+        let a = clucks(&mut quiet(), 3000);
+        let b = clucks(&mut quiet(), 3000);
+        assert!(a.len() >= 8, "{} clucks", a.len());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn the_wait_between_clucks_stays_within_range_and_every_variant_occurs() {
+        let mut w = quiet();
+        let first = w.chickens[0].cluck_timer;
+        assert!((90..=360).contains(&first));
+        let c = clucks(&mut w, 60_000);
+        assert!(c.len() > 100);
+        assert_eq!(u64::from(first), c[0].0, "the spawn draw is the first wait");
+        let mut seen = [false; CLUCK_VARIANTS as usize];
+        for p in c.windows(2) {
+            assert!((90..=360).contains(&(p[1].0 - p[0].0)), "{p:?}");
+        }
+        for &(_, v) in &c {
+            seen[usize::from(v)] = true;
+        }
+        assert!(seen.iter().all(|&s| s), "variants seen: {seen:?}");
+        // Each cluck takes two draws (the variant, then the next wait) after the spawn draw.
+        assert_eq!(w.chickens[0].cluck_draws as usize, 1 + 2 * c.len());
+    }
+
+    #[test]
+    fn a_stunned_chicken_neither_clucks_nor_counts_down() {
+        let mut w = quiet();
+        w.chickens[0].stun = 100.0;
+        w.chickens[0].cluck_timer = 2;
+        let timer = w.chickens[0].cluck_timer;
+        assert!(clucks(&mut w, 600).is_empty());
+        assert_eq!(w.chickens[0].cluck_timer, timer);
+        assert_eq!(w.chickens[0].cluck_draws, 1);
+        // Once the stun ends the timer runs on from where it stopped.
+        w.chickens[0].stun = 0.0;
+        assert_eq!(clucks(&mut w, 2).len(), 1);
+    }
+
+    #[test]
+    fn a_dead_chicken_does_not_cluck() {
+        let mut w = quiet();
+        w.chickens[0].dead = true;
+        w.chickens[0].cluck_timer = 1;
+        assert!(clucks(&mut w, 600).is_empty());
+        assert_eq!(w.chickens[0].cluck_timer, 1);
+    }
+
+    #[test]
+    fn events_last_for_one_step() {
+        let mut w = quiet();
+        w.chickens[0].cluck_timer = 1;
+        w.step(idle());
+        assert_eq!(w.events().len(), 1);
+        w.step(idle());
+        assert!(w.events().is_empty());
+    }
+
+    #[test]
+    fn chickens_draw_from_their_own_streams() {
+        let mut w = World::new(TileMap::new(4, 4, tiles::props()), (1.0, 2.0));
+        w.add_chicken(1.0, 1.0, 1.0);
+        w.add_chicken(1.0, 1.0, 1.0);
+        let timers: Vec<u32> = (0..2).map(|i| w.chickens[i].cluck_timer).collect();
+        let more: Vec<u32> = (0..50)
+            .map(|_| {
+                w.add_chicken(1.0, 1.0, 1.0);
+                w.chickens.last().unwrap().cluck_timer
+            })
+            .collect();
+        assert!(
+            more.iter().any(|&t| t != timers[0]),
+            "ids give different streams"
+        );
     }
 }
