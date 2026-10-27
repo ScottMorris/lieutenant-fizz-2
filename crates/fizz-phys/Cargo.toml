@@ -1,0 +1,10 @@
+[package]
+name = "fizz-phys"
+description = "Owned no_std tile map, body, platform and rng code derived from Fizz 1's lf-sim"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+libm = { version = "=0.2.16", default-features = false }

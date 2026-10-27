@@ -27,6 +27,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fizz-phys"
+version = "0.1.0"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "fizz-present-dos"
 version = "0.1.0"
 dependencies = [
