@@ -62,3 +62,5 @@ jobs:
         run: |
           bun tools/sprites/emit-rust.ts --check
           bun tools/sprites/roundtrip.ts
+      - name: Check the generated sound data
+        run: bun tools/sfx/downmix.ts --check

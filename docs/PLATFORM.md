@@ -25,6 +25,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy |
 | `crates/fizz-ep2` | Rules | The slice's rules (Ben, the chicken, the shots, the red key and door, the level), the hash, the scripted replay and its golden transcript `slice-replay.txt` |
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
+| `crates/fizz-sfx` | Platform data | Generated OPL2 and PC speaker data for the cluck, and the `OplPlayer` and `SpeakerPlayer` steppers the DOS audio service drives; see [`SFX.md`](SFX.md) |
 | `crates/fizz-view` | Presenter base | The placement rule both presenters share: a position in game units to a logical pixel, rounding down. Neither presenter depends on the other |
 | `crates/fizz-slice-view` | Presenter base | `draw_slice`, the one routine that draws the Episode 2 slice into a palette-indexed buffer; both presenters call it |
 | `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD (the slice's ammo, key, deaths and tick strip in `render_slice`) and key mapping; no DOS calls |
@@ -236,6 +237,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 | Adapted | `dos/.cargo/config.toml`; `dos/rt/src/` `lib.rs`, `fpu.rs` (keeps only the control word), `irq.rs`, `timer.rs` (60 Hz in place of 560 Hz) and `vga.rs`; `tools/elf2go32.py`, `tools/dosrun.sh`, `tools/build-dos.sh`, `tools/setup-dos.sh`; `crates/fizz-hal/src/ring.rs` from Desk's `ring.rs` |
 | Derived from Fizz 1 `crates/sim/src/` at commit `4bce036`, transformed as in fizz-dos `m2/patches/sim.patch` | `crates/fizz-phys/src/` `tilemap.rs`, `body.rs`, `platform.rs` and `rng.rs`; `fmath.rs` from fizz-dos `m2/sim/src/fmath.rs` without `exp`. `tools/lf-sim-drift.sh` compares them with a Fizz 1 checkout |
 | Ported from Fizz 1 `episodes/episode-1/game/src/` (`world.rs`, `ents.rs`, `tiles.rs`) at commit `4bce036` | `crates/fizz-ep2/src/` `ben.rs`, `chicken.rs`, `shot.rs`, `tiles.rs` and `world.rs`, proved by the traces in `crates/fizz-ep2/tests/fizz1/` |
+| Adapted from fizz-dos (`lieutenant-fizz-dos`, commit `221dd6c`, the same author's code, MIT there) | `tools/sfx/convert.ts` from `m4/sound/fizz-dos/sfx.ts`, `tools/sfx/opl.ts` from `opl.ts` and `tools/sfx/patches.ts` from `patches.ts`; see [`SFX.md`](SFX.md) |
 | Written for this repository | `dos/rt/src/` `ring.rs`, `port.rs` and `kbd.rs`; `dos/rtsmoke`; the rest of `crates/fizz-hal`, which follows Desk's shapes for time, input and video without port traits |
 
 ## Not verified
