@@ -12,6 +12,10 @@
 #[cfg(feature = "mock")]
 extern crate alloc;
 
+pub mod input;
+pub mod scancode;
 pub mod time;
 
+pub use input::{InputSource, KeyCode, KeyEvent};
+pub use scancode::Set1Decoder;
 pub use time::{Clock, Pacer, Ticks};
