@@ -88,7 +88,7 @@ python3 tools/progress-report/build.py --check             # a full build and si
 
 ## Publishing
 
-The site is published by hand as a private multi-file Artifact titled "Fizz 2 Progress Report", at the address in `ARTIFACT_URL` in `build.py`. The build writes `dist/progress-report/manifest.json` with the call:
+The site is published by hand as a private multi-file Artifact titled "Fizz 2 Progress Report", at `https://claude.ai/artifact/1K3wm9Su2dgs8ssGpK9Bbk` (`ARTIFACT_URL` in `build.py`). The build writes `dist/progress-report/manifest.json` with the call:
 
 1. Build: `python3 tools/progress-report/build.py --check`.
 2. Read the live artifact once with the Artifact tool (`action: "read"`, `url`), so a republish is allowed.

@@ -33,7 +33,7 @@ import gather  # noqa: E402
 import mdlite  # noqa: E402
 from mdlite import Ctx, esc, inline  # noqa: E402
 
-ARTIFACT_URL = None
+ARTIFACT_URL = "https://claude.ai/artifact/1K3wm9Su2dgs8ssGpK9Bbk"
 TITLE = "Fizz 2 Progress Report"
 DESCRIPTION = ("The archive of Lieutenant Fizz 2, chapter by chapter: what is catalogued with the check behind it, what is built and unverified, "
                "and what is planned, with pull request evidence and a state tag from gh for each. There is no game yet, only the Milestone 0 skeleton.")
