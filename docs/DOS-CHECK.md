@@ -1,6 +1,6 @@
 # DOS start-up check
 
-The DOS start-up check is a read-only text screen that shows what the machine has and how the game will use its sound. This document describes the model behind it, `crates/fizz-machine`: what the screen shows, the three sound states, how choices resolve, the settings file and flags, the probe plan, and the golden file that locks the screen. [`PLATFORM.md`](PLATFORM.md) describes the DOS runtime the probes will live in, and [`ARCHITECTURE.md`](ARCHITECTURE.md) places the crate.
+The DOS start-up check is a read-only text screen that shows what the machine has and how the game will use its sound. This document describes the model behind it, `crates/fizz-machine`: what the screen shows, the three sound states, how choices resolve, the settings file and flags, the probes and the `/PROBE` mode, and the golden file that locks the screen. [`PLATFORM.md`](PLATFORM.md) describes the DOS runtime the probes live in, and [`ARCHITECTURE.md`](ARCHITECTURE.md) places the crate.
 
 ## Contents
 
@@ -11,14 +11,15 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 - [How a plan is resolved](#how-a-plan-is-resolved)
 - [The OPL3 rule](#the-opl3-rule)
 - [Settings file and flags](#settings-file-and-flags)
-- [The probe plan](#the-probe-plan)
+- [The probes](#the-probes)
+- [The `/PROBE` mode](#the-probe-mode)
 - [Memory floor](#memory-floor)
 - [The golden file](#the-golden-file)
 - [Not verified](#not-verified)
 
 ## Status
 
-Only the pure model exists: the probe data, settings, the resolver, the OPL write router and the screen builder, all tested on the host. No program uses the crate yet. The DOS probes, the `/CHECK` mode and the settings file reader arrive in later changes, so nothing here is visible to a player and the manual does not mention it.
+The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. The `/CHECK` screen itself, the settings file reader and the sound flags in the program arrive in later changes, so nothing here is visible to a player beyond `/PROBE`, which the manual describes.
 
 ## What the screen shows
 
@@ -114,35 +115,52 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 
 `apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself.
 
-## The probe plan
+## The probes
 
-The DOS runtime will fill a `Probe` with the methods below. The DOSBox Staging 0.83 results are from the planner's runs of each method; none has been run in this repository yet.
+The probes are in `dos/rt/src/probe.rs`; `dos/fizz2/src/machine.rs` calls them in dependency order (the `BLASTER` variable, the Sound Blaster DSP, then the FM chip, which uses the DSP's base) and fills a `Probe`. All of them run before the 60 Hz timer is hooked. The waits use `pit::delay_us`, which reads the latched PIT channel 0 count (two counts per input clock in the BIOS's mode 3) and refuses to run while the timer is hooked, because the counter then has another period; a probe that cannot wait reports the device as absent. Every wait on a device is bounded in the number of reads, so a missing or misbehaving card costs milliseconds and never a hang. Real-mode interrupts go through `dpmi::simulate_int`. The DOSBox Staging 0.83 results below are from the runs `tools/check-dos.sh` makes.
 
-| Item | Method | DOSBox result |
-| --- | --- | --- |
-| Video | INT 10h AX=1A00h (BL 8 colour VGA, 7 mono VGA); else AH=12h BL=10h (BL changes on an EGA); else INT 11h bits 4 and 5 (01 or 10 CGA, 11 MDA or Hercules). MCGA is not taken as VGA | vga and svga 1A/08; ega BL=03; cga and hercules BL=10, INT 11h D426 and D436 |
-| Mouse | only if the real-mode INT 33h vector is not null (a null vector hangs DOS); AX=0 returns FFFF | FFFF; driver off 0000 |
-| Joystick | port `0x201` is not FF | FF; 2axis FC |
-| OPL2 | Fizz 1's timer test at `0x388`: status AND E0 is 00, then C0 | none gives FF; opl2 passes |
-| OPL3 | after the timer test, status AND 06 is 0 (an OPL2 reads 06) | sb16 and sbpro2 00; sb1, sb2 and opl2 06 |
-| Two OPL2 (Pro 1) | the timer test answers at base+2 | sbpro1 and dualopl2 answer at `0x222`; an OPL3 reads FF there |
-| Sound Blaster | DSP reset at base+6 (write 1, wait 3 microseconds, write 0); poll base+0xE bit 7; read 0xAA at base+0xA; bases from `BLASTER` `A`, then `0x220` and `0x240` only; bounded polling | answers at 220 and 240 |
-| DSP version | command `0xE1`: a label only, since the chip type always comes from the status probe | sb1 1.05, sb2 2.01, sbpro1 3.00, sbpro2 3.02, sb16 4.05 |
-| `BLASTER` | the environment variable, such as `A220 I7 D1 H5 T6`, parsed by `parse_blaster` | |
-| x87 | `fninit; fnstcw`, then (control word AND `0x103F`) equals `0x003F` | 037F |
-| CPU | EFLAGS AC toggles for a 486, ID toggles for a 586 or later; CPUID is never executed unless ID toggles | 386 0/0, 486 1/0, pentium 1/1 |
-| Memory | DPMI function 0500h, free physical pages times 4 KB (not the largest block) | memsize 16, 8, 4, 2 and 1 give 3696, 1648, 624, 112 and 102 pages |
-| PC speaker | assumed present | |
+| Item | Method | Failure modes | DOSBox result |
+| --- | --- | --- | --- |
+| Video | INT 10h AX=1A00h (BL 8 colour VGA, 7 mono VGA); else AH=12h BL=10h (BL changes on an EGA); else INT 11h bits 4 and 5 (01 or 10 CGA, 11 MDA or Hercules). MCGA is not taken as VGA | A BIOS without the display combination call falls through to the EGA call; an equipment word of 00 is taken as CGA | `svga_s3` and `vgaonly` vga; `ega` ega; `cga` cga; `hercules` mdahercules |
+| Mouse | only if the real-mode INT 33h vector is not null (a null vector hangs DOS); AX=0 returns FFFF | A vector that points at an `IRET` returns AX unchanged, which reads as no mouse | built-in driver yes; `builtin_dos_mouse_driver = off` no |
+| Joystick | port `0x201` is not FF | A floating bus that reads something other than FF reports a joystick | none no; `joysticktype = 2axis` yes |
+| OPL2 | Fizz 1's timer test at `0x388`: status AND E0 is 00, then C0 | A card that mirrors the ports could pass; a chip that is slow to start its timer fails | `sbtype = none` none; sb1, sb2, sb16 with `oplmode = opl2`, and none with `oplmode = opl2`: passes |
+| OPL3 | after the timer test, status AND 06 is 0 (an OPL2 reads 06) | OPL3 clones that read 06 are taken as OPL2, which is the safe side | sbpro2 and sb16 opl3; sb1, sb2 and `oplmode = opl2` opl2 |
+| Two OPL2 (Pro 1) | on a machine with a DSP, and not an OPL3, the timer test answers at DSP base+2 | Not tried without a DSP, so an AdLib card and a second chip elsewhere is not found | sbpro1 dualopl2; sbpro2 and sb16 do not reach it |
+| Sound Blaster | DSP reset at base+6 (write 1, wait 5 microseconds, write 0); poll base+0xE bit 7 up to 200 times; read 0xAA at base+0xA; bases: `BLASTER` `A` when it is 210h to 280h in steps of 10h, then 220h and 240h | An implausible `A` is ignored. A card at another base is not found. An empty bus reads FF, which is not 0xAA | answers at 220 and, with `sbbase = 240`, at 240 |
+| DSP version | command `0xE1` once the write port is ready: a label only, since the chip type always comes from the status probe | If the version cannot be read it is 0.00 | sb1 1.05, sb2 2.01, sbpro1 3.00, sbpro2 3.02, sb16 4.05 |
+| `BLASTER` | the environment variable, such as `A220 I7 D1 H5 T6`, parsed by `parse_blaster` | Missing, repeated and malformed fields are ignored | sb1 `A220 I7 D1 T1`; sb2 `T3`; sbpro1 `T2`; sbpro2 `T4`; sb16 `H5 T6`; none unset |
+| x87 | `fninit; fnstcw`, then (control word AND `0x103F`) equals `0x003F`; the control word is put back to `0x027F` | Forced values only: no emulated machine here lacks an x87 | yes in every configuration (037F after `fninit`) |
+| CPU | EFLAGS AC (bit 18) toggles for a 486, ID (bit 21) toggles for a 586 or later. CPUID is never executed | A 486 without the ID flag is a 486 even if it has CPUID | `cputype = 386` 386; the default 486; `pentium` 586 |
+| Memory | DPMI function 0500h, free physical pages (field 5) times 4 KB, not the largest block; a count above the machine's total means none | A host that returns FFFFFFFFh gives 0 | memsize 16, 8, 4, 2 and 1: 14,544, 6,352, 2,256, 208 and 168 KB, which are 3,636, 1,588, 564, 52 and 42 pages |
+| PC speaker | assumed present | | |
 
 `parse_blaster` reads the `A`, `I`, `D`, `H`, `P` and `T` fields, tolerates any case, extra, missing, repeated and malformed fields (the last valid value of a field wins; a bad one is ignored), and never fails.
 
+The planner's runs gave 3,696, 1,648, 624, 112 and 102 free pages for the same memory sizes with a smaller program; `FIZZ2.EXE` itself holds about 60 pages more (its image and a 256 KB heap block), which accounts for the difference. Every other result matched the planner's.
+
+## The `/PROBE` mode
+
+`FIZZ2.EXE /PROBE` runs the probes and prints, with no key press and without touching video memory or the timer:
+
+- `PROBE <key> <value>`, one line for each `Probe` field in this order: `video` (`vga`, `monovga`, `ega`, `cga`, `mdahercules`), `mouse`, `joystick` (`yes` or `no`), `fm` (`none`, `opl2`, `dualopl2`, `opl3`), `dsp` (`none`, or the version and the base in hexadecimal, such as `4.05 220`), `blaster` (`none`, or the fields present, such as `A220 I7 D1 H5 T6`), `x87`, `cpu` (`386`, `486`, `586`) and `free_kb`.
+- `CELLS <hash>`: the FNV-1a 64 hash, in 16 hexadecimal digits, of the 4,000 bytes of the 2,000 cells that `cells` builds for those values with the default settings (character, then attribute, in video-memory order).
+- `HEAP <bytes>`, what the program's heap has taken from the host, and `PAGES FREE <n>`, the host's free page count.
+- `EXIT yes`, `FPU CW 027F` and `VECTORS RESTORED yes`, the platform lines the other modes print (the vectors are compared before and after the probes).
+
+`write_probe` writes the lines and `parse_probe` reads them back, both in `fizz-machine`, so the program and the host agree on the spelling. `cargo run -q -p fizz-machine --example cells-hash` reads a transcript on standard input and prints the `CELLS` line the host expects for its `PROBE` lines. `tools/check-dos.sh` runs `/PROBE` under these configurations, asserts the expected `PROBE` lines of each and that the program's `CELLS` equals the host's: no sound card, sb1, sb2, sbpro1, sbpro2, sb16 (also at base 240, with `oplmode = opl2` and with `oplmode = none`), no card with `oplmode = opl2`, the mouse driver off, a 2-axis joystick, the machines `ega`, `cga` and `hercules`, `cputype` 386 and pentium, and `memsize` 16, 4, 2 and 1. The runs take about 25 seconds in all. The check never runs the interactive `/CHECK`, which does not exist yet.
+
 ## Memory floor
 
-`MEMORY_FLOOR_KB` is 4096. Free memory below it shows a warning row (`N MB free, 4 MB wanted`) and does not stop the game; the check only blocks start when a VGA or an x87 is missing. Fizz 1's 10 MB does not apply: it came from that game's large simulation buffer, which Fizz 2 does not have. The value is a placeholder: the DOSBox memory ladder planned with the probes (4, 2 and 1 MB) will measure what the slice needs and tune it.
+`MEMORY_FLOOR_KB` is 1,024. Free memory below it shows a warning row (`N KB free, 1 MB wanted`) and does not stop the game; the check only blocks start when a VGA or an x87 is missing. Fizz 1's 10 MB does not apply: it came from that game's large simulation buffer, which Fizz 2 does not have.
+
+The value comes from a ladder. `/REPLAY` was run in DOSBox at `memsize` 4, 3, 2 and 1 (DOSBox's smallest), and each run printed the same transcript, the final hash `2145503c0d3b625f` and `EXIT yes` as the 16 MB run, with the sound interrupt not yet present. So the slice has no memory floor above DOSBox's minimum. At `memsize = 1` CWSDPMI serves extended memory from what DOS leaves (about 410 KB), and after the program has loaded and taken its 256 KB heap block 168 KB (42 pages) is still free, so the slice needs nothing beyond what the program already holds. One megabyte free is a margin for what the next milestones add (the audio buffers and a level's pack), and it still warns a 2 MB machine, which has about 208 KB free. A DOSBox ladder cannot see the speed cost of paging on a real machine, and CWSDPMI's swap file was never created in any run. `tools/check-dos.sh` repeats the `/REPLAY` at `memsize = 1` and compares its transcript with the golden file. Raise the value when the audio service or the packs land and the ladder is run again.
+
+When the constant changed from its first value of 4,096, the golden cells for the low-memory machine changed with it (the case is now 512 KB, so it still shows the warning), and `BLESS=1 cargo test -p fizz-machine --test golden` regenerated the file.
 
 ## The golden file
 
-`crates/fizz-machine/tests/check-cells.txt` holds the screen for thirteen machines in Fizz 1's format: a `== name` line, 25 lines of text with code page 437 characters shown as their Unicode look-alikes, then 25 lines of attributes at two hexadecimal digits a cell (background nibble, then foreground). The cases are an i486 with an SB16 on Auto, an AdLib card only, a Sound Blaster Pro 1, a Sound Blaster 2.0, speaker only, EGA, CGA, Hercules, a 386 without an x87, low memory, a Pentium with everything, an SB16 with music and effects set to AdLib, and an SB16 with effects on the speaker and music on the Sound Blaster.
+`crates/fizz-machine/tests/check-cells.txt` holds the screen for thirteen machines in Fizz 1's format: a `== name` line, 25 lines of text with code page 437 characters shown as their Unicode look-alikes, then 25 lines of attributes at two hexadecimal digits a cell (background nibble, then foreground). The cases are an i486 with an SB16 on Auto, an AdLib card only, a Sound Blaster Pro 1, a Sound Blaster 2.0, speaker only, EGA, CGA, Hercules, a 386 without an x87, low memory (512 KB), a Pentium with everything, an SB16 with music and effects set to AdLib, and an SB16 with effects on the speaker and music on the Sound Blaster.
 
 A test compares the screen with the file. When the change is intended, regenerate it and review the diff:
 
@@ -152,8 +170,10 @@ BLESS=1 cargo test -p fizz-machine --test golden
 
 ## Not verified
 
-- Every probe method on real hardware, and the DOSBox results above in this repository: they are the planner's runs, and the pure crate takes their outcomes as input.
-- Real-hardware reads at base+2 on an OPL3, and the OPL3 status test on clones: OPL4, ESS and Yamaha parts, and the FM of an AWE or ViBRA.
-- A monochrome VGA and a missing x87 beyond forced values.
+- Every probe method on real hardware. The DOSBox results above are from DOSBox Staging 0.83 only, and the pure crate takes their outcomes as input.
+- Real-hardware reads at base+2 on an OPL3 (the probe does not touch that port once the OPL3 test has passed, so DOSBox's answer there was not seen), and the OPL3 status test on clones: OPL4, ESS and Yamaha parts, and the FM of an AWE or ViBRA.
+- A monochrome VGA, and a missing x87: DOSBox always emulates one, so the no-x87 path is exercised with forced values only.
+- The DSP and FM timing on real cards: the delays (3.3 and 23 microseconds after an FM write are rounded up to 4 and 24, the reset wait to 5) follow the datasheets, and DOSBox does not enforce them.
+- `pit::delay_us` on a machine whose timer another program left in a different mode: it assumes the BIOS's mode 3 and cannot read the mode back from the PIT.
 - How the screen looks on a real monochrome adapter. The attribute choices follow the documented behaviour of MDA and Hercules text, but no such adapter was available.
-- The screen in DOSBox: this change draws cells only on the host. The DOS wiring reads them back from video memory in a later change.
+- The screen in DOSBox: `/PROBE` hashes the cells and does not write them to video memory. Reading them back from video memory arrives with `/CHECK`.
