@@ -9,7 +9,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::float_arithmetic)]
 
-mod font;
 mod frame;
 mod palette;
 
@@ -18,7 +17,8 @@ use core::fmt::{self, Write};
 use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
 
-pub use font::{GLYPH, glyph};
+pub use fizz_slice_view::DrawOptions;
+pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
 pub use palette::*;
 
@@ -78,14 +78,24 @@ pub fn frame_digest(frame: &Frame) -> u64 {
 
 /// Draws the slice: the shared picture from `fizz_slice_view`, then the text HUD over a black strip along the top (ammo,
 /// whether Ben carries the key, deaths and the tick), and a banner once Ben has reached the exit. The text is this
-/// presenter's own; the picture beneath it is the one the Web draws too.
+/// presenter's own; the picture beneath it is the one the Web draws too. Captions are on; see [`render_slice_with`].
 pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
-    fizz_slice_view::draw_slice(
+    render_slice_with(world, frame, &fizz_slice_view::DrawOptions::default());
+}
+
+/// [`render_slice`] with the shared picture's options (the DOS `/NOCAPTIONS` switch sets `captions` false).
+pub fn render_slice_with(
+    world: &fizz_ep2::World,
+    frame: &mut Frame,
+    options: &fizz_slice_view::DrawOptions,
+) {
+    fizz_slice_view::draw_slice_with(
         frame.pixels_mut(),
         WIDTH,
         HEIGHT,
         world,
         world.tick.0 as u32,
+        options,
     );
     frame.fill_rect(0, 0, WIDTH as i32, SLICE_HUD_H, BLACK);
     let key = world.flags.contains(fizz_ep2::WorldFlags::KEY_RED);

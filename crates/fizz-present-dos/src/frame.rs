@@ -3,7 +3,6 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::font::{GLYPH, glyph};
 use crate::{FRAME_BYTES, HEIGHT, WIDTH};
 
 /// An indexed-colour back buffer in row-major order with a pitch of `WIDTH`.
@@ -67,39 +66,12 @@ impl Frame {
     /// Draws one glyph with its top-left corner at (`x`, `y`). Set bits take `colour`; clear bits are left alone. Characters
     /// the font lacks draw nothing.
     pub fn draw_glyph(&mut self, x: i32, y: i32, ch: char, colour: u8) {
-        let Some(rows) = glyph(ch) else { return };
-        let cell = GLYPH as i32;
-        if x >= 0 && y >= 0 && x <= WIDTH as i32 - cell && y <= HEIGHT as i32 - cell {
-            // The whole cell is inside the frame, so a row is one slice and no pixel needs its own clip test.
-            for (dy, &bits) in rows.iter().enumerate() {
-                if bits == 0 {
-                    continue;
-                }
-                let start = (y as usize + dy) * WIDTH + x as usize;
-                for (dx, pixel) in self.pixels[start..start + GLYPH].iter_mut().enumerate() {
-                    if bits & (0x80 >> dx) != 0 {
-                        *pixel = colour;
-                    }
-                }
-            }
-            return;
-        }
-        for (dy, &bits) in rows.iter().enumerate() {
-            for dx in 0..GLYPH {
-                if bits & (0x80 >> dx) != 0 {
-                    self.put(x + dx as i32, y + dy as i32, colour);
-                }
-            }
-        }
+        fizz_view::draw_glyph(&mut self.pixels, WIDTH, HEIGHT, x, y, ch, colour);
     }
 
     /// Draws `text` left to right, one glyph cell per character.
     pub fn draw_text(&mut self, x: i32, y: i32, text: &str, colour: u8) {
-        let mut cx = x;
-        for ch in text.chars() {
-            self.draw_glyph(cx, y, ch, colour);
-            cx = cx.saturating_add(GLYPH as i32);
-        }
+        fizz_view::draw_text(&mut self.pixels, WIDTH, HEIGHT, x, y, text, colour);
     }
 }
 
@@ -112,6 +84,7 @@ impl Default for Frame {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fizz_view::{GLYPH, glyph};
 
     fn px(f: &Frame, x: usize, y: usize) -> u8 {
         f.pixels()[y * WIDTH + x]

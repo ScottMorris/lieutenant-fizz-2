@@ -36,6 +36,9 @@ pub const CLUCK_MIN_TICKS: u32 = 90;
 /// The longest wait between clucks, in ticks (6 s).
 pub const CLUCK_MAX_TICKS: u32 = 360;
 
+/// The value of [`Chicken::cluck_age`] before the chicken's first cluck, and the value it saturates at.
+pub const CLUCK_NEVER: u32 = u32::MAX;
+
 /// Separates the cluck stream from any other use of `hashf`, so the same tick, id and counter never collide with another
 /// stream added later.
 const CLUCK_SALT: i32 = 0x0c1c_0c1c;
@@ -62,6 +65,14 @@ pub struct Chicken {
     /// How many draws the chicken's cluck stream has made. Every draw takes the next number, so the counter is the
     /// stream's position and is hashed with the timer.
     pub cluck_draws: u32,
+    /// Presentation state: ticks since this chicken last clucked, 0 on the tick of the cluck, [`CLUCK_NEVER`] before the
+    /// first one. [`World::step`](crate::world::World::step) adds one every tick (saturating) and resets it on a cluck.
+    /// It is not hashed: it only tells a presenter how far into a cluck the chicken is, and the hashed cluck timer that
+    /// sets it would diverge first. It is not read by any rule.
+    pub cluck_age: u32,
+    /// Presentation state: the variant of the chicken's last cluck, below [`CLUCK_VARIANTS`]; 0 while
+    /// [`cluck_age`](Self::cluck_age) is [`CLUCK_NEVER`]. Not hashed, for the same reason as `cluck_age`.
+    pub cluck_variant: u8,
 }
 
 impl Chicken {
@@ -79,6 +90,8 @@ impl Chicken {
             id,
             cluck_timer: 0,
             cluck_draws: 0,
+            cluck_age: CLUCK_NEVER,
+            cluck_variant: 0,
         };
         c.cluck_timer = c.draw_timer(tick);
         c

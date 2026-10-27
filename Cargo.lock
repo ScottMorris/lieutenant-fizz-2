@@ -46,6 +46,7 @@ dependencies = [
  "fizz-hal",
  "fizz-sim",
  "fizz-slice-view",
+ "fizz-view",
 ]
 
 [[package]]

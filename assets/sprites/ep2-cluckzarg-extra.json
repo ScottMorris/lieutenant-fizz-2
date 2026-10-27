@@ -1,6 +1,6 @@
 {
   "set": "ep2-cluckzarg-extra",
-  "note": "Provisional: a second walk frame for Cluckzarg, the opposite stride of cluckzarg_walk, so both legs step. Drawn by hand against the imported ep2-cluckzarg set.",
+  "note": "Provisional: a second walk frame for Cluckzarg, the opposite stride of cluckzarg_walk, so both legs step, and cluckzarg_beak, a head overlay that opens the beak. Drawn by hand against the imported ep2-cluckzarg set.",
   "sprites": [
     {
       "name": "cluckzarg_walk2",
@@ -33,6 +33,19 @@
         "....kDDDDk.kDDDDk.......",
         ".....kkkk...kkkk........",
         "........................"
+      ]
+    },
+    {
+      "name": "cluckzarg_beak",
+      "w": 4,
+      "h": 4,
+      "anchor": [-8, 15],
+      "source": "drawn",
+      "rows": [
+        "kkkk",
+        "krrk",
+        "kyyk",
+        ".kk."
       ]
     }
   ]

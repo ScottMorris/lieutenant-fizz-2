@@ -49,6 +49,12 @@
    "gaps": "a browser where `localStorage` is blocked; the page is written to carry on without it, but no run covered that."
   },
   {
+   "section": "Captions",
+   "shelf": "catalogued",
+   "evidence": "`fizz-slice-view` tests pin the beak and caption pictures (open, shut between a double cluck's halves, bright, dark, blinking, captions off) and prove at every tick of the replay that a cluck changes only a beak patch and a caption box. `tools/check-dos.sh` runs `/NOCAPTIONS /MODERN` and the replay's golden `EVENT` lines name the chicken. Headless Chromium captured the Web page five ticks after a cluck, with the caption and the open beak.",
+   "gaps": "the Captions button and the V key were not driven by a real key press or click, nor the localStorage round trip; a real DOS machine; the look of the words (judged from one screenshot)."
+  },
+  {
    "section": "Fullscreen and browser shortcuts",
    "shelf": "uncatalogued",
    "evidence": "The page calls `navigator.keyboard.lock` on entering fullscreen where the API exists; headless Chromium reported the API present.",

@@ -12,6 +12,8 @@
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
+//   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
+//                       last one given wins). The beak still moves. A settings-file field replaces this switch with the settings package
 //   FIZZ2.EXE /PANIC    hooks IRQ 0 and panics, to show the clean-up list runs (exit status 3)
 //
 // Output is printed only after the screen is back in text mode and the vectors are restored. Interrupt handlers (in the runtime)
@@ -28,7 +30,7 @@ use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
-use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render_slice};
+use fizz_present_dos::{DrawOptions, Frame, Layout, ega_palette, key_to_buttons, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -39,7 +41,7 @@ const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
 const LIVE_TICK_CAP: u64 = 1800;
 
-/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 792 bytes (about 33 bytes for each
+/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 798 bytes (about 33 bytes for each
 /// 60 ticks and 20 for each cluck), so 8,192 leaves ample room for the lines later milestones add to it.
 const TRANSCRIPT_BYTES: usize = 8192;
 
@@ -113,16 +115,16 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &ega_palette())
 }
 
-fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
-    render_slice(world, frame);
+fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions) {
+    render_slice_with(world, frame, options);
     let _ = present(display, frame);
 }
 
 /// The live loop's draw: waits for the vertical retrace, then copies, so the copy does not land mid-scan and tear. The wait
 /// is bounded inside `wait_vretrace` (a million status reads per phase), and it only delays the copy: the simulation is paced
 /// by the timer through the `Pacer` and never sees the retrace. `/REPLAY` does not wait.
-fn draw_slice_frame_synced(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
-    render_slice(world, frame);
+fn draw_slice_frame_synced(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions) {
+    render_slice_with(world, frame, options);
     let _ = display.wait_vretrace();
     let _ = present(display, frame);
 }
@@ -135,10 +137,21 @@ fn main() -> i32 {
     } else {
         Layout::Keen
     };
+    // Captions are on unless the last of `/CAPTIONS` and `/NOCAPTIONS` on the command line says otherwise. The settings file
+    // that will hold this choice comes with the settings package; until then it is a switch.
+    let captions = !args
+        .iter()
+        .rfind(|a| a.eq_ignore_ascii_case("/CAPTIONS") || a.eq_ignore_ascii_case("/NOCAPTIONS"))
+        .is_some_and(|a| a.eq_ignore_ascii_case("/NOCAPTIONS"));
+    let options = DrawOptions { captions };
     let mode = args
         .iter()
         .map(|a| a.as_str())
-        .find(|a| !a.eq_ignore_ascii_case("/MODERN"))
+        .find(|a| {
+            !["/MODERN", "/CAPTIONS", "/NOCAPTIONS"]
+                .iter()
+                .any(|flag| a.eq_ignore_ascii_case(flag))
+        })
         .unwrap_or("/LIVE");
     // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
     let bench_limit = args
@@ -147,9 +160,9 @@ fn main() -> i32 {
         .next()
         .unwrap_or(SLICE_TICKS);
     if mode.eq_ignore_ascii_case("/REPLAY") {
-        replay()
+        replay(&options)
     } else if mode.eq_ignore_ascii_case("/BENCH") {
-        bench(bench_limit)
+        bench(bench_limit, &options)
     } else if mode.eq_ignore_ascii_case("/PANIC") {
         if let Err(e) = timer::hook_60hz() {
             println!("HOOK FAILED {:?}", e);
@@ -158,13 +171,13 @@ fn main() -> i32 {
         println!("HOOKED, PANICKING");
         panic!("requested by /PANIC");
     } else {
-        live(layout)
+        live(layout, &options)
     }
 }
 
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
 /// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
-fn replay() -> i32 {
+fn replay(options: &DrawOptions) -> i32 {
     let session = match start_session(false) {
         Ok(s) => s,
         Err(e) => {
@@ -189,7 +202,7 @@ fn replay() -> i32 {
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
 
     let _ = fizz_ep2::replay::write_start(&mut out, &world);
-    draw_slice_frame(&mut display, &mut frame, &world);
+    draw_slice_frame(&mut display, &mut frame, &world, options);
 
     while world.tick.0 < SLICE_TICKS {
         let due = pacer.due(&clock);
@@ -208,7 +221,7 @@ fn replay() -> i32 {
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
         }
         if due > 0 {
-            draw_slice_frame(&mut display, &mut frame, &world);
+            draw_slice_frame(&mut display, &mut frame, &world, options);
         }
     }
     let _ = fizz_ep2::replay::write_final(&mut out, &world);
@@ -230,7 +243,7 @@ fn replay() -> i32 {
 }
 
 /// Times the slice (see `bench`): the figures, then the platform lines, printed once the screen is back in text mode.
-fn bench(limit: u64) -> i32 {
+fn bench(limit: u64, options: &DrawOptions) -> i32 {
     let session = match start_session(false) {
         Ok(s) => s,
         Err(e) => {
@@ -245,7 +258,7 @@ fn bench(limit: u64) -> i32 {
         return 1;
     }
     let (cal_loops, cal_us) = bench::calibrate();
-    let (world, r) = bench::run(&mut display, limit);
+    let (world, r) = bench::run(&mut display, limit, options);
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -281,7 +294,7 @@ fn bench(limit: u64) -> i32 {
     0
 }
 
-fn live(layout: Layout) -> i32 {
+fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let session = match start_session(true) {
         Ok(s) => s,
         Err(e) => {
@@ -304,7 +317,7 @@ fn live(layout: Layout) -> i32 {
     let mut world = level::world();
     let mut quit = false;
 
-    draw_slice_frame_synced(&mut display, &mut frame, &world);
+    draw_slice_frame_synced(&mut display, &mut frame, &world, options);
     while !quit && world.tick.0 < LIVE_TICK_CAP {
         let due = pacer.due(&clock);
         for _ in 0..due {
@@ -321,7 +334,7 @@ fn live(layout: Layout) -> i32 {
             fizz_ep2::step(&mut world, latch.frame());
         }
         if due > 0 {
-            draw_slice_frame_synced(&mut display, &mut frame, &world);
+            draw_slice_frame_synced(&mut display, &mut frame, &world, options);
         }
     }
 

@@ -9,8 +9,8 @@
 //!
 //! The shape mirrors `fizz_hello::replay` so a presenter swaps one for the other: [`replay`] writes transcript v1, whose
 //! header is `SLICE REPLAY 1`, then `TICK <n> HASH <digest>` at tick 0 and every 60th tick, then
-//! `FINAL TICK <n> HASH <digest>`. Between them sit `EVENT <n> cluck <variant>` lines, one per [`Event::Cluck`] the rules
-//! emitted on tick `n`. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
+//! `FINAL TICK <n> HASH <digest>`. Between them sit `EVENT <n> cluck <variant> <chicken>` lines, one per
+//! [`Event::Cluck`] the rules emitted on tick `n`; `<chicken>` is the chicken's index in the world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
 //! kind is why the gates compare `EVENT` lines too. The header stays `1` because no existing line changed its shape.
@@ -172,7 +172,9 @@ pub fn write_start(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Res
 pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
     for e in w.events() {
         match *e {
-            Event::Cluck { variant } => writeln!(out, "EVENT {} cluck {variant}", w.tick.0)?,
+            Event::Cluck { variant, chicken } => {
+                writeln!(out, "EVENT {} cluck {variant} {chicken}", w.tick.0)?
+            }
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -250,7 +252,7 @@ mod tests {
         assert_eq!(final_line.rsplit(' ').next().unwrap().len(), 16);
     }
 
-    /// The `(tick, variant)` of every `EVENT` line.
+    /// The `(tick, variant)` of every `EVENT` line; the chicken index must be a valid index.
     fn events() -> Vec<(u64, u8)> {
         transcript()
             .lines()
@@ -258,6 +260,8 @@ mod tests {
             .map(|l| {
                 let f: Vec<&str> = l.split(' ').collect();
                 assert_eq!(f[1], "cluck");
+                assert_eq!(f.len(), 4);
+                assert!(f[3].parse::<usize>().unwrap() < level::world().chickens.len());
                 (f[0].parse().unwrap(), f[2].parse().unwrap())
             })
             .collect()
@@ -290,7 +294,18 @@ mod tests {
         let lines: Vec<&str> = s.lines().collect();
         assert_eq!(lines.len(), 2);
         assert!(lines[0].starts_with("EVENT 60 cluck "));
+        assert!(lines[0].ends_with(" 0"), "{}", lines[0]);
         assert!(lines[1].starts_with("TICK 60 HASH "));
+    }
+
+    #[test]
+    fn the_final_hash_is_unchanged_by_the_presentation_state() {
+        // Adding `cluck_age`, `cluck_variant` and the chicken index to the event must not move the state hash.
+        let t = transcript();
+        assert!(
+            t.ends_with("FINAL TICK 1268 HASH 2145503c0d3b625f\n"),
+            "{t}"
+        );
     }
 
     #[test]

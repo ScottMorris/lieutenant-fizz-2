@@ -16,9 +16,11 @@ pub mod sprites_data;
 
 mod camera;
 mod draw;
+pub mod font;
 
 pub use camera::{TILE_PX, follow, screen_y, tile_px};
 pub use draw::{TRANSPARENT, blit_sprite, draw_tilemap, draw_tilemap_on_sky, fill_rect};
+pub use font::{GLYPH, draw_glyph, draw_text, glyph, text_width};
 
 /// The logical pixel that contains `v`: the floor of `v`.
 ///

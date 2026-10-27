@@ -29,6 +29,7 @@ There are two sets of keys, and you use one at a time. Keen is the default on th
 | Quit | Esc (DOS only) | Esc (DOS only) |
 | Fullscreen | `F` (Web only) | `F` (Web only) |
 | Sound on or off | `M` (Web only) | `M` (Web only) |
+| Captions on or off | `V` (Web only) | `V` (Web only) |
 
 In the slice every key in the table does something; [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice) say what, and the two versions use the same keys for the same actions. Keys from the other set do nothing, so `W` does not move you under the Keen keys.
 
@@ -39,13 +40,26 @@ On the Web there is no quit key; close the tab.
 - **Web:** the Keys button under the screen switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys. Without it you get the Keen keys.
 
+### Captions
+
+When the chicken clucks, its beak opens and its words float above its head for about a second, rising a little and fading, as the sound words do in Lieutenant Fizz 1. The words depend on the cluck: `buh-gawk!`, `bwuk`, `bwuk-bwuk` or `bwuk, bwuk` (the screen font has only capital letters, so they show as capitals), each in its own colour. The double clucks open the beak twice. A word near the edge of the picture moves inside it, and the chicken's words are left out while it is far off screen. There is no sound yet, so these are the only sign that the chicken has clucked.
+
+![The Web slice just after the chicken clucks: its beak is open and BWUK-BWUK floats above it, drawn at the top of the picture because the chicken stands near it. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-cluck.png)
+
+*The Web build, captured in headless Chromium at tick 202, five ticks after the chicken's first cluck.*
+
+- **Web:** the Captions button under the screen turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
+- **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. A choice kept between runs comes with the settings screen, later.
+
+Turning captions off hides only the words; the beak still opens.
+
 ### Fullscreen and browser shortcuts
 
 On the Web, press `F` or use the Fullscreen button to fill the screen, and press it again to leave. A web page cannot stop a browser tab from acting on a few shortcuts: Ctrl+W closes the tab whatever the game does, and some desktops keep their own window and workspace shortcuts. In fullscreen, Chromium-based browsers (Chrome, Edge and similar) let the game keep Ctrl, Alt and the other game keys to itself; other browsers do not. If a shortcut keeps getting in your way, switch to the Modern keys, which do not use Ctrl or Alt.
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`.
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions).
 
 - `/LIVE` — you play the slice. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
@@ -83,7 +97,7 @@ Walk onto the red key to pick it up; the `KEY` in the HUD turns red. Carry it to
 
 ### The chicken
 
-The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes. It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy.
+The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes. It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy. Every few seconds it clucks: its beak opens and a word floats above it (see [Captions](#captions)).
 
 ### Death and respawn on DOS
 
@@ -122,7 +136,7 @@ You die on spikes, on a chicken that is not stunned, and by falling out of the b
 
 ### The Web heads-up text
 
-Under the screen, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. Below that, a goal line says what to do, the keys line shows the keys of the layout in use, and the Keys, Restart, Fullscreen and Sound buttons sit beneath it. Restart starts the level again from the first tick; it does not reload the page.
+Under the screen, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. Below that, a goal line says what to do, the keys line shows the keys of the layout in use, and the Keys, Captions, Restart, Fullscreen and Sound buttons sit beneath it. Restart starts the level again from the first tick; it does not reload the page.
 
 ### Sound on the Web
 
@@ -143,7 +157,7 @@ Both versions draw the same picture, a 320 by 200 window that follows Ben as he 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Only the Web version makes sound for now.
-- **Different:** the DOS version has an Esc key, four modes (`/LIVE`, `/MODERN`, `/REPLAY` and `/BENCH`) and a 30-second limit in `/LIVE`; the Web version has Keys, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, four modes (`/LIVE`, `/MODERN`, `/REPLAY` and `/BENCH`), the `/NOCAPTIONS` switch and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
