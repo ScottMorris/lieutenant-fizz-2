@@ -89,11 +89,41 @@ The converter is adapted from `convertSfx` in `m4/sound/fizz-dos/sfx.ts` of `lie
 `crates/fizz-sfx` is `no_std`, forbids `unsafe` and has no dependencies (a dev-dependency on `fizz-ep2` lets one test prove that its `VARIANTS` equals `CLUCK_VARIANTS`). Its `data.rs` is generated. The rest is a small stepping API with no allocation and no hardware access:
 
 - `VARIANTS`, the number of variants; `opl_steps(variant)`, `opl_ticks(variant)` and `speaker_steps(variant)` return the data. A `variant` out of range wraps, so a bad value is a different cluck and never a panic inside an interrupt handler.
-- `OplStep { reg, val, wait }`, and `OplPlayer`: call `tick(&mut |reg, val| ...)` once per 560 Hz tick. It emits the writes due on that tick and returns `false` once the chunk's last wait has run out.
+- `OplStep`, and `OplPlayer`: call `tick(&mut |bank, reg, val| ...)` once per 560 Hz tick. It emits the writes due on that tick and returns `false` once the chunk's last wait has run out. A step holds a register's low byte `reg`, its value `val`, a `bank()` (0 for registers 0x000 to 0x0ff, 1 for 0x100 to 0x1ff) and a `wait()` in ticks. The bank is the top bit of the `u16` that holds the wait, so a step is still four bytes and the wait is at most 32,767 ticks. The converter and the generated data write every register of the cluck in bank 0.
+- `OplPlayer::new(variant)` is the plain path for OPL2 cards (and an OPL3 used as one): exactly the stored writes on channel 5 in bank 0. `OplPlayer::new_panned(variant, Pan::{Left, Centre, Right})` is the OPL3 path, described under "Stereo on an OPL3". `needs_opl3(Some(pan))` and `OplPlayer::needs_opl3()` tell a driver which it is holding.
 - `SpeakerStep::{Divisor(u16), Off}`, and `SpeakerPlayer`: call `tick()` once per 140 Hz tick. It returns `None` once the list is spent; the step before that is always `Off`.
-- `EFFECT_CHANNEL` (5), `OPL_TICK_HZ` (560) and `SPEAKER_TICK_HZ` (140).
+- `EFFECT_CHANNEL` (5), `EFFECT_CHANNEL_PANNED` (14), `RESERVED_OPL_CHANNELS` (`[5, 14]`), `is_reserved_opl_channel`, `OPL_TICK_HZ` (560) and `SPEAKER_TICK_HZ` (140).
 
 Last-wins between effects, detection of an OPL2, the 560 Hz timer and the ports are the DOS audio service's business, not this crate's.
+
+## Reserved channels
+
+Sound effects own two OPL channels, numbered 0 to 17 with the second register bank's from 9, and music and scores must not use either:
+
+| Channel | Bank and slot | Registers | Used by |
+| --- | --- | --- | --- |
+| 5 | bank 0, slot 5 | operators 0x0a and 0x0d (`0x2a`, `0x2d`, `0x4a`, `0x4d`, `0x6a`, `0x6d`, `0x8a`, `0x8d`, `0xea`, `0xed`), `0xa5`, `0xb5`, `0xc5` | unpanned effects, every plain OPL2 card |
+| 14 | bank 1, slot 5 (9 + 5) | the same offsets plus 0x100: `0x12a`, `0x12d` and so on, `0x1a5`, `0x1b5`, `0x1c5` | panned effects on an OPL3 |
+
+The constants are `fizz_sfx::EFFECT_CHANNEL`, `EFFECT_CHANNEL_PANNED` and `RESERVED_OPL_CHANNELS` in the crate, and `EFFECT_CHANNEL`, `EFFECT_CHANNEL_PANNED` and `RESERVED_OPL_CHANNELS` in `tools/sfx/opl.ts`. A score-writing tool imports the list and refuses those channels. An OPL3 channel is mono and has one output setting at a time, so a panned effect needs a channel of its own that no score uses.
+
+This costs a score one channel. The owner's IMF lab plans `OPL3_MUSIC_CHANNELS = [0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17]` (`src/fizz-dos/music.ts`); with channel 14 reserved it becomes `[0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 15, 16, 17]`, thirteen channels. That file belongs to the lab and this repository does not change it; updating it is the owner's. Two effects panned at the same moment would need a third reserved channel, which is not done: a second panned effect would cut the first (last wins, as with every effect).
+
+## Stereo on an OPL3
+
+The OPL2 is mono. The OPL3 adds a second register bank (channels 9 to 17) and two output bits in each channel's C0 register: left 0x10, right 0x20, both for centre. The ideas, the register numbers and the five-byte record with a bank byte come from the owner's IMF lab (`src/fizz-dos/opl.ts`, `bankOf`, the output bits, `OPL3_ENABLE` and `toOpl3`; `music.ts`, the first write of an OPL3 stream; `player.ts`; and the README's "OPL3 stereo"). None of the lab's files are copied; this repository stores a packed bank bit and applies the pan as the effect plays.
+
+The stored patterns stay pan-free and on channel 5 in bank 0. `OplPlayer::new_panned(variant, pan)`:
+
+1. emits the OPL3-enable write first, on the first tick, taking no time: bank 1, register 0x05, value 0x01 (register 0x105);
+2. moves every write except the waveform-select enable (register 0x01, which is global and stays in bank 0) to bank 1, where slot 5 has the same register offsets as channel 5, so the effect plays on channel 14;
+3. sets the pan's output bits (0x10, 0x20 or 0x30) on every write to the config register, 0x1c5, keeping its feedback and connection bits.
+
+The converter already writes the config register with each patch, at the OPL2-safe value, so the stored data needs no pan. The plain path's output is pinned by a hash of every write and tick taken before the bank bit existed. Tests check that the enable comes first and appears only when panned, that every panned write is in bank 1 and in slot 5's registers, that the pan bits on 0x1c5 are exact for each of the three pans and each variant, that the other values are unchanged, and that a panned effect still ends keyed off.
+
+On a plain OPL2 chip the enable write and the output bits are unused and harmless, but the panned path must only be used when an OPL3 was detected. Detection is not done here; it belongs to a later package, and the owner plans a text-mode start-up check screen. A Sound Blaster Pro 1, which has two separate OPL2 chips for stereo, is not supported. The PC speaker and a plain OPL2 stay mono.
+
+What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. For that, `Event::Cluck` will later need to say which chicken it came from, so the presenter can read its position. That change to the rules is not part of this work; today the event carries only the variant, and a presenter can play only centre.
 
 ## Regenerate and check
 
@@ -102,12 +132,13 @@ bun tools/sfx/downmix.ts           regenerate crates/fizz-sfx/src/data.rs
 bun tools/sfx/downmix.ts --check   fail with a diff if the committed file is out of date
 ```
 
-The CI parity job runs `--check`, so a source change committed without its regenerated data fails CI. The crate's tests check that every variant terminates, ends keyed off, writes only channel 5's registers, stays in the audible divisor range and plays the same every time.
+The CI parity job runs `--check`, so a source change committed without its regenerated data fails CI. The crate's tests check that every variant terminates, ends keyed off, writes only channel 5's registers in bank 0, stays in the audible divisor range and plays the same every time.
 
-To listen, `bun tools/sfx/render-wav.ts <directory>` writes three WAV files per variant: the rich source, an approximate OPL2 preview of the generated records and a square-wave speaker preview. All three are approximations and none is committed.
+To listen, `bun tools/sfx/render-wav.ts <directory>` writes six WAV files per variant: the rich source, an approximate OPL2 preview of the generated records, a square-wave speaker preview and three stereo OPL3 previews, panned left, centre and right (`cluck-<n>-rich`, `-opl2`, `-speaker`, `-opl3-left`, `-opl3-centre`, `-opl3-right`). All are approximations and none is committed.
 
 - The rich file does not come from Undertone. Undertone renders through Web Audio, which Bun does not have, so the script has a small synth that follows Undertone's voice model (an oscillator or noise, a linear attack, a linear decay to a sustain of 0, a low-pass with a filter envelope). Its waves are naive, not band-limited, and the Web will sound like Undertone, not like this file.
 - The OPL2 file is a two-operator FM model of channel 5 driven by the generated records, with the chip's feedback and level steps but a rough envelope-rate table and no key scaling, tremolo or vibrato. DOSBox's emulator or a real card will differ.
+- The OPL3 files run the same model through the panned path (the enable write, bank 1, the output bits) and write stereo. The model is a single channel, so it shows the pan and not the isolation of channel 14 from the music.
 - The speaker file holds a square wave for each 1/140 s step. A real speaker and its case colour the sound.
 
 ## Provenance
@@ -117,5 +148,5 @@ The converter is the same author's code, MIT in `lieutenant-fizz-dos` and dual-l
 ## Not verified
 
 - Nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
-- The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses.
+- The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The panned OPL3 path has not run on an OPL3 or in an emulator either, and the register numbers for bank 1 rest on the lab's conventions and the chip's documented layout, not on a test against hardware.
 - Nothing plays in a build yet. Playback arrives with the Web and DOS sound packages, and the player's manual has nothing to say about sound until then.

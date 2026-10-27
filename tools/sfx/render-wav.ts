@@ -14,6 +14,8 @@
 // - opl2: a two-operator FM emulation of channel 5 driven by the generated register records (so it plays exactly the data DOS will
 //   get), with the OPL2's feedback and level steps but a rough envelope-rate table and no key scaling, tremolo or vibrato. A real
 //   chip or DOSBox's emulator will differ.
+// - opl3-left, opl3-centre, opl3-right: the same model run through the panned OPL3 path (enable write, channel 14 in the second bank,
+//   output bits), written as stereo. The model is one channel, so it shows the pan, not the channel isolation. Approximate in the same ways.
 // - speaker: a square wave at the divisor's frequency, held for each 1/140 s step. A real speaker's cone and a case colour it.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -34,7 +36,7 @@ function seeded(seed: number): () => number {
   };
 }
 
-function wav(samples: Float32Array, rate: number): Uint8Array {
+function wav(samples: Float32Array, rate: number, channels = 1): Uint8Array {
   const out = new Uint8Array(44 + samples.length * 2);
   const v = new DataView(out.buffer);
   const tag = (o: number, t: string): void => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
@@ -44,10 +46,10 @@ function wav(samples: Float32Array, rate: number): Uint8Array {
   tag(12, 'fmt ');
   v.setUint32(16, 16, true);
   v.setUint16(20, 1, true);
-  v.setUint16(22, 1, true);
+  v.setUint16(22, channels, true);
   v.setUint32(24, rate, true);
-  v.setUint32(28, rate * 2, true);
-  v.setUint16(32, 2, true);
+  v.setUint32(28, rate * 2 * channels, true);
+  v.setUint16(32, 2 * channels, true);
   v.setUint16(34, 16, true);
   tag(36, 'data');
   v.setUint32(40, samples.length * 2, true);
@@ -188,6 +190,22 @@ class Channel5 {
     const block = (this.regs[0xb5] >> 2) & 7;
     return { hz: (fnum * OPL_CLOCK) / 2 ** (20 - block) };
   }
+  /** Set by a write of 1 to register 0x105; the output bits in register 0xc5 then gate the two sides. */
+  opl3 = false;
+  /** The model has one channel, so bank 1's slot 5 (channel 14) and bank 0's channel 5 share its registers; only the enable is special. */
+  writeBanked(bank: number, reg: number, val: number): void {
+    if (bank === 1 && reg === 0x05) {
+      this.opl3 = (val & 1) !== 0;
+      return;
+    }
+    this.write(reg, val);
+  }
+  /** The left and right gains of the channel: both on an OPL2, and per the C0 output bits on an OPL3. */
+  sides(): [number, number] {
+    if (!this.opl3) return [1, 1];
+    const bits = this.regs[0xc5];
+    return [bits & 0x10 ? 1 : 0, bits & 0x20 ? 1 : 0];
+  }
   write(reg: number, val: number): void {
     const was = (this.regs[0xb5] & 0x20) !== 0;
     this.regs[reg] = val;
@@ -267,6 +285,42 @@ class Channel5 {
   }
 }
 
+/**
+ * The panned OPL3 path as the Rust player plays it: the enable write first, every write but 0x01 moved to bank 1 (channel 14, slot 5
+ * of the second bank) and the pan's output bits ORed into the config register 0xc5. Returns interleaved stereo at the chip's rate.
+ */
+export function renderOplPanned(records: readonly OplRecord[], ticks: number, pan: 'left' | 'centre' | 'right'): Float32Array {
+  const bits = pan === 'left' ? 0x10 : pan === 'right' ? 0x20 : 0x30;
+  const writes: OplRecord[] = [{ bank: 1, reg: 0x05, val: 0x01, wait: 0 }];
+  for (const r of records) {
+    writes.push({
+      bank: r.reg === 0x01 ? 0 : 1,
+      reg: r.reg,
+      val: r.reg === 0xc5 ? (r.val & 0x0f) | bits : r.val,
+      wait: r.wait,
+    });
+  }
+  const rate = OPL_CLOCK;
+  const frames = Math.ceil(((ticks + 28) / IMF_RATE) * rate);
+  const out = new Float32Array(frames * 2);
+  const ch = new Channel5();
+  let next = 0;
+  let waitSamples = 0;
+  for (let n = 0; n < frames; n++) {
+    while (waitSamples <= 0 && next < writes.length) {
+      const r = writes[next++];
+      ch.writeBanked(r.bank, r.reg, r.val);
+      waitSamples += (r.wait * rate) / IMF_RATE;
+    }
+    waitSamples -= 1;
+    const x = ch.sample(1 / rate) * 0.5;
+    const [l, rt] = ch.sides();
+    out[n * 2] = x * l;
+    out[n * 2 + 1] = x * rt;
+  }
+  return out;
+}
+
 export function renderOpl(records: readonly OplRecord[], ticks: number): Float32Array {
   const rate = OPL_CLOCK;
   const out = new Float32Array(Math.ceil(((ticks + 28) / IMF_RATE) * rate));
@@ -277,7 +331,7 @@ export function renderOpl(records: readonly OplRecord[], ticks: number): Float32
   for (let n = 0; n < out.length; n++) {
     while (waitSamples <= 0 && next < records.length) {
       const r = records[next++];
-      ch.write(r.reg, r.val);
+      ch.writeBanked(r.bank, r.reg, r.val);
       waitSamples += (r.wait * rate) / IMF_RATE;
     }
     waitSamples -= 1;
@@ -313,6 +367,10 @@ if (import.meta.main) {
       [`cluck-${i}-rich.wav`, wav(renderRich(voices), SR)],
       [`cluck-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, conv[i].opl.ticks), OPL_CLOCK)],
       [`cluck-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR)],
+      ...(['left', 'centre', 'right'] as const).map((pan): [string, Uint8Array] => [
+        `cluck-${i}-opl3-${pan}.wav`,
+        wav(renderOplPanned(conv[i].opl.records, conv[i].opl.ticks, pan), OPL_CLOCK, 2),
+      ]),
     ];
     for (const [name, bytes] of files) {
       writeFileSync(`${dir}/${name}`, bytes);

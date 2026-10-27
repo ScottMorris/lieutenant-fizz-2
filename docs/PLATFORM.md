@@ -25,7 +25,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy |
 | `crates/fizz-ep2` | Rules | The slice's rules (Ben, the chicken, the shots, the red key and door, the level), the hash, the scripted replay and its golden transcript `slice-replay.txt` |
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
-| `crates/fizz-sfx` | Platform data | Generated OPL2 and PC speaker data for the cluck, and the `OplPlayer` and `SpeakerPlayer` steppers the DOS audio service drives; see [`SFX.md`](SFX.md) |
+| `crates/fizz-sfx` | Platform data | Generated OPL2 and PC speaker data for the cluck, and the `OplPlayer` (plain OPL2, or OPL3-panned on reserved channel 14) and `SpeakerPlayer` steppers the DOS audio service drives; see [`SFX.md`](SFX.md) |
 | `crates/fizz-view` | Presenter base | The placement rule both presenters share: a position in game units to a logical pixel, rounding down. Neither presenter depends on the other |
 | `crates/fizz-slice-view` | Presenter base | `draw_slice`, the one routine that draws the Episode 2 slice into a palette-indexed buffer; both presenters call it |
 | `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD (the slice's ammo, key, deaths and tick strip in `render_slice`) and key mapping; no DOS calls |
