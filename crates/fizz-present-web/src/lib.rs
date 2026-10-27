@@ -250,8 +250,9 @@ impl SliceApp {
             &self.world,
             self.world.tick.0 as u32,
         );
-        for (px, &i) in self.rgba.chunks_exact_mut(4).zip(&self.indexed) {
-            px.copy_from_slice(&EGA_RGBA[usize::from(i & 15)]);
+        let (pixels, _) = self.rgba.as_chunks_mut::<4>();
+        for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
+            *px = EGA_RGBA[usize::from(i & 15)];
         }
     }
 
@@ -629,13 +630,12 @@ mod tests {
         app.render();
         assert_eq!((app.width(), app.height()), (320, 200));
         assert_eq!(app.rgba_len(), 320 * 200 * 4);
-        let rgba = &app.rgba;
-        assert!(rgba.chunks_exact(4).all(|p| p[3] == 0xFF));
-        // Every pixel is one of the sixteen EGA colours.
-        assert!(
-            rgba.chunks_exact(4)
-                .all(|p| EGA_RGBA.contains(&[p[0], p[1], p[2], p[3]]))
-        );
+        let (pixels, rest) = app.rgba.as_chunks::<4>();
+        assert!(rest.is_empty());
+        // Every pixel is one of the sixteen EGA colours, which are all opaque.
+        assert!(pixels.iter().all(|p| EGA_RGBA.contains(p)));
+        // The slice draws a whole picture, not a blank frame.
+        assert!(pixels.iter().any(|p| p != &EGA_RGBA[0]));
     }
 
     #[test]
