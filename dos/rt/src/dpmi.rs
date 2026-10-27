@@ -291,3 +291,27 @@ pub fn map_physical(phys: u32, size: u32) -> Result<u32, Error> {
 pub fn unmap_physical(linear: u32) -> Result<(), Error> {
     call(0x0801, linear >> 16, linear & 0xFFFF, 0, 0, 0).map(|_| ())
 }
+
+/// What DPMI function 0500h reports about memory. A field the host cannot tell is `None` (it returns 0FFFFFFFFh).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FreeMemory {
+    /// The largest block that can be allocated, in bytes.
+    pub largest_block: Option<u32>,
+    /// Free physical pages (4 KB each).
+    pub free_pages: Option<u32>,
+    /// Physical pages the machine has for the host.
+    pub total_pages: Option<u32>,
+}
+
+/// DPMI 0500h: the host's free-memory information. The host fills a 48-byte buffer through ES:EDI, and ES is the flat data selector.
+pub fn free_memory_info() -> Result<FreeMemory, Error> {
+    let mut buf = [0xFFFF_FFFFu32; 12];
+    call(0x0500, 0, 0, 0, 0, buf.as_mut_ptr() as usize as u32)?;
+    // SAFETY: `i` is below 12; the host wrote the array behind the compiler's back, so the read is volatile.
+    let field = |i: usize| Some(unsafe { core::ptr::read_volatile(&buf[i]) }).filter(|&v| v != 0xFFFF_FFFF);
+    Ok(FreeMemory {
+        largest_block: field(0),
+        free_pages: field(5),
+        total_pages: field(6),
+    })
+}

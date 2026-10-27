@@ -25,6 +25,8 @@
 // - `kbd`      IRQ 1: raw scancodes into a ring, and the BIOS keyboard flags put back at the end
 // - `mem`      `memset` and `memcpy` on string instructions, in place of the generic loops
 // - `vga`      mode 13h, the palette, the vertical retrace and the frame buffer
+// - `pit`      a busy-wait delay in microseconds from the PIT count, valid only at the BIOS rate
+// - `probe`    hardware probes: video, mouse, joystick, FM chip, Sound Blaster DSP, x87, processor and free memory
 //
 // Single-threaded, with one exception: interrupt handlers, which touch only `static`s and never allocate, call DOS or use the x87.
 #![no_std]
@@ -45,7 +47,9 @@ pub mod kbd;
 pub mod mem;
 #[cfg(feature = "panic-handler")]
 mod panic;
+pub mod pit;
 pub mod port;
+pub mod probe;
 pub mod ring;
 pub mod start;
 pub mod timer;
