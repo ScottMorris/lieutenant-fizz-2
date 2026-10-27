@@ -1,0 +1,9 @@
+[package]
+name = "fizz-sim"
+description = "Deterministic fixed-tick rules foundation for Lieutenant Fizz episodes"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
