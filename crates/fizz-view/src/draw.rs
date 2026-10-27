@@ -307,7 +307,15 @@ mod tests {
 
     /// The definition of a blit, one pixel at a time: the anchored, optionally mirrored position of each opaque pixel, kept when it
     /// is inside the frame.
-    fn reference_blit(frame: &mut [u8], w: usize, h: usize, s: &Sprite, x: i32, y: i32, flip: bool) {
+    fn reference_blit(
+        frame: &mut [u8],
+        w: usize,
+        h: usize,
+        s: &Sprite,
+        x: i32,
+        y: i32,
+        flip: bool,
+    ) {
         for sy in 0..usize::from(s.h) {
             for sx in 0..usize::from(s.w) {
                 let p = s.pixels[sy * usize::from(s.w) + sx];

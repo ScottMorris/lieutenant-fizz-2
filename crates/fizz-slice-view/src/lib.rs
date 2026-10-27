@@ -376,7 +376,9 @@ mod tests {
         w.ben.b.x = 13.0;
         w.ben.b.y = 20.0;
         let (bx, by) = (w.ben.b.x as i32, w.ben.b.y as i32);
-        let tiles: Vec<(i32, i32)> = (4..10).flat_map(|dx| (-2..3).map(move |dy| (bx + dx, by + dy))).collect();
+        let tiles: Vec<(i32, i32)> = (4..10)
+            .flat_map(|dx| (-2..3).map(move |dy| (bx + dx, by + dy)))
+            .collect();
         assert!(tiles.len() > DOORS);
         for &(tx, ty) in &tiles {
             w.map.set(tx, ty, DOOR_R);
@@ -390,11 +392,20 @@ mod tests {
         let door = sprite("doorRed").unwrap();
         for &(tx, ty) in &tiles {
             let (left, top) = (tx * TILE_PX - cam_x, (map_h - 1 - ty) * TILE_PX - cam_y);
-            assert!(left >= 0 && left + TILE_PX <= VIEW_W as i32 && top >= 0 && top + TILE_PX <= VIEW_H as i32);
+            assert!(
+                left >= 0
+                    && left + TILE_PX <= VIEW_W as i32
+                    && top >= 0
+                    && top + TILE_PX <= VIEW_H as i32
+            );
             for sy in 0..16usize {
                 for sx in 0..16usize {
                     let p = door.pixels[sy * 16 + sx];
-                    let want = if p == fizz_view::TRANSPARENT { BROWN } else { p };
+                    let want = if p == fizz_view::TRANSPARENT {
+                        BROWN
+                    } else {
+                        p
+                    };
                     let got = f[(top as usize + sy) * VIEW_W + left as usize + sx];
                     assert_eq!(got, want, "door ({tx}, {ty}) pixel ({sx}, {sy})");
                 }
