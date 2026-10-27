@@ -40,8 +40,8 @@ id: layers
 kind: diagram
 track: shared
 title: The layers, as built
-alt: Layer diagram with Web on the left and DOS on the right: the rules crates, both presenters, the Web page, fizz-hal and the DOS runtime are built; fizz-engine, fizz-cook and the Episode 2 rules are planned.
-caption: Content, intent, cooking, presenters and platform, each box marked built or planned.
+alt: Layer diagram with Web on the left and DOS on the right: the rules crates, both presenters, the Web page, fizz-hal and the DOS runtime are built; fizz-engine, fizz-bake and the Episode 2 rules are planned.
+caption: Content, intent, baking, presenters and platform, each box marked built or planned.
 at: figure layers
 thumb: svg
 ```

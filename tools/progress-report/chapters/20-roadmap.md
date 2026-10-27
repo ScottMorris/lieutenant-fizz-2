@@ -18,7 +18,7 @@ This page lists the plan by milestone. Milestone 0 is merged; Milestones 1 to 5 
 
 - **M0, the platform skeleton.** A marker moved by input at 60 Hz on Web and DOS, hashed identically on native, Web and DOS (chapters 3 to 6).
 - **M1, reuse `lf-sim`.** Fizz 1's engine core, `lf-sim` in `crates/sim`, is in its own words a "deterministic fixed-step tile/AABB simulation, instance buffer and lights". It is either reused directly or ported with the same constants, and a golden trace from Fizz 1's source proves the match on all three platforms. `fizz-hello` is deleted when the real rules hash identically.
-- **M2, the content pipeline.** `fizz-cook`, the host tool that lowers authored assets per target, starting with Fizz Level Studio scripts as the level format. DOS parses nothing at start-up that the cooker could prepare.
+- **M2, the content pipeline.** `fizz-bake`, the host tool that bakes authored assets for each target into Fizz Asset Packs (`.FAP`), starting with Fizz Level Studio scripts as the level format. DOS loads a pack with one read and parses nothing that the baker could prepare.
 - **M3, scene intent and the camera.** `fizz-engine` with scene intent (tiles, sprites, lights, camera) and named events, following `docs/SCENE-CONTRACT.md`, and a camera with Fizz 1's pixel-locking: Fizz 1's `docs/ENGINE_SPEC.md` snaps the camera to the canvas-pixel grid every frame so sprites never shimmer.
 - **M4, audio.** The music from the IMF lab's composition source, played on Web and lowered to IMF or OPL2 for DOS, with channel 5 kept for effects.
 - **M5, CI gates and the 486 budget.** Cycle and size budgets against a 486DX model in CI, since DOSBox at `cycles=max` hides x87 cost, and a first run on real hardware.

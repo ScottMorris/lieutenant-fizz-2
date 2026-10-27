@@ -120,12 +120,12 @@ def legend(states):
 # ---- the layer diagram ----------------------------------------------------------------------------------------------------------
 
 # (row, x, w, kind, line1, line2); kind is built (merged, checked on the host or in an emulator), plan or ext (not ours).
-LAYER_ROWS = ["Content", "Intent", "Cooking", "Presenters", "Platform", "Machine"]
+LAYER_ROWS = ["Content", "Intent", "Baking", "Presenters", "Platform", "Machine"]
 LAYER_BOXES = [
     (0, 0, 2, "built", "fizz-sim · fizz-hello", "60 Hz tick, state hash, input frames; throwaway rules (#1)"),
     (0, 2, 2, "plan", "Episode 2 rules", "lf-sim reused or ported (M1)"),
     (1, 0, 4, "plan", "fizz-engine: scene, audio and event intent", "docs/SCENE-CONTRACT.md is a sketch (M3)"),
-    (2, 0, 4, "plan", "fizz-cook", "Level Studio scripts, art and music lowered per target (M2)"),
+    (2, 0, 4, "plan", "fizz-bake", "Level Studio scripts, art and music lowered per target (M2)"),
     (3, 0, 2, "built", "fizz-present-web", "wasm-bindgen App, canvas page (#6)"),
     (3, 2, 2, "built", "fizz-present-dos", "320x200 frame, palette, font (#4)"),
     (4, 0, 1, "built", "Web page", "web/: JS shim (#6)"),
@@ -140,7 +140,7 @@ def layers_svg():
     X0, CW, RH, GAP, TOP = 110, 215, 50, 14, 34
     W, H = X0 + 4 * CW + 4, TOP + len(LAYER_ROWS) * (RH + GAP) + 26
     label = ("Layers of Fizz 2 from content to the machine, Web on the left and DOS on the right. Built and merged: fizz-sim and fizz-hello, "
-             "both presenters, the Web page, fizz-hal and the DOS runtime. Planned: the Episode 2 rules, fizz-engine and fizz-cook. "
+             "both presenters, the Web page, fizz-hal and the DOS runtime. Planned: the Episode 2 rules, fizz-engine and fizz-bake. "
              "Not ours: the browser or JavaScript runtime, DOSBox and CWSDPMI.")
     o = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s" class="diagram">' % (W, H, esc(label)),
          '<text x="%d" y="20" text-anchor="middle" font-size="14" class="d-title">Web</text>' % (X0 + CW),

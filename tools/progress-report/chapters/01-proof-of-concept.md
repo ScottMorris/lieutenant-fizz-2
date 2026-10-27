@@ -12,7 +12,7 @@ Fizz 2 was seeded from the findings of an earlier repository, `fizz-2-dos-poc1`,
 
 - **The crate split.** Rules, a contract, a renderer, a DOS runtime and thin presenters, with one deterministic `no_std` simulation driving several presenters ("What the proof of concept settled").
 - **A fixed tick with press edges.** A 60 Hz tick with explicit press edges fixed the dropped sounds and diagonal input that variable timing caused.
-- **Build-time preparation.** Precompiling data at build time kept DOS free of parsing, which became the rule "fidelity is lost at cook time".
+- **Build-time preparation.** Precompiling data at build time kept DOS free of parsing, which became the rule "fidelity is lost at bake time".
 - **Semantic sound events.** Effects are names; each presenter plays them in its own engine. On DOS the last effect wins on channel 5; on Web they play together.
 
 ## What it did not settle
@@ -25,7 +25,7 @@ The score library had the same shape. It started from OPL2 limits and the Web si
 
 ## The principles it left
 
-The seven principles of `docs/POC-1-FINDINGS.md` became the house rules of the next chapter: intent flows up and lowering flows down; fidelity is lost at cook time; platform limits live in the platform; `no_std` plus `alloc` for the rules; a presenter may add what the core does not know; DOS is a bonus, not a ceiling; and a piece is not done until a second consumer exercises it.
+The seven principles of `docs/POC-1-FINDINGS.md` became the house rules of the next chapter: intent flows up and lowering flows down; fidelity is lost at bake time; platform limits live in the platform; `no_std` plus `alloc` for the rules; a presenter may add what the core does not know; DOS is a bonus, not a ceiling; and a piece is not done until a second consumer exercises it.
 
 ## The shelves
 

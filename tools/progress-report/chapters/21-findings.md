@@ -36,7 +36,7 @@ This page collects the results of the chapters in one place, each with the chapt
 
 - Is Fizz 1's pogo physics reused directly, or ported with the same constants and proved by golden traces?
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later?
-- Which language does the cooker use? Rust is preferred, so it shares types.
+- Which language does the baker use? Rust is preferred, so it shares types.
 - Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits?
 
