@@ -18,17 +18,33 @@ Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDP
 
 ## Controls
 
-| Key | What it does |
-| --- | --- |
-| Arrow keys or `W` `A` `S` `D` | Move the square |
-| Space | Dash in the direction you last moved |
-| Esc | Quit (DOS only) |
+There are two sets of keys, and you use one at a time. Keen is the default on the Web and on DOS.
+
+| Action | Keen keys (default) | Modern keys |
+| --- | --- | --- |
+| Move | Arrow keys | Arrow keys or `W` `A` `S` `D` |
+| Jump | Ctrl | `Z` |
+| Pogo stick | Alt | `X` |
+| Fire | Space | `C` or Space |
+| Quit | Esc (DOS only) | Esc (DOS only) |
+| Fullscreen | `F` (Web only) | `F` (Web only) |
+
+Only the arrows and Jump do anything in this preview: the arrows move the square and Jump makes it dash in the direction you last moved. Pogo and Fire are ready for the game but have no effect yet. Keys from the other set do nothing, so `W` does not move you under the Keen keys.
 
 On the Web there is no quit key; close the tab.
 
+### Choosing your keys
+
+- **Web:** the Keys button under the screen switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
+- **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys. Without it you get the Keen keys.
+
+### Fullscreen and browser shortcuts
+
+On the Web, press `F` or use the Fullscreen button to fill the screen, and press it again to leave. A web page cannot stop a browser tab from acting on a few shortcuts: Ctrl+W closes the tab whatever the game does, and some desktops keep their own window and workspace shortcuts. In fullscreen, Chromium-based browsers (Chrome, Edge and similar) let the game keep Ctrl, Alt and the other game keys to itself; other browsers do not. If a shortcut keeps getting in your way, switch to the Modern keys, which do not use Ctrl or Alt.
+
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`.
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`.
 
 - `/LIVE` — you control the square. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether you moved.
 - `/REPLAY` — plays a built-in 10-second script by itself, with no keyboard input, then prints the list of hashes it reached. Use it to check that your copy agrees with the Web version.
@@ -48,8 +64,8 @@ The square stays inside the screen. Letting go of the keys makes it slow to a st
 
 The two versions run the same rules, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the colours, the controls, the 60-steps-a-second pace and the HUD wording.
-- **Different:** the DOS version has an Esc key, three modes and a 30-second limit in `/LIVE`; the Web version runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen. Neither version makes sound yet.
+- **Same:** the colours, the two sets of keys, the 60-steps-a-second pace and the HUD wording.
+- **Different:** the DOS version has an Esc key, three modes, `/MODERN` and a 30-second limit in `/LIVE`; the Web version has a Keys button, a fullscreen key and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen. Neither version makes sound yet.
 
 ## Coming
 

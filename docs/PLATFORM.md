@@ -1,6 +1,6 @@
 # Platform skeleton
 
-Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and DOS from the same Rust rules, moves a marker with the arrow keys or WASD, and hashes its state so a script can prove that native x86_64, Web (WASM) and DOS (headless DOSBox) agree. There is no game yet. This document describes the layers as built, the decisions behind them, how to run each check and what has not been verified. [`ARCHITECTURE.md`](ARCHITECTURE.md) holds the layer plan and the parity policy this skeleton implements.
+Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and DOS from the same Rust rules, moves a marker with the keys of either layout, and hashes its state so a script can prove that native x86_64, Web (WASM) and DOS (headless DOSBox) agree. There is no game yet. This document describes the layers as built, the decisions behind them, how to run each check and what has not been verified. [`ARCHITECTURE.md`](ARCHITECTURE.md) holds the layer plan and the parity policy this skeleton implements.
 
 ## Contents
 
@@ -31,9 +31,9 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `dos/rtsmoke` | Test | `RTSMOKE.EXE`, which exercises the runtime without any rules |
 | `web/` | App | `index.html`, `main.js` and `style.css`, the static page that drives the `App`, with relative URLs only |
 
-`InputFrame` carries `held` and `pressed` button sets. `InputLatch` turns key transitions into frames, and the rules act on `held | pressed`, so a tap shorter than one tick still counts. `Buttons` are `UP=1`, `DOWN=2`, `LEFT=4`, `RIGHT=8` and `ACTION=16`.
+`InputFrame` carries `held` and `pressed` button sets. `InputLatch` turns key transitions into frames, and the rules act on `held | pressed`, so a tap shorter than one tick still counts. `Buttons` are `UP=1`, `DOWN=2`, `LEFT=4`, `RIGHT=8`, `JUMP=16`, `POGO=32` and `FIRE=64`.
 
-`fizz-hello` is a marker with a position, a velocity, a heading and a dash count. The heading comes from `atan2` of the held direction, and a dash on the `ACTION` edge moves the marker along it. The trigonometry is deliberate: it makes the x87 precision setting an observable, tested part of the hash.
+`fizz-hello` is a marker with a position, a velocity, a heading and a dash count. The heading comes from `atan2` of the held direction, and a dash on the `JUMP` edge moves the marker along it. The trigonometry is deliberate: it makes the x87 precision setting an observable, tested part of the hash.
 
 The DOS workspace is separate from the root workspace. It uses a custom target (`dos/dos-elf.json`), `-Zbuild-std` and `RUSTC_BOOTSTRAP=1`, so host checks never need `rust-src` or the nightly-only flags.
 
@@ -70,7 +70,7 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 | Area | Contents |
 | --- | --- |
 | Time | `Ticks`, the `Clock` trait, and `Pacer`, an integer accumulator that turns a clock reading into whole 60 Hz ticks with a catch-up cap |
-| Input | `KeyCode`, `KeyEvent`, the `InputSource` trait and `Set1Decoder` for Set 1 scancodes (extended arrows, WASD, Space, Esc) |
+| Input | `KeyCode`, `KeyEvent`, the `InputSource` trait and `Set1Decoder` for Set 1 scancodes (extended arrows, WASD, Z, X, C, Space, Esc, and Ctrl and Alt, where the extended right-hand keys report the same codes as the left) |
 | Video | `Rgb6`, `ModeInfo`, `HalError` and the `Display` trait |
 | Hand-off | `SpscRing`, a bounded single-producer, single-consumer queue between an interrupt handler and the game loop |
 
@@ -93,7 +93,17 @@ The crate is `no_std` with no dependencies, denies `clippy::float_arithmetic`, a
 - **Clean-up.** Every vector is restored on exit and on panic through the clean-up list. A panic exits with code 3.
 - **File names** are 8.3 and upper case.
 
-`FIZZ2.EXE` takes one argument. `/REPLAY` runs the 600-tick script and prints the transcript and the platform lines. `/LIVE` is keyboard play with arrows or WASD and Space, ends on Esc, and is the default; it also ends by itself after 30 seconds so an emulator run cannot hang. `/PANIC` hooks IRQ 0 and panics, to show that the clean-up list runs.
+`FIZZ2.EXE` takes one argument. `/REPLAY` runs the 600-tick script and prints the transcript and the platform lines. `/LIVE` is keyboard play, ends on Esc, and is the default; it also ends by itself after 30 seconds so an emulator run cannot hang. `/MODERN` selects the modern key layout and combines with `/LIVE` or stands alone for it. `/PANIC` hooks IRQ 0 and panics, to show that the clean-up list runs.
+
+### Key layouts
+
+The two layouts are exclusive sets, and Keen is the default on both platforms. Keen is Fizz 1's classic layout: the arrows move, Ctrl is `JUMP`, Alt is `POGO` and Space is `FIRE`. Modern is the arrows or `W` `A` `S` `D` for movement, `Z` for `JUMP`, `X` for `POGO` and `C` or Space for `FIRE`. Arrows work and Space fires in both; a key of the other layout does nothing.
+
+On DOS, `fizz_present_dos::key_to_buttons(KeyCode, Layout) -> Option<Buttons>` is the one mapping, with `Layout::Keen` (the default) and `Layout::Modern`. `FIZZ2.EXE /MODERN` picks the second. The decoder reports Ctrl and Alt for both the left and right keys. A Pause sequence is swallowed whole, including its `1D`, so it never looks like a Ctrl press.
+
+On the Web, `web/main.js` holds the same two tables keyed on `event.code` and feeds button bits to `App::key`. A button on the page switches layouts and the choice is kept in `localStorage` when it is available. The page calls `preventDefault` for every key the active layout uses, which also keeps Alt from focusing the menu bar. A tab still cannot block every browser shortcut (Ctrl+W closes it) or the window and workspace shortcuts of some desktops, so the Modern layout avoids Ctrl and Alt.
+
+In fullscreen (the `F` key or the page's button), the page calls the Keyboard Lock API, `navigator.keyboard.lock`, with the keys of both layouts, and releases it when fullscreen ends. Chromium supports it; where the API is missing or refuses, the page plays on without it. Esc is left out of the lock so the browser's way out of fullscreen keeps working.
 
 ## The Web build
 
@@ -169,7 +179,8 @@ Files mirrored or adapted from other work name their source in a header comment.
 
 - Real 486 hardware. Every DOS result comes from DOSBox.
 - x87 cycle cost. DOSBox with `cycles=max` hides it.
-- The live Web keyboard and canvas in a browser. The WASM module is replayed under Node and Bun, but no browser session is automated.
+- The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
+- Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
 - Audio. Nothing in the skeleton makes sound.
 - Bundling the Web build into a launcher.
 - The GitHub-hosted runner for the `parity` job.

@@ -13,7 +13,7 @@
 
 *Lieutenant Fizz 2* is the start of **Episode 2** of the Keen-style platformer series, and the simulation that Episode 3 will reuse. It is one game with two first-class presentations, **Web** and **DOS**, built in parallel from a deterministic Rust core. Fizz 1 stays where it is as the original and the reference; Fizz 2 learns from it.
 
-> **Status:** platform skeleton. A marker moves with the arrow keys or WASD on Web and on DOS, and native, Web (WASM) and DOS (headless DOSBox) builds produce the same state-hash transcript, which a parity check compares. There is nothing to play beyond that marker. [`docs/PLATFORM.md`](docs/PLATFORM.md) describes the skeleton and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the plan.
+> **Status:** platform skeleton. A marker moves with the arrow keys on Web and on DOS (Keen keys by default, a Modern set with WASD, Z, X and C on request), and native, Web (WASM) and DOS (headless DOSBox) builds produce the same state-hash transcript, which a parity check compares. There is nothing to play beyond that marker. [`docs/PLATFORM.md`](docs/PLATFORM.md) describes the skeleton and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the plan.
 
 ## The story so far
 
