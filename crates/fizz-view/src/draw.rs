@@ -196,6 +196,9 @@ fn draw_tiles(
         // The band of pixel rows this tile row covers inside the frame (rows outside it are skipped by an empty range).
         let y0 = (row * t - cy).clamp(0, fh) as usize;
         let y1 = ((row + 1) * t - cy).clamp(0, fh) as usize;
+        // With a sky the runs cover the whole row, so they are filled into the band's first row only and the other rows are
+        // copies of it: one long copy a row in place of every run again.
+        let fill_to = if sky.is_some() { y1.min(y0 + 1) } else { y1 };
         let in_map_row = (0..mh).contains(&row);
         let ty = (mh - 1 - row) as i32;
         let mut run: Option<(i64, u8)> = None;
@@ -210,14 +213,18 @@ fn draw_tiles(
                 (Some((_, rc)), Some(nc)) if rc == nc => {}
                 _ => {
                     if let Some((start, rc)) = run {
-                        fill_run(frame, w, cx, fw, start, col, y0, y1, rc);
+                        fill_run(frame, w, cx, fw, start, col, y0, fill_to, rc);
                     }
                     run = c.map(|c| (col, c));
                 }
             }
         }
         if let Some((start, rc)) = run {
-            fill_run(frame, w, cx, fw, start, col1 + 1, y0, y1, rc);
+            fill_run(frame, w, cx, fw, start, col1 + 1, y0, fill_to, rc);
+        }
+        for y in fill_to..y1 {
+            let (done, rest) = frame.split_at_mut(y * w);
+            rest[..fw as usize].copy_from_slice(&done[y0 * w..y0 * w + fw as usize]);
         }
     }
 }
