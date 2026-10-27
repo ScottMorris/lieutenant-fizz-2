@@ -51,6 +51,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |
 | `docs/SCENE-CONTRACT.md` | A sketch of the scene boundary between rules and presentations |
 | `tools/` | The check, build, DOS and parity scripts |
+| `tools/progress-report/` | The generator of the progress archive, its chapters and its captures |
 | `assets/` | The README banner |
 
 ## Getting started
@@ -72,6 +73,15 @@ tools/check-parity.sh                                       # prints PARITY ok <
 ```
 
 `DOS_TOOLCHAIN` is a directory holding `djgpp/`, `dosbox/` and `cwsdpmi/`, such as `/opt/dos-toolchain` in the pinned `ci-dos` image that CI uses. To try the Web page, serve `dist/web` with any static file server. [`docs/PLATFORM.md`](docs/PLATFORM.md) lists every command and what was not verified.
+
+## Progress archive
+
+The Fizz 2 Progress Report is a multi-page archive of what has been built, how each piece was checked, and what is planned, with pull request evidence, CI results, screenshots and diagrams. It is generated from this repository and `gh` by [`tools/progress-report/`](tools/progress-report/README.md) and published as a private Artifact. To regenerate it:
+
+```bash
+python3 tools/progress-report/build.py --check             # writes dist/progress-report; --offline uses the committed gh snapshot
+python3 -m http.server -d dist/progress-report 9000        # then open http://127.0.0.1:9000/
+```
 
 ## Standing on other projects
 
