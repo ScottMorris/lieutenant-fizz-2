@@ -20,6 +20,10 @@ name = "fizz-hal"
 version = "0.1.0"
 
 [[package]]
+name = "fizz-machine"
+version = "0.1.0"
+
+[[package]]
 name = "fizz-phys"
 version = "0.1.0"
 dependencies = [
@@ -60,6 +64,7 @@ dependencies = [
  "fizz-dos-rt",
  "fizz-ep2",
  "fizz-hal",
+ "fizz-machine",
  "fizz-present-dos",
  "fizz-sim",
 ]

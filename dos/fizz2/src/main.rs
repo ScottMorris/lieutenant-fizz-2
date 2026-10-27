@@ -10,6 +10,8 @@
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
+//   FIZZ2.EXE /PROBE    probes the machine (video, mouse, joystick, FM chip, Sound Blaster, x87, processor, memory) and prints what it found
+//                       as `PROBE` lines with the hash of the check screen those values make; it needs no key and draws nothing
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
@@ -25,6 +27,7 @@ extern crate alloc;
 
 mod bench;
 mod hal;
+mod machine;
 
 use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
@@ -161,6 +164,8 @@ fn main() -> i32 {
         .unwrap_or(SLICE_TICKS);
     if mode.eq_ignore_ascii_case("/REPLAY") {
         replay(&options)
+    } else if mode.eq_ignore_ascii_case("/PROBE") {
+        machine::probe_mode()
     } else if mode.eq_ignore_ascii_case("/BENCH") {
         bench(bench_limit, &options)
     } else if mode.eq_ignore_ascii_case("/PANIC") {

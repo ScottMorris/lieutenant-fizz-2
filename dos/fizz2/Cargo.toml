@@ -11,5 +11,6 @@ authors.workspace = true
 fizz-dos-rt = { path = "../rt" }
 fizz-sim = { path = "../../crates/fizz-sim" }
 fizz-ep2 = { path = "../../crates/fizz-ep2" }
+fizz-machine = { path = "../../crates/fizz-machine" }
 fizz-hal = { path = "../../crates/fizz-hal" }
 fizz-present-dos = { path = "../../crates/fizz-present-dos" }
