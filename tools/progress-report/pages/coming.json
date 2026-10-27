@@ -1,7 +1,8 @@
 [
- {"id": "lf-sim", "title": "Milestone 1: the rules from Fizz 1", "summary": "lf-sim reused or ported, a Fizz 1 trace test on three platforms, and fizz-hello retired."},
+ {"id": "slice", "title": "Milestone 1: the first playable slice", "summary": "The slice on Web and DOS from Fizz 1's physics: golden traces, Ben, the chicken and its cluck, `/BENCH`, look and aim."},
+ {"id": "machine", "title": "Milestone 1.5: machine, settings and DOS audio", "summary": "The start-up check and settings model, the DOS probes, DOS audio, OPL3, the frame-rate policy and an Options screen."},
  {"id": "bake", "title": "Milestone 2: the content pipeline", "summary": "fizz-bake and the first Level Studio script baked into a Fizz Asset Pack (`.FAP`)."},
  {"id": "scene", "title": "Milestone 3: scene intent and the camera", "summary": "fizz-engine, the scene contract and a camera with Fizz 1's pixel-locking, on Web and DOS."},
- {"id": "audio", "title": "Milestone 4: audio", "summary": "The IMF lab's composition source played on Web and lowered to OPL2 for DOS."},
+ {"id": "audio", "title": "Milestone 4: audio", "summary": "The IMF lab's composition source played on Web and lowered to OPL2 and OPL3 arrangements for DOS."},
  {"id": "budgets", "title": "Milestone 5: CI gates and the 486 budget", "summary": "Cycle and size budgets against a 486DX model, gated in CI."}
 ]
