@@ -262,6 +262,9 @@ fn bench(limit: u64) -> i32 {
     ] {
         println!("BENCH {} avg {} max {} units us", name, s.avg_us(), s.max_us());
     }
+    for &(tick, digest) in &r.frames[..r.frame_count] {
+        println!("BENCH FRAME {} {:016x}", tick, digest);
+    }
     println!("BENCH BUDGET {} us per tick at 60 Hz", bench::BUDGET_US);
     println!("BENCH HASH {:016x}", fizz_ep2::hash(&world).finish());
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);

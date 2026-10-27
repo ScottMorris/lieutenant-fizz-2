@@ -12,7 +12,7 @@
 // up in the maxima (a few microseconds on real hardware).
 use fizz_dos_rt::timer;
 use fizz_ep2::{SLICE_SCRIPT, World};
-use fizz_present_dos::{Frame, present, render_slice};
+use fizz_present_dos::{DIGEST_TICKS, Frame, frame_digest, present, render_slice};
 use fizz_sim::{Buttons, InputFrame};
 
 use crate::hal::DosDisplay;
@@ -80,6 +80,9 @@ pub struct Report {
     pub draw: Stat,
     pub present: Stat,
     pub total: Stat,
+    /// `frame_digest` of the picture at each of `DIGEST_TICKS` the run reached, as (tick, digest); `frame_count` are filled.
+    pub frames: [(u64, u64); DIGEST_TICKS.len()],
+    pub frame_count: usize,
 }
 
 /// Measures the cost of one reading: the average gap between readings taken one straight after the other.
@@ -101,6 +104,8 @@ pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
     let mut frame = Frame::new();
     let (mut step, mut draw, mut copy, mut total) = (Stat::default(), Stat::default(), Stat::default(), Stat::default());
     let mut prev = Buttons::NONE;
+    let mut digests = [(0, 0); DIGEST_TICKS.len()];
+    let mut frame_count = 0;
     for &(frames, now) in SLICE_SCRIPT {
         for _ in 0..frames {
             if step.count >= limit {
@@ -114,6 +119,11 @@ pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
             let _ = present(display, &frame);
             let t3 = sw.now();
             prev = now;
+            // Outside the timed sections: the digest only proves what was drawn.
+            if DIGEST_TICKS.contains(&world.tick.0) {
+                digests[frame_count] = (world.tick.0, frame_digest(&frame));
+                frame_count += 1;
+            }
             step.add((t1 - t0).saturating_sub(cost));
             draw.add((t2 - t1).saturating_sub(cost));
             copy.add((t3 - t2).saturating_sub(cost));
@@ -129,6 +139,8 @@ pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
             draw,
             present: copy,
             total,
+            frames: digests,
+            frame_count,
         },
     )
 }

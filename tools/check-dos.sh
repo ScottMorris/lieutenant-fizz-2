@@ -78,6 +78,11 @@ printf '%s\n' "$out" | grep -qx "BENCH HASH $(sed -n 's/^FINAL TICK [0-9]* HASH 
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH did not reach the exit"
 printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/BENCH: FPU control word is not 027F"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH did not restore the vectors"
+# The DOS build's drawing path (its own memset and memcpy among others) must draw the pixels the portable code draws: the digests of
+# the picture below the HUD strip at seven ticks equal the ones the host computes from the same shared routines.
+host_frames="$(cargo run -q --release -p fizz-present-dos --example frames)"
+dos_frames="$(printf '%s\n' "$out" | tr -d '\r' | grep '^BENCH FRAME ' || true)"
+[ -n "$host_frames" ] && [ "$dos_frames" = "$host_frames" ] || fail "/BENCH frame digests differ from the host's: DOS '$dos_frames', host '$host_frames'"
 for section in STEP DRAW PRESENT TOTAL; do
   line="$(printf '%s\n' "$out" | grep -E "^BENCH $section avg [0-9]+ max [0-9]+ units us$" || true)"
   [ -n "$line" ] || fail "no 'BENCH $section avg <n> max <n> units us' line"

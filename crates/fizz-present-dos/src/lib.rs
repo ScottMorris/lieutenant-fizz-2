@@ -60,6 +60,22 @@ impl Write for TextBuf {
 /// Height of the black strip that carries the slice's HUD text.
 const SLICE_HUD_H: i32 = 10;
 
+/// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
+/// banner, which would add text below the HUD strip.
+pub const DIGEST_TICKS: [u64; 7] = [150, 270, 400, 602, 700, 865, 1000];
+
+/// An FNV-1a digest of the picture below the HUD strip, the part that `fizz_slice_view::draw_slice` alone draws. The DOS
+/// bench and the host `frames` example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any
+/// faster routine) is proved to draw the pixels the portable code does.
+pub fn frame_digest(frame: &Frame) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in &frame.pixels()[SLICE_HUD_H as usize * WIDTH..] {
+        h ^= u64::from(b);
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    h
+}
+
 /// Draws the slice: the shared picture from `fizz_slice_view`, then the text HUD over a black strip along the top (ammo,
 /// whether Ben carries the key, deaths and the tick), and a banner once Ben has reached the exit. The text is this
 /// presenter's own; the picture beneath it is the one the Web draws too.
