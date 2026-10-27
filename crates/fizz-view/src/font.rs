@@ -83,7 +83,7 @@ pub fn glyph(ch: char) -> Option<&'static [u8; 8]> {
 /// `w * h` is treated as only as tall as it is.
 pub fn draw_glyph(frame: &mut [u8], w: usize, h: usize, x: i32, y: i32, ch: char, colour: u8) {
     let Some(rows) = glyph(ch) else { return };
-    let h = if w == 0 { 0 } else { (frame.len() / w).min(h) };
+    let h = frame.len().checked_div(w).map_or(0, |rows| rows.min(h));
     let cell = GLYPH as i64;
     if x >= 0 && y >= 0 && i64::from(x) + cell <= w as i64 && i64::from(y) + cell <= h as i64 {
         // The whole cell is inside the frame, so a row is one slice and no pixel needs its own clip test.

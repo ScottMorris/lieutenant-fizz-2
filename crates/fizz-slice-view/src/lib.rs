@@ -22,6 +22,7 @@
 //! 5. The chicken (the Cluckzarg placeholder art).
 //! 6. The Fizz Blaster shots (the `bubble` sprite).
 //! 7. Ben (Fizz 1's sprites).
+//! 8. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
 //!
 //! # Choices that are ours
 //!
@@ -29,6 +30,16 @@
 //!   `idle`, `walk2`, `idle` as the distance it has travelled grows, four pixels to a step) and shows the `alert` frame while it touches Ben. A stunned chicken is
 //!   shown as the `alert` frame sunk two pixels, so it reads as knocked flat, and it flashes (disappears every other four
 //!   ticks) for its last second of stun to warn that it is about to wake.
+//! - **Cluck beak.** While a chicken's `cluck_age` (ticks since its last cluck, kept by the rules and not hashed) is inside
+//!   the open pattern for its variant, the `cluckzarg_beak` overlay is drawn over its idle, walk or walk2 body, so the beak
+//!   moves mid-stride. The `alert` frame already has an open mouth and takes no overlay. See [`BEAK_OPEN`].
+//! - **Cluck caption.** For [`CAPTION_TICKS`] ticks after a cluck, the variant's word floats above the chicken's head,
+//!   centred on it, in whole-pixel steps up to [`CAPTION_RISE`] pixels, with a one-pixel black shadow. Its colour steps
+//!   from bright to dark halfway through and blinks out over the last quarter. Fizz 1's in-world sound captions (`cap` in
+//!   `episodes/episode-1/game/src/world.rs`, a table of text and colour; 950 ms, 24 pixels of rise, linear fade, a 1-pixel
+//!   shadow) are the model; the slice is 320 pixels wide, so the rise is halved, and the 8 by 8 font has capital shapes
+//!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption near the edge is moved inside the frame
+//!   instead of being dropped, unless its chicken is more than 50 pixels off screen (Fizz 1's limit), when it is dropped. The captions option gates only the text; the beak always moves.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
 //!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
 //!   `shoot` while the rules' shooting pose runs, `jump` in the air, a run frame while his horizontal speed is above 0.5 tiles
@@ -49,7 +60,9 @@
 use fizz_ep2::World;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use fizz_view::sprites_data::sprite;
-use fizz_view::{TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, screen_y, tile_px};
+use fizz_view::{
+    TILE_PX, blit_sprite, draw_text, draw_tilemap_on_sky, follow, screen_y, text_width, tile_px,
+};
 
 /// The width of the picture in pixels.
 pub const VIEW_W: usize = 320;
@@ -58,13 +71,17 @@ pub const VIEW_H: usize = 200;
 
 // EGA palette indices (the standard sixteen-colour order).
 const BLUE: u8 = 1;
+const CYAN: u8 = 3;
+const RED: u8 = 4;
 const BROWN: u8 = 6;
 const LIGHT_GREY: u8 = 7;
 const DARK_GREY: u8 = 8;
 const LIGHT_BLUE: u8 = 9;
 const LIGHT_GREEN: u8 = 10;
+const LIGHT_CYAN: u8 = 11;
 const LIGHT_RED: u8 = 12;
 const YELLOW: u8 = 14;
+const WHITE: u8 = 15;
 
 /// Closed doors in view that are remembered from the tile pass before drawing falls back to a second search for them.
 const DOORS: usize = 16;
@@ -103,11 +120,75 @@ static TILE_COLOURS: [u8; 256] = {
     table
 };
 
-/// Draws `world` into `frame`, a `w` by `h` buffer of palette indices (use [`VIEW_W`] by [`VIEW_H`]).
+/// How a picture is drawn, beyond the world.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DrawOptions {
+    /// Draw the in-world captions that float above a chicken after it clucks. Off hides only the text; the beak still
+    /// moves.
+    pub captions: bool,
+}
+
+impl Default for DrawOptions {
+    /// Captions on.
+    fn default() -> Self {
+        DrawOptions { captions: true }
+    }
+}
+
+/// Ticks per second of the rules; the beak and caption times below are tick counts at this rate.
+const TICKS_PER_SECOND: u32 = 60;
+
+/// When the beak is open, per cluck variant: ranges of `cluck_age` in ticks, start included and end excluded.
+///
+/// A single cluck (variants 0 and 1) opens the beak for 12 ticks (0.2 s). A double cluck (variants 2 and 3, the two
+/// `bwuk`s) opens it for 8 ticks, closes it for 4 and opens it again for 8, so 20 ticks (about a third of a second) from
+/// first to last.
+pub const BEAK_OPEN: [&[(u32, u32)]; 4] = [
+    &[(0, 12)],
+    &[(0, 12)],
+    &[(0, 8), (12, 20)],
+    &[(0, 8), (12, 20)],
+];
+
+/// How long a caption lives: 57 ticks, which is Fizz 1's 950 ms at 60 ticks a second.
+pub const CAPTION_TICKS: u32 = TICKS_PER_SECOND * 950 / 1000;
+/// How far a caption rises over its life, in pixels: half of Fizz 1's 24, because this picture is 320 pixels wide.
+pub const CAPTION_RISE: i32 = 12;
+
+/// The caption per cluck variant: its text, and its bright and dark colours (EGA indices). The text is lower-case, as in
+/// Fizz 1, but the 8 by 8 font has one set of letter shapes, so it draws as capitals. The longest, `bwuk, bwuk`, is 80
+/// pixels wide.
+pub const CAPTIONS: [(&str, u8, u8); 4] = [
+    ("buh-GAWK!", YELLOW, BROWN),
+    ("bwuk", WHITE, LIGHT_GREY),
+    ("bwuk-BWUK", LIGHT_RED, RED),
+    ("bwuk, bwuk", LIGHT_CYAN, CYAN),
+];
+
+/// Whether the beak is open `age` ticks after a cluck of `variant`.
+pub fn beak_open(variant: u8, age: u32) -> bool {
+    BEAK_OPEN
+        .get(usize::from(variant))
+        .is_some_and(|ranges| ranges.iter().any(|&(from, to)| (from..to).contains(&age)))
+}
+
+/// Draws `world` into `frame`, a `w` by `h` buffer of palette indices (use [`VIEW_W`] by [`VIEW_H`]), with captions on.
 ///
 /// `tick` drives animation only (the key's bob, blinking and flashing) and must not be fed back into the rules. Any frame
-/// size is safe: the view is `w` by `h` and everything is clipped.
+/// size is safe: the view is `w` by `h` and everything is clipped. This is [`draw_slice_with`] with the default options.
 pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32) {
+    draw_slice_with(frame, w, h, world, tick, &DrawOptions::default());
+}
+
+/// Draws `world` as [`draw_slice`] does, with `options`.
+pub fn draw_slice_with(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -192,6 +273,12 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     }
 
     draw_ben(frame, w, h, world, phase, &at);
+
+    if options.captions {
+        for c in &world.chickens {
+            draw_caption(frame, w, h, c, &at);
+        }
+    }
 }
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
@@ -220,7 +307,59 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
         return;
     };
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
-    blit_sprite(frame, w, h, s, sx, sy + sink, c.dir < 0.0);
+    let flip = c.dir < 0.0;
+    blit_sprite(frame, w, h, s, sx, sy + sink, flip);
+    // The overlay shares the body's anchor and flip, so it lands on the beak whichever way the chicken faces and whichever
+    // body frame shows. The alert frame has its own open mouth.
+    if name != "cluckzarg_alert"
+        && beak_open(c.cluck_variant, c.cluck_age)
+        && let Some(beak) = sprite("cluckzarg_beak")
+    {
+        blit_sprite(frame, w, h, beak, sx, sy + sink, flip);
+    }
+}
+
+/// How far above the chicken's feet the top of a new caption's glyph cell sits: the body's 24 rows, the 8-row cell and two
+/// pixels of air.
+const CAPTION_ABOVE_FEET: i32 = 34;
+
+/// How far outside the frame, in pixels, a chicken's feet may be and still have a caption (Fizz 1's limit).
+const CAPTION_REACH: i32 = 50;
+
+/// Draws the chicken's caption: the variant's word above its head, rising and fading with `cluck_age`.
+fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
+    let age = c.cluck_age;
+    if age >= CAPTION_TICKS {
+        return;
+    }
+    let Some(&(text, bright, dark)) = CAPTIONS.get(usize::from(c.cluck_variant)) else {
+        return;
+    };
+    // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
+    let colour = if age < CAPTION_TICKS / 2 {
+        bright
+    } else if age < CAPTION_TICKS * 3 / 4 || (age / 2).is_multiple_of(2) {
+        dark
+    } else {
+        return;
+    };
+    let rise = (age * CAPTION_RISE as u32 / CAPTION_TICKS) as i32;
+    let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    // Like Fizz 1, drop the caption of a chicken more than 50 pixels off screen: clamping it would pin a word to the edge
+    // for a chicken the player cannot see. (The feet may be that far below the frame while the head is still in it.)
+    if sx < -CAPTION_REACH
+        || sx > w as i32 + CAPTION_REACH
+        || sy < -CAPTION_REACH
+        || sy > h as i32 + CAPTION_REACH + CAPTION_ABOVE_FEET
+    {
+        return;
+    }
+    let width = text_width(text);
+    // Centred on the chicken, a little above its head, and moved inside the frame (the shadow needs one more pixel).
+    let left = (sx - width / 2).clamp(0, (w as i32 - width - 1).max(0));
+    let top = (sy - CAPTION_ABOVE_FEET - rise).clamp(0, (h as i32 - 9).max(0));
+    draw_text(frame, w, h, left + 1, top + 1, text, 0);
+    draw_text(frame, w, h, left, top, text, colour);
 }
 
 /// Ben shows a run frame while his horizontal speed is above this many tiles a second (Fizz 1's `Math.abs(p.vx) > 0.5`).
@@ -278,6 +417,22 @@ mod tests {
     use std::vec;
     use std::vec::Vec;
 
+    const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
+        (197, 0x2d57854b7aee9077, 0x72d540e334aa0693),
+        (217, 0x03843befb7eff66f, 0x1b12c767752c9322),
+        (853, 0x3026d93845e773b9, 0x8e928974e44f33b3),
+        (873, 0x8107ef252b16db26, 0x0b38a92100a6d5cc),
+        (1094, 0xfdb0c73c8b23cb88, 0xfdb0c73c8b23cb88),
+    ];
+    const PINNED_SYNTHETIC: [u64; 6] = [
+        0x83d3e3edf0e83f97,
+        0x89b053cb0ae96559,
+        0x53c463dce9c1f92a,
+        0x4673d86f1eba4ab5,
+        0x9877aaedcd8dd3d5,
+        0xf2717d4dbee9a625,
+    ];
+
     fn fnv(bytes: &[u8]) -> u64 {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         for &b in bytes {
@@ -323,12 +478,32 @@ mod tests {
     #[test]
     fn frames_at_chosen_ticks_are_pinned() {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
+        //
+        // Tick 865 is 12 ticks after the cluck at 853: a caption floats in the picture, so its digest changed when the
+        // cluck visuals arrived (from 0x1e0d93372eb50e10). `without_clucks` draws the world as it was drawn before, and its
+        // digests are the old ones at every tick, which shows the change is the cluck's pixels and nothing else.
         let mut seen = Vec::new();
+        let mut old = Vec::new();
         play(|w| {
             if [0, 150, 270, 400, 602, 700, 865, 1000, 1268].contains(&w.tick.0) {
                 seen.push((w.tick.0, fnv(&picture(w, w.tick.0 as u32))));
+                old.push((w.tick.0, fnv(&picture(&without_clucks(w), w.tick.0 as u32))));
             }
         });
+        assert_eq!(
+            old,
+            [
+                (0, 0x5b84b8874be44ba4),
+                (150, 0x7abd20c31ae39a54),
+                (270, 0x9bf387153127ec74),
+                (400, 0xe88d2a8a227b4cfb),
+                (602, 0xfea72a408c6a4ab1),
+                (700, 0xdda9c10396315bd2),
+                (865, 0x1e0d93372eb50e10),
+                (1000, 0x1881c1623a3ec20c),
+                (1268, 0x23afa9ef954ff4e0),
+            ]
+        );
         assert_eq!(
             seen,
             [
@@ -339,11 +514,292 @@ mod tests {
                 (400, 0xe88d2a8a227b4cfb),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xdda9c10396315bd2),
-                (865, 0x1e0d93372eb50e10),
+                (865, 0x99314a9f8475a4fe),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
             ]
         );
+    }
+
+    /// The world as it looked before chickens had a cluck to show: every chicken has never clucked.
+    fn without_clucks(world: &World) -> World {
+        let mut w = world.clone();
+        for c in &mut w.chickens {
+            c.cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            c.cluck_variant = 0;
+        }
+        w
+    }
+
+    fn picture_with(world: &World, tick: u32, captions: bool) -> Vec<u8> {
+        let mut f = vec![0xEE; VIEW_W * VIEW_H];
+        draw_slice_with(
+            &mut f,
+            VIEW_W,
+            VIEW_H,
+            world,
+            tick,
+            &DrawOptions { captions },
+        );
+        f
+    }
+
+    /// The bounding box `(x0, y0, x1, y1)`, ends included, of the pixels where `a` and `b` differ.
+    fn changed_box(a: &[u8], b: &[u8]) -> Option<(usize, usize, usize, usize)> {
+        let mut bb: Option<(usize, usize, usize, usize)> = None;
+        for (i, (p, q)) in a.iter().zip(b).enumerate() {
+            if p != q {
+                let (x, y) = (i % VIEW_W, i / VIEW_W);
+                bb = Some(match bb {
+                    None => (x, y, x, y),
+                    Some((x0, y0, x1, y1)) => (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
+                });
+            }
+        }
+        bb
+    }
+
+    /// The slice's first screen with the chicken in view, `age` ticks after a cluck of `variant`, Ben out of its way.
+    fn cluck_world(variant: u8, age: u32) -> World {
+        let mut w = level::world();
+        w.ben.b.x = 12.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].cluck_variant = variant;
+        w.chickens[0].cluck_age = age;
+        w
+    }
+
+    /// Every world in the replay whose chicken clucked within the caption's life, with the cluck's age.
+    fn cluck_moments() -> Vec<(World, u32)> {
+        let mut out = Vec::new();
+        play(|w| {
+            let age = w.chickens[0].cluck_age;
+            if age <= CAPTION_TICKS + 2 {
+                out.push((w.clone(), age));
+            }
+        });
+        out
+    }
+
+    #[test]
+    fn a_cluck_changes_only_the_beak_and_the_caption() {
+        let moments = cluck_moments();
+        // Three clucks, each seen from its first tick to 59 ticks later, less any cut short by the death in the script.
+        assert!(
+            moments.len() >= 3 * (CAPTION_TICKS as usize),
+            "{}",
+            moments.len()
+        );
+        let mut beaks = 0;
+        let mut captions = 0;
+        for (w, age) in &moments {
+            let t = w.tick.0 as u32;
+            let quiet = picture_with(&without_clucks(w), t, true);
+            let beak_only = picture_with(w, t, false);
+            let both = picture_with(w, t, true);
+            let v = w.chickens[0].cluck_variant;
+            // A stunned chicken, or one touching Ben, shows the alert frame, whose mouth is already open: no overlay.
+            let alert = w.chickens[0].stun > 0.0 || w.chickens[0].touch;
+            let open = beak_open(v, *age) && !alert;
+            // The beak is a 4 by 4 patch, and only while the pattern has it open.
+            match changed_box(&quiet, &beak_only) {
+                // No change means the chicken is off screen, or the beak is closed: never an open beak on screen.
+                None => {}
+                Some((x0, y0, x1, y1)) => {
+                    assert!(open, "tick {t}: beak drawn closed");
+                    assert!(
+                        x1 - x0 < 4 && y1 - y0 < 4,
+                        "tick {t}: beak box {x0},{y0}..{x1},{y1}"
+                    );
+                    beaks += 1;
+                }
+            }
+            // The caption is a box no bigger than its text and shadow, and only for its life.
+            match changed_box(&beak_only, &both) {
+                None => {}
+                Some((x0, y0, x1, y1)) => {
+                    assert!(*age < CAPTION_TICKS, "tick {t}: caption after its life");
+                    let max_w = fizz_view::text_width(CAPTIONS[usize::from(v)].0) as usize + 1;
+                    assert!(
+                        x1 - x0 < max_w && y1 - y0 < 9,
+                        "tick {t}: caption box {x0},{y0}..{x1},{y1}"
+                    );
+                    captions += 1;
+                }
+            }
+            // After the beak and caption are done the picture is the old one.
+            if *age >= CAPTION_TICKS {
+                assert_eq!(quiet, both, "tick {t}");
+            }
+        }
+        assert!(
+            beaks >= 10 && captions >= 50,
+            "{beaks} beak frames, {captions} caption frames"
+        );
+    }
+
+    #[test]
+    fn an_open_beak_and_a_caption_show_on_screen() {
+        for v in 0..4u8 {
+            let open = cluck_world(v, 1);
+            let t = 7;
+            let quiet = picture_with(&without_clucks(&open), t, false);
+            assert!(
+                changed_box(&quiet, &picture_with(&open, t, false)).is_some(),
+                "variant {v}: beak"
+            );
+            assert!(
+                changed_box(
+                    &picture_with(&open, t, false),
+                    &picture_with(&open, t, true)
+                )
+                .is_some(),
+                "variant {v}: caption"
+            );
+            // Once the beak shuts and the caption is gone the picture is the old one.
+            let done = cluck_world(v, CAPTION_TICKS);
+            assert_eq!(picture_with(&done, t, true), quiet, "variant {v}");
+        }
+        // The double cluck's beak closes between its two halves, and the single cluck's stays shut after 12 ticks.
+        let quiet = picture_with(&without_clucks(&cluck_world(2, 0)), 0, false);
+        assert_ne!(picture_with(&cluck_world(2, 3), 0, false), quiet);
+        assert_eq!(picture_with(&cluck_world(2, 9), 0, false), quiet);
+        assert_ne!(picture_with(&cluck_world(2, 13), 0, false), quiet);
+        assert_eq!(picture_with(&cluck_world(1, 13), 0, false), quiet);
+        // The beak shows mid-stride on all three body frames, and not on the alert frame.
+        let mut w = cluck_world(0, 0);
+        for x in [8.0, 8.0 + 4.0 / 16.0, 8.0 + 8.0 / 16.0, 8.0 + 12.0 / 16.0] {
+            w.chickens[0].b.x = x;
+            let open = picture_with(&w, 0, false);
+            w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            assert_ne!(open, picture_with(&w, 0, false), "x = {x}");
+            w.chickens[0].cluck_age = 0;
+        }
+        w.chickens[0].touch = true;
+        let alert = picture_with(&w, 0, false);
+        w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+        assert_eq!(alert, picture_with(&w, 0, false));
+    }
+
+    #[test]
+    fn the_beak_opens_once_for_a_single_cluck_and_twice_for_a_double() {
+        for v in 0..4u8 {
+            let opens: Vec<bool> = (0..24).map(|a| beak_open(v, a)).collect();
+            let runs = opens.windows(2).filter(|p| !p[0] && p[1]).count() + usize::from(opens[0]);
+            assert_eq!(runs, if v < 2 { 1 } else { 2 }, "variant {v}: {opens:?}");
+            assert!(opens[0], "the beak opens on the tick of the cluck");
+            assert!(!beak_open(v, 20) && !beak_open(v, 21) && !beak_open(v, CAPTION_TICKS));
+            assert!(!beak_open(v, fizz_ep2::chicken::CLUCK_NEVER));
+        }
+        assert!(!beak_open(4, 0));
+    }
+
+    #[test]
+    fn the_caption_rises_in_whole_pixels_and_stays_in_the_frame() {
+        // Rises 12 pixels over its 57 ticks.
+        let w = cluck_world(0, 0);
+        let top = |age: u32| {
+            let mut w = w.clone();
+            w.chickens[0].cluck_age = age;
+            let t = w.tick.0 as u32;
+            let both = picture_with(&w, t, true);
+            let beak_only = picture_with(&w, t, false);
+            changed_box(&beak_only, &both).map(|b| b.1)
+        };
+        let (first, last) = (top(0).unwrap(), top(CAPTION_TICKS - 1).unwrap());
+        assert_eq!(first - last, CAPTION_RISE as usize - 1, "{first} to {last}");
+        assert!((0..CAPTION_TICKS).all(|a| top(a).is_none_or(|y| y <= first && y >= last)));
+        // At the left edge, the right edge and the top of the frame the caption is moved inside, not dropped.
+        for (x, y) in [(2.0, 11.0), (21.0, 11.0), (8.0, 17.0)] {
+            let mut w = w.clone();
+            w.chickens[0].b.x = x;
+            w.chickens[0].b.y = y;
+            w.chickens[0].cluck_age = 0;
+            let t = w.tick.0 as u32;
+            let on = picture_with(&w, t, true);
+            let off = picture_with(&w, t, false);
+            let (x0, y0, x1, y1) = changed_box(&off, &on).expect("caption");
+            assert!(x1 < VIEW_W && y1 < VIEW_H, "{x0},{y0}..{x1},{y1}");
+        }
+        // A frame too small for the text is safe.
+        let mut f = vec![0u8; 20 * 12];
+        draw_slice(&mut f, 20, 12, &w, 0);
+    }
+
+    #[test]
+    fn captions_off_hides_only_the_text() {
+        let w = cluck_world(0, 0);
+        let t = w.tick.0 as u32;
+        let off = picture_with(&w, t, false);
+        let on = picture_with(&w, t, true);
+        assert_ne!(off, on);
+        assert_ne!(
+            off,
+            picture_with(&without_clucks(&w), t, false),
+            "the beak still moves"
+        );
+        let mut by_default = vec![0xEE; VIEW_W * VIEW_H];
+        draw_slice(&mut by_default, VIEW_W, VIEW_H, &w, t);
+        assert_eq!(by_default, on, "draw_slice means captions on");
+        assert!(DrawOptions::default().captions);
+    }
+
+    #[test]
+    fn a_flipped_chicken_opens_its_beak_on_the_other_side() {
+        let mut w = cluck_world(0, 0);
+        let t = w.tick.0 as u32;
+        w.chickens[0].dir = 1.0;
+        let right = changed_box(
+            &picture_with(&without_clucks(&w), t, false),
+            &picture_with(&w, t, false),
+        )
+        .unwrap();
+        w.chickens[0].dir = -1.0;
+        let left = changed_box(
+            &picture_with(&without_clucks(&w), t, false),
+            &picture_with(&w, t, false),
+        )
+        .unwrap();
+        // The chicken's centre is the same column; the beak is right of it facing right and left of it facing left.
+        assert!(right.0 >= left.2, "{right:?} {left:?}");
+    }
+
+    #[test]
+    fn synthetic_cluck_pictures_are_pinned() {
+        // (variant, age, captions): the beak open with the caption bright, the beak shut between the two halves of a double
+        // cluck, the beak shut with the caption dark and part-way up, the caption blinking, and captions off.
+        let cases = [
+            (0, 0, true),
+            (2, 3, true),
+            (2, 9, true),
+            (1, 30, true),
+            (3, 50, true),
+            (0, 5, false),
+        ];
+        let seen: Vec<u64> = cases
+            .iter()
+            .map(|&(v, a, c)| fnv(&picture_with(&cluck_world(v, a), 7, c)))
+            .collect();
+        assert_eq!(seen, PINNED_SYNTHETIC);
+    }
+
+    #[test]
+    fn the_cluck_pictures_are_pinned() {
+        // The first tick of each cluck: variant 2 (a double bwuk) at 197, variant 1 at 853, variant 0 at 1094. The tick
+        // 20 ticks later has the beak closed and the caption part-way up.
+        let mut seen = Vec::new();
+        play(|w| {
+            let t = w.tick.0;
+            if [197, 217, 853, 873, 1094].contains(&t) {
+                let t = t as u32;
+                seen.push((
+                    w.tick.0,
+                    fnv(&picture_with(w, t, true)),
+                    fnv(&picture_with(w, t, false)),
+                ));
+            }
+        });
+        assert_eq!(seen, PINNED_CLUCKS);
     }
 
     #[test]
