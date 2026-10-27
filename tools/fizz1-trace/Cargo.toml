@@ -1,0 +1,15 @@
+[package]
+name = "fizz1-trace"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+authors = ["Liminal HQ, Scott Morris"]
+description = "Golden-trace generator that drives Lieutenant Fizz 1's own simulation"
+publish = false
+
+# A standalone project: outside the repository's root workspace, with the pinned Fizz 1 checkout as path dependencies.
+[workspace]
+
+[dependencies]
+lf-sim = { path = "/home/scott/source/liminal-hq/lieutenant-fizz/crates/sim" }
+lf-episode-1 = { path = "/home/scott/source/liminal-hq/lieutenant-fizz/episodes/episode-1/game" }
