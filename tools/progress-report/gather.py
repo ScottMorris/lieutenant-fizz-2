@@ -168,7 +168,7 @@ def gh_data(offline):
     snap_path = os.path.join(HERE, "snapshots", "gh.json")
     if not offline and gh_available():
         prs = gh_json("pr", "list", "--repo", GH_REPO, "--state", "all", "--limit", "200", "--json",
-                      "number,title,headRefName,baseRefName,headRefOid,createdAt,mergedAt,state,isDraft,additions,deletions,changedFiles,labels,url,"
+                      "number,title,headRefName,baseRefName,headRefOid,mergeCommit,createdAt,mergedAt,state,isDraft,additions,deletions,changedFiles,labels,url,"
                       "statusCheckRollup")
         runs = gh_json("run", "list", "--repo", GH_REPO, "--branch", "main", "--limit", "200", "--json",
                        "status,conclusion,headSha,displayTitle,createdAt,url,workflowName,event")
@@ -234,8 +234,18 @@ def history(repo, gh_prs):
     oldest_first = list(reversed(fp))
     by_branch = {p["headRefName"]: p for p in gh_prs if p.get("mergedAt")}
     prs = []
+    shallow = repo.is_shallow()
     for p in sorted((p for p in gh_prs if p.get("mergedAt")), key=lambda p: (p["mergedAt"], p["number"])):
         head = p.get("headRefOid")
+        if shallow and not has_commit(root, head):
+            # A shallow clone (CI) lacks the branches: take the pull request from gh alone, with no commits of its own, and say so.
+            merge = ((p.get("mergeCommit") or {}).get("oid") or head or "")
+            below = by_branch.get(p["baseRefName"])
+            prs.append({"number": p["number"], "title": p["title"], "head": (head or "")[:7], "headFull": head, "base": p["baseRefName"], "branch": p["headRefName"],
+                        "mergeCommit": merge[:7], "mergeFull": merge, "mergedAt": p["mergedAt"], "landedAt": p["mergedAt"], "commits": [], "commitCount": 0,
+                        "kinds": {}, "added": p.get("additions") or 0, "deleted": p.get("deletions") or 0, "baseCommit": None,
+                        "stackedOn": below["number"] if below else None, "fromGhOnly": True})
+            continue
         if not has_commit(root, head) or not is_ancestor(root, head, repo.ref):
             continue
         landing = next((c for c in oldest_first if is_ancestor(root, head, c["full"])), None)
@@ -308,6 +318,9 @@ def scrape(repo):
         ("floppyData", platform, r"about ([\d,]+) bytes of data area"),
         ("pitDivisor", platform, r"divisor (\d+), which is"),
         ("budget", check_dos, r"^BUDGET=(\d+)$"),
+        ("freedosKB", platform, r"FreeDOS needs about (\d+) KB"),
+        ("saveKB", platform, r"and (\d+) KB is kept free for saves"),
+        ("plainKB", platform, r"\| Plain \| About [\d.]+ MB \| (\d+) KB kept free"),
     ]:
         m = re.search(rx, text, re.M)
         out[key] = parse_int(m.group(1)) if m else None
@@ -321,6 +334,27 @@ def scrape(repo):
     out["ciImage"] = m.group(1) if m else None
     m = re.search(r"BIOS TICKS .*?-ge (\d+).*?-le (\d+)", check_dos, re.S)
     out["biosRange"] = "%s to %s" % m.groups() if m else None
+    return out
+
+
+BUTTONS = {"IDLE": 0, "U": 1, "D": 2, "L": 4, "R": 8, "A": 16}
+BUTTON_NAMES = [(1, "Up"), (2, "Down"), (4, "Left"), (8, "Right"), (16, "Action")]
+
+
+def script(repo):
+    """The runs of `M0_SCRIPT` in crates/fizz-hello/src/lib.rs as [{frames, buttons, start}], or [] when it cannot be read."""
+    src = repo.show("crates/fizz-hello/src/lib.rs") or ""
+    m = re.search(r"pub const M0_SCRIPT: &\[\(u16, Buttons\)\] = &\[(.*?)\];", src, re.S)
+    if not m:
+        return []
+    out, start = [], 0
+    for frames, expr in re.findall(r"\((\d+),\s*([A-Z][A-Za-z().]*)\)", m.group(1)):
+        bits = 0
+        for name in re.findall(r"\b(IDLE|U|D|L|R|A)\b", expr):
+            bits |= BUTTONS[name]
+        held = [n for b, n in BUTTON_NAMES if bits & b]
+        out.append({"frames": int(frames), "bits": bits, "held": held, "start": start})
+        start += int(frames)
     return out
 
 
@@ -344,7 +378,7 @@ def tree_facts(repo):
     return {
         "files": len(paths), "docs": len(repo.matching(r"^docs/[^/]+\.md$")),
         "crates": len(repo.matching(r"^(crates/[^/]+|dos/[^/]+)/Cargo\.toml$")),
-        "loc": loc, "tests": tests, "testsAll": sum(tests.values()), "scraped": scrape(repo), "golden": golden(repo),
+        "loc": loc, "tests": tests, "testsAll": sum(tests.values()), "scraped": scrape(repo), "golden": golden(repo), "script": script(repo),
         "checkScripts": repo.matching(r"^tools/check[^/]*$"),
     }
 
@@ -422,6 +456,7 @@ def gather(root=ROOT, ref="main", offline=False, dry_run=False):
         if r.get("workflowName") in ("CI", None) and r.get("event", "push") == "push":
             ci_by_sha.setdefault(r["headSha"], run_ci(r))
     gh_by_num = {p["number"]: p for p in gh["prs"]}
+    warnings_gh = []
     for p in prs:
         g = gh_by_num.get(p["number"], {})
         p["url"] = g.get("url") or "%s/pull/%d" % (REPO_URL, p["number"])
@@ -431,9 +466,16 @@ def gather(root=ROOT, ref="main", offline=False, dry_run=False):
         p["ci"] = ci_by_sha.get(p["mergeFull"], "unknown")
         p["headCi"] = ci_of(g.get("checks"))
         p["checks"] = sorted({c["name"] for c in g.get("checks", []) if c.get("name")})
+        p["ghMergeCommit"] = ((g.get("mergeCommit") or {}).get("oid") or "")[:7] or None
+        if p["ghMergeCommit"] and p["ghMergeCommit"] != p["mergeCommit"]:
+            warnings_gh.append("PR #%d: gh names merge commit %s but git finds its head first on main at %s" % (p["number"], p["ghMergeCommit"], p["mergeCommit"]))
     opens = open_work(gh["prs"], ci_by_sha)
     roadmap = read_json(os.path.join(HERE, "roadmap.json"))
     progress, warnings = resolve_roadmap(roadmap, prs, opens)
+    warnings += warnings_gh
+    thin = [p["number"] for p in prs if p.get("fromGhOnly")]
+    if thin:
+        warnings.append("shallow clone: pull requests %s are taken from gh without their commits" % ", ".join("#%d" % n for n in thin))
     mpath = os.path.join(HERE, "snapshots", "measured.json")
     measured = read_json(mpath) if os.path.exists(mpath) else {}
     loc, sc, gold = facts["loc"], facts["scraped"], facts["golden"]

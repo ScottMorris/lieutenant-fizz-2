@@ -27,6 +27,8 @@
  "biosTicks": 182,
  "exeBytes": 32768,
  "rtsmokeBytes": 16384,
+ "cwsdpmiBytes": 21325,
+ "sizesHow": "ls -l dist/dos after tools/build-dos.sh: FIZZ2.EXE 32768, RTSMOKE.EXE 16384, CWSDPMI.EXE 21325 bytes.",
  "budget": 1100000,
  "parityHash": "efc699079baa6a88",
  "parityLines": ["check-parity: native matches", "check-parity: web matches", "check-parity: dos matches", "PARITY ok efc699079baa6a88", "platforms compared: native, web, dos"]

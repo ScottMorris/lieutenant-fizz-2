@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T11:07:19-04:00",
+ "capturedAt": "2026-10-27T11:36:33-04:00",
  "data": {
   "prs": [
    {
@@ -33,6 +33,9 @@
       "name": "sim"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:24Z",
     "number": 1,
     "state": "MERGED",
@@ -70,6 +73,9 @@
       "name": "rust"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:25Z",
     "number": 2,
     "state": "MERGED",
@@ -113,6 +119,9 @@
       "name": "dos"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:26Z",
     "number": 3,
     "state": "MERGED",
@@ -156,6 +165,9 @@
       "name": "graphics"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:27Z",
     "number": 4,
     "state": "MERGED",
@@ -205,6 +217,9 @@
       "name": "parity"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:28Z",
     "number": 5,
     "state": "MERGED",
@@ -254,6 +269,9 @@
       "name": "input"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:29Z",
     "number": 6,
     "state": "MERGED",
@@ -309,6 +327,9 @@
       "name": "parity"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:31Z",
     "number": 7,
     "state": "MERGED",
@@ -352,6 +373,9 @@
       "name": "design-docs"
      }
     ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
     "mergedAt": "2026-10-27T14:54:32Z",
     "number": 8,
     "state": "MERGED",
@@ -389,21 +413,80 @@
       "name": "documentation"
      }
     ],
+    "mergeCommit": {
+     "oid": "efd5f683a89cc92eecb47c2275011c8e8e7ea7d8"
+    },
     "mergedAt": "2026-10-27T15:06:46Z",
     "number": 10,
     "state": "MERGED",
     "title": "Match the banner's Ben to his Fizz 1 sprite",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/10"
+   },
+   {
+    "additions": 21,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:33:44Z",
+    "deletions": 2,
+    "headRefName": "docs/asset-packs",
+    "headRefOid": "8eb8f8bd906b7f8cfa92c0998e0a21ef7bed7fc8",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 11,
+    "state": "OPEN",
+    "title": "Record that authored assets live in cooked packs",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/11"
    }
   ],
   "runs": [
    {
-    "conclusion": "",
+    "conclusion": "success",
     "createdAt": "2026-10-27T15:06:49Z",
     "displayTitle": "Match the banner's Ben to his Fizz 1 sprite (#10)",
     "event": "push",
     "headSha": "efd5f683a89cc92eecb47c2275011c8e8e7ea7d8",
-    "status": "in_progress",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40527738809",
     "workflowName": "CI"
    },
