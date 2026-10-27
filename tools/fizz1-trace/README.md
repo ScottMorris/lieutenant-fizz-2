@@ -74,7 +74,7 @@ After every tick the tool asserts `p.mantle.is_none()`. Automatic mantle is out 
 `crates/fizz-ep2/tests/fizz1/<name>.trace`, `\n` line endings, in a stable order:
 
 ```text
-FIZZ1 TRACE 1
+FIZZ1 TRACE 2
 scenario <name>
 commit 4bce036
 <tick row>...
@@ -83,12 +83,13 @@ commit 4bce036
 There is one row for tick 0 (before any step) and one after each step. Fields are separated by single spaces:
 
 ```text
-<tick> <x> <y> <vx> <vy> <face> <squash> <pogo> <ground> <dead> <keys_red> <switches>[ | <gx> <gy> <gvx> <gvy> <gdir> <gstun> <gdead>]
+<tick> <x> <y> <vx> <vy> <face> <squash> <pogo> <ground> <dead> <keys_red> <switches> <look_up> <look_down> <aim>[ | <gx> <gy> <gvx> <gvy> <gdir> <gstun> <gdead>]
 ```
 
 - `x y vx vy` are Ben's body position and velocity, and `squash` is `Player::squash`: each is the `f64` bit pattern as 16 lowercase hexadecimal digits (`{:016x}` of `to_bits`). There is no rounding. `squash` is never clamped and goes slightly negative after a bounce.
 - `face` is `-1` or `1`. `pogo`, `ground` (`on_ground`), `dead` (`p.dead > 0`) and `keys_red` are `0` or `1`.
 - `switches` is the map's switch word as eight hexadecimal digits.
+- `look_up` and `look_down` are `Player::look_up` and `Player::look_down`, the seconds Up or Down has been held alone while Ben is idle (on the ground, not on the pogo or a ladder, no horizontal input), as 16 hexadecimal digits of the `f64` bits. Both are zero otherwise. `aim` is `Player::aim`, the direction of Ben's last shot: `-1` down, `0` level, `1` up. It keeps its value until the next shot.
 - After ` | `, the first Gloop in the world, if there is one: its body `x y vx vy` and `stun` as 16 hexadecimal digits, `dir` as `-1` or `1`, and `dead` as `0` or `1`.
 
 ## Scenarios
@@ -110,6 +111,8 @@ There is one row for tick 0 (before any step) and one after each step. Fields ar
 | `fizz_stun` | A fizz shot stuns a Gloop; a second shot passes through it. |
 | `key_door` | Collecting the red key and opening the red door. |
 | `slope` | A walk up and down a staircase of `R45` slopes. |
+| `look` | Idle on the ground, Up held for one second and released, then Down; both held together, Up while running, in the air and on the pogo (no look starts); Down again at the end. |
+| `aim` | A level shot, a shot straight up with Up held, Down held on the ground (still level), and Down held in the air (straight down). |
 | `route` | A short run through a small vertical maze up to the first death on spikes. |
 
 ## Not covered

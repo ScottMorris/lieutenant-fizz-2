@@ -20,7 +20,7 @@ use std::process::{Command, ExitCode};
 const PINNED: &str = "4bce036";
 const DEFAULT_FIZZ1: &str = "/home/scott/source/liminal-hq/lieutenant-fizz";
 /// The first line of every trace file.
-const TRACE_MAGIC: &str = "FIZZ1 TRACE 1";
+const TRACE_MAGIC: &str = "FIZZ1 TRACE 2";
 
 fn main() -> ExitCode {
     match run() {
@@ -284,7 +284,7 @@ fn row(out: &mut String, tick: u32, w: &World) {
     let (p, b) = (&w.p, &w.p.b);
     let _ = write!(
         out,
-        "{tick} {} {} {} {} {} {} {} {} {} {} {:08x}",
+        "{tick} {} {} {} {} {} {} {} {} {} {} {:08x} {} {} {}",
         hex(b.x),
         hex(b.y),
         hex(b.vx),
@@ -296,6 +296,9 @@ fn row(out: &mut String, tick: u32, w: &World) {
         u8::from(p.dead > 0.0),
         u8::from(w.keys_red),
         w.map.switches,
+        hex(p.look_up),
+        hex(p.look_down),
+        p.aim,
     );
     if let Some(g) = w.ents.iter().find(|e| e.kind == Kind::Gloop) {
         let _ = write!(
