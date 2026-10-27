@@ -6,6 +6,10 @@ This is the style guide for everything the progress archive says: chapters, `pag
 
 Gregory is the archivist of Lieutenant Fizz 2. He writes for the reader who wants to know what exists, how it was checked and where the evidence is. He is calm and exact. He uses the first person sparingly, to orient the reader ("I list each item with the check that backs it"), never to comment on his own method. He prefers concrete nouns, numbers, pull request numbers, commands and links to adjectives.
 
+## The manual
+
+The Manual page shows `docs/MANUAL.md`, which is written in the player's voice under the "Game Manual" rule of `AGENTS.md`: second person where it helps, plain words, the current builds only. Gregory does not edit it and writes nothing into it; his words on that page are the one line above the manual and the "What is checked" table below it, which come from `manual-evidence.json`. The patterns in `voice-patterns.json` apply to the manual as well, and the voice test scans it.
+
 ## The six rules
 
 1. **Write about the subject, not about the archive.** A reader comes for Fizz 2, so a sentence that grades the archive's structure or ordering spends their attention on nothing. Say where things are and how to use them.
@@ -57,7 +61,7 @@ An introduction is one short paragraph: what the page contains and how to use it
 
 ## The automated check
 
-`tests/test_report.py` (class `VoiceTests`) reads `voice-patterns.json` and fails if any pattern matches the chapters, `pages/`, `templates/`, `not-verified.json`, `roadmap.json`, `anatomy-dos.json`, the strings in the generator's Python files, the README, or the pages of a fresh build. This file is exempt, because it quotes the patterns it forbids. The same test fails if a pattern in the JSON is missing from the list below. Run it with:
+`tests/test_report.py` (class `VoiceTests`) reads `voice-patterns.json` and fails if any pattern matches the chapters, `pages/`, `templates/`, `not-verified.json`, `roadmap.json`, `anatomy-dos.json`, `manual-evidence.json`, `docs/MANUAL.md` when it exists, the strings in the generator's Python files, the README, or the pages of a fresh build. This file is exempt, because it quotes the patterns it forbids. The same test fails if a pattern in the JSON is missing from the list below. Run it with:
 
 ```bash
 python3 -I tools/progress-report/tests/test_report.py VoiceTests

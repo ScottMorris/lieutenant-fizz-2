@@ -37,6 +37,7 @@ The site is living: after new pull requests merge, rebuilding refreshes the coun
 | `drawings.py` | The layer, parity, stack and anatomy diagrams, the milestone chart, and the replay and timer step-throughs |
 | `charts.py` | Lines and tests per package, pull request sizes, CI results and the floppy budget |
 | `flows.py` | The input and frame path diagrams, the screenshots, the DOSBox transcript and the replay script table |
+| `manual.py`, `manual-evidence.json` | The Manual page from `docs/MANUAL.md`, and the map from its sections to the archive's evidence |
 | `capture.py`, `capture-dos.sh`, `capture-web.py` | The tools that make `media/` |
 | `chapters/NN-id.md` | One chapter per stretch of the work, in reading order; reference pages at the end |
 | `pages/front.md`, `pages/coming.json` | The front page's text, and the chapters not yet written |
@@ -59,13 +60,19 @@ The site is living: after new pull requests merge, rebuilding refreshes the coun
 
 ## Chapters and figures
 
-A chapter is `chapters/NN-id.md`: a front matter (`id`, `n`, `title`, `date`, `summary`, `prs`, and `section: reference` with a `kicker` for reference pages), the narrative, a `figures` block and three shelves. Inline markup is `**bold**`, `*em*`, `` `code` ``, links with the schemes `chapter:ID#anchor`, `pr:N`, `commit:HASH` and `repo:PATH`, and placeholders such as `{{m.prs}}`, `{{pr7.merge}}`, `{{sc.pitDivisor}}` or `{{ms.biosTicks}}`, which come from the data and fail the build if unknown. Directives are HTML comments on their own line: `<!-- explainer replay -->` (also `timer`), `<!-- figure NAME -->` (`layers`, `parity`, `pr-stack`, `anatomy-dos`, `input-path`, `frame-path`, `milestones`, `loc`, `tests`, `pr-sizes`, `ci`, `floppy`, `dos-transcript`, `shots FILE...`, and the tables `nexts`, `roadmap-table`, `script`, `measured`) and `<!-- facts KEY ... -->`.
+A chapter is `chapters/NN-id.md`: a front matter (`id`, `n`, `title`, `date`, `summary`, `prs`, and `section: reference` with a `kicker` for reference pages), the narrative, a `figures` block and three shelves. Inline markup is `**bold**`, `*em*`, `` `code` ``, links with the schemes `chapter:ID#anchor`, `pr:N`, `commit:HASH` and `repo:PATH`, and placeholders such as `{{m.prs}}`, `{{pr7.merge}}`, `{{sc.pitDivisor}}` or `{{ms.biosTicks}}`, which come from the data and fail the build if unknown. Inline images are markdown images, a link with `!` in front and the alt text in the brackets. Directives are HTML comments on their own line: `<!-- explainer replay -->` (also `timer`), `<!-- figure NAME -->` (`layers`, `parity`, `pr-stack`, `anatomy-dos`, `input-path`, `frame-path`, `milestones`, `loc`, `tests`, `pr-sizes`, `ci`, `floppy`, `dos-transcript`, `shots FILE...`, and the tables `nexts`, `roadmap-table`, `script`, `measured`) and `<!-- facts KEY ... -->`.
 
 The shelves are `### Catalogued`, `### Uncatalogued` and `### Wish list`, each followed by a list. A "From the stacks" sidebar is a block quote starting `> **From the stacks — Title.**` with a `> Source:` line.
 
 Every drawn or captured figure is declared once in its chapter's `figures` block: `id`, `kind` (`screenshot`, `transcript`, `diagram`, `chart`, `explainer` or `history`), `track` (`web`, `dos`, `shared` or `design`), `title`, `alt`, `caption`, `at` (the directive) and `thumb` (`svg`, `svgs`, `steps`, `term` or `img:PATH`). The gallery and the front page's recent figures are built from those records. Diagrams use the 16-colour EGA palette of the README banner, and every SVG carries a `<title>` and `<desc>`.
 
 To update the anatomy diagram, edit `anatomy-dos.json`: each box has a `status` (`verified`, `unverified`, `planned` or `external`), a `text` and `evidence` (`pr:N`, `commit:HASH` or `repo:PATH`, which must exist).
+
+## The Manual page
+
+`docs/MANUAL.md` is the player's manual, kept in step with the game under the "Game Manual" rule of `AGENTS.md`, and it is the only source of the page's text. `manual.py` reads it from the working tree, takes its first `# ` line as the page title and renders the rest through `mdlite.py` (headings, tables, lists, inline code, links and markdown images, written as a link with `!` in front; `{{` stays text). One line above it gives the source as data: the last commit that changed the file, or an uncommitted file in the working tree on the current commit. Relative links and image sources are resolved against `docs/`: images are copied to `manual/<path>` in the site with their alt text, other files are linked on GitHub, and a missing target, an image without alt text, or a link without text fails the build.
+
+The page ends with "What is checked", built from `manual-evidence.json`: for each heading of the manual, the shelf (`catalogued`, `uncatalogued` or `none` for a section that describes no behaviour), the evidence with links into the chapters, what the section says that no check covers (`gaps`), and the state tag of the pull requests named. A heading the file does not map shows as uncatalogued, and a mapped heading the manual no longer has fails the build, so the map has to follow the manual's edits. Without `docs/MANUAL.md` the page and its navigation item are left out and the contents show a "coming" row.
 
 ## Captures
 
