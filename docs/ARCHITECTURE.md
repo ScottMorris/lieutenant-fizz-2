@@ -27,8 +27,8 @@ Both presentations are developed together, so neither is a late port.
 - A feature is done when it has a Web path and a DOS path. The DOS path may be reduced (flatter lighting, fewer effects, simpler audio), but it runs.
 - Web leads on feel and fidelity; DOS leads on budgets. A 486DX is the DOS floor. DOS is a bonus platform and never limits the design.
 - The state hash from `fizz-sim` is the arbiter. The native, Web and DOS builds hash the same fields in the same order after each tick. A mismatch is a bug until proven otherwise.
-- CI gates both from the start. `check` runs the host checks everywhere. The `parity` job runs in the pinned `ci-dos` image: it builds FIZZ2.EXE and the Web bundle, runs the replay natively, in WASM under Node and Bun, and in headless DOSBox, and fails unless all transcripts are identical. `tools/check-parity.sh` runs the same comparison locally and prints `PARITY ok <hash>`.
-- The parity gate compares the `TICK` and `FINAL` lines of a versioned replay transcript, which carry the state hash every 60 ticks. Platform-specific lines (`FPU`, `BIOS`, `VECTORS`, `SIZE`) use other prefixes and are checked by the platform's own gate. [`PLATFORM.md`](PLATFORM.md) defines the transcript and the commands.
+- CI gates both from the start. `check` runs the host checks everywhere. The `parity` job runs in the pinned `ci-dos` image: it builds FIZZ2.EXE and the Web bundle, runs the slice replay natively, in WASM under Node or Bun, and in headless DOSBox, and fails unless all transcripts equal the golden file, `crates/fizz-ep2/slice-replay.txt`. `tools/check-parity.sh` runs the same comparison locally and prints `PARITY ok <hash>`.
+- The parity gate compares the `TICK`, `FINAL` and `EVENT` lines of a versioned replay transcript, which carry the state hash every 60 ticks and the semantic events the rules emit. Platform-specific lines (`FPU`, `BIOS`, `VECTORS`, `SIZE`) use other prefixes and are checked by the platform's own gate. [`PLATFORM.md`](PLATFORM.md) defines the transcript and the commands.
 - Baked assets have per-target profiles. A missing DOS bake falls back to a placeholder so Web iteration is never blocked, and the DOS gate still reports the gap.
 
 The cost of parallel development is the DOS toolchain and its slower feedback. Keep a quick, host-only `tools/check.sh` for the inner loop and run the full DOS gate in CI and before a PR.
@@ -44,7 +44,7 @@ Fizz 1's physics are continuous and tuned by feel, so Fizz 2 keeps Fizz 1's nume
 
 Where floating point is allowed follows from that model:
 
-- Rules crates (`fizz-sim`, `fizz-phys`, `fizz-hello` and the game logic that replaces it) use `f64` under the discipline above, and may not use the `exp` family (`exp`, `exp2`, `exp10`) because `libm` runs x87 assembly for those on x86 targets without SSE.
+- Rules crates (`fizz-sim`, `fizz-phys`, `fizz-ep2`) use `f64` under the discipline above, and may not use the `exp` family (`exp`, `exp2`, `exp10`) because `libm` runs x87 assembly for those on x86 targets without SSE.
 - The Web presenter may use floats freely for display, because WebAssembly floating point is IEEE and the rules already agree across platforms.
 - `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny `clippy::float_arithmetic`. The DOS presenter works in integers, and interrupt handlers never touch the x87, so a handler cannot disturb the control word or the register stack of the interrupted game loop.
 
@@ -84,20 +84,19 @@ The open question is whether Fizz 2 shows more level on large screens by default
 
 ## Crate plan
 
-Crates arrive with their first consumer and test. Milestone 0 built the platform skeleton, a marker moved by input and hashed on every platform, so the crates below marked Exists are real but carry only that much behaviour. [`PLATFORM.md`](PLATFORM.md) describes how they fit together.
+Crates arrive with their first consumer and test. Milestone 0 built the platform skeleton and Milestone 1 the first playable slice on it; the crates below marked Exists carry that much behaviour. [`PLATFORM.md`](PLATFORM.md) describes how they fit together.
 
 | Crate | Layer | Purpose | State |
 | --- | --- | --- | --- |
 | `fizz-sim` | Rules | Fixed tick, state hash, and the input types (`Buttons`, `InputFrame`, `InputLatch`) | Exists |
-| `fizz-hello` | Rules | Throwaway Milestone 0 rules: a marker moved by input, used to prove parity. Deleted when real rules arrive | Exists, Milestone 0 only |
 | `fizz-hal` | Platform | Hardware abstraction traits mirrored from Desk: clock and pacer, input, display, and the interrupt hand-off ring. Storage and audio traits join with their consumers | Exists (clock, input, display) |
 | `fizz-view` | Presenter base | Platform-neutral placement: turns the rules' positions into logical pixels that each presenter places in its own environment. The eased camera and the scene-to-screen step of Milestone 3 join it | Exists (the pixel rule, tile and y-flip helpers, the follow camera, clipped sprite, rectangle and tile drawing, generated sprite data) |
 | `fizz-slice-view` | Presenter base | The one scene-drawing routine for the Episode 2 slice: `draw_slice(frame, w, h, &World, tick)` paints sky, the tile window, the key, the door, the chicken, the shots and Ben into a palette-indexed buffer, with the follow camera. Both presenters call it, so Web and DOS draw the same pixels; the HUD text stays presenter-side. `no_std`, no `unsafe`, depends on `fizz-ep2` and `fizz-view`. It reads the world and never changes it, and its `tick` argument drives animation only | Exists |
 | `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
-| `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `SliceApp` that paces the slice's rules from browser time and renders them through `fizz-slice-view` into an RGBA frame the page copies to its canvas, beside the Milestone 0 `App` until `fizz-hello` is retired | Exists |
+| `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the slice's rules from browser time and renders them through `fizz-slice-view` into an RGBA frame the page copies to its canvas | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
 | `fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy, with `libm` giving the maths functions method syntax (no `exp`). Function bodies stay identical to Fizz 1's; `tools/lf-sim-drift.sh` reports any drift | Exists |
-| `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`. It holds Ben's movement, the chicken (Fizz 1's Gloop), the Fizz Blaster shots, the red key and door as `WorldFlags`, hazards, death and respawn and the exit, all ported line for line from Fizz 1 and proved against its golden traces; the slice level as `const` data in the shape `fizz-bake` will fill; the state hash; the chicken's seeded cluck stream and the `Event`s the world emits for presenters; and the scripted slice replay with its golden transcript, `EVENT` lines included. Replaces `fizz-hello`, which stays until the presenters switch | Exists |
+| `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`. It holds Ben's movement, the chicken (Fizz 1's Gloop), the Fizz Blaster shots, the red key and door as `WorldFlags`, hazards, death and respawn and the exit, all ported line for line from Fizz 1 and proved against its golden traces; the slice level as `const` data in the shape `fizz-bake` will fill; the state hash; the chicken's seeded cluck stream and the `Event`s the world emits for presenters; and the scripted slice replay with its golden transcript, `EVENT` lines included. Replaced the Milestone 0 `fizz-hello`, which is deleted | Exists |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
 | `fizz-bake` | Baking | Host tool: bakes scripts, art and music into per-target Fizz Asset Packs (`.FAP`) | Planned |
 | `fizz-fap` | Baking | The Fizz Asset Pack format and loader that `fizz-bake` writes and both platforms read. The name is provisional | Planned |

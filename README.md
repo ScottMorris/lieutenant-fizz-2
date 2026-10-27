@@ -32,15 +32,16 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 
 | Platform | Role | Status |
 | --- | --- | --- |
-| Web (and Tauri on Linux, Windows, macOS and Android) | Rich presentation, authoring and playtest | Skeleton (hello tick) |
-| DOS (486DX, VGA, AdLib) | Bonus presentation on a Rust-on-DOS runtime | Skeleton (hello tick) |
+| Web (and Tauri on Linux, Windows, macOS and Android) | Rich presentation, authoring and playtest | Plays the first slice |
+| DOS (486DX, VGA, AdLib) | Bonus presentation on a Rust-on-DOS runtime | Plays the first slice |
 
 ## Repository layout
 
 | Path | What it holds |
 | --- | --- |
 | `crates/fizz-sim` | The deterministic rules foundation: the 60 Hz tick, the state hash and the input types |
-| `crates/fizz-hello` | Throwaway Milestone 0 rules (a moving marker) and the golden replay transcript |
+| `crates/fizz-phys` | Fizz 1's tile map, body, platform and rng code as an owned `no_std` copy |
+| `crates/fizz-ep2` | The slice's rules, level and hash, and the golden replay transcript `slice-replay.txt` |
 | `crates/fizz-hal` | Hardware abstraction traits mirrored from Desk: clock, input, display and the interrupt ring |
 | `crates/fizz-present-dos` | The DOS frame, palette, font and key mapping, with no DOS calls |
 | `crates/fizz-present-web` | The Web presenter, a `wasm-bindgen` app |

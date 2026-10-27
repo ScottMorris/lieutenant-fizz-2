@@ -2,7 +2,7 @@
 
 ## Project
 
-Lieutenant Fizz 2 is the start of Episode 2 (and the simulation Episode 3 reuses), with Web and DOS developed in parallel. `fizz-sim` is the deterministic rules foundation: `no_std`, no `unsafe`, no platform types. The Milestone 0 platform skeleton is built: a moving marker hashed identically on native, Web (WASM) and DOS (headless DOSBox). A baker and the real rules and scene arrive with their first consumers.
+Lieutenant Fizz 2 is the start of Episode 2 (and the simulation Episode 3 reuses), with Web and DOS developed in parallel. `fizz-sim` is the deterministic rules foundation: `no_std`, no `unsafe`, no platform types. The Milestone 0 platform skeleton and the Milestone 1 slice are built: the slice's state hash is identical on native, Web (WASM) and DOS (headless DOSBox). A baker and the real rules and scene arrive with their first consumers.
 
 `AGENTS.md` is authoritative. Its essential rules are Canadian English everywhere, unwrapped markdown, author-facing prose, Conventional Commits but no prefixes in PR titles, merge commits only, no push without instruction, explicit staging, and copyright/SPDX headers on source files.
 
@@ -18,7 +18,8 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 ## Layout
 
 - `crates/fizz-sim`: the deterministic rules foundation (fixed tick, state hash, input types)
-- `crates/fizz-hello`: throwaway Milestone 0 rules and the golden transcript `m0-replay.txt`; deleted when real rules arrive
+- `crates/fizz-phys`: Fizz 1's tile map, body, platform and rng code as an owned `no_std` copy
+- `crates/fizz-ep2`: the slice's rules and level, and the golden transcript `slice-replay.txt`
 - `crates/fizz-hal`: Desk-shaped hardware abstraction traits (clock, input, display, interrupt ring)
 - `crates/fizz-present-dos`: the DOS frame, palette, font and key mapping
 - `crates/fizz-present-web`: the `wasm-bindgen` Web presenter
@@ -33,7 +34,7 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 
 ```bash
 tools/check.sh                                   # host gate, run before every PR
-cargo run -p fizz-hello --example replay         # native transcript
+cargo run -p fizz-ep2 --example replay            # native transcript
 tools/setup-dos.sh                               # links vendor/ from $DOS_TOOLCHAIN when absent
 tools/check-dos.sh                               # build FIZZ2.EXE and check it in headless DOSBox
 tools/build-web.sh                               # build dist/web (needs the pinned wasm-bindgen CLI)
