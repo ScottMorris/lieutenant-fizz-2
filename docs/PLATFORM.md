@@ -7,6 +7,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 - [Layers as built](#layers-as-built)
 - [The hash transcript](#the-hash-transcript)
 - [Numeric model decisions](#numeric-model-decisions)
+- [Ben against Fizz 1](#ben-against-fizz-1)
 - [The hardware abstraction layer](#the-hardware-abstraction-layer)
 - [The DOS runtime](#the-dos-runtime)
 - [The Web build](#the-web-build)
@@ -53,6 +54,21 @@ FINAL TICK 600 HASH <hex16>
 
 The golden file is `crates/fizz-hello/m0-replay.txt`. All three platforms produce it, ending `FINAL TICK 600 HASH efc699079baa6a88`: native x86_64 (`cargo run -p fizz-hello --example replay`), Web (WASM through `wasm-bindgen`, run under Node and Bun by `tools/web-replay.mjs`) and DOS (`FIZZ2.EXE /REPLAY` in headless DOSBox with the x87 at 53 bits).
 
+### The slice transcript
+
+The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the same shape with the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`. It takes the same `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash` that `fizz-hello` takes through its own, so a presenter swaps one for the other. Native prints it with `cargo run -p fizz-ep2 --example replay`. No presenter runs it yet; the gates switch to it with the DOS and Web slice packages.
+
+The slice hash covers, in this order, with floating-point fields as `f64` bits and counts as `u32`:
+
+1. the tick (`u64`);
+2. Ben: `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv`, `shoot_t`, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on the ground, bit 3 bumped);
+3. the `WorldFlags` word (bit 0 red key carried, bit 1 red door open, bit 2 exit reached), `ammo` and `deaths`;
+4. `map.switches`, which holds the red door (a closed door is a set bit on channel 1);
+5. the chicken count, then per chicken `x`, `y`, `vx`, `vy`, `dir`, `stun` and a flags byte (bit 0 on the ground, bit 1 touching Ben, bit 2 dead);
+6. the shot count, then per shot `x`, `y`, `vx`, `vy` and `life`.
+
+The camera is not hashed. The chicken's cluck timer and stream counter join its record when the sound package lands. Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
+
 ## Numeric model decisions
 
 The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The skeleton settled these specifics:
@@ -62,6 +78,35 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 - Velocities below 1/1024 snap to zero. Without it, a decaying velocity reaches subnormal values, which x87 at 53 bits, SSE2 and WebAssembly round differently.
 - The x87 control word is `0x027F` (53-bit precision, all exceptions masked). The program sets it before the first tick. The runtime's `_start` only runs `FNINIT`, which leaves `0x037F` (64-bit precision), so a program that skips the step would hash differently.
 - Interrupt handlers never touch the x87.
+
+## Ben against Fizz 1
+
+`fizz-ep2` holds Ben's movement, ported line for line from Fizz 1's `tick_ben_move` (with the alive and dead branches of `tick_ben`, `tick_head_bump` and `fire`) on top of `fizz-phys`; the rest of Fizz 1's `World::step` for the slice lives in `crates/fizz-ep2/src/world.rs`. It is proved against golden traces that Fizz 1's own simulation wrote, committed in `crates/fizz-ep2/tests/fizz1/`: `crates/fizz-ep2/tests/fizz1_traces.rs` parses each shared `.scn` scenario, runs it and compares every tick with the `.trace` as `f64` bit patterns, with no tolerance. The traces are regenerated with `tools/fizz1-trace`, which needs Fizz 1 at its pinned commit; the test needs only the committed files.
+
+Proven bit for bit, all sixteen scenarios:
+
+| Scenario | What it proves |
+| --- | --- |
+| `fall`, `run`, `jump_full`, `jump_cut` | gravity and terminal speed, walking and friction, the jump and its cut |
+| `pogo_idle`, `pogo_held`, `pogo_ceiling` | the pogo and its held high bounce, the squash (slightly negative, never clamped), the taller head box |
+| `oneway`, `wall_step`, `slope` | one-way platforms, the wall stop, the 0.55 step-up, slopes |
+| `gloop_patrol` | the chicken's patrol, turning at a wall and at a ledge |
+| `stomp`, `stomp_pogo` | landing on the chicken: 3 s stun, bounce 12 (20 with the pogo), repeated bounces while it stays stunned |
+| `fizz_stun` | a shot stuns the chicken for 6 s, and a second shot passes through the stunned one; ammo and the shot's flight |
+| `key_door` | picking up the red key and opening the red door by walking into it |
+| `route` | a run through a small maze that ends on spikes: one-way ledges, jumps and the spike death |
+
+The harness runs every scenario through the whole `World` and compares every field a trace carries, Ben's and the first Gloop's. One bit is masked in the `switches` field: Fizz 1 rewrites the red door's tile when it opens and never touches its switch word, while Fizz 2 keeps the door as a switched tile on channel 1 (a closed door is a set bit), so the door's bit is left out of that comparison. The facts the traces do not show (the door staying shut without the key, what a death keeps and drops) are covered by unit tests in `crates/fizz-ep2/src/replay.rs`.
+
+The slice level is `crates/fizz-ep2/src/level.rs`: 32 by 48 tiles, written as text and baked at compile time, with the tile alphabet documented in the module. The replay proves it can be finished with the real physics: the script reaches the exit in 1,268 ticks with the door open and the key spent, after one death on the spikes carrying the key (the key drops and lies where it began; the world respawns Ben, resets the chicken and the ammo). It shoots the chicken in the first life and stomps it in the second.
+
+Departures from Fizz 1:
+
+- Any velocity with a magnitude below 2^-1000 snaps to zero at the end of Ben's move. Fizz 1 lets an idle pogo's horizontal drag decay for ever, which reaches subnormal values where x87 at 53 bits and SSE2 differ. No golden trace changes with the snap, and a unit test runs an idle pogo for 30,000 ticks.
+- The red door is a switched tile on channel 1 (solid while the bit is set) rather than a solid tile that Fizz 1 rewrites to empty space. Opening follows Fizz 1's rule exactly: with the key, touching the door's tile in front of Ben at body height opens it and spends the key. The open door is `WorldFlags::DOOR_RED_OPEN`.
+- A death respawns Ben in place after Fizz 1's 1.4 s instead of reloading the level, so the open door survives it. The key does not: it is dropped and lies where it began unless the door is already open. The chickens, the shots and the ammo (5) start over, and `deaths` counts the respawns.
+- The Gloop's "stray" reset (sent home after three seconds more than four tiles off its floor) is not ported; the slice's chicken cannot leave its floor. It would need a hashed timer.
+- Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, wall kicks, lifts and conveyors under Ben are also not ported.
 
 ## The hardware abstraction layer
 
@@ -173,6 +218,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 | Mirrored from Desk's d0 spike and the earlier proof of concept (tag `poc-1`) | `dos/dos-elf.json`, `dos/link.ld`, `dos/rustfmt.toml`, and `dos/rt/src/` `start.rs`, `dpmi.rs`, `dos.rs`, `heap.rs`, `env.rs`, `panic.rs`, `cleanup.rs`, `io.rs` |
 | Adapted | `dos/.cargo/config.toml`; `dos/rt/src/` `lib.rs`, `fpu.rs` (keeps only the control word), `irq.rs`, `timer.rs` (60 Hz in place of 560 Hz) and `vga.rs`; `tools/elf2go32.py`, `tools/dosrun.sh`, `tools/build-dos.sh`, `tools/setup-dos.sh`; `crates/fizz-hal/src/ring.rs` from Desk's `ring.rs` |
 | Derived from Fizz 1 `crates/sim/src/` at commit `4bce036`, transformed as in fizz-dos `m2/patches/sim.patch` | `crates/fizz-phys/src/` `tilemap.rs`, `body.rs`, `platform.rs` and `rng.rs`; `fmath.rs` from fizz-dos `m2/sim/src/fmath.rs` without `exp`. `tools/lf-sim-drift.sh` compares them with a Fizz 1 checkout |
+| Ported from Fizz 1 `episodes/episode-1/game/src/` (`world.rs`, `ents.rs`, `tiles.rs`) at commit `4bce036` | `crates/fizz-ep2/src/` `ben.rs`, `chicken.rs`, `shot.rs`, `tiles.rs` and `world.rs`, proved by the traces in `crates/fizz-ep2/tests/fizz1/` |
 | Written for this repository | `dos/rt/src/` `ring.rs`, `port.rs` and `kbd.rs`; `dos/rtsmoke`; the rest of `crates/fizz-hal`, which follows Desk's shapes for time, input and video without port traits |
 
 ## Not verified
@@ -182,5 +228,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
 - Audio. Nothing in the skeleton makes sound.
+- The slice replay on Web and DOS. Only native x86_64 (debug and release builds, which agree) runs it so far; `fizz-ep2` builds for `wasm32-unknown-unknown` and type-checks for the DOS target, but the parity gate does not run the slice until the presenters switch.
+- That the slice level is pleasant to play. The replay proves it can be finished, not that it is fun, and the camera has not been built.
 - Bundling the Web build into a launcher.
 - The GitHub-hosted runner for the `parity` job.
