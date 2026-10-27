@@ -19,6 +19,13 @@ pub enum KeyCode {
     D,
     Space,
     Escape,
+    Z,
+    X,
+    C,
+    /// Either Ctrl key: the left key and the extended right key report the same code.
+    Ctrl,
+    /// Either Alt key: the left key and the extended right (Alt Gr) key report the same code.
+    Alt,
     /// Any other key: its make code (bit 7 clear) and whether it came after the `0xE0` prefix.
     Unknown {
         extended: bool,

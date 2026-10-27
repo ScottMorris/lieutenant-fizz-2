@@ -5,7 +5,8 @@
 //
 // Pure: no ports, no interrupts, no allocation. In set 1 a make code is the key's number and a break code is the make code with
 // bit 7 set. The arrows and other 101-key additions send `0xE0` first. Pause sends `E1 1D 45 E1 9D C5` on press and nothing on
-// release; the decoder swallows that sequence and reports no key for it. Shaped after Desk's `desk-kbd` decoder, reduced to the
+// release; the decoder swallows that sequence, including its `1D`, so a Pause never looks like a Ctrl press. The left and right Ctrl and Alt
+// keys (the right ones send `E0` first) report the same codes. Shaped after Desk's `desk-kbd` decoder, reduced to the
 // keys the game uses.
 
 use crate::input::{KeyCode, KeyEvent};
@@ -93,12 +94,17 @@ fn key(extended: bool, byte: u8) -> KeyEvent {
         (true, 0x50) => KeyCode::Down,
         (true, 0x4B) => KeyCode::Left,
         (true, 0x4D) => KeyCode::Right,
+        (_, 0x1D) => KeyCode::Ctrl,
+        (_, 0x38) => KeyCode::Alt,
         (false, 0x11) => KeyCode::W,
         (false, 0x1E) => KeyCode::A,
         (false, 0x1F) => KeyCode::S,
         (false, 0x20) => KeyCode::D,
         (false, 0x39) => KeyCode::Space,
         (false, 0x01) => KeyCode::Escape,
+        (false, 0x2C) => KeyCode::Z,
+        (false, 0x2D) => KeyCode::X,
+        (false, 0x2E) => KeyCode::C,
         _ => KeyCode::Unknown { extended, scancode },
     };
     KeyEvent { code, pressed }
@@ -129,12 +135,40 @@ mod tests {
             (0x20, KeyCode::D),
             (0x39, KeyCode::Space),
             (0x01, KeyCode::Escape),
+            (0x2C, KeyCode::Z),
+            (0x2D, KeyCode::X),
+            (0x2E, KeyCode::C),
+            (0x1D, KeyCode::Ctrl),
+            (0x38, KeyCode::Alt),
         ];
         let mut d = Set1Decoder::new();
         for (make, code) in table {
             assert_eq!(d.feed(make), ev(code, true));
             assert_eq!(d.feed(make | 0x80), ev(code, false));
         }
+    }
+
+    #[test]
+    fn right_ctrl_and_right_alt_match_the_left_keys() {
+        let mut d = Set1Decoder::new();
+        for (make, code) in [(0x1D, KeyCode::Ctrl), (0x38, KeyCode::Alt)] {
+            assert_eq!(feed_all(&mut d, &[0xE0, make])[..2], [None, ev(code, true)]);
+            assert_eq!(
+                feed_all(&mut d, &[0xE0, make | 0x80])[..2],
+                [None, ev(code, false)]
+            );
+        }
+    }
+
+    #[test]
+    fn a_pause_does_not_produce_a_ctrl_event() {
+        let mut d = Set1Decoder::new();
+        for b in [0xE1, 0x1D, 0x45, 0xE1, 0x9D, 0xC5] {
+            assert_eq!(d.feed(b), None, "{b:#04x}");
+        }
+        // The decoder is back to idle: a real Ctrl press afterwards still works.
+        assert_eq!(d.feed(0x1D), ev(KeyCode::Ctrl, true));
+        assert_eq!(d.feed(0x9D), ev(KeyCode::Ctrl, false));
     }
 
     #[test]
