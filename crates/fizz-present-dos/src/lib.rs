@@ -9,7 +9,6 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::float_arithmetic)]
 
-mod font;
 mod frame;
 mod palette;
 
@@ -18,7 +17,7 @@ use core::fmt::{self, Write};
 use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
 
-pub use font::{GLYPH, glyph};
+pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
 pub use palette::*;
 
