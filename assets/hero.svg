@@ -163,9 +163,9 @@
       </g>
     </g>
 
-    <!-- Ben on his pogo stick, bouncing: Fizz 1's own ben_pogo (compressed spring, on the ground) and ben_pogo2 (extended spring, in the air) sprites, 16 by 32 pixels at 3px per pixel -->
+    <!-- Ben on his pogo stick, bouncing: Fizz 1's own ben_pogo sprite, with ben_pogo2 (the squash frame, body two rows lower) for the first 0.12 s after each bounce as Fizz 1 draws it, 16 by 32 pixels at 3px per pixel -->
     <g>
-      <animateTransform attributeName="transform" type="translate" values="0,0;0,-44;0,0;0,0" dur="1.4s" calcMode="spline" keyTimes="0;0.457;0.914;1" keySplines="0.2 0.6 0.4 1;0.6 0 0.8 0.4;0 0 1 1" repeatCount="indefinite"/>
+      <animateTransform attributeName="transform" type="translate" values="0,0;0,-44;0,0" dur="1.4s" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.2 0.6 0.4 1;0.6 0 0.8 0.4" repeatCount="indefinite"/>
       <g transform="translate(816,172) scale(3)">
         <g>
           <rect x="4" y="0" width="3" height="1" fill="#000000"/>
@@ -296,7 +296,7 @@
           <rect x="6" y="31" width="1" height="1" fill="#000000"/>
           <rect x="7" y="31" width="2" height="1" fill="#555555"/>
           <rect x="9" y="31" width="1" height="1" fill="#000000"/>
-          <animate attributeName="visibility" calcMode="discrete" keyTimes="0;0.02;0.914;1" values="visible;hidden;visible;visible" dur="1.4s" repeatCount="indefinite"/>
+          <animate attributeName="visibility" calcMode="discrete" keyTimes="0;0.0857;1" values="hidden;visible;visible" dur="1.4s" repeatCount="indefinite"/>
         </g>
         <g visibility="hidden">
           <rect x="7" y="1" width="2" height="1" fill="#000000"/>
@@ -422,7 +422,7 @@
           <rect x="6" y="31" width="1" height="1" fill="#000000"/>
           <rect x="7" y="31" width="2" height="1" fill="#555555"/>
           <rect x="9" y="31" width="1" height="1" fill="#000000"/>
-          <animate attributeName="visibility" calcMode="discrete" keyTimes="0;0.02;0.914;1" values="hidden;visible;hidden;hidden" dur="1.4s" repeatCount="indefinite"/>
+          <animate attributeName="visibility" calcMode="discrete" keyTimes="0;0.0857;1" values="visible;hidden;hidden" dur="1.4s" repeatCount="indefinite"/>
         </g>
       </g>
     </g>
