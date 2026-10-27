@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/liminal-hq/fizz-2/actions/workflows/ci.yml"><img src="https://github.com/liminal-hq/fizz-2/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/ScottMorris/lieutenant-fizz-2/actions/workflows/ci.yml"><img src="https://github.com/ScottMorris/lieutenant-fizz-2/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <img src="https://img.shields.io/badge/status-foundations-f97316" alt="Status: foundations">
   <img src="https://img.shields.io/badge/platforms-Web%20%C2%B7%20DOS-1f6feb" alt="Platforms: Web and DOS">
   <img src="https://img.shields.io/badge/licence-Apache--2.0%20OR%20MIT-3fb950" alt="Licence: Apache-2.0 OR MIT">
@@ -63,10 +63,6 @@ Fizz 2 draws on several Liminal HQ projects and names each one where it uses it.
 - [Undertone](https://github.com/liminal-hq/undertone) is the audio library for the Web score.
 - Fizz Level Studio, an experiment, is the level and overworld authoring tool, with its own script language.
 - [Waypoint](https://github.com/liminal-hq/waypoint) and [Spindle](https://github.com/liminal-hq/spindle) set the repository conventions: the README shape, CI, release notes and labels.
-
-## Part of Liminal HQ
-
-Lieutenant Fizz 2 is a [Liminal HQ](https://liminalhq.ca) project, with Fizz 1's palette, sense of humour and appetite for chocolate.
 
 ## Licence
 

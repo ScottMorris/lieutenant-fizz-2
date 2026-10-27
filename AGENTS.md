@@ -27,7 +27,7 @@ Do not push, force-push, merge or alter shared settings without explicit user in
 
 Use Conventional Commits. The repository's first commit is the sole exception, titled `Initial Commit`. Commit bodies explain what and why, hard-wrap at about 72–100 columns, backtick every code-level reference, and end with the agent co-author trailer when an agent authored the commit. Write markdown-heavy messages to a file and use `git commit -F`; inspect the result with `git log -1 --pretty=fuller`.
 
-PR titles start with a capital letter, use the imperative mood, remain near 70 characters, and have no Conventional Commit prefix. PRs use `## Summary` followed by `## Test plan`, have a category label (`enhancement`, `bug`, `documentation`, `testing`, `ci`, `build`, or `chore`) and relevant scope labels (`sim`, `web`, `dos`, `graphics`, `input`, `sound`, `levels`, `rust`, `performance`, `experimental`, `ui`, `design-docs`, `pages`, `deploy`).
+PR titles start with a capital letter, use the imperative mood, remain near 70 characters, and have no Conventional Commit prefix. PRs use `## Summary` followed by `## Test plan`, have a category label (`enhancement`, `bug`, `documentation`, `testing`, `ci`, `build`, or `chore`) and relevant scope labels (`sim`, `web`, `dos`, `graphics`, `input`, `sound`, `levels`, `rust`, `performance`, `experimental`, `ui`, `design-docs`, `pages`, `deploy`, `parity`).
 
 ## Local Tooling and Releases
 
