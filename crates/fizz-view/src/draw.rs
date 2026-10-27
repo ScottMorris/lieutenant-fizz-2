@@ -108,25 +108,116 @@ pub fn draw_tilemap(
     map_h: i32,
     mut colour: impl FnMut(i32, i32) -> Option<u8>,
 ) {
+    draw_tiles(frame, w, h, cam_x, cam_y, map_w, map_h, None, &mut colour);
+}
+
+/// Draws the whole view as tiles on a flat sky: [`draw_tilemap`] with every pixel it leaves undrawn, and everything outside
+/// the map, filled with `sky`, and each pixel written exactly once. It is the same picture as filling the frame with `sky`
+/// and then calling [`draw_tilemap`], without writing the tiles' area twice. Horizontal neighbours of one colour are filled
+/// as one run, so the frame is written in long rows, which is also what a fast fill wants.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_tilemap_on_sky(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    cam_x: i32,
+    cam_y: i32,
+    map_w: i32,
+    map_h: i32,
+    sky: u8,
+    mut colour: impl FnMut(i32, i32) -> Option<u8>,
+) {
+    draw_tiles(
+        frame,
+        w,
+        h,
+        cam_x,
+        cam_y,
+        map_w,
+        map_h,
+        Some(sky),
+        &mut colour,
+    );
+}
+
+/// Fills the columns `col0..col1` of the tile row whose pixel rows are `y0..y1` with `colour`, clipped to the `fw` wide frame.
+#[allow(clippy::too_many_arguments)]
+fn fill_run(
+    frame: &mut [u8],
+    w: usize,
+    cx: i64,
+    fw: i64,
+    col0: i64,
+    col1: i64,
+    y0: usize,
+    y1: usize,
+    colour: u8,
+) {
+    let x0 = (col0 * i64::from(TILE_PX) - cx).max(0) as usize;
+    let x1 = (col1 * i64::from(TILE_PX) - cx).min(fw) as usize;
+    if x0 >= x1 {
+        return;
+    }
+    for y in y0..y1 {
+        frame[y * w + x0..y * w + x1].fill(colour);
+    }
+}
+
+/// The tile rows that touch the view, each drawn as runs of one colour. With `sky` the undrawn tiles and the area outside the
+/// map take that colour, and the whole view is visited; without it only tiles inside the map are visited.
+#[allow(clippy::too_many_arguments)]
+fn draw_tiles(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    cam_x: i32,
+    cam_y: i32,
+    map_w: i32,
+    map_h: i32,
+    sky: Option<u8>,
+    colour: &mut dyn FnMut(i32, i32) -> Option<u8>,
+) {
     let (fw, fh) = extent(frame, w, h);
-    if map_w <= 0 || map_h <= 0 || fw == 0 || fh == 0 {
+    if fw == 0 || fh == 0 {
         return;
     }
     let t = i64::from(TILE_PX);
     let (cx, cy) = (i64::from(cam_x), i64::from(cam_y));
-    let col0 = cx.div_euclid(t).max(0);
-    let col1 = (cx + fw - 1).div_euclid(t).min(i64::from(map_w) - 1);
-    let row0 = cy.div_euclid(t).max(0);
-    let row1 = (cy + fh - 1).div_euclid(t).min(i64::from(map_h) - 1);
+    let (mw, mh) = (i64::from(map_w.max(0)), i64::from(map_h.max(0)));
+    let (mut col0, mut col1) = (cx.div_euclid(t), (cx + fw - 1).div_euclid(t));
+    let (mut row0, mut row1) = (cy.div_euclid(t), (cy + fh - 1).div_euclid(t));
+    if sky.is_none() {
+        col0 = col0.max(0);
+        col1 = col1.min(mw - 1);
+        row0 = row0.max(0);
+        row1 = row1.min(mh - 1);
+    }
     for row in row0..=row1 {
-        let ty = (i64::from(map_h) - 1 - row) as i32;
+        // The band of pixel rows this tile row covers inside the frame (rows outside it are skipped by an empty range).
+        let y0 = (row * t - cy).clamp(0, fh) as usize;
+        let y1 = ((row + 1) * t - cy).clamp(0, fh) as usize;
+        let in_map_row = (0..mh).contains(&row);
+        let ty = (mh - 1 - row) as i32;
+        let mut run: Option<(i64, u8)> = None;
         for col in col0..=col1 {
-            if let Some(c) = colour(col as i32, ty) {
-                // The tile touches the view, so both offsets are within a tile of the frame and fit an i32.
-                let sx = (col * t - cx) as i32;
-                let sy = (row * t - cy) as i32;
-                fill_rect(frame, w, h, sx, sy, TILE_PX, TILE_PX, c);
+            let drawn = if in_map_row && (0..mw).contains(&col) {
+                colour(col as i32, ty)
+            } else {
+                None
+            };
+            let c = drawn.or(sky);
+            match (run, c) {
+                (Some((_, rc)), Some(nc)) if rc == nc => {}
+                _ => {
+                    if let Some((start, rc)) = run {
+                        fill_run(frame, w, cx, fw, start, col, y0, y1, rc);
+                    }
+                    run = c.map(|c| (col, c));
+                }
             }
+        }
+        if let Some((start, rc)) = run {
+            fill_run(frame, w, cx, fw, start, col1 + 1, y0, y1, rc);
         }
     }
 }
@@ -360,6 +451,68 @@ mod tests {
             None
         });
         assert_eq!(calls, 0);
+    }
+
+    // A 5 by 3 map with runs, gaps and a lone tile (y-up): top row `1 1 . 2 2`, middle `. 3 3 3 .`, bottom `4 4 4 4 4`.
+    fn runs(tx: i32, ty: i32) -> Option<u8> {
+        const MAP: [[u8; 5]; 3] = [[4, 4, 4, 4, 4], [0, 3, 3, 3, 0], [1, 1, 0, 2, 2]];
+        match MAP[ty as usize][tx as usize] {
+            0 => None,
+            c => Some(c),
+        }
+    }
+
+    #[test]
+    fn tiles_on_sky_equal_a_sky_fill_then_the_tiles() {
+        // Frames of several shapes, with the camera on, beside and well outside the map, so the sky shows on every side.
+        let cams = [
+            i32::MIN,
+            -300,
+            -40,
+            -17,
+            -16,
+            -1,
+            0,
+            1,
+            5,
+            16,
+            33,
+            47,
+            64,
+            100,
+            1000,
+            i32::MAX,
+        ];
+        for (fw, fh) in [(48, 32), (20, 20), (1, 1), (7, 5), (80, 64), (33, 17)] {
+            for cam_x in cams {
+                for cam_y in cams {
+                    let mut want_buf = [200u8; 80 * 64];
+                    let want = &mut want_buf[..fw * fh];
+                    want.fill(9);
+                    draw_tilemap(want, fw, fh, cam_x, cam_y, 5, 3, runs);
+                    let mut got_buf = [0xEEu8; 80 * 64];
+                    let got = &mut got_buf[..fw * fh];
+                    draw_tilemap_on_sky(got, fw, fh, cam_x, cam_y, 5, 3, 9, runs);
+                    assert_eq!(&*got, &*want, "{fw}x{fh} at ({cam_x}, {cam_y})");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tiles_on_sky_fill_the_whole_view_without_a_map_and_never_overrun() {
+        let mut f = [0xEEu8; 12 * 4 + 6];
+        draw_tilemap_on_sky(&mut f, 12, 4, 3, 3, 0, 0, 7, |_, _| {
+            panic!("no tile exists")
+        });
+        assert!(f[..48].iter().all(|&p| p == 7));
+        assert!(f[48..].iter().all(|&p| p == 0xEE));
+        // A short buffer holds two whole rows of four.
+        let mut f = [0xEEu8; 10];
+        draw_tilemap_on_sky(&mut f, 4, 100, 0, 0, 5, 3, 7, runs);
+        assert_eq!(f[8..], [0xEE, 0xEE]);
+        let mut empty: [u8; 0] = [];
+        draw_tilemap_on_sky(&mut empty, 0, 0, 0, 0, 5, 3, 7, runs);
     }
 
     #[test]

@@ -49,7 +49,7 @@
 use fizz_ep2::World;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use fizz_view::sprites_data::sprite;
-use fizz_view::{TILE_PX, blit_sprite, draw_tilemap, follow, screen_y, tile_px};
+use fizz_view::{TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, screen_y, tile_px};
 
 /// The width of the picture in pixels.
 pub const VIEW_W: usize = 320;
@@ -88,10 +88,6 @@ fn tile_colour(tile: u8) -> Option<u8> {
 /// `tick` drives animation only (the key's bob, blinking and flashing) and must not be fed back into the rules. Any frame
 /// size is safe: the view is `w` by `h` and everything is clipped.
 pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32) {
-    let rows = (frame.len().checked_div(w).unwrap_or(0)).min(h);
-    let used = rows * w;
-    frame[..used].fill(SKY);
-
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -103,7 +99,8 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     let cam_y = follow(target_y, map_h.saturating_mul(TILE_PX), h as i32);
 
     let door_closed = map.switch(DOOR_RED_CHANNEL);
-    draw_tilemap(frame, w, h, cam_x, cam_y, map_w, map_h, |tx, ty| {
+    // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
+    draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
         let t = map.get(tx, ty);
         if t == DOOR_R {
             return Some(if door_closed { BROWN } else { BLUE });
