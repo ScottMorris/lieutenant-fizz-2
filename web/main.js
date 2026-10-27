@@ -35,8 +35,8 @@ function draw(app) {
   ctx.strokeStyle = "#aaaaaa";
   ctx.lineWidth = 1;
   ctx.strokeRect(0.5, 0.5, 319, 199);
-  const x = Math.round(app.marker_x());
-  const y = Math.round(app.marker_y());
+  const x = app.marker_px_x();
+  const y = app.marker_px_y();
   ctx.fillStyle = "#55ffff";
   ctx.fillRect(x - 1, y - 1, 10, 10);
   ctx.fillStyle = "#ffff55";

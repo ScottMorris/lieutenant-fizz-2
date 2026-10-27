@@ -10,6 +10,7 @@ authors.workspace = true
 fizz-sim = { path = "../fizz-sim" }
 fizz-hello = { path = "../fizz-hello" }
 fizz-hal = { path = "../fizz-hal" }
+fizz-view = { path = "../fizz-view" }
 
 [dev-dependencies]
 fizz-hal = { path = "../fizz-hal", features = ["mock"] }

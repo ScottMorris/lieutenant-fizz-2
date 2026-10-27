@@ -122,6 +122,16 @@ impl App {
         self.world.y
     }
 
+    /// The logical pixel column of the marker's left edge, from the rule every presenter shares.
+    pub fn marker_px_x(&self) -> i32 {
+        fizz_view::pixel(self.world.x)
+    }
+
+    /// The logical pixel row of the marker's top edge, from the rule every presenter shares.
+    pub fn marker_px_y(&self) -> i32 {
+        fizz_view::pixel(self.world.y)
+    }
+
     pub fn dashes(&self) -> u32 {
         self.world.dashes
     }
@@ -181,6 +191,31 @@ mod tests {
         assert_eq!(app.dashes(), reference.dashes);
         assert_eq!(app.marker_x(), reference.x);
         assert_eq!(app.marker_y(), reference.y);
+    }
+
+    #[test]
+    fn the_marker_sits_in_the_pixel_that_contains_its_position_after_every_tick() {
+        let mut app = App::new();
+        let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
+        app.frame(now_ms);
+        for held in per_tick() {
+            set_keys(&mut app, prev, held);
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            let (px, py) = (f64::from(app.marker_px_x()), f64::from(app.marker_px_y()));
+            let (x, y) = (app.marker_x(), app.marker_y());
+            assert!(
+                px <= x && x < px + 1.0,
+                "tick {}: x {x} drawn at {px}",
+                app.world.tick.0
+            );
+            assert!(
+                py <= y && y < py + 1.0,
+                "tick {}: y {y} drawn at {py}",
+                app.world.tick.0
+            );
+            prev = held;
+        }
     }
 
     #[test]

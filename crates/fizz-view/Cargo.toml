@@ -1,0 +1,9 @@
+[package]
+name = "fizz-view"
+description = "Platform-neutral placement for Lieutenant Fizz presenters: turns the rules' positions into logical pixels"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]

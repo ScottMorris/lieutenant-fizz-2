@@ -72,8 +72,7 @@ pub fn render(world: &World, frame: &mut Frame) {
     frame.clear(BLUE);
     frame.stroke_rect(0, 0, WIDTH as i32, HEIGHT as i32, LIGHT_GREY);
 
-    let mx = world.x as i32;
-    let my = world.y as i32;
+    let (mx, my) = (fizz_view::pixel(world.x), fizz_view::pixel(world.y));
     frame.fill_rect(mx, my, MARKER_SIZE, MARKER_SIZE, YELLOW);
     frame.stroke_rect(mx - 1, my - 1, MARKER_SIZE + 2, MARKER_SIZE + 2, LIGHT_CYAN);
 

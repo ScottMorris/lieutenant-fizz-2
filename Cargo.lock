@@ -33,6 +33,7 @@ dependencies = [
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-view",
 ]
 
 [[package]]
@@ -42,11 +43,16 @@ dependencies = [
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-view",
  "wasm-bindgen",
 ]
 
 [[package]]
 name = "fizz-sim"
+version = "0.1.0"
+
+[[package]]
+name = "fizz-view"
 version = "0.1.0"
 
 [[package]]

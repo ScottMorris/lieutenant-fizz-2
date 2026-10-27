@@ -76,6 +76,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-sim` | Rules | Fixed tick, state hash, and the input types (`Buttons`, `InputFrame`, `InputLatch`) | Exists |
 | `fizz-hello` | Rules | Throwaway Milestone 0 rules: a marker moved by input, used to prove parity. Deleted when real rules arrive | Exists, Milestone 0 only |
 | `fizz-hal` | Platform | Hardware abstraction traits mirrored from Desk: clock and pacer, input, display, and the interrupt hand-off ring. Storage and audio traits join with their consumers | Exists (clock, input, display) |
+| `fizz-view` | Presenter base | Platform-neutral placement: turns the rules' positions into logical pixels that each presenter places in its own environment. The camera snap and the scene-to-screen step of Milestone 3 join it | Exists (the pixel rule) |
 | `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
