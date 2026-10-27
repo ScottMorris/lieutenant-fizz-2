@@ -8,7 +8,7 @@
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
-use fizz_slice_view::{VIEW_H, VIEW_W, draw_slice};
+use fizz_slice_view::{DrawOptions, VIEW_H, VIEW_W, draw_slice_with};
 use wasm_bindgen::prelude::*;
 
 /// Most ticks run for one displayed frame. Time beyond this is dropped, so a hidden tab does not cause a burst on return.
@@ -96,6 +96,7 @@ pub struct App {
     /// The cluck variants emitted since the page last drained them, oldest first. `cluck_head` is the next one to hand out.
     clucks: Vec<u8>,
     cluck_head: usize,
+    options: DrawOptions,
 }
 
 impl Default for App {
@@ -118,6 +119,7 @@ impl App {
             rgba: vec![0; VIEW_W * VIEW_H * 4],
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
+            options: DrawOptions::default(),
         }
     }
 
@@ -188,14 +190,25 @@ impl App {
         }
     }
 
+    /// Turns the in-world cluck captions on or off (on by default). The beak still moves; only the text goes.
+    pub fn set_captions(&mut self, on: bool) {
+        self.options.captions = on;
+    }
+
+    /// Whether the in-world cluck captions are drawn.
+    pub fn captions(&self) -> bool {
+        self.options.captions
+    }
+
     /// Draws the current world into the frame buffers.
     pub fn render(&mut self) {
-        draw_slice(
+        draw_slice_with(
             &mut self.indexed,
             VIEW_W,
             VIEW_H,
             &self.world,
             self.world.tick.0 as u32,
+            &self.options,
         );
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
         for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
@@ -280,6 +293,25 @@ pub fn slice_replay_transcript() -> String {
 mod tests {
     use super::*;
     const FRAME_MS: f64 = 1000.0 / 60.0;
+
+    #[test]
+    fn captions_are_on_by_default_and_gate_only_the_text() {
+        let mut app = App::new();
+        assert!(app.captions());
+        // A chicken in view, just after a cluck.
+        app.world.ben.b.x = 12.0;
+        app.world.ben.b.y = 11.0;
+        app.world.chickens[0].cluck_age = 1;
+        app.render();
+        let on = app.rgba.clone();
+        app.set_captions(false);
+        assert!(!app.captions());
+        app.render();
+        assert_ne!(on, app.rgba);
+        app.set_captions(true);
+        app.render();
+        assert_eq!(on, app.rgba);
+    }
 
     #[test]
     fn a_long_stall_is_capped() {

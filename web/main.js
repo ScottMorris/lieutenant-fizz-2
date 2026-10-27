@@ -56,6 +56,7 @@ const LAYOUTS = {
 };
 const OTHER = { keen: "modern", modern: "keen" };
 const STORAGE_KEY = "fizz2-layout";
+const CAPTIONS_KEY = "fizz2-captions";
 
 // Every key either layout uses, for the Keyboard Lock request. Escape is left out so the browser's way out of fullscreen still works.
 const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.keys(l.keys)))];
@@ -65,6 +66,7 @@ const hud = document.getElementById("hud");
 const hint = document.getElementById("hint");
 const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
+const captionsButton = document.getElementById("captions");
 const fullscreenButton = document.getElementById("fullscreen");
 const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
@@ -82,6 +84,24 @@ function loadLayout() {
 function saveLayout(name) {
   try {
     localStorage.setItem(STORAGE_KEY, name);
+  } catch {
+    // The choice just is not remembered.
+  }
+}
+
+// Captions are on unless the player turned them off; only an explicit "off" is remembered as off.
+function loadCaptions() {
+  try {
+    return localStorage.getItem(CAPTIONS_KEY) !== "off";
+  } catch {
+    // Storage can be blocked or missing; the default applies.
+    return true;
+  }
+}
+
+function saveCaptions(on) {
+  try {
+    localStorage.setItem(CAPTIONS_KEY, on ? "on" : "off");
   } catch {
     // The choice just is not remembered.
   }
@@ -170,6 +190,21 @@ async function main() {
     layoutButton.blur();
   });
 
+  const setCaptions = (on) => {
+    app.set_captions(on);
+    saveCaptions(on);
+    captionsButton.textContent = `Captions: ${on ? "on" : "off"}`;
+    captionsButton.title = "Show or hide the words above a clucking chicken (V)";
+  };
+  // Apply the remembered choice without saving it again.
+  app.set_captions(loadCaptions());
+  captionsButton.textContent = `Captions: ${app.captions() ? "on" : "off"}`;
+  captionsButton.title = "Show or hide the words above a clucking chicken (V)";
+  captionsButton.addEventListener("click", () => {
+    setCaptions(!app.captions());
+    captionsButton.blur();
+  });
+
   resetButton.addEventListener("click", () => {
     releaseAll();
     app.reset();
@@ -198,6 +233,12 @@ async function main() {
     if (event.code === "KeyF" && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (down && !event.repeat && document.fullscreenEnabled) toggleFullscreen();
+      return;
+    }
+    // V toggles the captions in both layouts; neither layout uses it.
+    if (event.code === "KeyV" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (down && !event.repeat) setCaptions(!app.captions());
       return;
     }
     const bits = LAYOUTS[layout].keys[event.code];
