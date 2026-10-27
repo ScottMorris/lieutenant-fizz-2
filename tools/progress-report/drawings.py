@@ -255,7 +255,7 @@ def milestone_progress(D):
     for n in road["nodes"]:
         counts.setdefault(n["milestone"], {}).setdefault(n["state"], 0)
         counts[n["milestone"]][n["state"]] += 1
-    L, R, bh = 230, 420, 22
+    L, R, bh = 290, 360, 22
     mx = max(sum(c.values()) for c in counts.values())
     H = 60 + len(order) * 34 + 10
     aria = " ".join("%s: %s." % (labels[m], ", ".join("%d %s" % (counts[m][s], STATE_SHORT[s]) for s in STATE_ORDER if s in counts.get(m, {}))) for m in order if m in counts)
