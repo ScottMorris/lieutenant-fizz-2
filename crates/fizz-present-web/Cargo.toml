@@ -1,0 +1,16 @@
+[package]
+name = "fizz-present-web"
+description = "Web presenter for Lieutenant Fizz 2: a wasm-bindgen app that paces the rules from browser time"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+fizz-sim = { path = "../fizz-sim" }
+fizz-hello = { path = "../fizz-hello" }
+fizz-hal = { path = "../fizz-hal" }
+wasm-bindgen = "=0.2.125"
