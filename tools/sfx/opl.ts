@@ -6,7 +6,9 @@
 // Provenance: adapted from `m4/sound/fizz-dos/opl.ts` of ScottMorris/lieutenant-fizz-dos (a.k.a. fizz-dos) at commit 221dd6c,
 // the same author's code, MIT there and dual-licensed here. What changed: the music-only IMF byte writer (`toImf`, with its
 // 16-bit length header) is replaced by `toRecords`, which returns plain `{ reg, val, wait }` records so the Rust crate stores
-// them without a byte parser; the register arithmetic is otherwise unchanged.
+// them without a byte parser; the register arithmetic is otherwise unchanged. A record carries a bank bit so registers 0x100 and up
+// (the OPL3's second bank) are expressible, after the owner's IMF lab (`src/fizz-dos/opl.ts`: `bankOf`, `OPL3_ENABLE` and the five-byte
+// `toOpl3` record); the lab's files are not copied.
 
 /** The IMF clock the Keen games use: register writes are timed in 1/560 s. */
 export const IMF_RATE = 560;
@@ -14,6 +16,20 @@ export const IMF_RATE = 560;
 export const EFFECT_RATE = 140;
 /** The OPL2's sample clock in Hz. */
 export const OPL_CLOCK = 49_716;
+
+/** The OPL channel sound effects use, in bank 0: unpanned effects and plain OPL2 cards. Scores must not use it. */
+export const EFFECT_CHANNEL = 5;
+/**
+ * The OPL3 channel a panned effect uses: 14 is slot 5 of the second register bank (9 + 5), so its registers are 0x1a5, 0x1b5 and
+ * 0x1c5 and its operators sit at the same offsets as channel 5's, 0x0a and 0x0d, plus 0x100. Scores must not use it either. Two
+ * effects panned at once would need a third reserved channel; that is not done.
+ */
+export const EFFECT_CHANNEL_PANNED = 14;
+/** The channels (0 to 17) that effects own; a score-writing tool imports this list to refuse them. Mirrors `fizz_sfx::RESERVED_OPL_CHANNELS`. */
+export const RESERVED_OPL_CHANNELS: readonly number[] = [EFFECT_CHANNEL, EFFECT_CHANNEL_PANNED];
+
+/** The bank (0 or 1) and in-bank slot (0 to 8) of a channel numbered 0 to 17, as the owner's IMF lab's `bankOf`. */
+export const bankOf = (channel: number): { bank: number; slot: number } => ({ bank: channel >= 9 ? 1 : 0, slot: channel % 9 });
 
 /** Register offsets of the modulator and carrier operators of each of the nine channels. */
 export const OPERATORS: readonly (readonly [number, number])[] = [
@@ -68,8 +84,9 @@ export interface Write {
   value: number;
 }
 
-/** One register write and the ticks to wait before the next, as the Rust crate stores it. */
+/** One register write and the ticks to wait before the next, as the Rust crate stores it. `bank` is 1 for registers 0x100 to 0x1ff (OPL3). */
 export interface OplRecord {
+  bank: number;
   reg: number;
   val: number;
   wait: number;
@@ -155,7 +172,7 @@ export function toRecords(s: Stream, totalTicks: number): OplRecord[] {
   return writes.map((w, i) => {
     const next = i + 1 < writes.length ? at(i + 1) : totalTicks;
     const wait = Math.max(0, next - at(i));
-    if (wait > 0xffff) throw new Error('an effect gap does not fit 16 bits');
-    return { reg: w.register, val: w.value, wait };
+    if (wait > 0x7fff) throw new Error('an effect gap does not fit 15 bits');
+    return { bank: (w.register >> 8) & 1, reg: w.register & 0xff, val: w.value, wait };
   });
 }

@@ -21,6 +21,7 @@
 
 import { STEP, isNoise, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
 import {
+  EFFECT_CHANNEL,
   EFFECT_RATE,
   IMF_RATE,
   Stream,
@@ -35,8 +36,6 @@ import {
 } from './opl.ts';
 import { PATCHES, patchForEffect } from './patches.ts';
 
-/** The OPL channel the effects use; music keeps to channels 0 to 4 and the rhythm-mode drums on 6 to 8. */
-export const EFFECT_CHANNEL = 5;
 /** The PC speaker's timer clock, so a divisor is 1193180 / frequency. */
 export const PIT_CLOCK = 1_193_180;
 

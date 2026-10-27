@@ -30,7 +30,7 @@ export function convertAll(): Conversion[] {
 export function emit(): string {
   const conv = convertAll();
   const oplStatics = conv.map((c, i) => {
-    const rows = c.opl.records.map((r) => `    OplStep { reg: ${hex(r.reg)}, val: ${hex(r.val)}, wait: ${r.wait} },`);
+    const rows = c.opl.records.map((r) => `    OplStep::new(${r.bank}, ${hex(r.reg)}, ${hex(r.val)}, ${r.wait}),`);
     return `/// Variant ${i}: ${c.opl.records.length} records (${c.opl.records.length * 4} bytes), ${c.opl.ticks} ticks, ${(c.opl.ticks / 560 * 1000).toFixed(0)} ms.
 #[rustfmt::skip]
 static OPL_${i}: [OplStep; ${c.opl.records.length}] = [
