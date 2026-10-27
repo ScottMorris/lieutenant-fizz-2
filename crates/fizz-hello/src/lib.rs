@@ -117,6 +117,65 @@ pub fn hash(w: &World) -> StateHash {
     h
 }
 
+const IDLE: Buttons = Buttons::NONE;
+const R: Buttons = Buttons::RIGHT;
+const L: Buttons = Buttons::LEFT;
+const U: Buttons = Buttons::UP;
+const D: Buttons = Buttons::DOWN;
+const A: Buttons = Buttons::ACTION;
+
+/// The Milestone 0 input script as `(frames, held buttons)` runs. It sums to 600 ticks.
+///
+/// An ACTION held for exactly one frame is a press edge, so each one-frame run containing
+/// ACTION is a dash. The script covers idle, a right run, a diagonal, dashes while moving and
+/// idle, a left run into the left clamp, an up run, and a long idle tail so velocity decays
+/// to the snap-to-zero.
+pub const M0_SCRIPT: &[(u16, Buttons)] = &[
+    (30, IDLE),
+    (60, R),
+    (1, R.union(A)),
+    (29, R),
+    (60, R.union(D)),
+    (1, R.union(D).union(A)),
+    (19, R.union(D)),
+    (20, IDLE),
+    (1, A),
+    (29, IDLE),
+    (1, A),
+    (1, IDLE),
+    (1, A),
+    (17, IDLE),
+    (200, L),
+    (60, U),
+    (70, IDLE),
+];
+
+/// Number of ticks the transcript covers.
+pub const M0_TICKS: u64 = 600;
+
+/// Writes transcript v1 of the M0 script: a hash at tick 0, every 60th tick, and the final tick.
+pub fn replay(out: &mut impl core::fmt::Write) -> core::fmt::Result {
+    let mut w = World::new();
+    let mut prev = Buttons::NONE;
+    writeln!(out, "M0 REPLAY 1")?;
+    writeln!(out, "TICK 0 HASH {:016x}", hash(&w).finish())?;
+    for &(frames, now) in M0_SCRIPT {
+        for _ in 0..frames {
+            step(&mut w, InputFrame::from_transition(prev, now));
+            prev = now;
+            if w.tick.0 % 60 == 0 {
+                writeln!(out, "TICK {} HASH {:016x}", w.tick.0, hash(&w).finish())?;
+            }
+        }
+    }
+    writeln!(
+        out,
+        "FINAL TICK {} HASH {:016x}",
+        w.tick.0,
+        hash(&w).finish()
+    )
+}
+
 fn axis(b: Buttons, positive: Buttons, negative: Buttons) -> f64 {
     let p = if b.contains(positive) { 1.0 } else { 0.0 };
     let n = if b.contains(negative) { 1.0 } else { 0.0 };
@@ -264,6 +323,60 @@ mod tests {
         };
         assert_ne!(hash(&swapped_xy).finish(), hash(&w).finish());
         assert_ne!(hash(&swapped_v).finish(), hash(&w).finish());
+    }
+
+    extern crate std;
+    use std::string::String;
+    use std::vec::Vec;
+
+    fn transcript() -> String {
+        let mut s = String::new();
+        replay(&mut s).unwrap();
+        s
+    }
+
+    #[test]
+    fn the_script_covers_exactly_600_ticks() {
+        let total: u64 = M0_SCRIPT.iter().map(|&(n, _)| u64::from(n)).sum();
+        assert_eq!(total, M0_TICKS);
+    }
+
+    #[test]
+    fn the_transcript_has_the_v1_shape() {
+        let t = transcript();
+        assert!(t.ends_with('\n'));
+        let lines: Vec<&str> = t.lines().collect();
+        // Header, tick 0, ticks 60..=600 (ten lines), final.
+        assert_eq!(lines.len(), 13);
+        assert_eq!(lines[0], "M0 REPLAY 1");
+        assert!(lines[1].starts_with("TICK 0 HASH "));
+        assert!(lines[11].starts_with("TICK 600 HASH "));
+        let tail = |l: &str| String::from(l.rsplit(' ').next().unwrap());
+        assert_eq!(
+            lines[12].strip_prefix("FINAL TICK 600 HASH "),
+            Some(tail(lines[11]).as_str())
+        );
+        assert_eq!(tail(lines[11]).len(), 16);
+    }
+
+    #[test]
+    fn the_script_exercises_dashes_and_both_clamps() {
+        let mut w = World::new();
+        let mut prev = Buttons::NONE;
+        let mut min_x = w.x;
+        let mut max_x = w.x;
+        for &(frames, now) in M0_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                min_x = min_x.min(w.x);
+                max_x = max_x.max(w.x);
+            }
+        }
+        assert_eq!(w.dashes, 5);
+        assert_eq!(min_x, 0.0);
+        assert!(max_x > 160.0);
+        assert_eq!((w.vx, w.vy), (0.0, 0.0));
     }
 
     fn ok(v: f64) -> bool {
