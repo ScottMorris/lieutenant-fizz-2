@@ -21,7 +21,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 # Every program of the dos/ workspace; a new one is added here with its package.
-ALL_PROGRAMS="rtsmoke"
+ALL_PROGRAMS="rtsmoke fizz2"
 PROGRAMS="${*:-$ALL_PROGRAMS}"
 
 OUT=dist/dos
