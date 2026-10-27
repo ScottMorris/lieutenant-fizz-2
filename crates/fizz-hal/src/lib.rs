@@ -15,7 +15,9 @@ extern crate alloc;
 pub mod input;
 pub mod scancode;
 pub mod time;
+pub mod video;
 
 pub use input::{InputSource, KeyCode, KeyEvent};
 pub use scancode::Set1Decoder;
 pub use time::{Clock, Pacer, Ticks};
+pub use video::{Display, HalError, ModeInfo, Rgb6};
