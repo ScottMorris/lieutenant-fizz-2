@@ -189,7 +189,7 @@ fn dsp_version(base: u16) -> Option<(u8, u8)> {
 
 /// A base port the probe will touch: the Sound Blaster family sits at 210h to 280h in steps of 10h.
 fn plausible_base(base: u16) -> bool {
-    (0x210..=0x280).contains(&base) && base % 0x10 == 0
+    (0x210..=0x280).contains(&base) && base.is_multiple_of(0x10)
 }
 
 /// A Sound Blaster DSP: reset it (write 1 to base+6, wait, write 0), wait for data at base+0xE bit 7 and read 0AAh from base+0xA, then
