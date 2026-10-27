@@ -72,6 +72,39 @@ fn to_us(clocks: u64, n: u64) -> u64 {
     if n == 0 { 0 } else { clocks * 1_000_000 / (PIT_HZ * n) }
 }
 
+/// Loops per calibration chunk. A chunk is two instructions per loop, so it stays far shorter than one 60 Hz period (the
+/// stopwatch's range) at any cycle setting the check uses.
+const CALIBRATE_CHUNK: u32 = 2_000;
+/// Chunks timed one after the other, each with its own reading cost taken off.
+const CALIBRATE_CHUNKS: u32 = 100;
+/// Instructions in one calibration loop: a `dec` and a `jnz`.
+pub const CALIBRATE_INSTRUCTIONS_PER_LOOP: u64 = 2;
+
+/// Times a loop of a known number of simple instructions with the same stopwatch, so the emulator's speed (instructions per
+/// millisecond) can be read off and compared with the cycles per millisecond it was asked to run at. Returns the loops run and
+/// the microseconds they took, reading cost taken off.
+pub fn calibrate() -> (u64, u64) {
+    let mut sw = Stopwatch::new();
+    let cost = overhead(&mut sw);
+    let mut clocks = 0u64;
+    for _ in 0..CALIBRATE_CHUNKS {
+        let t0 = sw.now();
+        spin(CALIBRATE_CHUNK);
+        let t1 = sw.now();
+        clocks += (t1 - t0).saturating_sub(cost);
+    }
+    (u64::from(CALIBRATE_CHUNK) * u64::from(CALIBRATE_CHUNKS), to_us(clocks, 1))
+}
+
+/// Runs `n` iterations of `dec`/`jnz`: two register-only instructions each, no memory access.
+#[inline(never)]
+fn spin(n: u32) {
+    // SAFETY: only a register is read and written; no memory, stack or flags state outlives the block.
+    unsafe {
+        core::arch::asm!("2:", "dec {n:e}", "jnz 2b", n = inout(reg) n => _, options(nomem, nostack));
+    }
+}
+
 /// Everything `run` measured.
 pub struct Report {
     pub ticks: u64,

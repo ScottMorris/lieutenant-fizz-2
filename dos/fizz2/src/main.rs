@@ -244,6 +244,7 @@ fn bench(limit: u64) -> i32 {
         println!("DISPLAY FAILED");
         return 1;
     }
+    let (cal_loops, cal_us) = bench::calibrate();
     let (world, r) = bench::run(&mut display, limit);
     let cw = fpu::control_word();
     end_session(&mut display);
@@ -253,6 +254,12 @@ fn bench(limit: u64) -> i32 {
     println!(
         "BENCH TIMER PIT 1193182 Hz, 0.84 us per count, reading cost {} counts",
         r.overhead_clocks
+    );
+    println!(
+        "BENCH CALIBRATE {} loops in {} us ({} instructions per loop)",
+        cal_loops,
+        cal_us,
+        bench::CALIBRATE_INSTRUCTIONS_PER_LOOP
     );
     for (name, s) in [
         ("STEP", &r.step),
