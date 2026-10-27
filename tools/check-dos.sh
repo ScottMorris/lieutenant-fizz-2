@@ -30,13 +30,26 @@ printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not rest
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
 { [ -n "$bios" ] && [ "$bios" -ge 180 ] && [ "$bios" -le 184 ]; } || fail "BIOS TICKS '$bios' is outside 180-184"
 
-# 2. Live play: type right, right, down, then Esc once the program is up. Movement only; autotype timing is not tied to ticks.
+# 2. Live play with the default Keen keys: type Ctrl (jump), right, right, down, then Esc once the program is up. Movement only;
+# autotype timing is not tied to ticks.
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 lctrl right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/LIVE exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/LIVE did not move the marker"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/LIVE did not restore the vectors"
+
+# 2b. The layouts are exclusive. /MODERN moves on Z and the arrows; the default Keen keys ignore W, A, S, D, Z, X and C.
+status=0
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /MODERN)" || status=$?
+echo "$out"
+[ "$status" = 0 ] || fail "/MODERN exited $status"
+printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/MODERN did not move the marker"
+status=0
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 w a s d z x c esc' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
+echo "$out"
+[ "$status" = 0 ] || fail "/LIVE (Keen) exited $status"
+printf '%s\n' "$out" | grep -qx 'MOVED no' || fail "the Keen layout moved on modern-only keys"
 
 # 3. Panic: the clean-up list runs and the exit status is 3, not a hang.
 status=0

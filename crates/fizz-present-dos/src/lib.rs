@@ -90,14 +90,40 @@ pub fn render(world: &World, frame: &mut Frame) {
     }
 }
 
-/// Maps a key to the game button it drives: arrows and WASD move, Space is the action.
-pub fn key_to_buttons(code: KeyCode) -> Option<Buttons> {
+/// Which keys drive the buttons. The two sets are exclusive: a key of the other layout does nothing.
+///
+/// `Keen` is Fizz 1's classic layout and the default everywhere. `Modern` keeps the keys away from the Ctrl and Alt
+/// shortcuts that browsers and desktops take.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Layout {
+    /// Arrows move, Ctrl jumps, Alt pogos, Space fires.
+    #[default]
+    Keen,
+    /// Arrows or `W` `A` `S` `D` move, `Z` jumps, `X` pogos, `C` fires; Space fires too.
+    Modern,
+}
+
+/// Maps a key to the game button it drives in `layout`, or `None` for a key the layout does not use.
+///
+/// Arrows move in both layouts and Space fires in both; `W` `A` `S` `D` move only in `Modern`, and Ctrl and Alt are only
+/// jump and pogo in `Keen`.
+pub fn key_to_buttons(code: KeyCode, layout: Layout) -> Option<Buttons> {
+    let modern = layout == Layout::Modern;
     match code {
-        KeyCode::Up | KeyCode::W => Some(Buttons::UP),
-        KeyCode::Down | KeyCode::S => Some(Buttons::DOWN),
-        KeyCode::Left | KeyCode::A => Some(Buttons::LEFT),
-        KeyCode::Right | KeyCode::D => Some(Buttons::RIGHT),
-        KeyCode::Space => Some(Buttons::JUMP),
+        KeyCode::Up => Some(Buttons::UP),
+        KeyCode::Down => Some(Buttons::DOWN),
+        KeyCode::Left => Some(Buttons::LEFT),
+        KeyCode::Right => Some(Buttons::RIGHT),
+        KeyCode::Space => Some(Buttons::FIRE),
+        KeyCode::W if modern => Some(Buttons::UP),
+        KeyCode::S if modern => Some(Buttons::DOWN),
+        KeyCode::A if modern => Some(Buttons::LEFT),
+        KeyCode::D if modern => Some(Buttons::RIGHT),
+        KeyCode::Z if modern => Some(Buttons::JUMP),
+        KeyCode::X if modern => Some(Buttons::POGO),
+        KeyCode::C if modern => Some(Buttons::FIRE),
+        KeyCode::Ctrl if !modern => Some(Buttons::JUMP),
+        KeyCode::Alt if !modern => Some(Buttons::POGO),
         _ => None,
     }
 }
@@ -111,32 +137,82 @@ pub fn present<D: Display>(display: &mut D, frame: &Frame) -> Result<(), HalErro
 mod tests {
     use super::*;
 
-    #[test]
-    fn every_mapped_key_drives_its_button() {
-        let cases = [
-            (KeyCode::Up, Buttons::UP),
-            (KeyCode::W, Buttons::UP),
-            (KeyCode::Down, Buttons::DOWN),
-            (KeyCode::S, Buttons::DOWN),
-            (KeyCode::Left, Buttons::LEFT),
-            (KeyCode::A, Buttons::LEFT),
-            (KeyCode::Right, Buttons::RIGHT),
-            (KeyCode::D, Buttons::RIGHT),
-            (KeyCode::Space, Buttons::JUMP),
-        ];
-        for (key, want) in cases {
-            assert_eq!(key_to_buttons(key), Some(want), "{key:?}");
+    const ALL_KEYS: [KeyCode; 14] = [
+        KeyCode::Up,
+        KeyCode::Down,
+        KeyCode::Left,
+        KeyCode::Right,
+        KeyCode::W,
+        KeyCode::A,
+        KeyCode::S,
+        KeyCode::D,
+        KeyCode::Space,
+        KeyCode::Z,
+        KeyCode::X,
+        KeyCode::C,
+        KeyCode::Ctrl,
+        KeyCode::Alt,
+    ];
+
+    fn check(layout: Layout, table: &[(KeyCode, Buttons)]) {
+        for key in ALL_KEYS {
+            let want = table.iter().find(|(k, _)| *k == key).map(|(_, b)| *b);
+            assert_eq!(key_to_buttons(key, layout), want, "{layout:?} {key:?}");
         }
     }
 
     #[test]
+    fn keen_layout_is_arrows_ctrl_alt_space() {
+        check(
+            Layout::Keen,
+            &[
+                (KeyCode::Up, Buttons::UP),
+                (KeyCode::Down, Buttons::DOWN),
+                (KeyCode::Left, Buttons::LEFT),
+                (KeyCode::Right, Buttons::RIGHT),
+                (KeyCode::Ctrl, Buttons::JUMP),
+                (KeyCode::Alt, Buttons::POGO),
+                (KeyCode::Space, Buttons::FIRE),
+            ],
+        );
+    }
+
+    #[test]
+    fn modern_layout_is_wasd_or_arrows_zxc() {
+        check(
+            Layout::Modern,
+            &[
+                (KeyCode::Up, Buttons::UP),
+                (KeyCode::W, Buttons::UP),
+                (KeyCode::Down, Buttons::DOWN),
+                (KeyCode::S, Buttons::DOWN),
+                (KeyCode::Left, Buttons::LEFT),
+                (KeyCode::A, Buttons::LEFT),
+                (KeyCode::Right, Buttons::RIGHT),
+                (KeyCode::D, Buttons::RIGHT),
+                (KeyCode::Z, Buttons::JUMP),
+                (KeyCode::X, Buttons::POGO),
+                (KeyCode::C, Buttons::FIRE),
+                (KeyCode::Space, Buttons::FIRE),
+            ],
+        );
+    }
+
+    #[test]
+    fn the_default_layout_is_keen() {
+        assert_eq!(Layout::default(), Layout::Keen);
+    }
+
+    #[test]
     fn unmapped_keys_drive_nothing() {
-        assert_eq!(key_to_buttons(KeyCode::Escape), None);
-        let other = KeyCode::Unknown {
-            extended: false,
-            scancode: 0x1e,
-        };
-        assert_eq!(key_to_buttons(other), None);
+        for layout in [Layout::Keen, Layout::Modern] {
+            assert_eq!(key_to_buttons(KeyCode::Escape, layout), None);
+            let other = KeyCode::Unknown {
+                extended: false,
+                scancode: 0x1e,
+            };
+            assert_eq!(key_to_buttons(other, layout), None);
+        }
     }
 
     use fizz_hal::mock::MockDisplay;

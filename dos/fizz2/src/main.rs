@@ -6,7 +6,9 @@
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_hello::replay`'s.
 //
 //   FIZZ2.EXE /REPLAY   runs the built-in M0 script for 600 ticks at 60 Hz and prints transcript v1 plus platform lines
-//   FIZZ2.EXE /LIVE     keyboard play (arrows or WASD, Space); Esc ends it. The default when no argument is given
+//   FIZZ2.EXE /LIVE     keyboard play; Esc ends it. The default when no mode is given
+//   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
+//                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /PANIC    hooks IRQ 0 and panics, to show the clean-up list runs (exit status 3)
 //
 // Output is printed only after the screen is back in text mode and the vectors are restored. Interrupt handlers (in the runtime)
@@ -22,7 +24,7 @@ use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_hello::{M0_SCRIPT, M0_TICKS, World, hash, step};
-use fizz_present_dos::{Frame, ega_palette, key_to_buttons, present, render};
+use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -111,7 +113,16 @@ fn draw(display: &mut DosDisplay, frame: &mut Frame, world: &World) {
 fn main() -> i32 {
     fpu::set_double_precision();
     let args = env::args();
-    let mode = args.first().map(|a| a.as_str()).unwrap_or("/LIVE");
+    let layout = if args.iter().any(|a| a.eq_ignore_ascii_case("/MODERN")) {
+        Layout::Modern
+    } else {
+        Layout::Keen
+    };
+    let mode = args
+        .iter()
+        .map(|a| a.as_str())
+        .find(|a| !a.eq_ignore_ascii_case("/MODERN"))
+        .unwrap_or("/LIVE");
     if mode.eq_ignore_ascii_case("/REPLAY") {
         replay()
     } else if mode.eq_ignore_ascii_case("/PANIC") {
@@ -122,7 +133,7 @@ fn main() -> i32 {
         println!("HOOKED, PANICKING");
         panic!("requested by /PANIC");
     } else {
-        live()
+        live(layout)
     }
 }
 
@@ -189,7 +200,7 @@ fn replay() -> i32 {
     0
 }
 
-fn live() -> i32 {
+fn live(layout: Layout) -> i32 {
     let session = match start_session(true) {
         Ok(s) => s,
         Err(e) => {
@@ -218,7 +229,7 @@ fn live() -> i32 {
             while let Some(event) = input.poll_key() {
                 if event.code == KeyCode::Escape && event.pressed {
                     quit = true;
-                } else if let Some(b) = key_to_buttons(event.code) {
+                } else if let Some(b) = key_to_buttons(event.code, layout) {
                     latch.set(b, event.pressed);
                 }
             }
