@@ -4,7 +4,7 @@ This manual is updated with every change a player can see or do, in the same pul
 
 ## What this is
 
-Lieutenant Fizz 2 is a technical preview. On DOS you can now play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1. There is no story, no menu and no sound yet. The Web version has not caught up: it still shows the earlier test program, a yellow square on a dark blue screen that you can move around and make dash. Both exist to prove that the two versions behave identically.
+Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, no menu and no sound yet. The two versions exist to prove that the game behaves identically on both.
 
 ## Running it
 
@@ -29,7 +29,7 @@ There are two sets of keys, and you use one at a time. Keen is the default on th
 | Quit | Esc (DOS only) | Esc (DOS only) |
 | Fullscreen | `F` (Web only) | `F` (Web only) |
 
-On DOS every key does something in the slice, as [The slice on DOS](#the-slice-on-dos) describes. On the Web, only the arrows and Jump do anything in this preview: the arrows move the square and Jump makes it dash in the direction you last moved. Pogo and Fizz have no effect there yet. Keys from the other set do nothing, so `W` does not move you under the Keen keys.
+In the slice every key in the table does something; [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice) say what, and the two versions use the same keys for the same actions. Keys from the other set do nothing, so `W` does not move you under the Keen keys.
 
 On the Web there is no quit key; close the tab.
 
@@ -61,7 +61,7 @@ You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you 
 
 The strip along the top is the HUD. `AMMO` is how many Fizz shots you have left, `KEY` shows `RED` while you carry the red key, `DEATHS` counts how many times you have died, and `TICK` counts game steps, 60 a second.
 
-### The level
+### The level on DOS
 
 You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands. Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
 
@@ -82,27 +82,60 @@ Walk onto the red key to pick it up; the `KEY` in the HUD turns red. Carry it to
 
 The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes. It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy.
 
-### Death and respawn
+### Death and respawn on DOS
 
 Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air for a moment, then you start again at the beginning of the level, a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open.
 
-## The Web screen
+## The Web slice
 
-Three lines of text show how the run is going in the Web test program.
+The Web page plays the first slice of Episode 2. You are Ben, climbing the inside of a lighthouse. Fetch the red key, open the red door with it, climb the second shaft and walk into the exit. There is no sound yet, and the page shows the level in a fixed 320 by 200 window that scrolls with you.
+
+![The Web slice at the start of the level, with Ben in the lower left, the chicken and the red key high above, a Fizz Blaster shot in flight and the heads-up text under the screen. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
+
+*The Web build, captured in headless Chromium: Ben has just fired a shot, so `AMMO` reads 4.*
+
+### The level on the Web
+
+The level is a tall room split into a left shaft and a right shaft by a wall. You start on the floor of the left shaft. Green ledges climb it in steps you can only clear with a full jump, one ledge on the left, the next on the right, so you cross the shaft each time. You can jump up through a ledge from below and land on it from above.
+
+- **The chicken** walks the long third ledge. It is a placeholder for the real art. Touching it from the side or from below kills you. Landing on its head from above stuns it for three seconds and bounces you. A Fizz Blaster shot stuns it for six seconds. While it is stunned you can walk through it.
+- **The red key** lies at the far left end of that ledge. Walk over it to pick it up. The `KEY` line reads `carried` while you have it.
+- **The spikes** on the ground floor kill you if you land or walk on them. So does falling out of the bottom of the level.
+- **The red door** is in the wall between the shafts, high up. Walk into it while carrying the key and it opens and the key is used up. `DOOR` reads `open`. An open door stays open for good, even if you die later.
+- **The exit** is in a gallery at the top of the right shaft. Reaching it sets `EXIT` to `reached` and stops you in place. Press Restart to play again.
+
+### Moving, jumping, the pogo stick and the blaster
+
+- **Walking:** left and right. You turn to face the way you last pressed.
+- **Jumping:** press Jump to leave the ground. Let go early for a shorter hop; hold it for the full height.
+- **The pogo stick:** the Pogo key switches it on and off. While it is on, you bounce by yourself instead of standing, and Jump stops making a leap: hold it instead to make each bounce much higher. Switch the stick off before you climb with ordinary jumps.
+- **The Fizz Blaster:** Fire shoots straight ahead. Hold Up while you fire to shoot straight up, or hold Down in the air to shoot straight down. You start with five shots, `AMMO` counts the rest, and shots fly about a second and stop on walls. You get your five back after a death.
+
+The keys for each action are in the table under Controls, in both the Keen and the Modern layouts. Switching layouts lets go of every key you are holding.
+
+### Death and respawn on the Web
+
+You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well.
+
+### The Web heads-up text
+
+Under the screen, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. Below that, a goal line says what to do, the keys line shows the keys of the layout in use, and the Keys, Restart and Fullscreen buttons sit beneath it. Restart starts the level again from the first tick; it does not reload the page.
+
+## The screen
+
+Both versions draw the same picture, a 320 by 200 window that follows Ben as he moves through the level. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text under the picture.
 
 - `TICK` counts game steps. There are 60 a second.
 - `HASH` is a 16-digit fingerprint of everything that has happened so far. Two copies that were given the same moves show the same fingerprint, on any platform.
-- `DASH` counts how many times you have dashed.
 
-The square stays inside the screen. Letting go of the keys makes it slow to a stop rather than halting at once.
 
 ## Web and DOS compared
 
-The two versions run the same rules engine, so the same moves give the same `TICK` and `HASH` on both. Today the Web page still shows the earlier test program and the DOS build plays the slice, so the two screens do not look alike yet.
+The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the 60-steps-a-second pace and the two sets of keys.
-- **Different:** the DOS version plays the slice, has an Esc key, four modes, `/MODERN` and a 30-second limit in `/LIVE`; the Web version has a Keys button, a fullscreen key and runs for as long as the page is open, and shows the test square. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen. Neither version makes sound yet.
+- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Neither version makes sound yet.
+- **Different:** the DOS version has an Esc key, four modes (`/LIVE`, `/MODERN`, `/SLICE` and `/REPLAY`) and a 30-second limit in `/LIVE`; the Web version has Keys, Restart and Fullscreen buttons, a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
-Episode 2 is planned to bring the slice to the Web; sound, starting with the chicken's cluck; an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; music; saves; and menus. None of this is in the builds yet.
+Episode 2 is planned to bring sound, starting with the chicken's cluck; an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; music; saves; and menus. None of this is in the builds yet.

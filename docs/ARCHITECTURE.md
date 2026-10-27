@@ -70,7 +70,7 @@ Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `ti
 
 ## Web view and pixel-locking
 
-This is the plan for Milestone 3; the view itself is not built. The Web page today scales a fixed 320 by 200 canvas to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
+This is the plan for Milestone 3; the view itself is not built. The Web page today plays the slice in a fixed 320 by 200 canvas, drawn by the same routine as the DOS frame, and scales it with `image-rendering: pixelated` to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
 
 - **The Web view is not a projection of a fixed frame.** It fills the window and shows more of the level on larger screens, as Fizz 1's does. DOS keeps its fixed 320 by 200 mode 13h frame.
 - **Pixels are square.** The Web view does not stretch to the 4:3 shape of a CRT.
@@ -94,7 +94,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-view` | Presenter base | Platform-neutral placement: turns the rules' positions into logical pixels that each presenter places in its own environment. The eased camera and the scene-to-screen step of Milestone 3 join it | Exists (the pixel rule, tile and y-flip helpers, the follow camera, clipped sprite, rectangle and tile drawing, generated sprite data) |
 | `fizz-slice-view` | Presenter base | The one scene-drawing routine for the Episode 2 slice: `draw_slice(frame, w, h, &World, tick)` paints sky, the tile window, the key, the door, the chicken, the shots and Ben into a palette-indexed buffer, with the follow camera. Both presenters call it, so Web and DOS draw the same pixels; the HUD text stays presenter-side. `no_std`, no `unsafe`, depends on `fizz-ep2` and `fizz-view`. It reads the world and never changes it, and its `tick` argument drives animation only | Exists |
 | `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
-| `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
+| `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `SliceApp` that paces the slice's rules from browser time and renders them through `fizz-slice-view` into an RGBA frame the page copies to its canvas, beside the Milestone 0 `App` until `fizz-hello` is retired | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
 | `fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy, with `libm` giving the maths functions method syntax (no `exp`). Function bodies stay identical to Fizz 1's; `tools/lf-sim-drift.sh` reports any drift | Exists |
 | `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`. It holds Ben's movement, the chicken (Fizz 1's Gloop), the Fizz Blaster shots, the red key and door as `WorldFlags`, hazards, death and respawn and the exit, all ported line for line from Fizz 1 and proved against its golden traces; the slice level as `const` data in the shape `fizz-bake` will fill; the state hash; and the scripted slice replay with its golden transcript. Replaces `fizz-hello`, which stays until the presenters switch | Exists |
