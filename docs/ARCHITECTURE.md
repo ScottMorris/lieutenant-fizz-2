@@ -10,14 +10,14 @@ CONTENT     episode data and rules, no platform types
 INTENT      scene: tilemap, sprites, lights, camera
             audio: composition source, named cues
             events: semantic names, never sound or pixel data
-COOKING     offline host tools lower authored assets per target
+BAKING     offline host tools lower authored assets per target
 PRESENTERS  Web (canvas or WebGL, Undertone)  ·  DOS (320x200, OPL2)
 PLATFORM    clock, input, storage, display, audio services
               Web: JS shim   DOS: Desk-style hardware abstraction layer
 ```
 
 - **Intent flows up, lowering flows down.** The simulation never emits platform-shaped data such as palette indices, OPL patches or capacity-limited tables. Presenters and cookers project intent down to their hardware. The shared contract is never shaped like the weakest target.
-- **Fidelity is lost at cook time.** Art and music are authored for the richest presentation. Offline tools produce the DOS forms. DOS parses nothing at start-up that a tool could have prepared.
+- **Fidelity is lost at bake time.** Art and music are authored for the richest presentation. Offline tools produce the DOS forms. DOS parses nothing at start-up that a tool could have prepared.
 - **A presenter may add what the rules do not know about.** The Web zoom-out level map and the multi-voice Undertone mix are presenter features. DOS can omit them.
 
 ## Web and DOS parity policy
@@ -29,7 +29,7 @@ Both presentations are developed together, so neither is a late port.
 - The state hash from `fizz-sim` is the arbiter. The native, Web and DOS builds hash the same fields in the same order after each tick. A mismatch is a bug until proven otherwise.
 - CI gates both from the start. `check` runs the host checks everywhere. The `parity` job runs in the pinned `ci-dos` image: it builds FIZZ2.EXE and the Web bundle, runs the replay natively, in WASM under Node and Bun, and in headless DOSBox, and fails unless all transcripts are identical. `tools/check-parity.sh` runs the same comparison locally and prints `PARITY ok <hash>`.
 - The parity gate compares the `TICK` and `FINAL` lines of a versioned replay transcript, which carry the state hash every 60 ticks. Platform-specific lines (`FPU`, `BIOS`, `VECTORS`, `SIZE`) use other prefixes and are checked by the platform's own gate. [`PLATFORM.md`](PLATFORM.md) defines the transcript and the commands.
-- Cooked assets have per-target profiles. A missing DOS cook falls back to a placeholder so Web iteration is never blocked, and the DOS gate still reports the gap.
+- Baked assets have per-target profiles. A missing DOS bake falls back to a placeholder so Web iteration is never blocked, and the DOS gate still reports the gap.
 
 The cost of parallel development is the DOS toolchain and its slower feedback. Keep a quick, host-only `tools/check.sh` for the inner loop and run the full DOS gate in CI and before a PR.
 
@@ -54,14 +54,14 @@ Fixed-point rules remain the alternative if a later episode drops continuous phy
 
 ## Assets and packs
 
-The executable holds code and small constant tables. Sprites, tile sets, backdrops, levels and music live in cooked packs: files that the cooker writes and each platform loads. This is the plan for Milestone 2; no pack exists yet.
+The executable holds code and small constant tables. Sprites, tile sets, backdrops, levels and music live in Fizz Asset Packs (`.FAP`): files that the baker, `fizz-bake`, writes and each platform loads. This is the plan for Milestone 2; no pack exists yet.
 
 - **In the executable:** the palette, trigonometry tables and dither patterns. They are small, they need no parsing and a table in read-only data costs nothing at start-up.
 - **In packs:** everything authored. Pixel data is an opaque byte array to the compiler, so embedding it gives the optimiser nothing to specialise on.
 - **Memory:** the DOS stub loads the whole executable image at start-up, so embedded art stays resident for the whole run. A pack loads for the level in play and is freed afterwards, which matters on a 486 with 4 to 8 MB.
-- **Iteration:** a change to art or a level is a re-cook of one file, with no Rust rebuild or relink.
-- **One layout, two platforms:** the Web build fetches the same pack layout (cached by the browser, or bundled by Tauri) and does not carry the assets inside the WASM module. A pack is cooked per target, so the DOS and Web packs differ in content but not in structure.
-- **Pack format:** a header with a format version, the build version and a checksum, then an offset table, then data in the layout the loader uses as read. DOS reads a pack with one file read into memory and parses nothing. Pack names follow the 8.3 rule, for example `FIZZ.DAT` and one pack per world. The executable refuses a pack whose build version differs from its own.
+- **Iteration:** a change to art or a level is a re-bake of one file, with no Rust rebuild or relink.
+- **One layout, two platforms:** the Web build fetches the same pack layout (cached by the browser, or bundled by Tauri) and does not carry the assets inside the WASM module. A pack is baked per target, so the DOS and Web packs differ in content but not in structure.
+- **Pack format:** a header with a format version, the build version and a checksum, then an offset table, then data in the layout the loader uses as read. DOS reads a pack with one file read into memory and parses nothing. Pack names follow the 8.3 rule, for example `FIZZ.FAP` and one pack per world, such as `LIGHT.FAP`. The executable refuses a pack whose build version differs from its own.
 - **Costs:** file-reading code in the DOS runtime (DOS function calls it already wraps), an error path for a missing or mismatched pack, and slower loads from a real floppy, so a level's pack loads when the level starts and not all packs at once.
 - **Saves and configuration** stay in separate files, as in Fizz 1.
 
@@ -80,7 +80,8 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
-| `fizz-cook` | Cooking | Host tool: scripts to level data, art and music to per-target packs | Planned |
+| `fizz-bake` | Baking | Host tool: bakes scripts, art and music into per-target Fizz Asset Packs (`.FAP`) | Planned |
+| `fizz-fap` | Baking | The Fizz Asset Pack format and loader that `fizz-bake` writes and both platforms read. The name is provisional | Planned |
 
 `InputFrame` first appeared in this plan under `fizz-engine`. It now lives in `fizz-sim` next to `Tick`, because both presenters and the rules need it before any scene intent exists, and it has no dependency on scenes or events. `fizz-engine` keeps `Game` and the scene when they arrive.
 
@@ -94,13 +95,13 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - **Fizz 1's DOS port** (`ScottMorris/lieutenant-fizz-dos`) supplies the 486 performance model and its palette frame technique: 16 colours by 14 brightness levels with a shade pass for lights.
 - **Desk** (`liminal-hq/desk`) supplies the hardware abstraction layer shape, the rule that shared crates forbid `unsafe` and never call DOS directly, the no-float-in-graphics rule for presenters, the toolchain and the check scripts. Its ideas are mirrored here now, kept behind `fizz-hal` and `fizz-dos-rt`, so the real Desk crates can be swapped in later.
 - **Waypoint and Spindle** supply repository conventions: the README shape, CI, release notes grouped by labels, and the pull request and issue templates.
-- **Fizz Level Studio** supplies the level script language and the proof that scripts rebuild Fizz 1's levels exactly. Fizz 2 uses the script as its authoring format and the cooker as the single place that turns it into engine data.
+- **Fizz Level Studio** supplies the level script language and the proof that scripts rebuild Fizz 1's levels exactly. Fizz 2 uses the script as its authoring format and the baker as the single place that turns it into engine data.
 
 ## Open questions
 
 - Is Fizz 1's pogo physics reused directly or ported with the same constants and proved by golden traces?
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later?
-- Which language does the cooker use? Rust is preferred so it shares types.
+- Which language does the baker use? Rust is preferred so it shares types.
 - Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits?
 - What pack granularity and compression does Episode 2 use: one pack per world or per level, and whether packs are compressed, which trades load time against floppy space?
