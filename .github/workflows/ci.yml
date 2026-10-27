@@ -38,17 +38,16 @@ jobs:
       - name: Trust the workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       # The CLI must match the `wasm-bindgen` crate in Cargo.lock; tools/build-web.sh fails if they drift, so update both together.
+      # The image's CARGO_HOME is /usr/local/cargo, so `cargo install` writes to /usr/local/cargo/bin, which is already on the PATH.
       - name: Cache the wasm-bindgen CLI
         id: wasm-bindgen-cache
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/bin/wasm-bindgen
+          path: /usr/local/cargo/bin/wasm-bindgen
           key: wasm-bindgen-cli-0.2.125
       - name: Install the wasm-bindgen CLI
         if: steps.wasm-bindgen-cache.outputs.cache-hit != 'true'
         run: cargo install wasm-bindgen-cli --version 0.2.125 --locked
-      - name: Add Cargo binaries to the path
-        run: echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Set up the DOS toolchain
         run: tools/setup-dos.sh
         env:
