@@ -1,0 +1,15 @@
+[package]
+name = "fizz-present-dos"
+description = "Indexed 320x200 presenter for the Milestone 0 rules, shared by the DOS and host builds"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-sim = { path = "../fizz-sim" }
+fizz-hello = { path = "../fizz-hello" }
+fizz-hal = { path = "../fizz-hal" }
+
+[dev-dependencies]
+fizz-hal = { path = "../fizz-hal", features = ["mock"] }
