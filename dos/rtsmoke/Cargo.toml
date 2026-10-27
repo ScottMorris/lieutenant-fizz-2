@@ -1,0 +1,11 @@
+[package]
+name = "rtsmoke"
+description = "Smoke test for the DOS runtime: FPU control word, 60 Hz timer, vector restore, panic clean-up"
+publish = false
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-dos-rt = { path = "../rt" }

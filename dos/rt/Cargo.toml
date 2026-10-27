@@ -1,0 +1,13 @@
+[package]
+name = "fizz-dos-rt"
+description = "A Rust runtime for 32-bit DOS programs under a DPMI host"
+publish = false
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[features]
+# The panic handler is a lang item that `std` defines for itself, so a program that links `std` turns this off.
+default = ["panic-handler"]
+panic-handler = []

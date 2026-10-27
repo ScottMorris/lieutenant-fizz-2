@@ -1,0 +1,13 @@
+[package]
+name = "fizz-hal"
+description = "Small Desk-shaped hardware abstraction for Lieutenant Fizz presenters"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[features]
+# Host-side mock clock, input and display for tests; pulls in `alloc` only.
+mock = []
+
+[dependencies]

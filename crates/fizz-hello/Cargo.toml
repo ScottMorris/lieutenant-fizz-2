@@ -1,0 +1,11 @@
+[package]
+name = "fizz-hello"
+description = "Throwaway Milestone 0 rules crate: a marker moved by input, used to prove cross-platform determinism"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-sim = { path = "../fizz-sim" }
+libm = { version = "=0.2.16", default-features = false }

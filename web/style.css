@@ -1,0 +1,34 @@
+html,
+body {
+  margin: 0;
+  background: #0b0b14;
+  color: #cfe8ff;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+canvas {
+  width: min(100%, 960px);
+  aspect-ratio: 8 / 5;
+  image-rendering: pixelated;
+  background: #000020;
+  outline: 1px solid #335;
+}
+
+#hud {
+  margin: 0;
+  font-size: 16px;
+}
+
+.help {
+  margin: 0;
+  color: #8aa;
+  font-size: 14px;
+}

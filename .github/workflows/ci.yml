@@ -1,4 +1,4 @@
-# Runs tools/check.sh on every pull request and push to main. The DOS jobs join when the DOS platform layer lands.
+# Runs tools/check.sh on every pull request and push to main, and the DOS and Web parity checks in the pinned ci-dos image.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -25,3 +25,36 @@ jobs:
       - uses: actions/checkout@v7
       - name: Check
         run: tools/check.sh
+
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # The shared `ci-dos` tier from liminal-hq/.github (docker/ci/Dockerfile), pinned by digest. Updating the pin is a pull request,
+    # and its checks run in the new image. The image has the Rust toolchain, the wasm32 and i586 targets, Bun, DJGPP, DOSBox Staging
+    # and CWSDPMI (under /opt/dos-toolchain), but no Node and no wasm-bindgen CLI.
+    container: ghcr.io/liminal-hq/ci-dos@sha256:93d129b5c910b2a2d5de38ae7235e9dc8b311d302c1c57992f060b036a74dc4e
+    steps:
+      - uses: actions/checkout@v7
+      - name: Trust the workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # The CLI must match the `wasm-bindgen` crate in Cargo.lock; tools/build-web.sh fails if they drift, so update both together.
+      # The image's CARGO_HOME is /usr/local/cargo, so `cargo install` writes to /usr/local/cargo/bin, which is already on the PATH.
+      - name: Cache the wasm-bindgen CLI
+        id: wasm-bindgen-cache
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/cargo/bin/wasm-bindgen
+          key: wasm-bindgen-cli-0.2.125
+      - name: Install the wasm-bindgen CLI
+        if: steps.wasm-bindgen-cache.outputs.cache-hit != 'true'
+        run: cargo install wasm-bindgen-cli --version 0.2.125 --locked
+      - name: Set up the DOS toolchain
+        run: tools/setup-dos.sh
+        env:
+          DOS_TOOLCHAIN: /opt/dos-toolchain
+      - name: Check the DOS build
+        run: tools/check-dos.sh
+      - name: Build the Web presenter
+        run: tools/build-web.sh
+      - name: Check parity
+        run: tools/check-parity.sh

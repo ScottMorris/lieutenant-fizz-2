@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
+(cd dos && cargo fmt --check)
 tools/check-headers.sh
 python3 -I tools/check-docs.py
 printf 'All checks passed.\n'

@@ -27,7 +27,8 @@ Both presentations are developed together, so neither is a late port.
 - A feature is done when it has a Web path and a DOS path. The DOS path may be reduced (flatter lighting, fewer effects, simpler audio), but it runs.
 - Web leads on feel and fidelity; DOS leads on budgets. A 486DX is the DOS floor. DOS is a bonus platform and never limits the design.
 - The state hash from `fizz-sim` is the arbiter. The native, Web and DOS builds hash the same fields in the same order after each tick. A mismatch is a bug until proven otherwise.
-- CI gates both from the start. Host checks run everywhere; the DOS build and a headless DOSBox transcript join when the DOS platform layer arrives.
+- CI gates both from the start. `check` runs the host checks everywhere. The `parity` job runs in the pinned `ci-dos` image: it builds FIZZ2.EXE and the Web bundle, runs the replay natively, in WASM under Node and Bun, and in headless DOSBox, and fails unless all transcripts are identical. `tools/check-parity.sh` runs the same comparison locally and prints `PARITY ok <hash>`.
+- The parity gate compares the `TICK` and `FINAL` lines of a versioned replay transcript, which carry the state hash every 60 ticks. Platform-specific lines (`FPU`, `BIOS`, `VECTORS`, `SIZE`) use other prefixes and are checked by the platform's own gate. [`PLATFORM.md`](PLATFORM.md) defines the transcript and the commands.
 - Cooked assets have per-target profiles. A missing DOS cook falls back to a placeholder so Web iteration is never blocked, and the DOS gate still reports the gap.
 
 The cost of parallel development is the DOS toolchain and its slower feedback. Keep a quick, host-only `tools/check.sh` for the inner loop and run the full DOS gate in CI and before a PR.
@@ -41,20 +42,34 @@ Fizz 1's physics are continuous and tuned by feel, so Fizz 2 keeps Fizz 1's nume
 - x87 set to 53-bit precision on DOS before the first tick, so 80-bit intermediates do not leak into results.
 - Display-only motion (particles, lighting, interpolation, camera easing) may use any numeric form because it never feeds back into the rules.
 
+Where floating point is allowed follows from that model:
+
+- Rules crates (`fizz-sim`, `fizz-hello` and the game logic that replaces it) use `f64` under the discipline above, and may not use the `exp` family (`exp`, `exp2`, `exp10`) because `libm` runs x87 assembly for those on x86 targets without SSE.
+- The Web presenter may use floats freely for display, because WebAssembly floating point is IEEE and the rules already agree across platforms.
+- `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny `clippy::float_arithmetic`. The DOS presenter works in integers, and interrupt handlers never touch the x87, so a handler cannot disturb the control word or the register stack of the interrupted game loop.
+
+[`PLATFORM.md`](PLATFORM.md) records the specific decisions (the `libm` pin, snap-to-zero of tiny velocities, the control word the program sets) and why each exists.
+
 Fixed-point rules remain the alternative if a later episode drops continuous physics. The 486DX has an on-chip FPU. A 486SX would need software floating point and is out of scope. Measure before changing the model: Fizz 1's `m5/bench` and its 486 cycle estimator are the reference tools, and DOSBox at fixed cycles hides x87 cost.
 
 ## Crate plan
 
-Crates arrive with their first consumer and test. Only `fizz-sim` exists today.
+Crates arrive with their first consumer and test. Milestone 0 built the platform skeleton, a marker moved by input and hashed on every platform, so the crates below marked Exists are real but carry only that much behaviour. [`PLATFORM.md`](PLATFORM.md) describes how they fit together.
 
 | Crate | Layer | Purpose | State |
 | --- | --- | --- | --- |
-| `fizz-sim` | Rules | Fixed tick, state hash, and later the shared rules foundation | Exists |
-| `fizz-hal` | Platform | Hardware abstraction traits mirrored from Desk (clock, input, storage, display, audio) | Planned |
-| `fizz-engine` | Intent | `Game`, `InputFrame`, scene intent and events | Planned |
+| `fizz-sim` | Rules | Fixed tick, state hash, and the input types (`Buttons`, `InputFrame`, `InputLatch`) | Exists |
+| `fizz-hello` | Rules | Throwaway Milestone 0 rules: a marker moved by input, used to prove parity. Deleted when real rules arrive | Exists, Milestone 0 only |
+| `fizz-hal` | Platform | Hardware abstraction traits mirrored from Desk: clock and pacer, input, display, and the interrupt hand-off ring. Storage and audio traits join with their consumers | Exists (clock, input, display) |
+| `fizz-present-dos` | Presenter | DOS presentation: the indexed 320x200 frame, palette, font and key mapping, with no DOS calls | Exists |
+| `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
+| `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
+| `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
 | `fizz-cook` | Cooking | Host tool: scripts to level data, art and music to per-target assets | Planned |
-| `fizz-present-web` | Presenter | Web presentation, WASM exports and the canvas or WebGL layer | Planned |
-| `fizz-present-dos` | Presenter | DOS presentation: mode 13h, IRQ input, OPL2 | Planned |
+
+`InputFrame` first appeared in this plan under `fizz-engine`. It now lives in `fizz-sim` next to `Tick`, because both presenters and the rules need it before any scene intent exists, and it has no dependency on scenes or events. `fizz-engine` keeps `Game` and the scene when they arrive.
+
+The DOS programs (`RTSMOKE.EXE`, `FIZZ2.EXE`) are crates of the `dos/` workspace, which has its own target and build flags and is excluded from the root workspace so host checks never need them.
 
 Names are provisional. Rules that depend on a presenter are a bug.
 
@@ -62,7 +77,7 @@ Names are provisional. Rules that depend on a presenter are a bug.
 
 - **Fizz 1** (`liminal-hq/lieutenant-fizz`) is the behaviour reference: the pogo physics, the camera (including look up and down and the Web zoom-out map), the enemy kinds, locks and keys, the overworld. When Fizz 2 reproduces a Fizz 1 behaviour, it names the Fizz 1 source and proves the match with a trace test. Fizz 1 stays as it is.
 - **Fizz 1's DOS port** (`ScottMorris/lieutenant-fizz-dos`) supplies the 486 performance model and its palette frame technique: 16 colours by 14 brightness levels with a shade pass for lights.
-- **Desk** (`liminal-hq/desk`) supplies the hardware abstraction layer shape, the rule that shared crates forbid `unsafe` and never call DOS directly, the no-float-in-graphics rule for presenters, the toolchain and the check scripts. Its ideas are mirrored here now, kept behind `fizz-hal`, so the real Desk crates can be swapped in later.
+- **Desk** (`liminal-hq/desk`) supplies the hardware abstraction layer shape, the rule that shared crates forbid `unsafe` and never call DOS directly, the no-float-in-graphics rule for presenters, the toolchain and the check scripts. Its ideas are mirrored here now, kept behind `fizz-hal` and `fizz-dos-rt`, so the real Desk crates can be swapped in later.
 - **Waypoint and Spindle** supply repository conventions: the README shape, CI, release notes grouped by labels, and the pull request and issue templates.
 - **Fizz Level Studio** supplies the level script language and the proof that scripts rebuild Fizz 1's levels exactly. Fizz 2 uses the script as its authoring format and the cooker as the single place that turns it into engine data.
 
