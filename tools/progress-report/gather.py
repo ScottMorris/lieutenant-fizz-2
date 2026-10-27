@@ -295,11 +295,14 @@ def stacks(prs):
 # ---- the tree ------------------------------------------------------------------------------------------------------------------
 
 CRATES = [
-    ("fizz-sim", r"^crates/fizz-sim/.*\.rs$"), ("fizz-hello", r"^crates/fizz-hello/.*\.rs$"), ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"),
+    ("fizz-sim", r"^crates/fizz-sim/.*\.rs$"), ("fizz-phys", r"^crates/fizz-phys/.*\.rs$"), ("fizz-ep2", r"^crates/fizz-ep2/.*\.rs$"),
+    ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"), ("fizz-view", r"^crates/fizz-view/.*\.rs$"), ("fizz-slice-view", r"^crates/fizz-slice-view/.*\.rs$"),
     ("fizz-present-dos", r"^crates/fizz-present-dos/.*\.rs$"), ("fizz-present-web", r"^crates/fizz-present-web/.*\.rs$"),
     ("fizz-dos-rt", r"^dos/rt/.*\.rs$"), ("fizz2", r"^dos/fizz2/.*\.rs$"), ("rtsmoke", r"^dos/rtsmoke/.*\.rs$"),
 ]
-GOLDEN = "crates/fizz-hello/m0-replay.txt"
+# The slice's golden transcript: the one the parity and DOS gates compare. Milestone 0's transcript, script and BIOS bound belong to
+# the deleted fizz-hello crate and are kept as history in snapshots/m0.json.
+GOLDEN = "crates/fizz-ep2/slice-replay.txt"
 
 
 def parse_int(text):
@@ -337,25 +340,9 @@ def scrape(repo):
     return out
 
 
-BUTTONS = {"IDLE": 0, "U": 1, "D": 2, "L": 4, "R": 8, "A": 16}
-BUTTON_NAMES = [(1, "Up"), (2, "Down"), (4, "Left"), (8, "Right"), (16, "Action")]
-
-
-def script(repo):
-    """The runs of `M0_SCRIPT` in crates/fizz-hello/src/lib.rs as [{frames, buttons, start}], or [] when it cannot be read."""
-    src = repo.show("crates/fizz-hello/src/lib.rs") or ""
-    m = re.search(r"pub const M0_SCRIPT: &\[\(u16, Buttons\)\] = &\[(.*?)\];", src, re.S)
-    if not m:
-        return []
-    out, start = [], 0
-    for frames, expr in re.findall(r"\((\d+),\s*([A-Z][A-Za-z().]*)\)", m.group(1)):
-        bits = 0
-        for name in re.findall(r"\b(IDLE|U|D|L|R|A)\b", expr):
-            bits |= BUTTONS[name]
-        held = [n for b, n in BUTTON_NAMES if bits & b]
-        out.append({"frames": int(frames), "bits": bits, "held": held, "start": start})
-        start += int(frames)
-    return out
+def m0_history():
+    """Milestone 0's golden transcript, script and BIOS tick bound, frozen in snapshots/m0.json when `fizz-hello` was deleted."""
+    return read_json(os.path.join(HERE, "snapshots", "m0.json"))
 
 
 def golden(repo):
@@ -364,7 +351,7 @@ def golden(repo):
         return {"text": None, "final": None, "ticks": 0}
     m = re.search(r"^FINAL TICK (\d+) HASH ([0-9a-f]{16})$", text, re.M)
     return {"text": text, "final": m.group(2) if m else None, "finalTick": int(m.group(1)) if m else None,
-            "lines": len(re.findall(r"^TICK ", text, re.M))}
+            "lines": len(re.findall(r"^TICK ", text, re.M)), "events": len(re.findall(r"^EVENT ", text, re.M))}
 
 
 def tree_facts(repo):
@@ -378,7 +365,7 @@ def tree_facts(repo):
     return {
         "files": len(paths), "docs": len(repo.matching(r"^docs/[^/]+\.md$")),
         "crates": len(repo.matching(r"^(crates/[^/]+|dos/[^/]+)/Cargo\.toml$")),
-        "loc": loc, "tests": tests, "testsAll": sum(tests.values()), "scraped": scrape(repo), "golden": golden(repo), "script": script(repo),
+        "loc": loc, "tests": tests, "testsAll": sum(tests.values()), "scraped": scrape(repo), "golden": golden(repo), "m0": m0_history(),
         "checkScripts": repo.matching(r"^tools/check[^/]*$"),
     }
 
@@ -509,8 +496,9 @@ def gather(root=ROOT, ref="main", offline=False, dry_run=False):
     missing += ["scraped." + k for k, v in sc.items() if v is None]
     if not gold.get("final"):
         missing.append("golden.final")
-    if measured and gold.get("final") and measured.get("parityHash") != gold["final"]:
-        warnings.append("snapshots/measured.json records PARITY %s but the golden transcript ends %s: re-measure" % (measured.get("parityHash"), gold["final"]))
+    m0_final = facts["m0"]["golden"]["final"]
+    if measured and measured.get("parityHash") != m0_final:
+        warnings.append("snapshots/measured.json records PARITY %s but the Milestone 0 transcript in snapshots/m0.json ends %s" % (measured.get("parityHash"), m0_final))
     now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     return {
         "generated": now, "ref": ref, "head": fp[0]["hash"] if fp else None, "shallow": repo.is_shallow(),

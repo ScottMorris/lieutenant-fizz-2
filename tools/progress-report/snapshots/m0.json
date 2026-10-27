@@ -1,0 +1,149 @@
+{
+ "about": "Milestone 0 as it stood when fizz-hello was deleted. The crate, its golden transcript, its M0_SCRIPT and the 600-tick BIOS tick bound of tools/check-dos.sh no longer exist in the tree, so the chapters that describe Milestone 0 read these frozen values. Written once from the tree before the deletion; do not regenerate.",
+ "golden": {
+  "text": "M0 REPLAY 1\nTICK 0 HASH 02317fd0a71ad280\nTICK 60 HASH 7749eefbd6dd93aa\nTICK 120 HASH 5ffbad52b93a1d96\nTICK 180 HASH a107162ec977fbeb\nTICK 240 HASH eb44475becca3436\nTICK 300 HASH aa2ebc2dd7283063\nTICK 360 HASH 85bf3fe6245fd375\nTICK 420 HASH 3f7dd74d74f3114c\nTICK 480 HASH c034c3845262a1cf\nTICK 540 HASH 729f540b25fd151a\nTICK 600 HASH efc699079baa6a88\nFINAL TICK 600 HASH efc699079baa6a88\n",
+  "final": "efc699079baa6a88",
+  "finalTick": 600,
+  "lines": 11
+ },
+ "script": [
+  {
+   "frames": 30,
+   "bits": 0,
+   "held": [],
+   "start": 0
+  },
+  {
+   "frames": 60,
+   "bits": 8,
+   "held": [
+    "Right"
+   ],
+   "start": 30
+  },
+  {
+   "frames": 1,
+   "bits": 24,
+   "held": [
+    "Right",
+    "Action"
+   ],
+   "start": 90
+  },
+  {
+   "frames": 29,
+   "bits": 8,
+   "held": [
+    "Right"
+   ],
+   "start": 91
+  },
+  {
+   "frames": 60,
+   "bits": 10,
+   "held": [
+    "Down",
+    "Right"
+   ],
+   "start": 120
+  },
+  {
+   "frames": 1,
+   "bits": 26,
+   "held": [
+    "Down",
+    "Right",
+    "Action"
+   ],
+   "start": 180
+  },
+  {
+   "frames": 19,
+   "bits": 10,
+   "held": [
+    "Down",
+    "Right"
+   ],
+   "start": 181
+  },
+  {
+   "frames": 20,
+   "bits": 0,
+   "held": [],
+   "start": 200
+  },
+  {
+   "frames": 1,
+   "bits": 16,
+   "held": [
+    "Action"
+   ],
+   "start": 220
+  },
+  {
+   "frames": 29,
+   "bits": 0,
+   "held": [],
+   "start": 221
+  },
+  {
+   "frames": 1,
+   "bits": 16,
+   "held": [
+    "Action"
+   ],
+   "start": 250
+  },
+  {
+   "frames": 1,
+   "bits": 0,
+   "held": [],
+   "start": 251
+  },
+  {
+   "frames": 1,
+   "bits": 16,
+   "held": [
+    "Action"
+   ],
+   "start": 252
+  },
+  {
+   "frames": 17,
+   "bits": 0,
+   "held": [],
+   "start": 253
+  },
+  {
+   "frames": 200,
+   "bits": 4,
+   "held": [
+    "Left"
+   ],
+   "start": 270
+  },
+  {
+   "frames": 60,
+   "bits": 1,
+   "held": [
+    "Up"
+   ],
+   "start": 470
+  },
+  {
+   "frames": 70,
+   "bits": 0,
+   "held": [],
+   "start": 530
+  }
+ ],
+ "loc": {
+  "fizz-hello": 400
+ },
+ "tests": {
+  "fizz-hello": 14
+ },
+ "scraped": {
+  "biosRange": "180 to 184"
+ }
+}

@@ -177,7 +177,7 @@ class GatherTests(unittest.TestCase):
         self.assertEqual(data["missing"], [])
         sc = data["facts"]["scraped"]
         self.assertEqual(sc["controlWord"], "027F")
-        self.assertEqual(sum(r["frames"] for r in data["facts"]["script"]), data["facts"]["golden"]["finalTick"])
+        self.assertEqual(sum(r["frames"] for r in data["facts"]["m0"]["script"]), data["facts"]["m0"]["golden"]["finalTick"])
 
     def test_ci_and_state(self):
         self.assertEqual(gather.ci_of([]), "none")
@@ -369,7 +369,7 @@ class DrawingTests(unittest.TestCase):
 
     def test_the_replay_explainer_has_a_step_per_line(self):
         html = dr.replay(self.D, mdlite.Ctx())
-        self.assertEqual(html.count('class="x-step"'), 1 + self.D["facts"]["golden"]["lines"] + 1 + 3)
+        self.assertEqual(html.count('class="x-step"'), 1 + self.D["facts"]["m0"]["golden"]["lines"] + 1 + 3)
         self.assertIn("a dash", html)
 
     def test_the_replay_refuses_a_measured_run_that_differs(self):
@@ -393,7 +393,7 @@ class DrawingTests(unittest.TestCase):
     def test_the_dos_transcript_matches_the_golden_file(self):
         self.assertIn("FPU CW 027F", flows.dos_transcript(self.D))
         D = copy.deepcopy(self.D)
-        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("efc699079baa6a88", "0" * 16)
+        D["facts"]["m0"]["golden"]["text"] = D["facts"]["m0"]["golden"]["text"].replace("efc699079baa6a88", "0" * 16)
         with self.assertRaises(ValueError):
             flows.dos_transcript(D)
 

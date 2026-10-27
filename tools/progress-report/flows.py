@@ -30,19 +30,19 @@ INPUT_WEB = [
 INPUT_SHARED = [
     ("InputLatch", "fizz-sim input.rs", "crates/fizz-sim/src/input.rs", "pub struct InputLatch"),
     ("InputFrame", "held and pressed", "crates/fizz-sim/src/input.rs", "pub struct InputFrame"),
-    ("step(world, frame)", "fizz-hello", "crates/fizz-hello/src/lib.rs", "pub fn step"),
+    ("step(world, frame)", "fizz-ep2", "crates/fizz-ep2/src/world.rs", "pub fn step"),
 ]
 FRAME_DOS = [
-    ("World", "fizz-hello", "crates/fizz-hello/src/lib.rs", "pub struct World"),
-    ("render", "fizz-present-dos", "crates/fizz-present-dos/src/lib.rs", "pub fn render"),
+    ("World", "fizz-ep2", "crates/fizz-ep2/src/world.rs", "pub struct World"),
+    ("render_slice", "fizz-present-dos", "crates/fizz-present-dos/src/lib.rs", "pub fn render_slice"),
     ("Frame 320x200", "indexed bytes", "crates/fizz-present-dos/src/frame.rs", "pub fn pixels"),
     ("present", "Display::present", "crates/fizz-present-dos/src/lib.rs", "pub fn present"),
     ("DosDisplay", "dos/fizz2/src/hal.rs", "dos/fizz2/src/hal.rs", "fn present"),
     ("vga.rs", "copy to A000h", "dos/rt/src/vga.rs", "pub fn present"),
 ]
 FRAME_WEB = [
-    ("World", "fizz-hello", "crates/fizz-hello/src/lib.rs", "pub struct World"),
-    ("App getters", "marker_x, marker_y, hash_hex", "crates/fizz-present-web/src/lib.rs", "pub fn marker_x"),
+    ("World", "fizz-ep2", "crates/fizz-ep2/src/world.rs", "pub struct World"),
+    ("App render", "RGBA frame, getters", "crates/fizz-present-web/src/lib.rs", "pub fn render"),
     ("draw(app)", "web/main.js", "web/main.js", "function draw"),
     ("canvas 320x200", "2D context", "web/index.html", "canvas"),
 ]
@@ -173,23 +173,23 @@ def dos_transcript(D):
         raise ValueError("no capture record for dos-replay.txt")
     with open(os.path.join(MEDIA, "dos-replay.txt"), encoding="utf-8") as f:
         text = f.read()
-    gold = D["facts"]["golden"].get("text") or ""
+    gold = D["facts"]["m0"]["golden"].get("text") or ""
     want = [l for l in gold.splitlines() if l.startswith(("TICK ", "FINAL "))]
     got = [l for l in text.splitlines() if l.startswith(("TICK ", "FINAL "))]
     if got != want:
-        raise ValueError("media/dos-replay.txt does not match the golden transcript")
+        raise ValueError("media/dos-replay.txt does not match the Milestone 0 transcript in snapshots/m0.json")
     lines = "".join('<span class="ln%s">%s</span>\n' % (" ok" if l.startswith(("FPU", "BIOS", "VECTORS")) else "", esc(l)) for l in text.splitlines())
     return ('<figure><pre class="term" tabindex="0" aria-label="Output of FIZZ2.EXE /REPLAY in DOSBox"><code>C:\\&gt; FIZZ2.EXE /REPLAY\n%s</code></pre><figcaption>The standard output of the run that the DOS screenshots come from, '
-            'unedited: %d <code>TICK</code> lines and <code>FINAL</code> equal to <code>crates/fizz-hello/m0-replay.txt</code> (the build checks this), then the three DOS platform lines. %s; %s at %s, %s.</figcaption></figure>') % (
+            'unedited: %d <code>TICK</code> lines and <code>FINAL</code> equal to the Milestone 0 transcript in <code>snapshots/m0.json</code> (the build checks this), then the three DOS platform lines. %s; %s at %s, %s.</figcaption></figure>') % (
         lines, len([l for l in got if l.startswith("TICK")]), esc(c["source"]), esc(c["command"]), esc(c["commit"]), esc(c["date"]))
 
 
 def script_table(D):
-    runs = D["facts"].get("script") or []
+    runs = D["facts"]["m0"].get("script") or []
     rows = "".join('<tr><td class="n">%d</td><td class="n">%d</td><td class="n">%d</td><td>%s</td></tr>' % (
         i + 1, r["start"], r["frames"], esc(" + ".join(r["held"]) or "nothing") + (" <b>(a dash: Action held for one frame)</b>" if "Action" in r["held"] and r["frames"] == 1 else ""))
         for i, r in enumerate(runs))
     total = sum(r["frames"] for r in runs)
     return ('<div class="tbl"><table class="script"><caption class="sr">The runs of M0_SCRIPT</caption><thead><tr><th scope="col" class="n">Run</th><th scope="col" class="n">From tick</th>'
-            '<th scope="col" class="n">Frames</th><th scope="col">Buttons held</th></tr></thead><tbody>%s</tbody></table></div><p class="how">Parsed from <code>M0_SCRIPT</code> in '
-            '<code>crates/fizz-hello/src/lib.rs</code>: %d runs, %s frames in all.</p>') % (rows, len(runs), num(total))
+            '<th scope="col" class="n">Frames</th><th scope="col">Buttons held</th></tr></thead><tbody>%s</tbody></table></div><p class="how">Recorded in <code>snapshots/m0.json</code> from <code>M0_SCRIPT</code> in '
+            '<code>crates/fizz-hello/src/lib.rs</code> before that crate was deleted: %d runs, %s frames in all.</p>') % (rows, len(runs), num(total))

@@ -118,6 +118,14 @@ def values_of(data):
     vals["golden.final"] = g.get("final") or "unknown"
     vals["golden.finalTick"] = g.get("finalTick") or 0
     vals["golden.lines"] = g.get("lines") or 0
+    # Milestone 0, frozen in snapshots/m0.json: the chapters that describe it read these.
+    m0 = f["m0"]
+    vals["m0.final"] = m0["golden"]["final"]
+    vals["m0.finalTick"] = m0["golden"]["finalTick"]
+    vals["m0.lines"] = m0["golden"]["lines"]
+    vals["m0.biosRange"] = m0["scraped"]["biosRange"]
+    for k, v in m0["tests"].items():
+        vals["tests." + k.replace("-", "_")] = v
     for k, v in (data.get("measured") or {}).items():
         if isinstance(v, (int, str)) and k not in ("how", "note"):
             vals["ms." + k] = v
@@ -443,15 +451,17 @@ class Site:
         last_html = ("<code>%s</code>, %s %s%s" % (last["mergeCommit"], dr.day_label(last["landedAt"]), dr.hhmm(last["landedAt"]),
                                                    (": the stack %s" % ", ".join("#%d" % n for n in big[-1]["numbers"])) if big and big[-1]["mergeCommit"] == last["mergeCommit"] else ": #%d" % last["number"])) if last else "none"
         main_ci = ci_word(last["ci"]) if last else "unknown"
-        g = d["facts"]["golden"]
-        return ('<dl class="status"><div><dt>Is there a game?</dt><dd><b>No.</b> A marker moves with the arrow keys or WASD on Web and DOS, and nothing else. The rules are the throwaway <code>fizz-hello</code> crate.</dd></div>'
-                '<div><dt>Milestone 0, the platform skeleton</dt><dd><b>%s.</b> The same <code>FINAL TICK %s HASH %s</code> on native, Web (WASM under Node and Bun) and DOS (headless DOSBox).</dd></div>'
+        g, m0 = d["facts"]["golden"], d["facts"]["m0"]["golden"]
+        return ('<dl class="status"><div><dt>Is there a game?</dt><dd><b>A first slice.</b> One small level with Ben, a chicken, a red key and a door plays on Web and DOS from the same rules (<code>fizz-ep2</code>). The chapters below describe Milestone 0, the marker that came before it.</dd></div>'
+                '<div><dt>The parity gate</dt><dd>The same <code>FINAL TICK %s HASH %s</code> on native, Web (WASM under Node and Bun) and DOS (headless DOSBox), compared with <code>crates/fizz-ep2/slice-replay.txt</code> by <code>tools/check-parity.sh</code>.</dd></div>'
+                '<div><dt>Milestone 0, the platform skeleton</dt><dd><b>%s.</b> Its marker replay ended <code>FINAL TICK %s HASH %s</code> on all three platforms.</dd></div>'
                 '<div><dt>Last merge into main</dt><dd>%s<div class="sub">CI on that commit: %s.</div></dd></div>'
                 '<div><dt>Open pull requests</dt><dd>%s</dd></div>'
                 '<div><dt>On real hardware</dt><dd><b>Not tried.</b> No 486, no real display, no browser session. See Not verified below.</dd></div>'
                 '<div><dt>Pull requests merged</dt><dd>%s, by merge commit, into <code>%s</code>.</dd></div></dl>') % (
+            g.get("finalTick") or "?", esc(g.get("final") or "?"),
             "Merged" if all(n["tag"] == "merged" for n in d["roadmap"]["nodes"] if n["milestone"] == "m0") else "Not all merged",
-            g.get("finalTick") or "?", esc(g.get("final") or "?"), last_html, esc(main_ci), open_html, num(len(d["prs"])), esc(d["ref"]))
+            m0.get("finalTick") or "?", esc(m0.get("final") or "?"), last_html, esc(main_ci), open_html, num(len(d["prs"])), esc(d["ref"]))
 
     def render_index(self):
         d, ctx = self.data, self.ctx
