@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the DOS programs and checks them in headless DOSBox: the slice replay against its golden transcript, a keyboard smoke
-# of the slice, the bench, the panic clean-up and the executable's size.
+# of the slice, the bench, the panic clean-up, the machine probes under a ladder of DOSBox configurations and the executable's size.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -119,6 +119,71 @@ for section in STEP DRAW PRESENT TOTAL; do
     [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
   fi
 done
+
+# 3c. The probes: /PROBE under one DOSBox configuration after another. tools/dosrun.sh sets `sbtype = none`, so a variant that wants
+# a Sound Blaster appends an `[sblaster]` section (the later value wins); `nosound = true` still emulates the OPL. Each run must exit 0
+# with the platform lines, print the PROBE lines the case expects (exact lines; `PROBE free_kb a-b` is a range), and print the CELLS
+# hash the host computes from those same lines with the default settings. /PROBE needs no key; the interactive /CHECK is never run here.
+cargo build -q -p fizz-machine --example cells-hash
+probe_case() {
+  local name="$1" machine="$2" conf="$3"
+  shift 3
+  local out status=0
+  out="$(DOS_MACHINE="$machine" DOS_CONF="$conf" DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PROBE)" || status=$?
+  [ "$status" = 0 ] || fail "/PROBE ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  local line
+  for line in 'EXIT yes' 'FPU CW 027F' 'VECTORS RESTORED yes'; do
+    printf '%s\n' "$out" | grep -qxF "$line" || fail "/PROBE ($name) printed no '$line' line"
+  done
+  for line in "$@"; do
+    case "$line" in
+      'PROBE free_kb '*-*)
+        local range="${line#PROBE free_kb }" kb
+        kb="$(printf '%s\n' "$out" | sed -n 's/^PROBE free_kb \([0-9]*\)$/\1/p')"
+        { [ -n "$kb" ] && [ "$kb" -ge "${range%-*}" ] && [ "$kb" -le "${range#*-}" ]; } || fail "/PROBE ($name) free_kb '$kb' is outside ${range}"
+        ;;
+      *) printf '%s\n' "$out" | grep -qxF "$line" || fail "/PROBE ($name) printed no '$line' line" ;;
+    esac
+  done
+  local want got
+  want="$(printf '%s\n' "$out" | cargo run -q -p fizz-machine --example cells-hash)"
+  got="$(printf '%s\n' "$out" | grep '^CELLS ' || true)"
+  [ -n "$got" ] && [ "$got" = "$want" ] || fail "/PROBE ($name) CELLS '$got' differs from the host's '$want'"
+  echo "PROBE case $name ok ($got; $(printf '%s\n' "$out" | grep -E '^PROBE (fm|dsp|video|cpu|free_kb) ' | tr '\n' ' '))"
+}
+sb() { printf '[sblaster]\nsbtype = %s\n%s\n' "$1" "${2:-}"; }
+probe_case 'no sound card' svga_s3 '' 'PROBE video vga' 'PROBE mouse yes' 'PROBE joystick no' 'PROBE fm none' 'PROBE dsp none' \
+  'PROBE blaster none' 'PROBE x87 yes' 'PROBE cpu 486'
+probe_case 'sb1' svga_s3 "$(sb sb1)" 'PROBE fm opl2' 'PROBE dsp 1.05 220' 'PROBE blaster A220 I7 D1 T1'
+probe_case 'sb2' svga_s3 "$(sb sb2)" 'PROBE fm opl2' 'PROBE dsp 2.01 220' 'PROBE blaster A220 I7 D1 T3'
+probe_case 'sbpro1' svga_s3 "$(sb sbpro1)" 'PROBE fm dualopl2' 'PROBE dsp 3.00 220' 'PROBE blaster A220 I7 D1 T2'
+probe_case 'sbpro2' svga_s3 "$(sb sbpro2)" 'PROBE fm opl3' 'PROBE dsp 3.02 220' 'PROBE blaster A220 I7 D1 T4'
+probe_case 'sb16' svga_s3 "$(sb sb16)" 'PROBE fm opl3' 'PROBE dsp 4.05 220' 'PROBE blaster A220 I7 D1 H5 T6'
+probe_case 'sb16 at 240' svga_s3 "$(sb sb16 'sbbase = 240')" 'PROBE fm opl3' 'PROBE dsp 4.05 240' 'PROBE blaster A240 I7 D1 H5 T6'
+probe_case 'sb16, oplmode opl2' svga_s3 "$(sb sb16 'oplmode = opl2')" 'PROBE fm opl2' 'PROBE dsp 4.05 220'
+probe_case 'sb16, oplmode none' svga_s3 "$(sb sb16 'oplmode = none')" 'PROBE fm none' 'PROBE dsp 4.05 220'
+probe_case 'no card, oplmode opl2' svga_s3 "$(sb none 'oplmode = opl2')" 'PROBE fm opl2' 'PROBE dsp none' 'PROBE blaster none'
+probe_case 'mouse driver off' svga_s3 $'[mouse]\nbuiltin_dos_mouse_driver = off' 'PROBE mouse no'
+probe_case 'joystick 2axis' svga_s3 $'[joystick]\njoysticktype = 2axis' 'PROBE joystick yes'
+probe_case 'machine ega' ega '' 'PROBE video ega'
+probe_case 'machine cga' cga '' 'PROBE video cga'
+probe_case 'machine hercules' hercules '' 'PROBE video mdahercules'
+probe_case 'cputype 386' svga_s3 $'[cpu]\ncputype = 386' 'PROBE cpu 386'
+probe_case 'cputype pentium' svga_s3 $'[cpu]\ncputype = pentium' 'PROBE cpu 586'
+# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB.
+probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-16384'
+probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
+probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 100-1024'
+probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
+# The slice's memory floor: the replay must still play, with the same transcript, on DOSBox's smallest memory size (1 MB).
+status=0
+out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
+[ "$status" = 0 ] || fail "/REPLAY at memsize 1 exited $status"
+got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
+[ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
+printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
+echo "REPLAY at memsize 1 ok"
 
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
