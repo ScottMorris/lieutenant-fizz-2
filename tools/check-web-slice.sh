@@ -7,7 +7,7 @@
 # usage: tools/check-web-slice.sh
 #
 # Runs tools/web-slice-replay.mjs under Node or Bun and compares its output with crates/fizz-ep2/slice-replay.txt: the
-# `SLICE REPLAY 1` header and every `TICK` and `FINAL` line must be identical. It stands beside tools/check-parity.sh, which still
+# `SLICE REPLAY 1` header and every `TICK`, `FINAL` and `EVENT` line must be identical. It stands beside tools/check-parity.sh, which still
 # gates Milestone 0, until the parity gate switches to the slice and this script folds into it. Builds dist/web when it is missing.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -27,8 +27,8 @@ else
   fail "neither node nor bun is installed"
 fi
 
-# The transcript lines that carry the header and the state hashes, with any carriage returns removed.
-lines() { tr -d '\r' | grep -E '^(SLICE REPLAY|TICK|FINAL) ' || true; }
+# The transcript lines that carry the header, the state hashes and the events, with any carriage returns removed.
+lines() { tr -d '\r' | grep -E '^(SLICE REPLAY|TICK|FINAL|EVENT) ' || true; }
 
 lines < "$golden" > "$scratch/golden"
 [ -s "$scratch/golden" ] || fail "no transcript lines in $golden"

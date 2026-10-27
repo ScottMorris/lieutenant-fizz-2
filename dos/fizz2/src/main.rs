@@ -39,8 +39,8 @@ const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
 const LIVE_TICK_CAP: u64 = 1800;
 
-/// Bytes the transcript buffer holds. The slice's transcript is about 700 bytes; the rest is room for the events and lines
-/// that later milestones add to it.
+/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 792 bytes (about 33 bytes for each
+/// 60 ticks and 20 for each cluck), so 8,192 leaves ample room for the lines later milestones add to it.
 const TRANSCRIPT_BYTES: usize = 8192;
 
 /// A fixed buffer for the transcript, so nothing is printed (and no DOS call made) while the screen is in graphics mode.
@@ -250,8 +250,7 @@ fn slice_replay() -> i32 {
     let mut run = 0usize;
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
 
-    let _ = writeln!(out, "SLICE REPLAY 1");
-    let _ = writeln!(out, "TICK 0 HASH {:016x}", fizz_ep2::hash(&world).finish());
+    let _ = fizz_ep2::replay::write_start(&mut out, &world);
     draw_slice_frame(&mut display, &mut frame, &world);
 
     while world.tick.0 < SLICE_TICKS {
@@ -268,20 +267,13 @@ fn slice_replay() -> i32 {
             left = left.saturating_sub(1);
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
             prev = now;
-            if world.tick.0.is_multiple_of(60) {
-                let _ = writeln!(out, "TICK {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
-            }
+            let _ = fizz_ep2::replay::write_step(&mut out, &world);
         }
         if due > 0 {
             draw_slice_frame(&mut display, &mut frame, &world);
         }
     }
-    let _ = writeln!(
-        out,
-        "FINAL TICK {} HASH {:016x}",
-        world.tick.0,
-        fizz_ep2::hash(&world).finish()
-    );
+    let _ = fizz_ep2::replay::write_final(&mut out, &world);
 
     let cw = fpu::control_word();
     let bios_end = timer::bios_ticks();

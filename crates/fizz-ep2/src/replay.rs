@@ -9,10 +9,17 @@
 //!
 //! The shape mirrors `fizz_hello::replay` so a presenter swaps one for the other: [`replay`] writes transcript v1, whose
 //! header is `SLICE REPLAY 1`, then `TICK <n> HASH <digest>` at tick 0 and every 60th tick, then
-//! `FINAL TICK <n> HASH <digest>`.
+//! `FINAL TICK <n> HASH <digest>`. Between them sit `EVENT <n> cluck <variant>` lines, one per [`Event::Cluck`] the rules
+//! emitted on tick `n`. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
+//! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
+//! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
+//! kind is why the gates compare `EVENT` lines too. The header stays `1` because no existing line changed its shape.
+//!
+//! A presenter that paces the script itself (the DOS build does, one tick per pacer tick) calls [`write_step`] after each
+//! step and [`write_final`] at the end, and gets the same bytes [`replay`] writes.
 
 use crate::level;
-use crate::world::{hash, step};
+use crate::world::{Event, World, hash, step};
 use fizz_sim::{Buttons, InputFrame};
 
 const IDLE: Buttons = Buttons::NONE;
@@ -154,27 +161,50 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
 /// The number of ticks the transcript covers.
 pub const SLICE_TICKS: u64 = 1268;
 
-/// Writes transcript v1 of the slice script: a hash at tick 0, every 60th tick, and the final tick.
-pub fn replay(out: &mut impl core::fmt::Write) -> core::fmt::Result {
-    let mut w = level::world();
-    let mut prev = Buttons::NONE;
+/// Writes the header and the tick 0 line.
+pub fn write_start(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
     writeln!(out, "SLICE REPLAY 1")?;
-    writeln!(out, "TICK 0 HASH {:016x}", hash(&w).finish())?;
-    for &(frames, now) in SLICE_SCRIPT {
-        for _ in 0..frames {
-            step(&mut w, InputFrame::from_transition(prev, now));
-            prev = now;
-            if w.tick.0.is_multiple_of(60) {
-                writeln!(out, "TICK {} HASH {:016x}", w.tick.0, hash(&w).finish())?;
-            }
+    writeln!(out, "TICK 0 HASH {:016x}", hash(w).finish())
+}
+
+/// Writes what the step that just ran contributes: an `EVENT` line for each event, then a `TICK` line when the tick is a
+/// multiple of 60.
+pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
+    for e in w.events() {
+        match *e {
+            Event::Cluck { variant } => writeln!(out, "EVENT {} cluck {variant}", w.tick.0)?,
         }
     }
+    if w.tick.0.is_multiple_of(60) {
+        writeln!(out, "TICK {} HASH {:016x}", w.tick.0, hash(w).finish())?;
+    }
+    Ok(())
+}
+
+/// Writes the `FINAL` line.
+pub fn write_final(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
     writeln!(
         out,
         "FINAL TICK {} HASH {:016x}",
         w.tick.0,
-        hash(&w).finish()
+        hash(w).finish()
     )
+}
+
+/// Writes transcript v1 of the slice script: a hash at tick 0, every 60th tick, and the final tick, with an `EVENT` line
+/// for every event in between.
+pub fn replay(out: &mut impl core::fmt::Write) -> core::fmt::Result {
+    let mut w = level::world();
+    let mut prev = Buttons::NONE;
+    write_start(out, &w)?;
+    for &(frames, now) in SLICE_SCRIPT {
+        for _ in 0..frames {
+            step(&mut w, InputFrame::from_transition(prev, now));
+            prev = now;
+            write_step(out, &w)?;
+        }
+    }
+    write_final(out, &w)
 }
 
 #[cfg(test)]
@@ -202,7 +232,12 @@ mod tests {
     fn the_transcript_has_the_v1_shape() {
         let t = transcript();
         assert!(t.ends_with('\n'));
-        let lines: Vec<&str> = t.lines().collect();
+        let all: Vec<&str> = t.lines().collect();
+        let lines: Vec<&str> = all
+            .iter()
+            .copied()
+            .filter(|l| !l.starts_with("EVENT "))
+            .collect();
         let last_tick = SLICE_TICKS / 60 * 60;
         // Header, tick 0, every 60th tick, the final line.
         assert_eq!(lines.len() as u64, 3 + last_tick / 60);
@@ -213,6 +248,49 @@ mod tests {
         let final_line = lines[lines.len() - 1];
         assert!(final_line.starts_with(&std::format!("FINAL TICK {SLICE_TICKS} HASH ")));
         assert_eq!(final_line.rsplit(' ').next().unwrap().len(), 16);
+    }
+
+    /// The `(tick, variant)` of every `EVENT` line.
+    fn events() -> Vec<(u64, u8)> {
+        transcript()
+            .lines()
+            .filter_map(|l| l.strip_prefix("EVENT "))
+            .map(|l| {
+                let f: Vec<&str> = l.split(' ').collect();
+                assert_eq!(f[1], "cluck");
+                (f[0].parse().unwrap(), f[2].parse().unwrap())
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_transcript_has_a_handful_of_clucks_in_range() {
+        let e = events();
+        assert!(
+            (3..=40).contains(&e.len()),
+            "{} clucks in {SLICE_TICKS} ticks",
+            e.len()
+        );
+        assert!(e.windows(2).all(|p| p[0].0 <= p[1].0), "ticks ascend");
+        assert!(
+            e.iter()
+                .all(|&(t, v)| (1..=SLICE_TICKS).contains(&t) && v < crate::CLUCK_VARIANTS)
+        );
+    }
+
+    #[test]
+    fn an_event_line_precedes_the_tick_line_of_its_tick() {
+        let mut w = level::world();
+        w.tick = fizz_sim::Tick(59);
+        w.chickens[0].cluck_timer = 1;
+        step(&mut w, InputFrame::from_transition(IDLE, IDLE));
+        assert_eq!(w.events().len(), 1);
+        let mut s = String::new();
+        write_step(&mut s, &w).unwrap();
+        let lines: Vec<&str> = s.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].starts_with("EVENT 60 cluck "));
+        assert!(lines[1].starts_with("TICK 60 HASH "));
     }
 
     #[test]

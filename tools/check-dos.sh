@@ -30,15 +30,15 @@ printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not rest
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
 { [ -n "$bios" ] && [ "$bios" -ge 180 ] && [ "$bios" -le 184 ]; } || fail "BIOS TICKS '$bios' is outside 180-184"
 
-# 1b. The slice replay: /SLICE plays the slice script (1,268 ticks, about 21 seconds) and its TICK and FINAL lines equal the slice's
+# 1b. The slice replay: /SLICE plays the slice script (1,268 ticks, about 21 seconds) and its TICK, FINAL and EVENT lines equal the slice's
 # golden transcript. Ben must reach the exit, and the same platform lines hold. The BIOS tick counter runs at 18.2065 Hz, so 1,268
 # ticks of 60.0011 Hz is about 385 of its ticks; the bound is the M0 one (two either side) around that.
 status=0
 out="$(tools/dosrun.sh dist/dos FIZZ2.EXE /SLICE)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/SLICE exited $status"
-got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL) ' || true)"
-want="$(tr -d '\r' < crates/fizz-ep2/slice-replay.txt | grep -E '^(TICK|FINAL) ')"
+got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
+want="$(tr -d '\r' < crates/fizz-ep2/slice-replay.txt | grep -E '^(TICK|FINAL|EVENT) ')"
 [ "$got" = "$want" ] || fail "/SLICE transcript differs from crates/fizz-ep2/slice-replay.txt"
 printf '%s\n' "$out" | grep -qx 'SLICE REPLAY 1' || fail "no 'SLICE REPLAY 1' line"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/SLICE did not reach the exit"
