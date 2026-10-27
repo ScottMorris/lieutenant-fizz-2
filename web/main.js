@@ -5,7 +5,7 @@
 //
 // Every URL is relative so the bundle works under any base path. The wasm module is the only import. The Rust side draws the frame
 // into its own memory; this file only copies those pixels onto the canvas and prints the HUD.
-import init, { SliceApp } from "./pkg/fizz_present_web.js";
+import init, { App } from "./pkg/fizz_present_web.js";
 
 // Button bits match `fizz_sim::Buttons`.
 const UP = 1;
@@ -127,7 +127,7 @@ async function toggleFullscreen() {
 
 async function main() {
   const wasm = await init();
-  const app = new SliceApp();
+  const app = new App();
 
   let layout = loadLayout();
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.

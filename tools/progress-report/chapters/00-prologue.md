@@ -12,7 +12,7 @@ The repository's rule for every milestone is that it ships on both presentations
 
 <!-- figure layers -->
 
-What exists on `main` at `{{head}}` is the Milestone 0 skeleton: a yellow marker that moves with the arrow keys or WASD, dashes with Space, and hashes its state every tick, built natively, as WebAssembly and as a DOS executable. The three builds print the same transcript, ending `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`. The rest of this archive is how that came to be, how it is checked, and what comes next.
+What exists on `main` at `{{head}}` is the Milestone 0 skeleton: a yellow marker that moves with the arrow keys or WASD, dashes with Space, and hashes its state every tick, built natively, as WebAssembly and as a DOS executable. The three builds print the same transcript, ending `FINAL TICK {{m0.finalTick}} HASH {{m0.final}}`. The rest of this archive is how that came to be, how it is checked, and what comes next.
 
 <!-- facts prs commitsAll files crates rustLines tests -->
 
@@ -22,7 +22,7 @@ Fizz 1 (`liminal-hq/lieutenant-fizz`) stays as it is: a working multiplatform pr
 
 ### Catalogued
 - The parity rule and the layers are written down in `docs/ARCHITECTURE.md` and `AGENTS.md` on `main`, and `python3 -I tools/check-docs.py` passes on them in CI.
-- The skeleton's transcript is the same on native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{golden.final}}` (chapter 4).
+- The skeleton's transcript is the same on native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{m0.final}}` (chapter 4).
 
 ### Uncatalogued
 - The game itself: no level, sprite, enemy, sound or save exists.

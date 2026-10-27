@@ -6,7 +6,7 @@ date: 2026-10-27
 summary: The same FINAL TICK 600 HASH on native, Web and DOS, the three numeric rules that make it possible, and the script and CI job that enforce it.
 prs: [7]
 ---
-The state hash is the arbiter between the platforms. After every tick the rules hash, in a fixed order, the tick as a `u64`, then `x`, `y`, `vx`, `vy` and `heading` as the bits of an `f64`, then `dashes` as a `u32`, with FNV-1a; a test locks the order. A replay of `M0_SCRIPT` prints transcript version 1: the line `M0 REPLAY 1`, a `TICK` line at tick 0 and after every 60 ticks, and a `FINAL` line. All three platforms print the golden file, `crates/fizz-hello/m0-replay.txt`, which ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`.
+The state hash is the arbiter between the platforms. After every tick the rules hash, in a fixed order, the tick as a `u64`, then `x`, `y`, `vx`, `vy` and `heading` as the bits of an `f64`, then `dashes` as a `u32`, with FNV-1a; a test locks the order. A replay of `M0_SCRIPT` prints transcript version 1: the line `M0 REPLAY 1`, a `TICK` line at tick 0 and after every 60 ticks, and a `FINAL` line. All three platforms print the golden file, `crates/fizz-hello/m0-replay.txt`, which ends `FINAL TICK {{m0.finalTick}} HASH {{golden.final}}`.
 
 <!-- figure parity -->
 
@@ -22,7 +22,7 @@ Interrupt handlers never touch the x87, and the HAL, the DOS presenter and the r
 
 ## The replay, tick by tick
 
-The script runs for {{golden.finalTick}} ticks: idle, a run right, a diagonal, dashes while moving and while still, a long run left into the clamp, a run up, and an idle tail that lets the velocity decay to the snap.
+The script runs for {{m0.finalTick}} ticks: idle, a run right, a diagonal, dashes while moving and while still, a long run left into the clamp, a run up, and an idle tail that lets the velocity decay to the snap.
 
 <!-- explainer replay -->
 
@@ -30,7 +30,7 @@ The script runs for {{golden.finalTick}} ticks: idle, a run right, a diagonal, d
 
 ## The script and the CI job (#7)
 
-`tools/check-parity.sh` runs the replay natively with `cargo run -p fizz-hello --example replay`, in the built WebAssembly module under Node or Bun with `tools/web-replay.mjs`, and in headless DOSBox with `FIZZ2.EXE /REPLAY`. It compares only the `TICK` and `FINAL` lines of each with the golden file (carriage returns removed), requires the version line from native and Web, and prints `PARITY ok <hash>`. Platform lines such as `FPU`, `BIOS` and `VECTORS` use other prefixes and are checked by `tools/check-dos.sh`.
+At Milestone 0, `tools/check-parity.sh` ran the replay natively with `cargo run -p fizz-hello --example replay`, in the built WebAssembly module under Node or Bun with `tools/web-replay.mjs`, and in headless DOSBox with `FIZZ2.EXE /REPLAY`. It compared only the `TICK` and `FINAL` lines of each with the golden file (carriage returns removed), required the version line from native and Web, and printed `PARITY ok <hash>`. `fizz-hello` is deleted; the script now runs `fizz-ep2`'s replay example and compares the slice's golden file, `crates/fizz-ep2/slice-replay.txt`, with `EVENT` lines included. Platform lines such as `FPU`, `BIOS` and `VECTORS` use other prefixes and are checked by `tools/check-dos.sh`.
 
 The `parity` job in `.github/workflows/ci.yml` runs in the shared `ci-dos` image pinned by digest (`{{sc.ciImage}}`), which brings Rust, the `wasm32` and `i586` targets, Bun, DJGPP, DOSBox Staging and CWSDPMI. It installs the pinned `wasm-bindgen` command-line tool (cached), links the toolchain, and runs `tools/check-dos.sh`, `tools/build-web.sh` and `tools/check-parity.sh`. This is the output of the same three scripts run on the tree of `main`:
 

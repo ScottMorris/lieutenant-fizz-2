@@ -167,7 +167,7 @@ def layers(D):
 # ---- the three-platform parity picture -------------------------------------------------------------------------------------------
 
 def parity(D):
-    g = D["facts"]["golden"]
+    g = D["facts"]["m0"]["golden"]
     m = D.get("measured") or {}
     final = g.get("final") or "unknown"
     if m.get("parityHash") and m["parityHash"] != final:
@@ -191,7 +191,7 @@ def parity(D):
             o.append('<text x="%d" y="%d" text-anchor="middle" font-size="11.5" class="a-t2 a-t2-built">%s</text>' % (x + BW / 2, 130 + k * 16, esc(t)))
         o.append('<line x1="%d" y1="%d" x2="450" y2="226" class="d-line" stroke-width="1.3" marker-end="url(#par-arrow)"/>' % (x + BW / 2, 88 + BH))
     o.append('<rect x="250" y="228" width="400" height="58" rx="6" class="a-built" stroke-width="2.2"/>'
-             '<text x="450" y="250" text-anchor="middle" font-size="12" class="a-t2 a-t2-built">TICK and FINAL lines equal crates/fizz-hello/m0-replay.txt</text>'
+             '<text x="450" y="250" text-anchor="middle" font-size="12" class="a-t2 a-t2-built">TICK and FINAL lines equal the M0 golden file</text>'
              '<text x="450" y="273" text-anchor="middle" font-size="14" class="a-t1 a-t1-built num">FINAL TICK %d HASH %s</text>' % (g.get("finalTick") or 0, esc(final)))
     o.append('<text x="450" y="314" text-anchor="middle" font-size="12" class="d-text2">tools/check-parity.sh prints PARITY ok %s</text></svg>' % esc(final))
     cap = ("The parity gate. The final hash is read from the golden file in the tree; <code>snapshots/measured.json</code> holds the run of "
@@ -347,7 +347,7 @@ def held_between(runs, a, b):
 
 
 def replay(D, ctx):
-    g = D["facts"]["golden"]
+    g = D["facts"]["m0"]["golden"]
     m = D.get("measured") or {}
     text = g.get("text") or ""
     lines = [l for l in text.splitlines() if l.strip()]
@@ -356,8 +356,8 @@ def replay(D, ctx):
     dos = [l for l in (m.get("dosReplay") or [])]
     want = [l for l in lines if l.startswith(("TICK ", "FINAL "))]
     if dos and [l for l in dos if l.startswith(("TICK ", "FINAL "))] != want:
-        raise ValueError("the measured DOS replay in snapshots/measured.json does not match the golden transcript")
-    runs = D["facts"].get("script") or []
+        raise ValueError("the measured DOS replay in snapshots/measured.json does not match the Milestone 0 transcript in snapshots/m0.json")
+    runs = D["facts"]["m0"].get("script") or []
     if runs and sum(r["frames"] for r in runs) != g.get("finalTick"):
         raise ValueError("M0_SCRIPT covers %d ticks but the golden transcript ends at tick %s" % (sum(r["frames"] for r in runs), g.get("finalTick")))
     platform = [l for l in dos if l.startswith(("FPU ", "BIOS ", "VECTORS "))]
@@ -381,12 +381,12 @@ def replay(D, ctx):
     for l in platform:
         word = l.split()[0]
         why = {"FPU": "The x87 control word after the replay: `027F` is 53-bit precision with every exception masked. `FNINIT` alone leaves `037F`.",
-               "BIOS": "BIOS clock ticks counted while the replay ran. `tools/check-dos.sh` accepts %s; the timer chapter derives the figure." % (D["facts"]["scraped"].get("biosRange") or "a narrow range"),
+               "BIOS": "BIOS clock ticks counted while the replay ran. `tools/check-dos.sh` accepts %s; the timer chapter derives the figure." % (D["facts"]["m0"]["scraped"].get("biosRange") or "a narrow range"),
                "VECTORS": "IRQ 0 and IRQ 1 are back to the vectors found at start-up."}[word]
         steps.append(("DOS only: %s" % word, "`%s`. %s" % (l, why)))
         at.append(len(steps) - 1)
     stage = console(shown, at, "The golden transcript, followed by the DOS platform lines")
-    cap = ("Every line comes from <code>crates/fizz-hello/m0-replay.txt</code> in the tree, followed by the platform lines of the measured DOS run in <code>snapshots/measured.json</code>. "
+    cap = ("Every line comes from the Milestone 0 transcript in <code>snapshots/m0.json</code>, followed by the platform lines of the measured DOS run in <code>snapshots/measured.json</code>. "
            "The build refuses a measured DOS run whose <code>TICK</code> and <code>FINAL</code> lines differ from the golden file.")
     return stepper("replay", "The golden replay, line by line", stage, steps, cap, ctx)
 
@@ -402,7 +402,7 @@ def timer(D, ctx):
     div = sc.get("pitDivisor")
     if not div:
         raise ValueError("no PIT divisor in docs/PLATFORM.md")
-    ticks = D["facts"]["golden"].get("finalTick") or 600
+    ticks = D["facts"]["m0"]["golden"].get("finalTick") or 600
     derived = ticks * div // 65536
     seen = m.get("biosTicks")
     if seen is not None and abs(seen - derived) > 1:

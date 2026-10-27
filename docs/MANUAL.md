@@ -44,18 +44,17 @@ On the Web, press `F` or use the Fullscreen button to fill the screen, and press
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /SLICE`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`.
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`.
 
 - `/LIVE` — you play the slice. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether Ben moved from where he started.
-- `/SLICE` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
-- `/REPLAY` — plays the earlier 10-second test program script by itself, with no keyboard input, then prints its list of hashes. It is kept for the test program and will go when the test program does.
+- `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
 - `/PANIC` — makes the program stop on purpose, to show that it puts the keyboard, timer and screen mode back as it found them. It is a test, and it exits with status 3.
 
 ## The slice on DOS
 
 ![The DOS build in DOSBox, a few seconds into the built-in run: Ben on a ledge of the shaft facing the chicken, with the HUD along the top.](img/dos-slice.png)
 
-*Screenshot of the DOS build with the slice, `FIZZ2.EXE /SLICE` in DOSBox Staging, at tick 249 of the built-in run. The emulator scales the 320 by 200 picture up.*
+*Screenshot of the DOS build with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, at tick 249 of the built-in run. The emulator scales the 320 by 200 picture up.*
 
 You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. There is no sound.
 
@@ -136,7 +135,7 @@ Both versions draw the same picture, a 320 by 200 window that follows Ben as he 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Neither version makes sound yet.
-- **Different:** the DOS version has an Esc key, four modes (`/LIVE`, `/MODERN`, `/SLICE` and `/REPLAY`) and a 30-second limit in `/LIVE`; the Web version has Keys, Restart and Fullscreen buttons, a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, three modes (`/LIVE`, `/MODERN` and `/REPLAY`) and a 30-second limit in `/LIVE`; the Web version has Keys, Restart and Fullscreen buttons, a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 

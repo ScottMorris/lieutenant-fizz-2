@@ -9,8 +9,9 @@
 from drawings import chart, num
 from mdlite import esc
 
-CRATE_ORDER = ["fizz-sim", "fizz-hello", "fizz-hal", "fizz-present-dos", "fizz-present-web", "fizz-dos-rt", "fizz2", "rtsmoke"]
-WHERE = {"fizz-sim": "crates/fizz-sim", "fizz-hello": "crates/fizz-hello", "fizz-hal": "crates/fizz-hal", "fizz-present-dos": "crates/fizz-present-dos",
+CRATE_ORDER = ["fizz-sim", "fizz-phys", "fizz-ep2", "fizz-hal", "fizz-view", "fizz-slice-view", "fizz-present-dos", "fizz-present-web", "fizz-dos-rt", "fizz2", "rtsmoke"]
+WHERE = {"fizz-sim": "crates/fizz-sim", "fizz-phys": "crates/fizz-phys", "fizz-ep2": "crates/fizz-ep2", "fizz-hal": "crates/fizz-hal",
+         "fizz-view": "crates/fizz-view", "fizz-slice-view": "crates/fizz-slice-view", "fizz-present-dos": "crates/fizz-present-dos",
          "fizz-present-web": "crates/fizz-present-web", "fizz-dos-rt": "dos/rt", "fizz2": "dos/fizz2", "rtsmoke": "dos/rtsmoke"}
 
 
@@ -30,7 +31,7 @@ def bars(rows, title, label_w=170, bar_w=420, unit=""):
 
 def loc_by_crate(D):
     loc = D["facts"]["loc"]
-    rows = [(c, loc.get(c, 0), "e11" if c.startswith(("fizz-sim", "fizz-hello")) else ("e10" if c.startswith("fizz-present") else ("e14" if c == "fizz-hal" else "e13"))) for c in CRATE_ORDER]
+    rows = [(c, loc.get(c, 0), "e11" if c.startswith(("fizz-sim", "fizz-phys", "fizz-ep2")) else ("e10" if c.startswith("fizz-present") else ("e14" if c == "fizz-hal" else "e13"))) for c in CRATE_ORDER]
     rows += [("web/ (HTML, JS, CSS)", loc.get("web", 0), "e7"), ("tools/ scripts", loc.get("tools", 0), "e7"), ("docs/", loc.get("docs", 0), "e7")]
     cap = ("Newlines per Rust package (cyan: rules; green: presenters; yellow: the HAL; magenta: the DOS workspace) and in the page, scripts and documents, "
            "counted in the tree of <code>main</code> by <code>gather.py</code>. Paths: %s.") % ", ".join("<code>%s</code>" % WHERE[c] for c in CRATE_ORDER)

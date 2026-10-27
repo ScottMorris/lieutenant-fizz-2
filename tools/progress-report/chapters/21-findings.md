@@ -48,7 +48,7 @@ These are the open questions of `docs/ARCHITECTURE.md`, as written there.
 - **DOSBox as the only DOS.** Every DOS result comes from one emulator, one DPMI host and its built-in DOS.
 - **The Web page without a browser test.** Parity is proved on the module under Node and Bun; the page's key handling has been driven only by the headless captures of chapter 4.
 - **Mirrored code.** `fizz-hal` and `fizz-dos-rt` mirror Desk; swapping in the real crates later may move behaviour the parity gate does not cover, such as timing and clean-up.
-- **The skeleton's rules are throwaway.** The parity result covers `fizz-hello`; the real rules start over with their own golden traces.
+- **The skeleton's rules are throwaway.** The parity result covered `fizz-hello`, which is deleted; the real rules start over with their own golden traces.
 
 ## The shelves
 
