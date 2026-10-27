@@ -163,7 +163,7 @@ pub fn replay(out: &mut impl core::fmt::Write) -> core::fmt::Result {
         for _ in 0..frames {
             step(&mut w, InputFrame::from_transition(prev, now));
             prev = now;
-            if w.tick.0 % 60 == 0 {
+            if w.tick.0.is_multiple_of(60) {
                 writeln!(out, "TICK {} HASH {:016x}", w.tick.0, hash(&w).finish())?;
             }
         }
@@ -357,6 +357,11 @@ mod tests {
             Some(tail(lines[11]).as_str())
         );
         assert_eq!(tail(lines[11]).len(), 16);
+    }
+
+    #[test]
+    fn the_transcript_matches_the_golden_file() {
+        assert_eq!(transcript(), include_str!("../m0-replay.txt"));
     }
 
     #[test]
