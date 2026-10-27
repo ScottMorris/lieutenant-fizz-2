@@ -67,6 +67,19 @@ The executable holds code and small constant tables. Sprites, tile sets, backdro
 
 Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `titles.bin` (54,488 bytes) in its DOS executable. That is about 436 KB of its 862 KB stripped executable, and sound is the largest part. The size budget in [`PLATFORM.md`](PLATFORM.md#size-budget) counts the executable and the packs together.
 
+## Web view and pixel-locking
+
+This is the plan for Milestone 3; nothing is built. The Web page today scales a fixed 320 by 200 canvas to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
+
+- **The Web view is not a projection of a fixed frame.** It fills the window and shows more of the level on larger screens, as Fizz 1's does. DOS keeps its fixed 320 by 200 mode 13h frame.
+- **Pixels are square.** The Web view does not stretch to the 4:3 shape of a CRT.
+- **The HUD stays page text on the Web.** DOS draws its HUD inside the frame.
+- **Fizz 1 is the model.** Its camera works from a target tile count (13 tiles tall for levels, 12 for the map, 14 for cinematics). Its Sharp mode picks a whole-number scale, `max(2, floor(viewport height / (16 x target tiles)))`, and the leftover height shows more of the level. Its Fast mode draws one canvas pixel per sprite pixel and sizes the canvas box so the browser's upscale is an exact whole number. Its camera snaps to the canvas-pixel grid, so scenes move by whole pixels and nothing shimmers. A zoom, from a close-up of 3 times to a whole-level overview, changes how many tiles are visible. Fizz 1's desktop default is its Soft mode, which uses a fractional scale on a device-pixel canvas; its whole-number modes are Sharp and Fast. Fizz 2's Web view uses the whole-number behaviour so the image stays crisp.
+- **Fizz 1 sets no maximum scale.** The scale grows with the window, so a larger screen shows the same number of tiles at a larger size unless the player zooms out. A pixel budget of 3840 by 2160 limits the canvas backing, not the scale.
+- **Rounding is decided once.** The Web marker is drawn with `Math.round` and DOS truncates with `as i32`, so the two can differ by a pixel. One shared rule, written in Rust and tested, replaces both.
+
+The open question is whether Fizz 2 shows more level on large screens by default, with a larger target tile count or a capped scale, or leaves that to a zoom control as Fizz 1 does. It is decided at Milestone 3 with real levels, because the size of the view changes how much of a maze the player can see.
+
 ## Crate plan
 
 Crates arrive with their first consumer and test. Milestone 0 built the platform skeleton, a marker moved by input and hashed on every platform, so the crates below marked Exists are real but carry only that much behaviour. [`PLATFORM.md`](PLATFORM.md) describes how they fit together.
@@ -104,5 +117,6 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - Which language does the baker use? Rust is preferred so it shares types.
 - Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits?
+- How much level does the Web view show on a large screen by default: a larger target tile count, a capped scale, or only a zoom control?
 - What pack granularity and compression does Episode 2 use: one pack per world or per level, and whether packs are compressed, which trades load time against floppy space?
 - How are sprites laid out in a pack: bits per pixel, a mask or a transparent colour, and whether a sprite is stored as runs?
