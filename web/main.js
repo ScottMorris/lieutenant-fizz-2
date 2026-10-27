@@ -30,8 +30,11 @@ const hud = document.getElementById("hud");
 const ctx = canvas.getContext("2d");
 
 function draw(app) {
-  ctx.fillStyle = "#000020";
+  ctx.fillStyle = "#0000aa";
   ctx.fillRect(0, 0, 320, 200);
+  ctx.strokeStyle = "#aaaaaa";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, 319, 199);
   const x = Math.round(app.marker_x());
   const y = Math.round(app.marker_y());
   ctx.fillStyle = "#55ffff";
