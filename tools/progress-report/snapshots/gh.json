@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T17:43:39-04:00",
+ "capturedAt": "2026-10-27T17:45:31-04:00",
  "data": {
   "prs": [
    {
@@ -1637,10 +1637,12 @@
       "name": "dos"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "cc1d7ac2644cc3d10197b22c2527f90429323e89"
+    },
+    "mergedAt": "2026-10-27T21:45:14Z",
     "number": 39,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Add a DOS /BENCH mode that times the step, the drawing and the copy",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/39"
    },
@@ -1757,10 +1759,12 @@
       "name": "graphics"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "cc1d7ac2644cc3d10197b22c2527f90429323e89"
+    },
+    "mergedAt": "2026-10-27T21:45:15Z",
     "number": 42,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Speed up the slice drawing on DOS, measured with /BENCH",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/42"
    },
@@ -1921,10 +1925,12 @@
       "name": "dos"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "cc1d7ac2644cc3d10197b22c2527f90429323e89"
+    },
+    "mergedAt": "2026-10-27T21:45:16Z",
     "number": 46,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Fix the /BENCH cycle setting and correct the measured figures",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/46"
    },
@@ -1989,9 +1995,81 @@
     "state": "OPEN",
     "title": "Add look up, look down and aim up and down, proven against Fizz 1",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/47"
+   },
+   {
+    "additions": 874,
+    "baseRefName": "main",
+    "changedFiles": 28,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T21:44:50Z",
+    "deletions": 69,
+    "headRefName": "feat/chicken-cluck-visuals",
+    "headRefOid": "161161455262f0babfd8ba747181d15eb739c0d9",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 48,
+    "state": "OPEN",
+    "title": "Open the chicken's beak and float a caption when it clucks",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/48"
    }
   ],
   "runs": [
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T21:45:20Z",
+    "displayTitle": "Fix the /BENCH cycle setting and correct the measured figures (#46)",
+    "event": "push",
+    "headSha": "cc1d7ac2644cc3d10197b22c2527f90429323e89",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40589399783",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-27T21:12:58Z",
