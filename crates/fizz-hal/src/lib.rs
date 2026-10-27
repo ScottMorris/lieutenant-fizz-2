@@ -11,13 +11,18 @@
 
 #[cfg(feature = "mock")]
 extern crate alloc;
+// Host tests only: the ring's threaded test needs `std`; the library itself never links it.
+#[cfg(test)]
+extern crate std;
 
 pub mod input;
+pub mod ring;
 pub mod scancode;
 pub mod time;
 pub mod video;
 
 pub use input::{InputSource, KeyCode, KeyEvent};
+pub use ring::{Consumer, Producer, SpscRing};
 pub use scancode::Set1Decoder;
 pub use time::{Clock, Pacer, Ticks};
 pub use video::{Display, HalError, ModeInfo, Rgb6};
