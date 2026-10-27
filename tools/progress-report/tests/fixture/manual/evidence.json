@@ -1,0 +1,6 @@
+{
+ "sections": [
+  {"section": "Controls", "shelf": "catalogued", "prs": [2], "evidence": "A fixture check.", "gaps": "a fixture gap."},
+  {"section": "The screen", "shelf": "uncatalogued", "evidence": "Nothing checks the fixture screen."}
+ ]
+}

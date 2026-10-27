@@ -28,11 +28,13 @@ import drawings as dr  # noqa: E402
 import figures  # noqa: E402
 import flows  # noqa: E402
 import gather  # noqa: E402
+import manual  # noqa: E402
 import mdlite  # noqa: E402
 
 ENV = dict(os.environ, GIT_AUTHOR_NAME="T", GIT_AUTHOR_EMAIL="t@example.com", GIT_COMMITTER_NAME="T", GIT_COMMITTER_EMAIL="t@example.com",
            GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
 REAL = os.path.join(TOOL, "chapters")
+NO_MANUAL = tempfile.mkdtemp(prefix="fizz2-nomanual.")  # a root without docs/MANUAL.md, for the fixture chapters
 
 
 def rd(path):
@@ -226,7 +228,7 @@ class BuildTests(unittest.TestCase):
     def build_fixture(self, out, chapters_dir=None):
         data = fixture_data()
         chapters = build.load_chapters(chapters_dir or os.path.join(HERE, "fixture", "chapters"))
-        build.Site(data, chapters, os.path.join(HERE, "fixture", "pages"), out, assets=False).write()
+        build.Site(data, chapters, os.path.join(HERE, "fixture", "pages"), out, assets=False, manual_root=NO_MANUAL).write()
         return chapters
 
     def test_fixture_site_is_valid_and_links_resolve(self):
@@ -259,7 +261,7 @@ class BuildTests(unittest.TestCase):
     def test_build_does_not_clear_a_directory_it_did_not_make(self):
         with tempfile.TemporaryDirectory() as d:
             wr(os.path.join(d, "precious.txt"), "keep me\n")
-            site = build.Site(fixture_data(), build.load_chapters(os.path.join(HERE, "fixture", "chapters")), os.path.join(HERE, "fixture", "pages"), d, assets=False)
+            site = build.Site(fixture_data(), build.load_chapters(os.path.join(HERE, "fixture", "chapters")), os.path.join(HERE, "fixture", "pages"), d, assets=False, manual_root=NO_MANUAL)
             with self.assertRaises(ValueError):
                 site.write()
             self.assertTrue(os.path.exists(os.path.join(d, "precious.txt")))
@@ -280,7 +282,7 @@ class FigureTests(unittest.TestCase):
         wr(os.path.join(ch, "00-one.md"), "---\nid: one\nn: 1\ntitle: One\ndate: 2026-10-27\nsummary: S\nprs: []\n---\nText.\n\n<!-- figure layers -->\n%s\n### Catalogued\n- a\n\n### Uncatalogued\n- b\n\n### Wish list\n- c\n\n```figures\n%s\n```\n" % (extra, figs))
         site = os.path.join(out, "site")
         chapters = build.load_chapters(ch)
-        build.Site(fixture_data(), chapters, os.path.join(HERE, "fixture", "pages"), site, assets=False).write()
+        build.Site(fixture_data(), chapters, os.path.join(HERE, "fixture", "pages"), site, assets=False, manual_root=NO_MANUAL).write()
         return site, [p for p in build.check_site(site, ["one"]) if "captures.json" not in p and "media/" not in p]
 
     def test_a_registered_figure_gets_an_anchor_and_a_gallery_tile(self):
@@ -396,6 +398,76 @@ class DrawingTests(unittest.TestCase):
             flows.dos_transcript(D)
 
 
+FIXTURE_MANUAL = os.path.join(HERE, "fixture", "manual")
+
+
+class ManualTests(unittest.TestCase):
+    """The Manual page renders docs/MANUAL.md from a given root, copies its images, checks its links, and is left out when the file
+    does not exist."""
+
+    def site(self, root, evidence=None):
+        out = tempfile.mkdtemp()
+        site = os.path.join(out, "site")
+        chapters = build.load_chapters(os.path.join(HERE, "fixture", "chapters"))
+        build.Site(fixture_data(), chapters, os.path.join(HERE, "fixture", "pages"), site, assets=False, manual_root=root,
+                   manual_evidence=evidence or os.path.join(FIXTURE_MANUAL, "evidence.json")).write()
+        return site, chapters
+
+    def copy_fixture(self):
+        d = tempfile.mkdtemp()
+        import shutil
+        shutil.copytree(os.path.join(FIXTURE_MANUAL, "docs"), os.path.join(d, "docs"))
+        return d
+
+    def test_the_page_renders_the_manual_with_its_images_and_links(self):
+        site, chapters = self.site(FIXTURE_MANUAL)
+        page = rd(os.path.join(site, "manual.html"))
+        self.assertIn("<h1>Fixture Game — Player&#x27;s Manual</h1>", page)
+        self.assertIn("rendered from", page)
+        self.assertIn('<img src="manual/docs/img/start.png" alt="The fixture game', page)
+        self.assertTrue(os.path.exists(os.path.join(site, "manual", "docs", "img", "start.png")))
+        self.assertIn('href="https://github.com/ScottMorris/lieutenant-fizz-2/blob/main/docs/OTHER.md#part"', page)
+        self.assertIn("{\u200b{braces}}", page, "braces in the manual are text")
+        self.assertIn('id="what-is-checked"', page)
+        self.assertIn("Not covered: a fixture gap.", page)
+        self.assertRegex(page, r"<th scope=\"row\">Unmapped</th><td><span class=\"an-st an-unverified\">uncatalogued")
+        self.assertIn('href="manual.html"', rd(os.path.join(site, "index.html")))
+        self.assertEqual([p for p in build.check_site(site, [c["id"] for c in chapters]) if "captures.json" not in p and "media/" not in p], [])
+        manifest = json.loads(rd(os.path.join(site, "manifest.json")))
+        self.assertIn("manual.html", manifest["publish"]["files"])
+        self.assertIn("manual/docs/img/start.png", manifest["publish"]["files"])
+
+    def test_a_missing_manual_leaves_out_the_page_and_shows_a_coming_row(self):
+        site, _ = self.site(tempfile.mkdtemp())
+        self.assertFalse(os.path.exists(os.path.join(site, "manual.html")))
+        index = rd(os.path.join(site, "index.html"))
+        self.assertNotIn('href="manual.html"', index)
+        self.assertIn("The player's manual</b> <span class=\"pill pill-coming\">coming", index)
+
+    def test_a_missing_image_or_a_broken_link_fails_the_build(self):
+        for old, new in (("img/start.png", "img/gone.png"), ("OTHER.md#part", "GONE.md"), ("![The fixture game's start screen with a yellow square]", "![]")):
+            d = self.copy_fixture()
+            p = os.path.join(d, "docs", "MANUAL.md")
+            wr(p, rd(p).replace(old, new))
+            with self.assertRaises(mdlite.MdError, msg=new):
+                self.site(d)
+
+    def test_a_mapped_heading_the_manual_lacks_fails_the_build(self):
+        d = tempfile.mkdtemp()
+        wr(os.path.join(d, "evidence.json"), json.dumps({"sections": [{"section": "No such heading", "shelf": "none", "evidence": "x"}]}))
+        with self.assertRaises(mdlite.MdError):
+            self.site(FIXTURE_MANUAL, os.path.join(d, "evidence.json"))
+
+    def test_the_real_evidence_map_matches_the_real_manual(self):
+        text = manual.read(gather.ROOT)
+        if text is None:
+            self.skipTest("docs/MANUAL.md is not in this tree")
+        hs = manual.headings(manual.parse(text)[1])
+        for m in gather.read_json(os.path.join(TOOL, "manual-evidence.json"))["sections"]:
+            self.assertIn(m["section"], hs)
+            self.assertIn(m["shelf"], ("catalogued", "uncatalogued", "none"))
+
+
 def prose_strings():
     """(where, text) for every piece of prose the archive publishes: the chapter and page sources, the JSON data that becomes text,
     the README, the templates, the string literals in the generator's Python, and a fresh build of the site."""
@@ -403,7 +475,9 @@ def prose_strings():
     for sub in ("chapters", "pages", "templates"):
         for name in sorted(os.listdir(os.path.join(TOOL, sub))):
             out.append(("%s/%s" % (sub, name), rd(os.path.join(TOOL, sub, name))))
-    for name in ("README.md", "roadmap.json", "not-verified.json", "anatomy-dos.json", os.path.join("media", "captures.json")):
+    if os.path.exists(os.path.join(gather.ROOT, manual.PATH)):
+        out.append((manual.PATH, rd(os.path.join(gather.ROOT, manual.PATH))))  # the manual is the player's voice, and the patterns still apply
+    for name in ("README.md", "roadmap.json", "not-verified.json", "anatomy-dos.json", "manual-evidence.json", os.path.join("media", "captures.json")):
         if os.path.exists(os.path.join(TOOL, name)):
             out.append((name, rd(os.path.join(TOOL, name))))
     for name in sorted(os.listdir(TOOL)):

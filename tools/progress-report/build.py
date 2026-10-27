@@ -249,12 +249,13 @@ def measured_block(data):
 # ---- the site -----------------------------------------------------------------------------------------------------------------
 
 class Site:
-    def __init__(self, data, chapters, pages_dir, out, assets=True, manual_root=None):
+    def __init__(self, data, chapters, pages_dir, out, assets=True, manual_root=None, manual_evidence=None):
         self.data, self.chapters, self.pages_dir, self.out, self.assets = data, chapters, pages_dir, out, assets
         # docs/MANUAL.md from the working tree of the repository (or of manual_root in the tests); None skips the page
         self.manual_root = manual_root or gather.ROOT
         self.manual_text = manual.read(self.manual_root)
         self.manual_images = []
+        self.manual_evidence = manual_evidence or os.path.join(HERE, "manual-evidence.json")
         self.ids = [c["id"] for c in chapters]
         self.ctx = Ctx(values_of(data), self.ids, data["repo"]["url"], data["prs"])
         self.shelf_items = []
@@ -360,7 +361,7 @@ class Site:
         if mctx.problems:
             raise mdlite.MdError("; ".join(mctx.problems))
         self.manual_images = sorted(set(mctx.images))
-        mapping = gather.read_json(os.path.join(HERE, "manual-evidence.json"))["sections"]
+        mapping = gather.read_json(self.manual_evidence)["sections"]
         table = manual.evidence_table(blocks, mapping, self.data, self.ctx, chapter_state, tag)
         intro = '<p class="lead">The player\'s manual of Lieutenant Fizz 2, %s.</p>' % inline(manual.source_of(self.manual_root), Ctx())
         main = ('<main id="main" class="wrap chapter"><article><header class="chead"><div class="eyebrow">Manual</div><h1>%s</h1>%s</header>'
