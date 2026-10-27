@@ -97,7 +97,7 @@ pub fn key_to_buttons(code: KeyCode) -> Option<Buttons> {
         KeyCode::Down | KeyCode::S => Some(Buttons::DOWN),
         KeyCode::Left | KeyCode::A => Some(Buttons::LEFT),
         KeyCode::Right | KeyCode::D => Some(Buttons::RIGHT),
-        KeyCode::Space => Some(Buttons::ACTION),
+        KeyCode::Space => Some(Buttons::JUMP),
         _ => None,
     }
 }
@@ -122,7 +122,7 @@ mod tests {
             (KeyCode::A, Buttons::LEFT),
             (KeyCode::Right, Buttons::RIGHT),
             (KeyCode::D, Buttons::RIGHT),
-            (KeyCode::Space, Buttons::ACTION),
+            (KeyCode::Space, Buttons::JUMP),
         ];
         for (key, want) in cases {
             assert_eq!(key_to_buttons(key), Some(want), "{key:?}");
