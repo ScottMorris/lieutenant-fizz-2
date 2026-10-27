@@ -14,6 +14,11 @@ use wasm_bindgen::prelude::*;
 /// Most ticks run for one displayed frame. Time beyond this is dropped, so a hidden tab does not cause a burst on return.
 const MAX_CATCH_UP: u32 = 5;
 
+/// Most cluck variants kept between two calls to [`App::take_cluck`]. A page that never drains them (a stalled script, say) must
+/// not grow the queue without bound; clucks past this are dropped, the newest first. One chicken clucks about once a second, so
+/// a page that drains each frame never gets near it.
+const MAX_PENDING_CLUCKS: usize = 32;
+
 /// A clock of whole milliseconds fed by the time JavaScript pushes in.
 #[derive(Debug, Default)]
 pub struct WebClock {
@@ -88,6 +93,9 @@ pub struct App {
     held: Buttons,
     indexed: Vec<u8>,
     rgba: Vec<u8>,
+    /// The cluck variants emitted since the page last drained them, oldest first. `cluck_head` is the next one to hand out.
+    clucks: Vec<u8>,
+    cluck_head: usize,
 }
 
 impl Default for App {
@@ -108,6 +116,8 @@ impl App {
             held: Buttons::NONE,
             indexed: vec![0; VIEW_W * VIEW_H],
             rgba: vec![0; VIEW_W * VIEW_H * 4],
+            clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
+            cluck_head: 0,
         }
     }
 
@@ -139,8 +149,25 @@ impl App {
                 }
             };
             fizz_ep2::step(&mut self.world, input);
+            self.collect_events();
         }
         due
+    }
+
+    /// The next cluck variant (0 to `CLUCK_VARIANTS - 1`) the rules emitted since the last call, oldest first, or -1 when there
+    /// are none left. Call it until it returns -1 after each [`App::frame`]. Each cluck is handed out once and none is lost when
+    /// a frame runs several ticks: the events are read after every step, because the rules clear them on the next one. It
+    /// allocates nothing. The page decides what a cluck sounds like; the rules and the replay transcript never see this.
+    pub fn take_cluck(&mut self) -> i32 {
+        let Some(&variant) = self.clucks.get(self.cluck_head) else {
+            return -1;
+        };
+        self.cluck_head += 1;
+        if self.cluck_head == self.clucks.len() {
+            self.clucks.clear();
+            self.cluck_head = 0;
+        }
+        i32::from(variant)
     }
 
     /// Starts the level again from its first tick. The pacer keeps running, so no time is lost or repeated. Every held key is
@@ -149,6 +176,16 @@ impl App {
         self.world = fizz_ep2::level::world();
         self.latch = InputLatch::new();
         self.held = Buttons::NONE;
+        self.clucks.clear();
+        self.cluck_head = 0;
+    }
+
+    /// Queues the cluck variants the step that just ran emitted.
+    fn collect_events(&mut self) {
+        for event in self.world.events() {
+            let fizz_ep2::Event::Cluck { variant } = *event;
+            queue_cluck(&mut self.clucks, variant);
+        }
     }
 
     /// Draws the current world into the frame buffers.
@@ -221,6 +258,13 @@ impl App {
         self.world
             .flags
             .contains(fizz_ep2::WorldFlags::EXIT_REACHED)
+    }
+}
+
+/// Keeps `variant` for the page unless the queue is full.
+fn queue_cluck(clucks: &mut Vec<u8>, variant: u8) {
+    if clucks.len() < MAX_PENDING_CLUCKS {
+        clucks.push(variant);
     }
 }
 
@@ -411,6 +455,116 @@ mod tests {
         assert_eq!(app.ammo(), fizz_ep2::world::START_AMMO);
         assert!(!app.has_key() && !app.door_open() && !app.exit_reached());
         assert_eq!(app.deaths(), 0);
+    }
+
+    /// Every cluck an idle world emits in its first `ticks` ticks, as `(tick, variant)`, stepped one tick at a time.
+    fn idle_clucks(ticks: u32) -> Vec<(u64, u8)> {
+        let mut w = fizz_ep2::level::world();
+        let mut out = Vec::new();
+        for _ in 0..ticks {
+            fizz_ep2::step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            for e in w.events() {
+                let fizz_ep2::Event::Cluck { variant } = *e;
+                out.push((w.tick.0, variant));
+            }
+        }
+        out
+    }
+
+    fn drain(app: &mut App) -> Vec<u8> {
+        let mut out = Vec::new();
+        loop {
+            let v = app.take_cluck();
+            if v < 0 {
+                return out;
+            }
+            out.push(u8::try_from(v).unwrap());
+        }
+    }
+
+    #[test]
+    fn a_cluck_in_an_early_tick_of_a_multi_tick_frame_is_not_lost() {
+        let first = idle_clucks(400)[0];
+        let mut app = App::new();
+        app.frame(0.0);
+        // Run to the tick before the first cluck, one tick per frame, then one frame of three ticks that covers it with
+        // two further ticks after it. Only the earliest of the three steps emits the event.
+        let mut now_ms = 0.0;
+        while app.tick() < (first.0 - 1) as f64 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+        }
+        assert!(drain(&mut app).is_empty());
+        now_ms += 3.0 * FRAME_MS;
+        assert_eq!(app.frame(now_ms), 3);
+        assert_eq!(app.tick(), (first.0 + 2) as f64);
+        assert!(app.world.events().is_empty(), "the last step emitted none");
+        assert_eq!(drain(&mut app), vec![first.1]);
+    }
+
+    #[test]
+    fn every_cluck_is_handed_out_once_in_order_whatever_the_frame_size() {
+        let expected: Vec<u8> = idle_clucks(1500).iter().map(|&(_, v)| v).collect();
+        assert!(expected.len() >= 3, "the test needs a few clucks");
+        for per_frame in [1u32, 2, 3, 5] {
+            let mut app = App::new();
+            app.frame(0.0);
+            let (mut now_ms, mut got) = (0.0, Vec::new());
+            while app.tick() < 1500.0 {
+                now_ms += f64::from(per_frame) * FRAME_MS;
+                app.frame(now_ms);
+                got.extend(drain(&mut app));
+                assert_eq!(app.take_cluck(), -1, "already drained");
+            }
+            // The last frame can run past 1500 ticks, so compare the clucks both runs share.
+            assert_eq!(
+                got[..expected.len()],
+                expected[..],
+                "{per_frame} ticks a frame"
+            );
+        }
+    }
+
+    #[test]
+    fn clucks_wait_for_the_page_across_frames_and_are_dropped_on_reset() {
+        let first = idle_clucks(400)[0];
+        let mut app = App::new();
+        app.frame(0.0);
+        // Two frames with no drain between them keep the cluck until it is taken.
+        let mut now_ms = 0.0;
+        while app.tick() < (first.0 + 1) as f64 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+        }
+        now_ms += FRAME_MS;
+        app.frame(now_ms);
+        assert_eq!(drain(&mut app), vec![first.1]);
+        // A cluck waiting when the level restarts belongs to the old world.
+        app.reset();
+        while app.tick() < first.0 as f64 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+        }
+        assert_eq!(app.take_cluck(), i32::from(first.1));
+        app.reset();
+        assert_eq!(app.take_cluck(), -1);
+    }
+
+    #[test]
+    fn the_queue_is_bounded_and_every_variant_is_in_range() {
+        let mut app = App::new();
+        for i in 0..(MAX_PENDING_CLUCKS as u8 * 2) {
+            queue_cluck(&mut app.clucks, i % 4);
+        }
+        let kept = drain(&mut app);
+        assert_eq!(kept.len(), MAX_PENDING_CLUCKS);
+        assert_eq!(kept[..4], [0, 1, 2, 3], "the oldest are kept");
+        for (_, v) in idle_clucks(3000) {
+            assert!(v < fizz_ep2::CLUCK_VARIANTS);
+        }
     }
 
     #[test]
