@@ -14,6 +14,12 @@
 #[rustfmt::skip]
 pub mod sprites_data;
 
+mod camera;
+mod draw;
+
+pub use camera::{TILE_PX, follow, screen_y, tile_px};
+pub use draw::{TRANSPARENT, blit_sprite, draw_tilemap, fill_rect};
+
 /// The logical pixel that contains `v`: the floor of `v`.
 ///
 /// Truncation toward zero would put both -0.5 and 0.4 on pixel 0 and make a position that crosses zero hitch for a frame,
