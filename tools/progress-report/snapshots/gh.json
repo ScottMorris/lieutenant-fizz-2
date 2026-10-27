@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T12:27:25-04:00",
+ "capturedAt": "2026-10-27T12:29:35-04:00",
  "data": {
   "prs": [
    {
@@ -728,9 +728,9 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
@@ -753,15 +753,27 @@
       "name": "rust"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "bf7afc1a6ab72eefa996bc9cac5cfeb57686f27f"
+    },
+    "mergedAt": "2026-10-27T16:29:33Z",
     "number": 18,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Point the HAL clippy comment at this repository's docs",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/18"
    }
   ],
   "runs": [
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T16:29:36Z",
+    "displayTitle": "Point the HAL clippy comment at this repository's docs (#18)",
+    "event": "push",
+    "headSha": "bf7afc1a6ab72eefa996bc9cac5cfeb57686f27f",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40541439753",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-27T16:17:38Z",
