@@ -68,7 +68,7 @@
     7
    ],
    "evidence": "Same moves, same `TICK` and `HASH`: the parity gate ([chapter 5](chapter:parity)).",
-   "gaps": "the colours: the marker's yellow and cyan are the same, but the field is EGA blue on DOS (`BLUE` in `fizz-present-dos`) and `#000020` on the Web (`web/main.js`), as the screenshots of chapter 4 show; and the Web HUD is page text below the canvas, while DOS draws it in the frame."
+   "gaps": "no check compares the two screens' colours or border: they match by reading `web/main.js` and `fizz-present-dos` (EGA blue field, light-grey border, yellow marker with a light-cyan outline), and the screenshots of chapter 4 predate that match and show the older Web field colour; the Web marker position is rounded while the DOS one is truncated; and the Web HUD is page text below the canvas, while DOS draws it in the frame."
   },
   {
    "section": "Coming",
