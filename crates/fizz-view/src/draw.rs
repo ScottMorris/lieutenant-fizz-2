@@ -240,9 +240,14 @@ fn draw_tiles(
         if let Some((start, rc)) = run {
             fill_run(frame, w, cx, fw, start, col1 + 1, y0, fill_to, rc);
         }
-        for y in fill_to..y1 {
-            let (done, rest) = frame.split_at_mut(y * w);
-            rest[..fw as usize].copy_from_slice(&done[y0 * w..y0 * w + fw as usize]);
+        // The band's other rows are copies of its first. The block already drawn is copied after itself and doubles each time,
+        // so a band takes four copies, not fifteen; the rows are contiguous because the pitch is the frame width.
+        let mut done = fill_to.saturating_sub(y0);
+        while y0 + done < y1 {
+            let n = done.min(y1 - y0 - done);
+            let (drawn, rest) = frame.split_at_mut((y0 + done) * w);
+            rest[..n * w].copy_from_slice(&drawn[y0 * w..(y0 + n) * w]);
+            done += n;
         }
     }
 }
