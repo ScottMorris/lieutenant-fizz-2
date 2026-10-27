@@ -1,7 +1,7 @@
 # The DOS workspace: a custom 32-bit target built with -Zbuild-std, kept apart from the root workspace so the host checks never
 # need rust-src or the nightly-only flags. Run cargo from this directory (see .cargo/config.toml).
 [workspace]
-members = ["rt", "rtsmoke"]
+members = ["rt", "rtsmoke", "fizz2"]
 resolver = "2"
 
 [workspace.package]
