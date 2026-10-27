@@ -20,7 +20,7 @@ The `feat/adlib-music` work is a proof of concept for structure. It shows that o
 ## Principles
 
 1. **Intent flows up, lowering flows down.** The core emits semantic intent at full fidelity. Each presenter projects it down. The shared contract is never shaped like the weakest target.
-2. **Fidelity is lost at cook time.** Art and music are authored for the richest target. Offline host tools produce the DOS forms (indexed sprites with shade levels, IMF or OPL2 patches). DOS plays pre-cooked data and parses nothing.
+2. **Fidelity is lost at bake time.** Art and music are authored for the richest target. Offline host tools produce the DOS forms (indexed sprites with shade levels, IMF or OPL2 patches). DOS plays pre-baked data and parses nothing.
 3. **Platform limits live in the platform.** `Rgb6`, palette indices, OPL patch ids, slot counts and `MAX_*` capacities belong to the presenter or backend that needs them, not to the engine contract.
 4. **`no_std` plus `alloc` for the rules and engine; `std` elsewhere.** Only interrupt handlers need a no-allocation discipline. Fixed-capacity arrays are an IRQ concern, not an engine rule. `forbid(unsafe_code)` stays on the engine.
 5. **A presenter may add what the core does not know about.** The Web zoom-out level map and the multi-voice Undertone mix are presenter features. DOS can omit them.
@@ -45,7 +45,7 @@ CONTENT     episode data and rules, no platform types
 INTENT      scene: tilemap, sprites, lights, camera
             audio: composition source, named cues
             events: ExplorerStep, BuoyBell, ...
-COOKING     offline host tools: assets lowered per target
+BAKING     offline host tools: assets lowered per target
 PRESENTERS  Web (canvas or WebGL, Undertone), DOS (320x200, OPL2)
 PLATFORM    clock, input, storage, display, audio services
               Web: JS shim   DOS: Desk's HAL and dos-rt
@@ -60,7 +60,7 @@ PLATFORM    clock, input, storage, display, audio services
 - **Worlds:** an overworld, an inner world and an underworld. The world is a graph of data-driven levels with transitions.
 - **Vertical level design:** mazes and puzzles that climb and descend, with chained key and door progression. Fizz 1 already has this in miniature (Zarg Lookout, a nine-floor watchtower with a red key and a cookie door), plus overworld regions, teleporter pairs, cracked walls, conveyors and presses.
 - **Gadgets:** helpers beyond the pogo stick, as a data-driven tool model with a small state machine, rules and sound cues for each. This shapes `InputFrame` (more than four actions) and the entity model.
-- **Sprite detail:** richer art, authored above the DOS palette limit and quantized by the cooker. The base art resolution needs to be settled early.
+- **Sprite detail:** richer art, authored above the DOS palette limit and quantized by the baker. The base art resolution needs to be settled early.
 - **A chicken enemy** in the style of Zargoth's characters (crystals, chocolate, cake, mechanical hover platforms). Fizz 1's bestiary mixes mechanical and confectionery designs. Episode 2 is the Zarg raid on Earth's chocolate, so a Zargified Earth animal fits. Behaviour belongs in the sim's enemy terms (patroller, chaser, teleporter, gunner).
 - **Camera:** follow, look-ahead and look up and down are one deterministic shared module, so both platforms frame the same scene. The Web zoom-out whole-level view is a presenter feature.
 
@@ -69,7 +69,7 @@ PLATFORM    clock, input, storage, display, audio services
 - Keys, doors, switches and teleporters are persistent world flags in the rules, saved with position.
 - A generic lock-and-key model (colour or id pairs) covers chained puzzles without per-puzzle code.
 - Pogo jump height and fall speed set what a maze can demand.
-- A deterministic sim allows solvability checks in CI: a recorded or scripted input run proves a level can be completed against the cooked data.
+- A deterministic sim allows solvability checks in CI: a recorded or scripted input run proves a level can be completed against the baked data.
 
 ## Level tooling
 
@@ -78,7 +78,7 @@ The editor is Fizz Level Studio, in `~/source/experiments/fizz-level-studio/` (s
 - Every level and overworld is a short text script. Painting, dragging, typing and accepted Claude proposals all edit the script.
 - The scripts for all 16 Episode 1 levels and the overworld rebuild the game's data exactly, including each level's fingerprint (`scripts/prove-all.sh`).
 - Known gaps in the Fizz 1 engine that the studio audit found: the progress mask `MapPoint::req` is a `u16` with every bit used, the game builds one overworld, the exporter does not register levels in the `LEVELS` table, and `OverworldBuilder` exists only in the proof copy.
-- For Fizz 2, the script is the authoring format and the cooker is the single place that turns it into engine data. A data export from the same language, with Rust statics generated for DOS, avoids a compile step in the editing loop. The Fizz 1 Rust export stays for Fizz 1. Whether Fizz 2 adopts the language as is or extends it is open.
+- For Fizz 2, the script is the authoring format and the baker is the single place that turns it into engine data. A data export from the same language, with Rust statics generated for DOS, avoids a compile step in the editing loop. The Fizz 1 Rust export stays for Fizz 1. Whether Fizz 2 adopts the language as is or extends it is open.
 
 ## Music direction
 
@@ -93,14 +93,14 @@ The editor is Fizz Level Studio, in `~/source/experiments/fizz-level-studio/` (s
 2. A DOS skeleton on Desk's HAL with a ticking loop.
 3. The simulation with the numeric model from above and a per-tick state hash that CI compares across targets.
 4. Scene intent with two real presenters, starting with one vertical slice: a small vertical maze with a keycard and door, Fizz 1's pogo physics, a chicken, and two-axis scrolling, shown in Web first and then DOS.
-5. The cooker and the audio path.
+5. The baker and the audio path.
 6. Tauri integration.
 
 ## Open questions
 
 - Is Fizz 1's pogo physics code reused directly, or ported with the same constants?
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later? (Fizz 1 stays as it is.)
-- Which language does the cooker use? Rust is preferred so it shares types.
+- Which language does the baker use? Rust is preferred so it shares types.
 - Do the Level Studio scripts need extensions for the Fizz 2 content (vertical mazes, gadgets, depth)?
 - What base art resolution does Episode 2 author for?
 
