@@ -64,6 +64,14 @@ echo "$out"
 [ "$status" = 0 ] || fail "/LIVE (Keen) exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED no' || fail "the Keen layout moved on modern-only keys"
 
+# 2c. /NOCAPTIONS is a switch, not a mode: it combines with /MODERN, and the program still runs live and ends cleanly.
+status=0
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /NOCAPTIONS /MODERN)" || status=$?
+echo "$out"
+[ "$status" = 0 ] || fail "/NOCAPTIONS /MODERN exited $status"
+printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/NOCAPTIONS did not leave /MODERN live"
+printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/NOCAPTIONS did not restore the vectors"
+
 # 3. Panic: the clean-up list runs and the exit status is 3, not a hang.
 status=0
 DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?

@@ -12,7 +12,7 @@
 // up in the maxima (a few microseconds on real hardware).
 use fizz_dos_rt::timer;
 use fizz_ep2::{SLICE_SCRIPT, World};
-use fizz_present_dos::{DIGEST_TICKS, Frame, frame_digest, present, render_slice};
+use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, frame_digest, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame};
 
 use crate::hal::DosDisplay;
@@ -130,7 +130,7 @@ fn overhead(sw: &mut Stopwatch) -> u64 {
 
 /// Plays the slice script once from a fresh level, timing each tick's step, drawing (the picture and the HUD text into the
 /// buffer) and copy to the screen, stopping after `limit` ticks (the whole script when it is `SLICE_TICKS` or more). The caller has hooked the timer and set mode 13h. Returns the final world with the report.
-pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
+pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions) -> (World, Report) {
     let mut sw = Stopwatch::new();
     let cost = overhead(&mut sw);
     let mut world = fizz_ep2::level::world();
@@ -147,7 +147,7 @@ pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
             let t0 = sw.now();
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
             let t1 = sw.now();
-            render_slice(&world, &mut frame);
+            render_slice_with(&world, &mut frame, options);
             let t2 = sw.now();
             let _ = present(display, &frame);
             let t3 = sw.now();
