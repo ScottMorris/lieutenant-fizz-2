@@ -71,7 +71,7 @@ The Web and DOS checks need more:
 cargo install wasm-bindgen-cli --version 0.2.125 --locked   # once, for tools/build-web.sh
 DOS_TOOLCHAIN=/path/to/toolchain tools/setup-dos.sh         # once, links vendor/
 tools/check-dos.sh                                          # builds FIZZ2.EXE and checks it in headless DOSBox
-tools/build-web.sh                                          # builds dist/web
+tools/build-web.sh                                          # builds dist/web (needs Bun, to bundle Undertone)
 tools/check-parity.sh                                       # prints PARITY ok <hash> when native, Web and DOS agree
 ```
 

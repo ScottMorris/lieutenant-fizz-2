@@ -179,6 +179,10 @@ The page scales the 320 by 200 canvas with `image-rendering: pixelated` to the w
 cargo install wasm-bindgen-cli --version 0.2.125 --locked
 ```
 
+`App` also queues the chicken's cluck for the page. `frame` reads `World::events()` after each step it runs (the rules clear the list on the next step, and a frame can run up to five), and `take_cluck()` hands out the oldest waiting variant, or -1 when none is left; the page calls it until it returns -1 after each frame. The queue holds 32 and drops the rest, `reset()` empties it, and nothing in it reaches the rules, the hash or the transcript.
+
+The page's script is bundled with Bun. `package.json` pins `@liminal-hq/undertone` at exactly 0.2.0, the version Fizz 1 resolves from the public npm registry, and `bun.lock` is committed. `tools/build-web.sh` runs `bun install --frozen-lockfile`, which is the build's only use of the network and only on a cold cache, and then `bun build web/main.js`, which writes one minified `dist/web/main.js` holding `web/sfx.ts`, `assets/sfx/cluck.ts` and Undertone. The wasm bindings stay a relative external import, so the bundle works from any base path and runs with no network. Bun is therefore a build requirement, as it already is for the sprite and sound tools; the `ci-dos` image has it and the `parity` job needs no extra step. `bun test web/sfx.test.ts` runs in that job. `tools/check-web-sfx.py` needs Chromium and runs locally.
+
 `tools/build-web.sh` fails, naming both versions, if the installed tool differs from the version in `Cargo.lock`. It writes a static bundle to `dist/web` with relative URLs only, so a launcher (such as Fizz 1's) can bundle it under any path later.
 
 ## Running the checks
@@ -195,7 +199,7 @@ cargo install wasm-bindgen-cli --version 0.2.125 --locked
 | `node tools/web-replay.mjs` | Runs the slice replay inside the built WASM module (Node and Bun both work) and prints `slice_replay_transcript()` | `dist/web` |
 | `tools/check-parity.sh` | Compares the native, Web (Node or Bun) and DOS transcripts with `crates/fizz-ep2/slice-replay.txt` and prints `PARITY ok <hash>`, the final hash read from that file | Everything above |
 
-CI has two jobs in `.github/workflows/ci.yml`. `check` runs `tools/check.sh` on `ubuntu-latest`. `parity` runs in the pinned `ci-dos` image and runs the DOS, Web and parity checks.
+CI has two jobs in `.github/workflows/ci.yml`. `check` runs `tools/check.sh` on `ubuntu-latest`. `parity` runs in the pinned `ci-dos` image and runs the DOS, Web and parity checks, the Web sound player's unit test and the generated-data checks. Its Web build installs Undertone with `bun install --frozen-lockfile`, so the runner needs access to the npm registry and nothing else.
 
 ## Toolchain
 
@@ -332,7 +336,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 - x87 cycle cost. DOSBox with `cycles=max` hides it, and a fixed cycle count charges every simple instruction alike; the `/BENCH` figures are DOSBox's, not a 486's (see [Performance](#performance)).
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
-- Audio. Nothing in the builds makes sound yet; the cluck events are proved by the transcript, and no result here says how a cluck sounds.
+- Audio. The cluck events are proved by the transcript, and the Web page's request for each cluck is checked against a recording stand-in for `AudioContext` (`web/sfx.test.ts`, `tools/check-web-sfx.py`). Nobody has listened to a cluck, on the Web or anywhere else, and no result here says how it sounds. DOS makes no sound yet. Autoplay behaviour, a hidden tab and overlapping clucks have not been tried in a real browser.
 - The slice replay on real platforms. Native x86_64 (debug and release builds, which agree), DOS (headless DOSBox, with the x87 at 53 bits) and the Web build (WASM under Node or Bun) each reproduce `slice-replay.txt`, compared by `tools/check-parity.sh`; no 486 and no browser session has produced it.
 - The Web slice in a browser played by a person. Headless Chromium loaded the page, moved Ben on Keen-layout key events, fired a shot and used Restart, but it did not play the level to the exit; the level's drawing is the first one and not judged.
 - That the slice level is pleasant to play. The replay proves it can be finished, not that it is fun. The DOS build's `/LIVE` has been played only by DOSBox AUTOTYPE key presses, so the feel of the camera and the keys, and the speed of the drawing on a real 486, are unverified. The DOS screenshot in the manual comes from DOSBox.

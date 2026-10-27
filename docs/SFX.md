@@ -1,6 +1,6 @@
 # Sound effects
 
-The chicken's cluck is the first sound effect. It is defined once, as a rich Undertone effect, and the DOS data is derived from that definition by a script. Web leads on fidelity and DOS on budgets, so the Web plays the rich source and DOS plays two downmixes of it: an OPL2 chunk for AdLib-compatible cards and a PC speaker list for everything else. Nothing here plays yet. This document covers the source, the downmix, the generated crate and what each step loses.
+The chicken's cluck is the first sound effect. It is defined once, as a rich Undertone effect, and the DOS data is derived from that definition by a script. Web leads on fidelity and DOS on budgets, so the Web plays the rich source and DOS plays two downmixes of it: an OPL2 chunk for AdLib-compatible cards and a PC speaker list for everything else. The Web plays the rich source; DOS does not play yet. This document covers the source, the downmix, the generated crate, the Web path and what each step loses.
 
 Nobody has listened to any of this. The cluck is a placeholder built from the project's goals and from the shapes Fizz 1 uses for its effects. How effects should really sound is a separate discovery track, run in the owner's IMF lab; when that produces a designed effect it replaces `assets/sfx/cluck.ts` and the pipeline stays as it is.
 
@@ -18,7 +18,7 @@ crates/fizz-sfx/src/data.rs    generated: OPL2 records and PC speaker divisors p
 DOS presenter                  steps them from its interrupt (Milestone 1, a later package)
 ```
 
-The Web presenter reads `assets/sfx/cluck.ts` directly and hands the voices to Undertone when the rules emit `Event::Cluck { variant }`. That presenter, and the DOS audio service, are separate packages; this one builds the source, the script and the crate.
+The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant }` (see "The Web path"). The DOS audio service is a separate package.
 
 ## The source
 
@@ -130,6 +130,22 @@ On a plain OPL2 chip the enable write and the output bits are unused and harmles
 
 What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. For that, `Event::Cluck` will later need to say which chicken it came from, so the presenter can read its position. That change to the rules is not part of this work; today the event carries only the variant, and a presenter can play only centre.
 
+## The Web path
+
+`web/sfx.ts` plays the rich effect. Undertone is the owner's package `@liminal-hq/undertone`, public on npm and MIT licensed, ES modules with no dependencies and no side effects. `package.json` pins exactly 0.2.0, the version Fizz 1 resolves, and `bun.lock` is committed. `tools/build-web.sh` bundles it into `dist/web/main.js` (see [`PLATFORM.md`](PLATFORM.md#the-web-build)). Undertone 0.2.0 honours every field of `SfxVoice`: an exact `hz` as a numeric pitch, `nudge`, the low-pass with its envelope, and white, pink and brown noise.
+
+How the page gets from a rules event to a sound:
+
+1. `App::frame` queues each `Event::Cluck` after the step that emitted it; the page calls `take_cluck()` until it returns -1 after every frame, so a frame that runs several ticks loses none.
+2. `Sfx.playCluck(variant, pan = 0)` takes the variant's voices from `CLUCK` (a variant out of range wraps, as on DOS), builds an Undertone stack the way Fizz 1's `buildVoice` does with a sustain of 0, caches it per variant and plays it once on the page's `AudioContext`.
+3. The context is made on the first key press or click and resumed. Nothing is made before that, and a cluck that arrives before then, while muted, while the tab is hidden, while the context is not running, or with four clucks already sounding, is dropped, never queued.
+4. `M` toggles mute and the Sound button shows it. The choice is kept in `localStorage` under `fizz2-sound` (`off` or `on`) inside try/catch, so blocked storage only means it is not remembered. A hidden tab suspends the context and a shown one resumes it.
+5. `pan` runs from -1 to 1 and adds an Undertone panner per voice when it is not 0. The page always passes 0 because `Event::Cluck` does not say which chicken clucked; when the rules do, the page can work a pan out from that chicken's position against the camera.
+
+One mapping differs from Fizz 1. `SfxVoice.lpenv` is the cutoff the filter opens to, and the WAV preview and the downmix read it that way, but Undertone 0.2 adds the envelope amount to `lpf`. The page passes `lpenv - lpf`, so the Web filter peaks where the preview does. Fizz 1 passes `lpenv` unchanged, so its filters open further than their definitions say.
+
+Tests: `bun test web/sfx.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` and checks the mapping, the first-gesture rule, mute, the hidden tab and the cap. `python3 tools/check-web-sfx.py` (Chromium, after `tools/build-web.sh`) injects the same kind of stand-in before the built page loads and checks that the cluck at tick 197 schedules variant 2's oscillators after a key press and nothing before one, and that `M` mutes and the choice survives a reload. Both prove what the page asks the browser to play; neither hears it.
+
 ## Regenerate and check
 
 ```text
@@ -154,4 +170,4 @@ The converter is the same author's code, MIT in `lieutenant-fizz-dos` and dual-l
 
 - Nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
 - The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The panned OPL3 path has not run on an OPL3 or in an emulator either, and the register numbers for bank 1 rest on the lab's conventions and the chip's documented layout, not on a test against hardware.
-- Nothing plays in a build yet. Playback arrives with the Web and DOS sound packages, and the player's manual has nothing to say about sound until then.
+- The Web plays the cluck, but that has been checked only against stand-ins for `AudioContext`. A real browser's autoplay policy, its hidden-tab behaviour, the overall loudness and any clipping (each voice's gain is at most 0.3, but the sum is not measured) have not been tried. DOS does not play yet, and the manual describes only the Web's sound.

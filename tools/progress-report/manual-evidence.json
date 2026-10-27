@@ -4,7 +4,7 @@
   {
    "section": "What this is",
    "shelf": "none",
-   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story, menu or sound."
+   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story or menu, and the cluck's sound on the Web only."
   },
   {
    "section": "Running it",
@@ -127,6 +127,12 @@
    "shelf": "catalogued",
    "evidence": "Headless Chromium read the seven lines from the page: they start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The values come from the `App` getters the host tests read.",
    "gaps": "`KEY`, `DOOR` and `EXIT` changing in the browser: the replay reaches all three in the host tests, but no browser run has played that far."
+  },
+  {
+   "section": "Sound on the Web",
+   "shelf": "catalogued",
+   "evidence": "`web/sfx.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` under `bun test`: each of the four variants schedules the voices of `assets/sfx/cluck.ts`, nothing plays before unlock, while muted, on a hidden tab or past four simultaneous clucks, and blocked storage does not break mute. `tools/check-web-sfx.py` drives the built page in headless Chromium with the same kind of stand-in: no context and no sound before a key press, the cluck at tick 197 scheduling variant 2 after one, `M` muting, and the choice surviving a reload. The `App` host tests check that no cluck is lost when a frame runs several ticks.",
+   "gaps": "how any cluck sounds: nobody has listened, and a stand-in cannot hear. Also the first-key start under each real browser's autoplay policy, the hidden-tab silence in a real browser, and the pile-up cap against real overlapping clucks."
   },
   {
    "section": "The screen",
