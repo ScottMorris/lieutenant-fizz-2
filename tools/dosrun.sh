@@ -20,6 +20,9 @@
 # The emulated video card is `svga_s3` (VESA BIOS extensions, a linear frame buffer). A program that must see another card sets
 # DOS_MACHINE (for example `vgaonly`, which has no VBE) for that run only; the default is unchanged.
 #
+# The emulated CPU speed is `cpu_cycles = max` unless DOS_CYCLES names another (for example `fixed 26800`, about a 486DX2-66), for
+# that run only. Timing runs need a fixed figure: `max` gives whatever the host offers.
+#
 # Keys can be typed into the program with DOS_AUTOTYPE, the arguments of DOSBox's AUTOTYPE command (for example `-w 3 -p 0.3 a b esc`):
 # the keys go in through the emulated keyboard controller, so a program that reads port 0x60 sees them as a keyboard would send them.
 # DOS_CONF appends text to the generated dosbox.conf, for a section the script does not set (for example `[mouse]` and
@@ -70,7 +73,7 @@ memsize = 16
 # (CPUID, CMOV and so on), so a build that needs a Pentium fails here instead of on the target.
 core = normal
 cputype = 486
-cpu_cycles = max
+cpu_cycles = ${DOS_CYCLES:-max}
 cpu_cycles_protected = auto
 
 [mixer]

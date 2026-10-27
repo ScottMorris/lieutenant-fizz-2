@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds the DOS programs and checks them in headless DOSBox: the slice replay against its golden transcript, a keyboard smoke
-# of the slice, the panic clean-up and the executable's size.
+# of the slice, the bench, the panic clean-up and the executable's size.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -62,6 +62,31 @@ status=0
 DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
 [ "$status" = 3 ] || fail "/PANIC status $status (expected 3)"
 echo "PANIC exit $status"
+
+# 3b. The bench: /BENCH plays the script once without pacing and times the step, the drawing and the copy to the screen with
+# the PIT. DOSBox runs a fixed 26,800 cycles per millisecond (about a 486DX2-66) on its normal core, which is slow to emulate,
+# so the run gets a long timeout. The figures are DOSBox's, not a 486's: the bounds are loose sanity checks (a figure of zero
+# means the timer did not run, and a step slower than the 16,667 us tick means the slice cannot hold 60 Hz even in the emulator)
+# and the numbers go in the log.
+status=0
+out="$(DOS_CYCLES='fixed 26800' DOS_TIMEOUT=580 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
+echo "$out"
+[ "$status" = 0 ] || fail "/BENCH exited $status"
+printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1268' || fail "no 'BENCH TICKS 1268' line"
+printf '%s\n' "$out" | grep -qx 'BENCH BUDGET 16667 us per tick at 60 Hz' || fail "no BENCH BUDGET line"
+printf '%s\n' "$out" | grep -qx "BENCH HASH $(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')" || fail "/BENCH ended on a different hash from $golden"
+printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH did not reach the exit"
+printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/BENCH: FPU control word is not 027F"
+printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH did not restore the vectors"
+for section in STEP DRAW PRESENT TOTAL; do
+  line="$(printf '%s\n' "$out" | grep -E "^BENCH $section avg [0-9]+ max [0-9]+ units us$" || true)"
+  [ -n "$line" ] || fail "no 'BENCH $section avg <n> max <n> units us' line"
+  avg="$(printf '%s\n' "$line" | sed -n 's/^BENCH [A-Z]* avg \([0-9]*\) .*/\1/p')"
+  [ "$avg" -gt 0 ] || fail "BENCH $section average is $avg"
+  if [ "$section" = STEP ]; then
+    [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
+  fi
+done
 
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
