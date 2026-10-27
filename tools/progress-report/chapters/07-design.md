@@ -36,5 +36,5 @@ The IMF lab is a private authoring and comparison tool for IMF music (`docs/POC-
 - A chosen Episode 2 Ben and enemy roster, authored above the DOS palette and quantised by the baker.
 - Level Studio scripts baked into Fizz 2 data, with a solvability run in CI (`docs/POC-1-FINDINGS.md`, Progression model).
 
-> **From the stacks — IMF.** The IMF format stores AdLib music as a list of OPL2 register writes with delays between them. id Software used it for the music of Wolfenstein 3D and other games of the early 1990s, which is why an IMF file can be played back without an instrument library.
+> **From the workbench — IMF.** The IMF format stores AdLib music as a list of OPL2 register writes with delays between them. id Software used it for the music of Wolfenstein 3D and other games of the early 1990s, which is why an IMF file can be played back without an instrument library.
 > Source: [AdLib music formats in the ModdingWiki](https://moddingwiki.shikadi.net/wiki/IMF_Format)

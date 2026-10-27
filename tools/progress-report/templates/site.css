@@ -143,12 +143,12 @@ tr:last-child td{border-bottom:0}
 @media (max-width:900px){.shelves{grid-template-columns:1fr}}
 .notver{margin:0;padding-left:1.2em;display:grid;gap:6px;max-width:80ch;color:var(--text-2)} .notver b{color:var(--text)}
 
-/* sidebar: from the stacks */
-.stacks{max-width:70ch;background:var(--raised);border:1px dashed var(--line-strong);border-radius:6px;padding:14px 16px;display:grid;gap:8px;font-size:15px}
-.stacks p{color:var(--text-2)}
-.stacks-tag{font-family:var(--f-small);font-size:16px;line-height:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.stacks .src{font-size:13.5px}
-.stacks-note{font-size:12.5px;color:var(--muted);font-style:italic}
+/* sidebar: from the workbench */
+.workbench{max-width:70ch;background:var(--raised);border:1px dashed var(--line-strong);border-radius:6px;padding:14px 16px;display:grid;gap:8px;font-size:15px}
+.workbench p{color:var(--text-2)}
+.workbench-tag{font-family:var(--f-small);font-size:16px;line-height:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.workbench .src{font-size:13.5px}
+.workbench-note{font-size:12.5px;color:var(--muted);font-style:italic}
 
 /* figures */
 figure{margin:0;display:grid;gap:10px;min-width:0}

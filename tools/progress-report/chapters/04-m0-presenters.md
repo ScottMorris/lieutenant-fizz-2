@@ -57,7 +57,7 @@ These are headless Chromium screenshots of the page, with real key events sent t
 - A FreeDOS-bootable floppy image built in CI, with its free space as a tracked number.
 - A launcher that bundles `dist/web` under its own path.
 
-> **From the stacks — DPMI.** The DOS Protected Mode Interface, published in 1990, lets a DOS program run in 32-bit protected mode and still call DOS and the BIOS through the host. CWSDPMI is a free DPMI host written for DJGPP, and `FIZZ2.EXE` loads under it with DJGPP's stub and no DJGPP library.
+> **From the workbench — DPMI.** The DOS Protected Mode Interface, published in 1990, lets a DOS program run in 32-bit protected mode and still call DOS and the BIOS through the host. CWSDPMI is a free DPMI host written for DJGPP, and `FIZZ2.EXE` loads under it with DJGPP's stub and no DJGPP library.
 > Source: [DOS Protected Mode Interface, Wikipedia](https://en.wikipedia.org/wiki/DOS_Protected_Mode_Interface)
 
 ```figures

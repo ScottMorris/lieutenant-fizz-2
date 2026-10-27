@@ -105,7 +105,7 @@ class MdTests(unittest.TestCase):
             mdlite.inline("[x](chapter:missing)", ctx)
 
     def test_shelves_and_sidebar(self):
-        blocks = mdlite.parse_blocks("### Catalogued\n- a\n\n### Uncatalogued\n- b\n\n### Wish list\n- c\n\n> **From the stacks — T.** Text.\n> Source: [s](https://example.com)\n")
+        blocks = mdlite.parse_blocks("### Catalogued\n- a\n\n### Uncatalogued\n- b\n\n### Wish list\n- c\n\n> **From the workbench — T.** Text.\n> Source: [s](https://example.com)\n")
         html, shelves = mdlite.render(blocks, mdlite.Ctx(), lambda n, a: "")
         self.assertEqual(sorted(shelves), ["catalogued", "uncatalogued", "wish"])
         self.assertIn("not evidence about Fizz 2", html)
@@ -325,9 +325,9 @@ class ContentTests(unittest.TestCase):
             shelves = {mdlite.shelf_of(b) for b in c["blocks"]} - {None}
             self.assertEqual(shelves, {"catalogued", "uncatalogued", "wish"}, c["id"])
             if c["section"] != "reference":
-                self.assertTrue(any(b["type"] == "quote" and b["lines"][0].startswith("**From the stacks") for b in c["blocks"]), c["id"])
+                self.assertTrue(any(b["type"] == "quote" and b["lines"][0].startswith("**From the workbench") for b in c["blocks"]), c["id"])
             for b in c["blocks"]:
-                if b["type"] == "quote" and b["lines"][0].startswith("**From the stacks"):
+                if b["type"] == "quote" and b["lines"][0].startswith("**From the workbench"):
                     self.assertTrue(any(l.startswith("Source") for l in b["lines"][1:]), c["id"])
 
     def test_the_anatomy_file_is_valid_and_refuses_bad_boxes(self):

@@ -32,7 +32,7 @@ Fizz 1 (`liminal-hq/lieutenant-fizz`) stays as it is: a working multiplatform pr
 - Episode 2's worlds, gadgets and enemies (`docs/POC-1-FINDINGS.md`, Episode 2 content ideas).
 - Tauri builds for Linux, Windows, macOS and Android around the Web presenter.
 
-> **From the stacks — The floor.** Intel's 486DX, introduced in 1989, was the first x86 processor with the floating-point unit on the same chip; the cheaper 486SX that followed had it disabled. That is why Fizz 2 names the DX as its DOS floor and leaves the SX out of scope.
+> **From the workbench — The floor.** Intel's 486DX, introduced in 1989, was the first x86 processor with the floating-point unit on the same chip; the cheaper 486SX that followed had it disabled. That is why Fizz 2 names the DX as its DOS floor and leaves the SX out of scope.
 > Source: [i486, Wikipedia](https://en.wikipedia.org/wiki/I486)
 
 ```figures

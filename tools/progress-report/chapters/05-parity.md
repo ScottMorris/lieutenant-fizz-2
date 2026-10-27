@@ -51,7 +51,7 @@ The `parity` job in `.github/workflows/ci.yml` runs in the shared `ci-dos` image
 - A golden trace from Fizz 1's own physics, replayed on all three platforms (Milestone 1).
 - Parity of whole scenes, not only the rules' state, once scene intent exists (Milestone 3).
 
-> **From the stacks — Extended precision.** The 8087 and its successors keep intermediate results in an 80-bit format with a 64-bit significand. The precision-control field of the control word rounds results to 24 or 53 bits instead, which makes basic operations round like IEEE single or double on the x87.
+> **From the workbench — Extended precision.** The 8087 and its successors keep intermediate results in an 80-bit format with a 64-bit significand. The precision-control field of the control word rounds results to 24 or 53 bits instead, which makes basic operations round like IEEE single or double on the x87.
 > Source: [x87, Wikipedia](https://en.wikipedia.org/wiki/X87)
 
 ```figures

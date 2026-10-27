@@ -47,7 +47,7 @@ An introduction is one short paragraph: what the page contains and how to use it
 - A thing is on the **wish list** when it is planned or an idea.
 - State tags (merged, in review, in progress, planned) come from `gh` through `gather.py`. They are never typed into a chapter; use a placeholder such as `{{pr7.state}}` when prose needs one.
 - Say what was not verified once, in its place: the chapter's uncatalogued shelf and the "Not verified" panel (`not-verified.json`).
-- "From the stacks" sidebars are background with a `Source:` line. They are never evidence about Fizz 2.
+- "From the workbench" sidebars are background with a `Source:` line. They are never evidence about Fizz 2.
 
 ## Before committing a chapter
 

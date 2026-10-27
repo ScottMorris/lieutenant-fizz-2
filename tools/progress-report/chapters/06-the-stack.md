@@ -33,7 +33,7 @@ Before the merge, CI ran on each head. The `check` job ran on all eight; the `pa
 ### Wish list
 - The same per-pull-request evidence for later stacks, which the generator draws as they land.
 
-> **From the stacks — Moving a stack.** Since Git 2.38, `git rebase --update-refs` moves every branch that points into the commits being rebased, so a whole stack of branches follows when the bottom one is rebased. The `gh stack` extension manages the matching chain of pull requests on GitHub.
+> **From the workbench — Moving a stack.** Since Git 2.38, `git rebase --update-refs` moves every branch that points into the commits being rebased, so a whole stack of branches follows when the bottom one is rebased. The `gh stack` extension manages the matching chain of pull requests on GitHub.
 > Source: [git-rebase documentation](https://git-scm.com/docs/git-rebase)
 
 ```figures
