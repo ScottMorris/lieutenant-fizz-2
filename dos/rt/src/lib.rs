@@ -23,6 +23,7 @@
 // - `irq`      the interrupt registry: a stub per IRQ line that calls a Rust handler, and the end-of-interrupt
 // - `timer`    IRQ 0 at 60 Hz, with the BIOS clock still advancing at 18.2 Hz
 // - `kbd`      IRQ 1: raw scancodes into a ring, and the BIOS keyboard flags put back at the end
+// - `mem`      `memset` on a string instruction, in place of the generic loop
 // - `vga`      mode 13h, the palette, the vertical retrace and the frame buffer
 //
 // Single-threaded, with one exception: interrupt handlers, which touch only `static`s and never allocate, call DOS or use the x87.
@@ -41,6 +42,7 @@ pub mod heap;
 pub mod io;
 pub mod irq;
 pub mod kbd;
+pub mod mem;
 #[cfg(feature = "panic-handler")]
 mod panic;
 pub mod port;
