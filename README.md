@@ -43,12 +43,14 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `crates/fizz-phys` | Fizz 1's tile map, body, platform and rng code as an owned `no_std` copy |
 | `crates/fizz-ep2` | The slice's rules, level and hash, and the golden replay transcript `slice-replay.txt` |
 | `crates/fizz-hal` | Hardware abstraction traits mirrored from Desk: clock, input, display and the interrupt ring |
+| `crates/fizz-machine` | The pure model of the DOS start-up check: probe data, sound settings and resolver, and the text screen |
 | `crates/fizz-present-dos` | The DOS frame, palette, font and key mapping, with no DOS calls |
 | `crates/fizz-present-web` | The Web presenter, a `wasm-bindgen` app |
 | `dos/` | The separate DOS workspace: the runtime, `RTSMOKE.EXE` and `FIZZ2.EXE` |
 | `web/` | The static page for the Web presenter |
 | `docs/ARCHITECTURE.md` | Layers, crate plan, parity policy, and what is mirrored from where |
 | `docs/PLATFORM.md` | The platform skeleton: transcript format, DOS runtime, Web build, checks, toolchain and provenance |
+| `docs/DOS-CHECK.md` | The DOS start-up check: the screen, the three sound states, settings, flags and the probe plan |
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |
 | `docs/SCENE-CONTRACT.md` | A sketch of the scene boundary between rules and presentations |
 | `tools/` | The check, build, DOS and parity scripts |

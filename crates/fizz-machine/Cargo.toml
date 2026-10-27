@@ -1,0 +1,9 @@
+[package]
+name = "fizz-machine"
+description = "What a DOS machine has and how the game uses it: the probe model, sound settings, the resolver and the system-check screen, as pure code"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
