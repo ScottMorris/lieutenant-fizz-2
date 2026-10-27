@@ -14,11 +14,16 @@
 #
 # The program's standard output goes to this script's standard output (with DOS line ends removed) and its exit status becomes
 # this script's, so `tools/dosrun.sh dist/dos RTSMOKE.EXE` behaves like running the program. Two statuses are the script's own: 124 when
-# the command outlived DOS_TIMEOUT seconds (default 60), and 125 when DOSBox itself failed, in which case its log is printed to
+# the command outlived DOS_TIMEOUT seconds (default 60), and 125 when DOSBox itself failed or refused a setting, in which case its log is printed to
 # standard error. Set DOS_VERBOSE=1 to always see DOSBox's log.
 #
 # The emulated video card is `svga_s3` (VESA BIOS extensions, a linear frame buffer). A program that must see another card sets
 # DOS_MACHINE (for example `vgaonly`, which has no VBE) for that run only; the default is unchanged.
+#
+# The emulated CPU speed is `cpu_cycles = max` unless DOS_CYCLES names another (a plain number such as `26800`, about a 486DX2-66), for
+# that run only. Timing runs need a fixed figure: `max` gives whatever the host offers. DOSBox Staging 0.83 rejects the form
+# `fixed 26800` and quietly runs at 3000 instead, so a setting it refuses is an error here: the script exits 125 and names the
+# line from DOSBox's log.
 #
 # Keys can be typed into the program with DOS_AUTOTYPE, the arguments of DOSBox's AUTOTYPE command (for example `-w 3 -p 0.3 a b esc`):
 # the keys go in through the emulated keyboard controller, so a program that reads port 0x60 sees them as a keyboard would send them.
@@ -70,7 +75,7 @@ memsize = 16
 # (CPUID, CMOV and so on), so a build that needs a Pentium fails here instead of on the target.
 core = normal
 cputype = 486
-cpu_cycles = max
+cpu_cycles = ${DOS_CYCLES:-max}
 cpu_cycles_protected = auto
 
 [mixer]
@@ -103,6 +108,14 @@ fi
 "${video[@]}" \
   timeout "${DOS_TIMEOUT:-60}" "${DOSBOX[0]}" --noprimaryconf --nolocalconf --conf "$WORK/dosbox.conf" \
   > "$WORK/dosbox.log" 2>&1 || status=$?
+
+# DOSBox answers a setting it cannot parse with a log line and carries on with its own default, which makes every later figure
+# wrong without any sign of it. Settings the script writes are therefore checked: any "Invalid '<name>' setting" line is fatal.
+if grep -q "Invalid '" "$WORK/dosbox.log"; then
+  echo "dosrun: DOSBox rejected a setting and used its default instead; the run is not valid:" >&2
+  grep "Invalid '" "$WORK/dosbox.log" >&2
+  exit 125
+fi
 
 if [ "$status" = 124 ]; then
   echo "dosrun: timed out after ${DOS_TIMEOUT:-60}s: $*" >&2

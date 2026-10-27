@@ -18,7 +18,7 @@ mod camera;
 mod draw;
 
 pub use camera::{TILE_PX, follow, screen_y, tile_px};
-pub use draw::{TRANSPARENT, blit_sprite, draw_tilemap, fill_rect};
+pub use draw::{TRANSPARENT, blit_sprite, draw_tilemap, draw_tilemap_on_sky, fill_rect};
 
 /// The logical pixel that contains `v`: the floor of `v`.
 ///

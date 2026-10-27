@@ -68,6 +68,22 @@ impl Frame {
     /// the font lacks draw nothing.
     pub fn draw_glyph(&mut self, x: i32, y: i32, ch: char, colour: u8) {
         let Some(rows) = glyph(ch) else { return };
+        let cell = GLYPH as i32;
+        if x >= 0 && y >= 0 && x <= WIDTH as i32 - cell && y <= HEIGHT as i32 - cell {
+            // The whole cell is inside the frame, so a row is one slice and no pixel needs its own clip test.
+            for (dy, &bits) in rows.iter().enumerate() {
+                if bits == 0 {
+                    continue;
+                }
+                let start = (y as usize + dy) * WIDTH + x as usize;
+                for (dx, pixel) in self.pixels[start..start + GLYPH].iter_mut().enumerate() {
+                    if bits & (0x80 >> dx) != 0 {
+                        *pixel = colour;
+                    }
+                }
+            }
+            return;
+        }
         for (dy, &bits) in rows.iter().enumerate() {
             for dx in 0..GLYPH {
                 if bits & (0x80 >> dx) != 0 {
@@ -153,6 +169,37 @@ mod tests {
         g.draw_text(-100, -100, "NOTHING", 15);
         g.draw_text(0, 400, "NOTHING", 15);
         assert!(g.pixels().contains(&15));
+    }
+
+    #[test]
+    fn a_glyph_inside_the_frame_matches_putting_its_pixels_one_by_one() {
+        // Positions on the edge of the whole-cell path (8 columns and rows from the far edges) and one pixel either side of it.
+        let spots = [
+            (0, 0),
+            (1, 1),
+            (312, 192),
+            (311, 191),
+            (313, 192),
+            (312, 193),
+            (-1, 0),
+            (0, -1),
+            (100, 50),
+        ];
+        for &(x, y) in &spots {
+            for ch in ['0', '8', 'A', 'W', '-', '/', ' '] {
+                let mut a = Frame::new();
+                a.draw_glyph(x, y, ch, 13);
+                let mut b = Frame::new();
+                for (dy, &bits) in glyph(ch).unwrap().iter().enumerate() {
+                    for dx in 0..GLYPH {
+                        if bits & (0x80 >> dx) != 0 {
+                            b.put(x + dx as i32, y + dy as i32, 13);
+                        }
+                    }
+                }
+                assert_eq!(a.pixels(), b.pixels(), "{ch} at ({x}, {y})");
+            }
+        }
     }
 
     #[test]

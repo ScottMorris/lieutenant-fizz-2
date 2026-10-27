@@ -39,25 +39,43 @@ pub fn blit_sprite(
         return;
     }
     let (ax, ay) = (i64::from(sprite.ax), i64::from(sprite.ay));
-    for sy in 0..sh {
-        let dy = i64::from(y) - ay + sy as i64;
-        if dy < 0 || dy >= fh {
-            continue;
-        }
-        let src = &sprite.pixels[sy * sw..(sy + 1) * sw];
-        let row = dy as usize * w;
-        for (sx, &p) in src.iter().enumerate() {
-            if p == TRANSPARENT {
-                continue;
+    // The sprite's rows `sy0..sy1` land on frame rows `top + sy`.
+    let top = i64::from(y) - ay;
+    let sy0 = (-top).clamp(0, sh as i64) as usize;
+    let sy1 = (fh - top).clamp(0, sh as i64) as usize;
+    // Facing right, source column `sx` lands on `left + sx`; flipped, on `right - sx`. The columns `sx0..sx1` are the ones that
+    // land inside the frame, so the rows below need no per-pixel clipping.
+    let (sx0, sx1, dx0) = if flip_x {
+        let right = i64::from(x) + ax - 1;
+        let sx0 = (right - (fw - 1)).clamp(0, sw as i64);
+        let sx1 = (right + 1).clamp(0, sw as i64);
+        (sx0 as usize, sx1 as usize, right - (sx1 - 1))
+    } else {
+        let left = i64::from(x) - ax;
+        let sx0 = (-left).clamp(0, sw as i64);
+        let sx1 = (fw - left).clamp(0, sw as i64);
+        (sx0 as usize, sx1 as usize, left + sx0)
+    };
+    if sx0 >= sx1 || sy0 >= sy1 {
+        return;
+    }
+    let n = sx1 - sx0;
+    let dx0 = dx0 as usize;
+    for sy in sy0..sy1 {
+        let row = (top + sy as i64) as usize * w;
+        let src = &sprite.pixels[sy * sw + sx0..sy * sw + sx1];
+        let dst = &mut frame[row + dx0..row + dx0 + n];
+        if flip_x {
+            for (d, &p) in dst.iter_mut().zip(src.iter().rev()) {
+                if p != TRANSPARENT {
+                    *d = p;
+                }
             }
-            let sx = sx as i64;
-            let dx = if flip_x {
-                i64::from(x) + ax - sx - 1
-            } else {
-                i64::from(x) - ax + sx
-            };
-            if dx >= 0 && dx < fw {
-                frame[row + dx as usize] = p;
+        } else {
+            for (d, &p) in dst.iter_mut().zip(src) {
+                if p != TRANSPARENT {
+                    *d = p;
+                }
             }
         }
     }
@@ -108,25 +126,128 @@ pub fn draw_tilemap(
     map_h: i32,
     mut colour: impl FnMut(i32, i32) -> Option<u8>,
 ) {
+    draw_tiles(frame, w, h, cam_x, cam_y, map_w, map_h, None, &mut colour);
+}
+
+/// Draws the whole view as tiles on a flat sky: [`draw_tilemap`] with every pixel it leaves undrawn, and everything outside
+/// the map, filled with `sky`, and each pixel written exactly once. It is the same picture as filling the frame with `sky`
+/// and then calling [`draw_tilemap`], without writing the tiles' area twice. Horizontal neighbours of one colour are filled
+/// as one run, so the frame is written in long rows, which is also what a fast fill wants.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_tilemap_on_sky(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    cam_x: i32,
+    cam_y: i32,
+    map_w: i32,
+    map_h: i32,
+    sky: u8,
+    mut colour: impl FnMut(i32, i32) -> Option<u8>,
+) {
+    draw_tiles(
+        frame,
+        w,
+        h,
+        cam_x,
+        cam_y,
+        map_w,
+        map_h,
+        Some(sky),
+        &mut colour,
+    );
+}
+
+/// Fills the columns `col0..col1` of the tile row whose pixel rows are `y0..y1` with `colour`, clipped to the `fw` wide frame.
+#[allow(clippy::too_many_arguments)]
+fn fill_run(
+    frame: &mut [u8],
+    w: usize,
+    cx: i64,
+    fw: i64,
+    col0: i64,
+    col1: i64,
+    y0: usize,
+    y1: usize,
+    colour: u8,
+) {
+    let x0 = (col0 * i64::from(TILE_PX) - cx).max(0) as usize;
+    let x1 = (col1 * i64::from(TILE_PX) - cx).min(fw) as usize;
+    if x0 >= x1 {
+        return;
+    }
+    for y in y0..y1 {
+        frame[y * w + x0..y * w + x1].fill(colour);
+    }
+}
+
+/// The tile rows that touch the view, each drawn as runs of one colour. With `sky` the undrawn tiles and the area outside the
+/// map take that colour, and the whole view is visited; without it only tiles inside the map are visited.
+#[allow(clippy::too_many_arguments)]
+fn draw_tiles(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    cam_x: i32,
+    cam_y: i32,
+    map_w: i32,
+    map_h: i32,
+    sky: Option<u8>,
+    colour: &mut dyn FnMut(i32, i32) -> Option<u8>,
+) {
     let (fw, fh) = extent(frame, w, h);
-    if map_w <= 0 || map_h <= 0 || fw == 0 || fh == 0 {
+    if fw == 0 || fh == 0 {
         return;
     }
     let t = i64::from(TILE_PX);
     let (cx, cy) = (i64::from(cam_x), i64::from(cam_y));
-    let col0 = cx.div_euclid(t).max(0);
-    let col1 = (cx + fw - 1).div_euclid(t).min(i64::from(map_w) - 1);
-    let row0 = cy.div_euclid(t).max(0);
-    let row1 = (cy + fh - 1).div_euclid(t).min(i64::from(map_h) - 1);
+    let (mw, mh) = (i64::from(map_w.max(0)), i64::from(map_h.max(0)));
+    let (mut col0, mut col1) = (cx.div_euclid(t), (cx + fw - 1).div_euclid(t));
+    let (mut row0, mut row1) = (cy.div_euclid(t), (cy + fh - 1).div_euclid(t));
+    if sky.is_none() {
+        col0 = col0.max(0);
+        col1 = col1.min(mw - 1);
+        row0 = row0.max(0);
+        row1 = row1.min(mh - 1);
+    }
     for row in row0..=row1 {
-        let ty = (i64::from(map_h) - 1 - row) as i32;
+        // The band of pixel rows this tile row covers inside the frame (rows outside it are skipped by an empty range).
+        let y0 = (row * t - cy).clamp(0, fh) as usize;
+        let y1 = ((row + 1) * t - cy).clamp(0, fh) as usize;
+        // With a sky the runs cover the whole row, so they are filled into the band's first row only and the other rows are
+        // copies of it: one long copy a row in place of every run again.
+        let fill_to = if sky.is_some() { y1.min(y0 + 1) } else { y1 };
+        let in_map_row = (0..mh).contains(&row);
+        let ty = (mh - 1 - row) as i32;
+        let mut run: Option<(i64, u8)> = None;
         for col in col0..=col1 {
-            if let Some(c) = colour(col as i32, ty) {
-                // The tile touches the view, so both offsets are within a tile of the frame and fit an i32.
-                let sx = (col * t - cx) as i32;
-                let sy = (row * t - cy) as i32;
-                fill_rect(frame, w, h, sx, sy, TILE_PX, TILE_PX, c);
+            let drawn = if in_map_row && (0..mw).contains(&col) {
+                colour(col as i32, ty)
+            } else {
+                None
+            };
+            let c = drawn.or(sky);
+            match (run, c) {
+                (Some((_, rc)), Some(nc)) if rc == nc => {}
+                _ => {
+                    if let Some((start, rc)) = run {
+                        fill_run(frame, w, cx, fw, start, col, y0, fill_to, rc);
+                    }
+                    run = c.map(|c| (col, c));
+                }
             }
+        }
+        if let Some((start, rc)) = run {
+            fill_run(frame, w, cx, fw, start, col1 + 1, y0, fill_to, rc);
+        }
+        // The band's other rows are copies of its first. The block already drawn is copied after itself and doubles each time,
+        // so a band takes four copies, not fifteen; the rows are contiguous because the pitch is the frame width.
+        let mut done = fill_to.saturating_sub(y0);
+        while y0 + done < y1 {
+            let n = done.min(y1 - y0 - done);
+            let (drawn, rest) = frame.split_at_mut((y0 + done) * w);
+            rest[..n * w].copy_from_slice(&drawn[y0 * w..(y0 + n) * w]);
+            done += n;
         }
     }
 }
@@ -187,6 +308,54 @@ mod tests {
         let mut f = blank();
         blit_sprite(&mut f, W, H, &s, 10, 5, true);
         assert_eq!(&f[4 * W + 7..4 * W + 11], &[4, 3, 2, 1]);
+    }
+
+    /// The definition of a blit, one pixel at a time: the anchored, optionally mirrored position of each opaque pixel, kept when it
+    /// is inside the frame.
+    fn reference_blit(
+        frame: &mut [u8],
+        w: usize,
+        h: usize,
+        s: &Sprite,
+        x: i32,
+        y: i32,
+        flip: bool,
+    ) {
+        for sy in 0..usize::from(s.h) {
+            for sx in 0..usize::from(s.w) {
+                let p = s.pixels[sy * usize::from(s.w) + sx];
+                if p == TRANSPARENT {
+                    continue;
+                }
+                let dy = i64::from(y) - i64::from(s.ay) + sy as i64;
+                let dx = if flip {
+                    i64::from(x) + i64::from(s.ax) - sx as i64 - 1
+                } else {
+                    i64::from(x) - i64::from(s.ax) + sx as i64
+                };
+                if (0..h as i64).contains(&dy) && (0..w as i64).contains(&dx) {
+                    frame[dy as usize * w + dx as usize] = p;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_blit_equals_the_pixel_by_pixel_definition_at_every_position() {
+        // Every sprite, both facings, from well outside the frame on every side across it.
+        for s in SPRITES {
+            for flip in [false, true] {
+                for y in (-40..70).step_by(3) {
+                    for x in (-40..70).step_by(3) {
+                        let mut want = [200u8; 40 * 30];
+                        let mut got = [200u8; 40 * 30];
+                        reference_blit(&mut want, 40, 30, s, x, y, flip);
+                        blit_sprite(&mut got, 40, 30, s, x, y, flip);
+                        assert_eq!(got, want, "{} at ({x}, {y}) flip {flip}", s.name);
+                    }
+                }
+            }
+        }
     }
 
     #[test]
@@ -360,6 +529,68 @@ mod tests {
             None
         });
         assert_eq!(calls, 0);
+    }
+
+    // A 5 by 3 map with runs, gaps and a lone tile (y-up): top row `1 1 . 2 2`, middle `. 3 3 3 .`, bottom `4 4 4 4 4`.
+    fn runs(tx: i32, ty: i32) -> Option<u8> {
+        const MAP: [[u8; 5]; 3] = [[4, 4, 4, 4, 4], [0, 3, 3, 3, 0], [1, 1, 0, 2, 2]];
+        match MAP[ty as usize][tx as usize] {
+            0 => None,
+            c => Some(c),
+        }
+    }
+
+    #[test]
+    fn tiles_on_sky_equal_a_sky_fill_then_the_tiles() {
+        // Frames of several shapes, with the camera on, beside and well outside the map, so the sky shows on every side.
+        let cams = [
+            i32::MIN,
+            -300,
+            -40,
+            -17,
+            -16,
+            -1,
+            0,
+            1,
+            5,
+            16,
+            33,
+            47,
+            64,
+            100,
+            1000,
+            i32::MAX,
+        ];
+        for (fw, fh) in [(48, 32), (20, 20), (1, 1), (7, 5), (80, 64), (33, 17)] {
+            for cam_x in cams {
+                for cam_y in cams {
+                    let mut want_buf = [200u8; 80 * 64];
+                    let want = &mut want_buf[..fw * fh];
+                    want.fill(9);
+                    draw_tilemap(want, fw, fh, cam_x, cam_y, 5, 3, runs);
+                    let mut got_buf = [0xEEu8; 80 * 64];
+                    let got = &mut got_buf[..fw * fh];
+                    draw_tilemap_on_sky(got, fw, fh, cam_x, cam_y, 5, 3, 9, runs);
+                    assert_eq!(&*got, &*want, "{fw}x{fh} at ({cam_x}, {cam_y})");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tiles_on_sky_fill_the_whole_view_without_a_map_and_never_overrun() {
+        let mut f = [0xEEu8; 12 * 4 + 6];
+        draw_tilemap_on_sky(&mut f, 12, 4, 3, 3, 0, 0, 7, |_, _| {
+            panic!("no tile exists")
+        });
+        assert!(f[..48].iter().all(|&p| p == 7));
+        assert!(f[48..].iter().all(|&p| p == 0xEE));
+        // A short buffer holds two whole rows of four.
+        let mut f = [0xEEu8; 10];
+        draw_tilemap_on_sky(&mut f, 4, 100, 0, 0, 5, 3, 7, runs);
+        assert_eq!(f[8..], [0xEE, 0xEE]);
+        let mut empty: [u8; 0] = [];
+        draw_tilemap_on_sky(&mut empty, 0, 0, 0, 0, 5, 3, 7, runs);
     }
 
     #[test]

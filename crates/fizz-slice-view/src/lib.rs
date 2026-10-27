@@ -49,7 +49,7 @@
 use fizz_ep2::World;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use fizz_view::sprites_data::sprite;
-use fizz_view::{TILE_PX, blit_sprite, draw_tilemap, follow, screen_y, tile_px};
+use fizz_view::{TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, screen_y, tile_px};
 
 /// The width of the picture in pixels.
 pub const VIEW_W: usize = 320;
@@ -66,11 +66,14 @@ const LIGHT_GREEN: u8 = 10;
 const LIGHT_RED: u8 = 12;
 const YELLOW: u8 = 14;
 
+/// Closed doors in view that are remembered from the tile pass before drawing falls back to a second search for them.
+const DOORS: usize = 16;
+
 /// The sky behind and above the level.
 const SKY: u8 = LIGHT_BLUE;
 
 /// The flat colour of a tile, or `None` for tiles that show the sky.
-fn tile_colour(tile: u8) -> Option<u8> {
+const fn tile_colour(tile: u8) -> Option<u8> {
     match tile {
         WALLBG => Some(BLUE),
         FILL => Some(DARK_GREY),
@@ -83,15 +86,28 @@ fn tile_colour(tile: u8) -> Option<u8> {
     }
 }
 
+/// Marks a tile type with no flat colour in [`TILE_COLOURS`] (the doors, which take their colour from the switch, and the tiles
+/// that show the sky).
+const NO_COLOUR: u8 = u8::MAX;
+
+/// `tile_colour` for every tile type, so the tile pass reads a byte in place of working through a `match` for each tile.
+static TILE_COLOURS: [u8; 256] = {
+    let mut table = [NO_COLOUR; 256];
+    let mut tile = 0;
+    while tile < 256 {
+        if let Some(colour) = tile_colour(tile as u8) {
+            table[tile] = colour;
+        }
+        tile += 1;
+    }
+    table
+};
+
 /// Draws `world` into `frame`, a `w` by `h` buffer of palette indices (use [`VIEW_W`] by [`VIEW_H`]).
 ///
 /// `tick` drives animation only (the key's bob, blinking and flashing) and must not be fed back into the rules. Any frame
 /// size is safe: the view is `w` by `h` and everything is clipped.
 pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32) {
-    let rows = (frame.len().checked_div(w).unwrap_or(0)).min(h);
-    let used = rows * w;
-    frame[..used].fill(SKY);
-
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -103,12 +119,30 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     let cam_y = follow(target_y, map_h.saturating_mul(TILE_PX), h as i32);
 
     let door_closed = map.switch(DOOR_RED_CHANNEL);
-    draw_tilemap(frame, w, h, cam_x, cam_y, map_w, map_h, |tx, ty| {
-        let t = map.get(tx, ty);
+    // The tile pass meets every visible tile, so it notes the closed doors for the sprites drawn after it; a view with more
+    // than `DOORS` of them falls back to looking for them again.
+    let mut doors = [(0, 0); DOORS];
+    let mut door_count = 0;
+    // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
+    draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
+        // The pass only asks about tiles inside the map, so the index is valid for a map whose data holds `w * h` tiles.
+        let t = map
+            .data
+            .get((ty * map_w + tx) as usize)
+            .copied()
+            .unwrap_or(0);
+        let colour = TILE_COLOURS[usize::from(t)];
+        if colour != NO_COLOUR {
+            return Some(colour);
+        }
         if t == DOOR_R {
+            if door_closed && door_count < DOORS {
+                doors[door_count] = (tx, ty);
+            }
+            door_count += usize::from(door_closed);
             return Some(if door_closed { BROWN } else { BLUE });
         }
-        tile_colour(t)
+        None
     });
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
@@ -116,16 +150,24 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     let phase = tick as usize;
 
     if door_closed && let Some(door) = sprite("doorRed") {
-        let col0 = cam_x.div_euclid(TILE_PX).max(0);
-        let col1 = (cam_x + w as i32).div_euclid(TILE_PX).min(map_w - 1);
-        let row0 = cam_y.div_euclid(TILE_PX).max(0);
-        let row1 = (cam_y + h as i32).div_euclid(TILE_PX).min(map_h - 1);
-        for row in row0..=row1 {
-            let ty = map_h - 1 - row;
-            for tx in col0..=col1 {
-                if map.get(tx, ty) == DOOR_R {
-                    let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                    blit_sprite(frame, w, h, door, sx, sy, false);
+        if door_count <= DOORS {
+            // The door art is one tile, so only the tiles the pass visited can show it.
+            for &(tx, ty) in &doors[..door_count] {
+                let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
+                blit_sprite(frame, w, h, door, sx, sy, false);
+            }
+        } else {
+            let col0 = cam_x.div_euclid(TILE_PX).max(0);
+            let col1 = (cam_x + w as i32).div_euclid(TILE_PX).min(map_w - 1);
+            let row0 = cam_y.div_euclid(TILE_PX).max(0);
+            let row1 = (cam_y + h as i32).div_euclid(TILE_PX).min(map_h - 1);
+            for row in row0..=row1 {
+                let ty = map_h - 1 - row;
+                for tx in col0..=col1 {
+                    if map.get(tx, ty) == DOOR_R {
+                        let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
+                        blit_sprite(frame, w, h, door, sx, sy, false);
+                    }
                 }
             }
         }
@@ -351,6 +393,50 @@ mod tests {
         assert!(count(&closed, BROWN) > 0);
         assert_eq!(count(&open, BROWN), 0);
         assert_ne!(closed, open);
+    }
+
+    #[test]
+    fn more_doors_than_the_tile_pass_remembers_are_all_drawn() {
+        // 30 door tiles in view is more than `DOORS`, so the second search draws them; each shows the door art on brown.
+        let mut w = level::world();
+        w.ben.b.x = 13.0;
+        w.ben.b.y = 20.0;
+        let (bx, by) = (w.ben.b.x as i32, w.ben.b.y as i32);
+        let tiles: Vec<(i32, i32)> = (4..10)
+            .flat_map(|dx| (-2..3).map(move |dy| (bx + dx, by + dy)))
+            .collect();
+        assert!(tiles.len() > DOORS);
+        for &(tx, ty) in &tiles {
+            w.map.set(tx, ty, DOOR_R);
+        }
+        let f = picture(&w, 0);
+        let map_h = w.map.h;
+        let target_x = tile_px(w.ben.b.x + w.ben.b.w * 0.5);
+        let target_y = screen_y(w.ben.b.y + w.ben.b.h * 0.5, map_h);
+        let cam_x = follow(target_x, w.map.w * TILE_PX, VIEW_W as i32);
+        let cam_y = follow(target_y, map_h * TILE_PX, VIEW_H as i32);
+        let door = sprite("doorRed").unwrap();
+        for &(tx, ty) in &tiles {
+            let (left, top) = (tx * TILE_PX - cam_x, (map_h - 1 - ty) * TILE_PX - cam_y);
+            assert!(
+                left >= 0
+                    && left + TILE_PX <= VIEW_W as i32
+                    && top >= 0
+                    && top + TILE_PX <= VIEW_H as i32
+            );
+            for sy in 0..16usize {
+                for sx in 0..16usize {
+                    let p = door.pixels[sy * 16 + sx];
+                    let want = if p == fizz_view::TRANSPARENT {
+                        BROWN
+                    } else {
+                        p
+                    };
+                    let got = f[(top as usize + sy) * VIEW_W + left as usize + sx];
+                    assert_eq!(got, want, "door ({tx}, {ty}) pixel ({sx}, {sy})");
+                }
+            }
+        }
     }
 
     #[test]
