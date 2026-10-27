@@ -99,6 +99,20 @@ export function breath(kind: NoiseKind, start: number, seconds: number, gain: nu
   return { n: kind, g: gain, a: 0.003, d: seconds, r: 0.01, lpf, nudge: round(start, 4) };
 }
 
+/**
+ * A base effect played twice: the voices unchanged, then again `gap` seconds after the base ends, with its pitched voices scaled by
+ * `pitch` (a frequency ratio) and every gain by `gain`. Noise has no pitch and only takes the gain.
+ */
+export function repeat(base: readonly SfxVoice[], gap: number, second: { pitch?: number; gain?: number } = {}): SfxVoice[] {
+  const offset = effectSeconds(base) + gap;
+  const again = base.map((v): SfxVoice => {
+    const w: SfxVoice = { ...v, g: round(v.g * (second.gain ?? 1), 4), nudge: round((v.nudge ?? 0) + offset, 4) };
+    if (!isNoise(v.n) && second.pitch !== undefined) w.hz = round(voiceHz(v) * second.pitch, 2);
+    return w;
+  });
+  return [...base, ...again];
+}
+
 /** How long a voice is heard, in seconds from its own start: attack and decay (Undertone's sustain is 0). */
 export const voiceSeconds = (v: SfxVoice): number => (v.a ?? 0.01) + (v.d ?? 0.1);
 

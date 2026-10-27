@@ -9,7 +9,7 @@
 use crate::OplStep;
 
 /// The number of cluck variants in the source; `fizz_ep2::CLUCK_VARIANTS` must equal it.
-pub const VARIANTS: usize = 3;
+pub const VARIANTS: usize = 4;
 
 /// Variant 0: 160 records (640 bytes), 184 ticks, 329 ms.
 #[rustfmt::skip]
@@ -407,11 +407,166 @@ static OPL_2: [OplStep; 147] = [
     OplStep::new(0, 0xb5, 0x0f, 16),
 ];
 
+/// Variant 3: 150 records (600 bytes), 200 ticks, 357 ms.
+#[rustfmt::skip]
+static OPL_3: [OplStep; 150] = [
+    OplStep::new(0, 0x01, 0x20, 4),
+    OplStep::new(0, 0x2a, 0x21, 0),
+    OplStep::new(0, 0x2d, 0x21, 0),
+    OplStep::new(0, 0x4a, 0x08, 0),
+    OplStep::new(0, 0x4d, 0x13, 0),
+    OplStep::new(0, 0x6a, 0xf6, 0),
+    OplStep::new(0, 0x6d, 0xf6, 0),
+    OplStep::new(0, 0x8a, 0x87, 0),
+    OplStep::new(0, 0x8d, 0x88, 0),
+    OplStep::new(0, 0xea, 0x00, 0),
+    OplStep::new(0, 0xed, 0x00, 0),
+    OplStep::new(0, 0xc5, 0x0e, 2),
+    OplStep::new(0, 0xa5, 0x90, 0),
+    OplStep::new(0, 0xb5, 0x3a, 2),
+    OplStep::new(0, 0xb5, 0x1a, 1),
+    OplStep::new(0, 0x2a, 0x21, 0),
+    OplStep::new(0, 0x2d, 0x21, 0),
+    OplStep::new(0, 0x4a, 0x1a, 0),
+    OplStep::new(0, 0x4d, 0x00, 0),
+    OplStep::new(0, 0x6a, 0xf0, 0),
+    OplStep::new(0, 0x6d, 0xf0, 0),
+    OplStep::new(0, 0x8a, 0x0c, 0),
+    OplStep::new(0, 0x8d, 0x0c, 0),
+    OplStep::new(0, 0xea, 0x00, 0),
+    OplStep::new(0, 0xed, 0x00, 0),
+    OplStep::new(0, 0xc5, 0x08, 1),
+    OplStep::new(0, 0xa5, 0x3b, 0),
+    OplStep::new(0, 0xb5, 0x33, 3),
+    OplStep::new(0, 0x4d, 0x04, 1),
+    OplStep::new(0, 0xa5, 0x0b, 0),
+    OplStep::new(0, 0xb5, 0x33, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0xdd, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x10, 1),
+    OplStep::new(0, 0xa5, 0xb2, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x04, 1),
+    OplStep::new(0, 0xa5, 0x8a, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0x63, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x40, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x04, 1),
+    OplStep::new(0, 0xa5, 0x1e, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x08, 1),
+    OplStep::new(0, 0xa5, 0xfc, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0xc0, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x14, 1),
+    OplStep::new(0, 0xa5, 0x88, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0x7e, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x7e, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x13, 1),
+    OplStep::new(0, 0xa5, 0x7e, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x1b, 1),
+    OplStep::new(0, 0xa5, 0x7e, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x27, 1),
+    OplStep::new(0, 0xa5, 0x7e, 0),
+    OplStep::new(0, 0xb5, 0x2f, 2),
+    OplStep::new(0, 0xb5, 0x0f, 44),
+    OplStep::new(0, 0x2a, 0x21, 0),
+    OplStep::new(0, 0x2d, 0x21, 0),
+    OplStep::new(0, 0x4a, 0x08, 0),
+    OplStep::new(0, 0x4d, 0x13, 0),
+    OplStep::new(0, 0x6a, 0xf6, 0),
+    OplStep::new(0, 0x6d, 0xf6, 0),
+    OplStep::new(0, 0x8a, 0x87, 0),
+    OplStep::new(0, 0x8d, 0x88, 0),
+    OplStep::new(0, 0xea, 0x00, 0),
+    OplStep::new(0, 0xed, 0x00, 0),
+    OplStep::new(0, 0xc5, 0x0e, 2),
+    OplStep::new(0, 0xa5, 0xa8, 0),
+    OplStep::new(0, 0xb5, 0x3a, 2),
+    OplStep::new(0, 0xb5, 0x1a, 1),
+    OplStep::new(0, 0x2a, 0x21, 0),
+    OplStep::new(0, 0x2d, 0x21, 0),
+    OplStep::new(0, 0x4a, 0x1a, 0),
+    OplStep::new(0, 0x4d, 0x0c, 0),
+    OplStep::new(0, 0x6a, 0xf0, 0),
+    OplStep::new(0, 0x6d, 0xf0, 0),
+    OplStep::new(0, 0x8a, 0x0c, 0),
+    OplStep::new(0, 0x8d, 0x0c, 0),
+    OplStep::new(0, 0xea, 0x00, 0),
+    OplStep::new(0, 0xed, 0x00, 0),
+    OplStep::new(0, 0xc5, 0x08, 1),
+    OplStep::new(0, 0xa5, 0x17, 0),
+    OplStep::new(0, 0xb5, 0x33, 3),
+    OplStep::new(0, 0x4d, 0x05, 1),
+    OplStep::new(0, 0xa5, 0xe9, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0xbd, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x10, 1),
+    OplStep::new(0, 0xa5, 0x94, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x04, 1),
+    OplStep::new(0, 0xa5, 0x6d, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0x48, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x26, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x10, 1),
+    OplStep::new(0, 0xa5, 0x06, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0xcf, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x96, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x14, 1),
+    OplStep::new(0, 0xa5, 0x60, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x09, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x13, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x1a, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x25, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x38, 1),
+    OplStep::new(0, 0xa5, 0x4c, 0),
+    OplStep::new(0, 0xb5, 0x2f, 2),
+    OplStep::new(0, 0xb5, 0x0f, 12),
+];
+
 /// The OPL2 records of each variant: writes to channel 5 timed in 560 Hz ticks.
-pub(crate) static OPL: [&[OplStep]; VARIANTS] = [&OPL_0, &OPL_1, &OPL_2];
+pub(crate) static OPL: [&[OplStep]; VARIANTS] = [&OPL_0, &OPL_1, &OPL_2, &OPL_3];
 
 /// The length of each variant's OPL2 chunk in 560 Hz ticks.
-pub(crate) static OPL_TICKS: [u32; VARIANTS] = [184, 88, 188];
+pub(crate) static OPL_TICKS: [u32; VARIANTS] = [184, 88, 188, 200];
 
 /// Variant 0: 42 frames (84 bytes), 300 ms.
 #[rustfmt::skip]
@@ -438,5 +593,14 @@ static SPEAKER_2: [u16; 42] = [
     3477, 0, 3671, 0, 3671, 0,
 ];
 
+/// Variant 3: 46 frames (92 bytes), 329 ms.
+#[rustfmt::skip]
+static SPEAKER_3: [u16; 46] = [
+    0, 0, 1901, 2019, 2145, 0, 2421, 2572, 2733, 2903, 3084, 3277,
+    3481, 3519, 3519, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1988, 2112, 2244, 0, 2533, 2691,
+    2859, 0, 3227, 3428, 3642, 3729, 3729, 0, 3729, 0,
+];
+
 /// The PC speaker divisors of each variant, one per 140 Hz frame; 0 is gate off.
-pub(crate) static SPEAKER: [&[u16]; VARIANTS] = [&SPEAKER_0, &SPEAKER_1, &SPEAKER_2];
+pub(crate) static SPEAKER: [&[u16]; VARIANTS] = [&SPEAKER_0, &SPEAKER_1, &SPEAKER_2, &SPEAKER_3];
