@@ -29,9 +29,13 @@
 //!   alternating with the distance it has travelled) and shows the `alert` frame while it touches Ben. A stunned chicken is
 //!   shown as the `alert` frame sunk two pixels, so it reads as knocked flat, and it flashes (disappears every other four
 //!   ticks) for its last second of stun to warn that it is about to wake.
-//! - **Ben.** Run frames alternate with the distance he has travelled, so he never skates. The `shoot` pose shows while the
-//!   rules' shooting pose runs, the squashed `pogo2` frame during the squash after a bounce and `pogo` otherwise on the
-//!   stick, `jump` in the air and `stand` at rest. The sprites face right, so facing left flips them. While Ben is
+//! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
+//!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
+//!   `shoot` while the rules' shooting pose runs, `jump` in the air, a run frame while his horizontal speed is above 0.5 tiles
+//!   a second, and `stand` at rest. Fizz 1 keeps a distance counter `anim`, adds `|vx| * dt` to it every step, and shows
+//!   `run2` when `floor(anim * 1.4)` is odd and `run1` otherwise, so the frame changes every 1/1.4 tiles run and he never
+//!   skates. The rules here keep no such counter and drawing may not add one, so the view uses Ben's x in its place: `run2`
+//!   when `floor(|x| * 1.4)` is odd. The two agree in cadence, and differ only in phase after Ben turns round. The sprites face right, so facing left flips them. While Ben is
 //!   invulnerable he blinks.
 //! - **Dead Ben.** Fizz 1 has no dead pose. A dead Ben is drawn with the `jump` pose, arms up, flipped away from his
 //!   facing, and he flickers, so the toss and fall after a death read as a hurt tumble. The world respawns him
@@ -172,6 +176,11 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     blit_sprite(frame, w, h, s, sx, sy + sink, c.dir < 0.0);
 }
 
+/// Ben shows a run frame while his horizontal speed is above this many tiles a second (Fizz 1's `Math.abs(p.vx) > 0.5`).
+const RUN_SPEED: f64 = 0.5;
+/// Run frames swap this many times per tile of distance (Fizz 1's `anim * 1.4`).
+const RUN_STEPS_PER_TILE: f64 = 1.4;
+
 fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At) {
     let ben = &world.ben;
     let dead = ben.dead > 0.0;
@@ -181,21 +190,22 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
     }
     let name = if dead {
         "ben_jump"
-    } else if ben.shoot_t > 0.0 {
-        "ben_shoot"
     } else if ben.pogo {
         if ben.squash > 0.0 {
             "ben_pogo2"
         } else {
             "ben_pogo"
         }
+    } else if ben.shoot_t > 0.0 {
+        "ben_shoot"
     } else if !ben.b.on_ground {
         "ben_jump"
-    } else if ben.b.vx.abs() > 0.1 {
-        if (tile_px(ben.b.x) / 6) % 2 == 0 {
-            "ben_run1"
-        } else {
+    } else if ben.b.vx.abs() > RUN_SPEED {
+        // Fizz 1: `floor(anim * 1.4) & 1` picks `run2`, where `anim` is the distance Ben has run. Here `anim` is Ben's x.
+        if (ben.b.x.abs() * RUN_STEPS_PER_TILE) as u64 % 2 == 1 {
             "ben_run2"
+        } else {
+            "ben_run1"
         }
     } else {
         "ben_stand"
@@ -268,7 +278,7 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         let mut seen = Vec::new();
         play(|w| {
-            if [0, 150, 400, 700, 1000, 1268].contains(&w.tick.0) {
+            if [0, 150, 270, 400, 602, 700, 865, 1000, 1268].contains(&w.tick.0) {
                 seen.push((w.tick.0, fnv(&picture(w, w.tick.0 as u32))));
             }
         });
@@ -277,8 +287,12 @@ mod tests {
             [
                 (0, 0x5b84b8874be44ba4),
                 (150, 0x7abd20c31ae39a54),
+                // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
+                (270, 0x9bf387153127ec74),
                 (400, 0xe88d2a8a227b4cfb),
+                (602, 0xfea72a408c6a4ab1),
                 (700, 0xdda9c10396315bd2),
+                (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
             ]
@@ -358,6 +372,31 @@ mod tests {
         // In its last second the chicken flashes: some ticks hide it altogether.
         w.chickens[0].stun = 0.5;
         assert_ne!(picture(&w, 0), picture(&w, 4));
+    }
+
+    #[test]
+    fn ben_runs_with_fizz_1s_frame_rule() {
+        // Fizz 1: a run frame above 0.5 tiles a second, `run2` when `floor(distance * 1.4)` is odd, pogo before shoot.
+        let mut w = level::world();
+        w.ben.b.on_ground = true;
+        w.ben.b.vx = 3.0;
+        w.ben.b.x = 1.0; // floor(1.4) = 1: run2
+        let odd = picture(&w, 0);
+        w.ben.b.x = 1.0 + 0.72; // floor(2.408) = 2: run1
+        let even = picture(&w, 0);
+        w.ben.b.x = 1.0 + 0.72 * 2.0; // floor(3.416) = 3: run2 again, at another screen position
+        assert_ne!(odd, even);
+        // Below the speed threshold Ben stands, wherever he is.
+        w.ben.b.vx = 0.4;
+        w.ben.b.x = 1.0;
+        let slow = picture(&w, 0);
+        w.ben.b.vx = 0.0;
+        assert_eq!(slow, picture(&w, 0));
+        // On the pogo stick the pogo frame wins over the shooting pose.
+        w.ben.pogo = true;
+        let pogo = picture(&w, 0);
+        w.ben.shoot_t = 0.2;
+        assert_eq!(pogo, picture(&w, 0));
     }
 
     #[test]
