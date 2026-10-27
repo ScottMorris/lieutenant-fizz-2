@@ -57,7 +57,7 @@ The golden file is `crates/fizz-hello/m0-replay.txt`. All three platforms produc
 
 ### The slice transcript
 
-The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the same shape with the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`. It takes the same `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash` that `fizz-hello` takes through its own, so a presenter swaps one for the other. Native prints it with `cargo run -p fizz-ep2 --example replay`. DOS runs it as `FIZZ2.EXE /SLICE` and `tools/check-dos.sh` compares it with the golden file; the Web and the parity gate still use the Milestone 0 transcript until the gates switch.
+The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the same shape with the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`, with `EVENT <tick> cluck <variant>` lines between them (see [Events and clucks](#events-and-clucks)). It takes the same `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash` that `fizz-hello` takes through its own, so a presenter swaps one for the other. Native prints it with `cargo run -p fizz-ep2 --example replay`. DOS runs it as `FIZZ2.EXE /SLICE` and `tools/check-dos.sh` compares it with the golden file; the Web and the parity gate still use the Milestone 0 transcript until the gates switch.
 
 The slice hash covers, in this order, with floating-point fields as `f64` bits and counts as `u32`:
 
@@ -65,10 +65,10 @@ The slice hash covers, in this order, with floating-point fields as `f64` bits a
 2. Ben: `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv`, `shoot_t`, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on the ground, bit 3 bumped);
 3. the `WorldFlags` word (bit 0 red key carried, bit 1 red door open, bit 2 exit reached), `ammo` and `deaths`;
 4. `map.switches`, which holds the red door (a closed door is a set bit on channel 1);
-5. the chicken count, then per chicken `x`, `y`, `vx`, `vy`, `dir`, `stun` and a flags byte (bit 0 on the ground, bit 1 touching Ben, bit 2 dead);
+5. the chicken count, then per chicken `x`, `y`, `vx`, `vy`, `dir`, `stun`, a flags byte (bit 0 on the ground, bit 1 touching Ben, bit 2 dead), the cluck timer (`u32`) and the cluck stream's draw count (`u32`);
 6. the shot count, then per shot `x`, `y`, `vx`, `vy` and `life`.
 
-The camera is not hashed. The chicken's cluck timer and stream counter join its record when the sound package lands. Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
+The camera and the event list are not hashed. Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
 
 ## Numeric model decisions
 
@@ -101,12 +101,21 @@ The harness runs every scenario through the whole `World` and compares every fie
 
 The slice level is `crates/fizz-ep2/src/level.rs`: 32 by 48 tiles, written as text and baked at compile time, with the tile alphabet documented in the module. The replay proves it can be finished with the real physics: the script reaches the exit in 1,268 ticks with the door open and the key spent, after one death on the spikes carrying the key (the key drops and lies where it began; the world respawns Ben, resets the chicken and the ammo). It shoots the chicken in the first life and stomps it in the second.
 
+### Events and clucks
+
+`World::events()` returns the `Event`s the last `World::step` emitted, in the order they happened; the next step clears them, and every one happened on `World::tick`. The only event so far is `Event::Cluck { variant }` with `variant` below `CLUCK_VARIANTS` (3). The rules never touch audio: a presenter plays the events. A presenter that runs several steps between frames reads the list after each step.
+
+Each chicken has a cluck timer and its own stream of random numbers: Fizz 1's `fizz_phys::rng::hashf` over the world tick, the chicken's index and the number of draws the chicken has made, with a fixed salt. It is a pure function of integers, so there is no platform random source; the only floating-point work is `hashf`'s own division by 2^32, a multiply by a small integer and a truncation, all exact or correctly rounded in IEEE 754 and so the same on native, Web and DOS. The chicken's walk draws nothing, which is why Fizz 1's traces, which compare only Fizz 1's fields, stay bit for bit identical. The first draw at spawn (or respawn) sets the timer, uniform over 90 to 360 ticks (1.5 to 6 s). The timer counts down one per tick while the chicken is alive and not stunned; at zero the next draw is the variant and the one after is the next timer, and the world emits `Cluck`. Stunned chickens do not cluck and their timer holds still while they are stunned, so a stun delays the next cluck by its length and the chicken never clucks while stunned or the instant it wakes; a dead chicken (which Fizz 1 never produces) does not cluck either. The timer and the draw count are in the hash, so a platform whose stream drifts shows up in the parity gate.
+
+The transcript prints `EVENT <tick> cluck <variant>` for each cluck, in the order of `World::events()`, before the `TICK` or `FINAL` line of the same tick: the line reads as what happened during that tick, and the hash after it as the state the tick left. The header stays `SLICE REPLAY 1` because no existing line changed shape. `fizz_ep2::replay::{write_start, write_step, write_final}` write the pieces, so the DOS build, which paces the script itself, prints the same bytes `replay` does. The slice replay has three clucks, at ticks 197 (variant 1), 853 (variant 1) and 1094 (variant 0), and ends `FINAL TICK 1268 HASH 2145503c0d3b625f`. The transcript is 792 bytes against the DOS buffer's 8,192. `tools/check-dos.sh` and `tools/check-web-slice.sh` compare `TICK`, `FINAL` and `EVENT` lines with the golden file, so the number, tick and variant of every cluck match on native, Web and DOS.
+
 Departures from Fizz 1:
 
 - Any velocity with a magnitude below 2^-1000 snaps to zero at the end of Ben's move. Fizz 1 lets an idle pogo's horizontal drag decay for ever, which reaches subnormal values where x87 at 53 bits and SSE2 differ. No golden trace changes with the snap, and a unit test runs an idle pogo for 30,000 ticks.
 - The red door is a switched tile on channel 1 (solid while the bit is set) rather than a solid tile that Fizz 1 rewrites to empty space. Opening follows Fizz 1's rule exactly: with the key, touching the door's tile in front of Ben at body height opens it and spends the key. The open door is `WorldFlags::DOOR_RED_OPEN`.
 - A death respawns Ben in place after Fizz 1's 1.4 s instead of reloading the level, so the open door survives it. The key does not: it is dropped and lies where it began unless the door is already open. The chickens, the shots and the ammo (5) start over, and `deaths` counts the respawns.
 - The Gloop's "stray" reset (sent home after three seconds more than four tiles off its floor) is not ported; the slice's chicken cannot leave its floor. It would need a hashed timer.
+- The chicken's cluck timer and stream are new in Fizz 2; Fizz 1's Gloop is silent. They are described under Events and clucks above.
 - Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, wall kicks, lifts and conveyors under Ben are also not ported.
 
 ## The hardware abstraction layer
@@ -232,7 +241,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 - x87 cycle cost. DOSBox with `cycles=max` hides it.
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
-- Audio. Nothing in the builds makes sound yet.
+- Audio. Nothing in the builds makes sound yet; the cluck events are proved by the transcript, and no result here says how a cluck sounds.
 - The slice replay in the parity gate. Native x86_64 (debug and release builds, which agree), DOS (headless DOSBox, with the x87 at 53 bits) and the Web build (WASM under Node or Bun, by `tools/check-web-slice.sh`) each reproduce `slice-replay.txt`; `tools/check-parity.sh` still compares only the Milestone 0 transcript until the gates switch.
 - The Web slice in a browser played by a person. Headless Chromium loaded the page, moved Ben on Keen-layout key events, fired a shot and used Restart, but it did not play the level to the exit; the level's drawing is the first one and not judged.
 - That the slice level is pleasant to play. The replay proves it can be finished, not that it is fun. The DOS build's `/LIVE` has been played only by DOSBox AUTOTYPE key presses, so the feel of the camera and the keys, and the speed of the drawing on a real 486, are unverified. The DOS screenshot in the manual comes from DOSBox.

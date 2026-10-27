@@ -60,7 +60,7 @@
    "prs": [
     5
    ],
-   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the Milestone 0 golden transcript, `/SLICE` must print the slice's golden transcript (`FINAL TICK 1268 HASH d1a225bf14ab4828`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the Milestone 0 golden transcript, `/SLICE` must print the slice's golden transcript (`FINAL TICK 1268 HASH 2145503c0d3b625f`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
    "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it; and that `/SLICE` takes about 21 seconds, which the BIOS tick bound of 383 to 387 covers only as a count."
   },
   {
