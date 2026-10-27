@@ -190,7 +190,7 @@ cargo install wasm-bindgen-cli --version 0.2.125 --locked
 | `tools/setup-dos.sh` | Links `vendor/` to the DOS toolchain when it is absent | `DOS_TOOLCHAIN`, or a `vendor/` already in place |
 | `tools/build-dos.sh` | Builds `RTSMOKE.EXE`, `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos` | The DOS toolchain |
 | `tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY` | Runs a DOS program in headless DOSBox and passes back its output and exit status | The DOS toolchain |
-| `tools/check-dos.sh` | Builds, then checks that the `/REPLAY` transcript equals the golden file and the platform lines (`EXIT yes`, `FPU CW 027F`, `VECTORS RESTORED yes`, a BIOS tick count of 383 to 387), a keyboard smoke of both layouts (`MOVED yes`) and the panic exit status of 3, and prints `SIZE` | The DOS toolchain |
+| `tools/check-dos.sh` | Builds, then checks that the `/REPLAY` transcript equals the golden file and the platform lines (`EXIT yes`, `FPU CW 027F`, `VECTORS RESTORED yes`, a BIOS tick count of 383 to 387), a keyboard smoke of both layouts (`MOVED yes`), the panic exit status of 3 and the `/BENCH` frame digests against the host's, and prints `SIZE` | The DOS toolchain |
 | `tools/build-web.sh` | Builds `dist/web` | The `wasm32-unknown-unknown` target and the pinned CLI |
 | `node tools/web-replay.mjs` | Runs the slice replay inside the built WASM module (Node and Bun both work) and prints `slice_replay_transcript()` | `dist/web` |
 | `tools/check-parity.sh` | Compares the native, Web (Node or Bun) and DOS transcripts with `crates/fizz-ep2/slice-replay.txt` and prints `PARITY ok <hash>`, the final hash read from that file | Everything above |
@@ -221,34 +221,64 @@ Only the DJGPP stub and CWSDPMI are used at run time; they are data, not a compi
 
 ### How `/BENCH` measures
 
-The run plays the slice script once from a fresh level (1,268 ticks), unpaced, and times three sections of every tick: the step (`fizz_ep2::step`), the drawing (`render_slice`: the picture from `draw_slice` into the 320 by 200 buffer plus the HUD text) and the copy of the buffer to video memory (`present`). It prints their average and largest cost in microseconds, a total, and the final state hash, which must equal the golden's (`BENCH HASH`), so a bench run also proves the world it timed was the slice. It then prints `EXIT`, `FPU CW` and `VECTORS RESTORED` like the other modes.
+The run plays the slice script once from a fresh level (1,268 ticks), unpaced, and times three sections of every tick: the step (`fizz_ep2::step`), the drawing (`render_slice`: the picture from `draw_slice` into the 320 by 200 buffer plus the HUD text) and the copy of the buffer to video memory (`present`). It prints their average and largest cost in microseconds, a total, and the final state hash, which must equal the golden's (`BENCH HASH`), so a bench run also proves the world it timed was the slice. It also prints a `BENCH FRAME <tick> <digest>` line for each of seven ticks: an FNV-1a digest of the 320 by 200 frame below the HUD strip, taken outside the timed sections, which `tools/check-dos.sh` compares with the digests the host computes from the same shared routines (`cargo run -p fizz-present-dos --example frames`), so a drawing routine that exists only in the DOS build is proved to draw the same pixels. It then prints `EXIT`, `FPU CW` and `VECTORS RESTORED` like the other modes. `FIZZ2.EXE /BENCH 120` times only the first 120 ticks (about 25 seconds at the settings below) for quick measurements while changing the drawing; a limited run ends on an earlier hash and is for timing only.
 
 A 486 has no `rdtsc`, so the stopwatch is PIT channel 0, which the 60 Hz interrupt already programs: `timer::clocks()` is the interrupt count times the divisor (19,886) plus how far the counter has counted down in the current period, read with the latch command. One count is 0.838 us (1,193,182 Hz). That is fine enough for sections of tens of microseconds or more, and each section is timed per tick rather than in a loop, so the maxima are real. A reading costs two port reads and a port write, about 24 counts (20 us) in DOSBox; `/BENCH` measures that first (`reading cost` on the `BENCH TIMER` line) and subtracts it from each section. Two edge cases are handled: an interrupt between the counter read and the interrupt count (the pair is read again), and the counter having reloaded before IRQ 0 has run, which makes a reading one period low (the stopwatch adds a period when a reading goes backwards). The 60 Hz handler itself still runs during the bench and appears in the maxima. Interrupts, vectors and pacing are unchanged, and the vectors are restored on exit and on panic like the other modes.
 
 ### DOSBox settings
 
-`tools/check-dos.sh` runs the bench with `core=normal` and `cpu_cycles = fixed 26800`, about a 486DX2-66 (26.8 million cycles a second), through `DOS_CYCLES='fixed 26800' tools/dosrun.sh`. Other modes keep `cpu_cycles = max`. The bench takes about four minutes to emulate at that setting, so its timeout is 580 seconds. The check asserts the line shapes, the hash, the platform lines, positive averages for every section and a step average under 16,667 us, and prints the figures. It sets no tight bound on any of them.
+`tools/check-dos.sh` runs the bench with `core=normal` and `cpu_cycles = fixed 26800`, about a 486DX2-66 (26.8 million cycles a second), through `DOS_CYCLES='fixed 26800' tools/dosrun.sh`. Other modes keep `cpu_cycles = max`. The bench takes about four minutes to emulate at that setting, so its timeout is 580 seconds. The check asserts the line shapes, the hash, the seven frame digests against the host's, the platform lines, positive averages for every section and a step average under 16,667 us, and prints the figures. It sets no tight bound on any of the timings.
 
 ### Numbers
 
-Measured on 2026-10-27 with `FIZZ2.EXE` of 66,560 bytes, built from the `feat/slice-bench` branch on `main` at 60f7c5e, in DOSBox Staging 0.83.0 with the settings above:
+The first measurement, on 2026-10-27, was of `FIZZ2.EXE` at 66,560 bytes built from the `feat/slice-bench` branch on `main` at 60f7c5e. The same run after the drawing changes below (69,632 bytes), in DOSBox Staging 0.83.0 with the settings above, one play of the whole script:
 
-| Section | Average (us) | Largest (us) | Share of 16,667 us |
-| --- | --- | --- | --- |
-| Step | 934 | 1,255 | 5.6% |
-| Drawing | 161,146 | 195,838 | 967% |
-| Copy to video memory | 32,441 | 32,474 | 195% |
-| Total | 194,522 | 229,409 | 1,167% |
+| Section | Before: average (us) | Before: largest (us) | After: average (us) | After: largest (us) | After, share of 16,667 us |
+| --- | --- | --- | --- | --- | --- |
+| Step | 934 | 1,255 | 933 | 1,248 | 5.6% |
+| Drawing | 161,146 | 195,838 | 24,663 | 28,904 | 148% |
+| Copy to video memory | 32,441 | 32,474 | 5,414 | 5,506 | 32% |
+| Total | 194,522 | 229,409 | 31,012 | 35,202 | 186% |
 
 Natively (`cargo run --release -p fizz-ep2 --example bench`, 200 repetitions of the script, stepping only) the step costs about 88 ns a tick on the development machine, wall clock. `valgrind` was not available there, so the instruction count the example is written for (`valgrind --tool=callgrind`, with the command in the example's header) has not been taken; wall-clock time on a modern machine says little about a 486 and is an extra.
 
+### Drawing changes
+
+Each change was measured with `FIZZ2.EXE /BENCH 120` (the first 120 ticks) at the settings above and kept only for a clear gain. The figures are the drawing average in microseconds; the step did not move, and the copy moved only where stated.
+
+| Change | Drawing before | Drawing after |
+| --- | --- | --- |
+| `memset` on `rep stosd` in `dos/rt/src/mem.rs` (the sky fill and every tile row ended in the generic loop) | 172,061 | 103,375 |
+| `memcpy` on `rep movsd` in the same file (the copy to video memory ends in it; the copy went from 32,436 to 5,419) | 103,375 | 103,321 |
+| `draw_tilemap_on_sky`: sky and tiles as one layer of merged runs, each pixel written once | 103,321 | 46,507 |
+| A tile band's runs filled into its first row, the other rows copied from it | 46,507 | 38,636 |
+| `blit_sprite` clips once and blits rows as slices | 38,636 | 35,819 |
+| Closed doors noted during the tile pass in place of a second scan of the view | 35,819 | 31,238 |
+| HUD glyphs wholly inside the frame drawn without a clip test per pixel | 31,238 | 29,999 |
+| A band's rows copied in doubling blocks (four copies, not fifteen) | 29,999 | 27,907 |
+| Tile colours from a 256-entry table and `map.data` in place of `get` and a `match` | 27,907 | 25,439 |
+
+The first 120 ticks end at 25,439 us and the whole script averages 24,663 us, because the later ticks show different things.
+
+Tried and not kept, because the gain was under a few percent: a generic parameter in place of the `&mut dyn FnMut` for the tile colours (35,819 to 35,544 at that stage), and drawing glyphs four pixels at a time through a nibble mask (25,439 to 24,763, 2.7%, for more code than the gain is worth).
+
+What stayed identical: the pinned frame digests in `fizz-slice-view` (ticks 0, 150, 270, 400, 602, 700, 865, 1000 and 1268), every `fizz-view` test, the replay golden, the state hash (`PARITY ok 2145503c0d3b625f`) and the seven DOS frame digests. The simulation, `fizz-phys` and `fizz-ep2` were not touched. The portable changes (the tile layer, the sprite blit, the door list) are in the code the Web build also runs; each has a test against the older definition of the picture, and the Web build was not timed.
+
+How the cost splits at about 25,000 us, measured by leaving pieces out of the first 120 ticks: the sky and tile layer (writing the 64,000 bytes is about 5,400 us on its own; the rest is the per-tile colour lookups and the run bookkeeping), the HUD text about 4,800 us, the sprites and the key, chicken and shots after the tiles about 5,200 us, and the camera and the black HUD strip the remainder.
+
+### The cost unit in DOSBox
+
+A calibration at the same settings showed what a unit of cost is. A loop of 16,000 iterations of `add`, `dec`, `jnz` took 16.2 ms, about nine cycles an instruction, and a `rep stosd` of 16,000 dwords took 5.4 ms, about nine cycles a dword. So here an instruction and a string-instruction element cost alike, and the cost of the drawing is the number of instructions and elements it runs. That is why the fixes that matter run fewer of them (one long `rep` for many short loops, one clip for many, one table read for a `match`), and why a 64,000-byte frame written once is already about a third of a tick at this setting. It is also a caution: nine cycles an instruction is not a 486's (most simple instructions take one to three clocks there), so the absolute figures are pessimistic for ordinary code and say nothing about the x87.
+
 ### What the numbers say
 
-The step is cheap: about 25,000 emulated cycles a tick, 5.6% of the budget, and the largest tick is under 8%. The drawing is not. At 26,800 cycles a millisecond it took about 161 ms a tick, ten times the budget, so at this emulated speed the slice would draw at roughly 6 frames a second, or about 5 with the copy. The step and the draw are separate, so the simulation can still run at 60 Hz with the draw skipped or reduced, but a 486DX2-66 would not hold 60 Hz drawing as written. The drawing is the cost to reduce first (it redraws the whole buffer each tick).
+The step is cheap: about 25,000 emulated cycles a tick, 5.6% of the budget, and the largest tick is under 8%. The drawing was the problem, ten times the budget at 161 ms a tick. After the changes above it is 24.7 ms, 148% of the budget, and with the copy and the step a tick costs 31 ms: at this emulated speed the slice draws at about 32 frames a second, where it drew at about 5. The target of the drawing under 30% of a tick (5,000 us) is not met.
 
-The copy figure is DOSBox's cost for writing 64,000 bytes to its emulated video memory and does not stand for a real card: a real VGA's bus speed decides it. Treat it as a lower-confidence figure than the other two.
+What stops it is structural, not a slow routine. Writing the 64,000-byte frame once costs about 5,400 us at the emulator's rate and copying it to the screen costs the same again, so a full-frame redraw plus the copy is about 65% of a tick before any tile, sprite or text is drawn. What remains is small pieces (glyphs 2.7%, looking sprites up once instead of by string compare, not drawing the rows under the black HUD strip, formatting the HUD numbers without `core::fmt`), each a few percent, or a change of design: keeping the scene between ticks and drawing again only what moved. A kept scene is exact only if its key covers everything that decides the picture (the camera, the door switch and every tile), and the sprites would have to be erased from a clean copy, which costs a frame-sized copy on every tick that scrolls. That, or copying only the changed part of the frame to the screen, is the next step if the drawing must get under the target.
 
-These numbers do not say how a real 486DX behaves. DOSBox cycles are an approximation: it counts instructions at a fixed rate and does not model cache, memory or bus timing. The cost of x87 instructions on a 486DX, which the step uses for every `f64` operation, is not measured, and DOSBox charges them the same as other instructions. A figure that hides x87 cost is a floor for the step, not an estimate. The 486 floor claim therefore stands on the order of magnitude only until the drawing has been reduced and the build run on hardware or a cycle-accurate model such as Fizz 1's `cyc486.py`.
+The copy figure is DOSBox's cost for 16,000 dword writes to its emulated video memory and does not stand for a real card: a real VGA's bus speed decides it, and a real ISA or PCI card takes several milliseconds for 64,000 bytes whatever the instruction. Treat it as a lower-confidence figure than the other two.
+
+These numbers do not say how a real 486DX behaves. DOSBox cycles are an approximation: it does not model cache, memory or bus timing, and the cost of x87 instructions, which the step uses for every `f64` operation and the drawing uses for each sprite position (`tile_px` takes a floor through `f64`), is not measured. DOSBox charges them the same as other instructions, so the step and the position arithmetic are floors, not estimates. No i486 cycle weighting of the instruction stream (as Fizz 1's `cyc486.py` does) was run for these changes, and `valgrind` is not installed here, so there is no instruction count either. That the changes help a real 486 rests on their running fewer instructions (a `rep stosd` stores a dword in about a clock after a few clocks of start-up, against five or more instructions for the generic loop), not on a measurement. The 486 floor claim stands on the order of magnitude until the build is run on hardware or a cycle-accurate model.
 
 ## Size budget
 
@@ -259,7 +289,7 @@ A 1.44 MB floppy holds 1,474,560 bytes raw, about 1,457,664 bytes of data area. 
 | FreeDOS-bootable | About 1.17 MB | FreeDOS needs about 153 KB and 64 KB is kept free for saves |
 | Plain | About 1.39 MB | 8 KB kept free |
 
-The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped; with the slice (the rules, the level, the sprite data and the drawing) it was 72,192 bytes, and deleting the marker's rules, drawing and replay took it to 61,440 bytes, about 5.6% of the budget. The `/BENCH` mode adds about 3.6 KB (62,976 to 66,560 bytes).
+The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped; with the slice (the rules, the level, the sprite data and the drawing) it was 72,192 bytes, and deleting the marker's rules, drawing and replay took it to 61,440 bytes, about 5.6% of the budget. The `/BENCH` mode adds about 3.6 KB (62,976 to 66,560 bytes), and the drawing changes with the frame digests add about 3 KB more (69,632 bytes).
 
 For scale, Fizz 1 embeds about 436 KB of assets in an 862 KB stripped executable: `sprites.bin` 102,252 bytes, `sound.bin` 279,348 bytes and `titles.bin` 54,488 bytes. The Episode 2 sprite design canvas holds 211 sprites, about 146 KB at one byte per pixel and about 73 KB at four bits per pixel. That count includes variants of Ben and three enemy rosters, so the sprites that ship will be fewer. Music and the larger backdrops are likely to take more room than sprites do.
 
