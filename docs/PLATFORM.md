@@ -25,7 +25,8 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-hello` | Rules | Throwaway rules for the marker; deleted when real rules arrive. Holds the golden transcript `m0-replay.txt` |
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
 | `crates/fizz-view` | Presenter base | The placement rule both presenters share: a position in game units to a logical pixel, rounding down. Neither presenter depends on the other |
-| `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD and key mapping; no DOS calls |
+| `crates/fizz-slice-view` | Presenter base | `draw_slice`, the one routine that draws the Episode 2 slice into a palette-indexed buffer; both presenters call it |
+| `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD (the M0 marker's, and the slice's ammo, key, deaths and tick strip in `render_slice`) and key mapping; no DOS calls |
 | `crates/fizz-present-web` | Presenter | The `wasm-bindgen` `App` and `WebClock` |
 | `dos/rt` | Platform | `fizz-dos-rt`, the self-contained DOS runtime and the only DOS-aware code |
 | `dos/fizz2` | App | `FIZZ2.EXE`, with the HAL adapters `DosClock`, `DosInput` and `DosDisplay` in `src/hal.rs` |
@@ -56,7 +57,7 @@ The golden file is `crates/fizz-hello/m0-replay.txt`. All three platforms produc
 
 ### The slice transcript
 
-The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the same shape with the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`. It takes the same `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash` that `fizz-hello` takes through its own, so a presenter swaps one for the other. Native prints it with `cargo run -p fizz-ep2 --example replay`. No presenter runs it yet; the gates switch to it with the DOS and Web slice packages.
+The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the same shape with the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`. It takes the same `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash` that `fizz-hello` takes through its own, so a presenter swaps one for the other. Native prints it with `cargo run -p fizz-ep2 --example replay`. DOS runs it as `FIZZ2.EXE /SLICE` and `tools/check-dos.sh` compares it with the golden file; the Web and the parity gate still use the Milestone 0 transcript until the gates switch.
 
 The slice hash covers, in this order, with floating-point fields as `f64` bits and counts as `u32`:
 
@@ -138,7 +139,7 @@ The crate is `no_std` with no dependencies, denies `clippy::float_arithmetic`, a
 - **Clean-up.** Every vector is restored on exit and on panic through the clean-up list. A panic exits with code 3.
 - **File names** are 8.3 and upper case.
 
-`FIZZ2.EXE` takes one argument. `/REPLAY` runs the 600-tick script and prints the transcript and the platform lines. `/LIVE` is keyboard play, ends on Esc, and is the default; it also ends by itself after 30 seconds so an emulator run cannot hang. `/MODERN` selects the modern key layout and combines with `/LIVE` or stands alone for it. `/PANIC` hooks IRQ 0 and panics, to show that the clean-up list runs.
+`FIZZ2.EXE` takes one mode argument. `/LIVE` plays the slice from the keyboard, ends on Esc, and is the default; it also ends by itself after 30 seconds so an emulator run cannot hang, and prints `LIVE TICKS`, `MOVED` (Ben is off his spawn) and `VECTORS RESTORED`. `/SLICE` plays the slice script (1,268 ticks, about 21 seconds), drawing it as it goes, and prints the `SLICE REPLAY 1` transcript, `EXIT yes` when Ben reached the exit, `FPU CW 027F`, `BIOS TICKS <n>` (385 for the script) and `VECTORS RESTORED yes`. `/REPLAY` still runs the Milestone 0 600-tick script and prints its transcript and the same platform lines. The transcript is collected in an 8,192-byte buffer and printed only after the screen is back in text mode. `/MODERN` selects the modern key layout and combines with `/LIVE` or stands alone for it. `/PANIC` hooks IRQ 0 and panics, to show that the clean-up list runs.
 
 ### Key layouts
 
@@ -171,7 +172,7 @@ cargo install wasm-bindgen-cli --version 0.2.125 --locked
 | `tools/setup-dos.sh` | Links `vendor/` to the DOS toolchain when it is absent | `DOS_TOOLCHAIN`, or a `vendor/` already in place |
 | `tools/build-dos.sh` | Builds `RTSMOKE.EXE`, `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos` | The DOS toolchain |
 | `tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY` | Runs a DOS program in headless DOSBox and passes back its output and exit status | The DOS toolchain |
-| `tools/check-dos.sh` | Builds, then checks the replay against the golden file, the platform lines, a keyboard smoke (`MOVED yes`) and the panic exit status of 3, and prints `SIZE` | The DOS toolchain |
+| `tools/check-dos.sh` | Builds, then checks the `/REPLAY` and `/SLICE` transcripts against their golden files, the platform lines (`EXIT yes` for the slice, a BIOS tick count of 383 to 387), a keyboard smoke of the slice (`MOVED yes`) and the panic exit status of 3, and prints `SIZE` | The DOS toolchain |
 | `tools/build-web.sh` | Builds `dist/web` | The `wasm32-unknown-unknown` target and the pinned CLI |
 | `node tools/web-replay.mjs` | Runs the replay inside the built WASM module (Node and Bun both work) | `dist/web` |
 | `tools/check-parity.sh` | Compares the native, Web (Node and Bun) and DOS transcripts and prints `PARITY ok <hash>` | Everything above |
@@ -205,7 +206,7 @@ A 1.44 MB floppy holds 1,474,560 bytes raw, about 1,457,664 bytes of data area. 
 | FreeDOS-bootable | About 1.17 MB | FreeDOS needs about 153 KB and 64 KB is kept free for saves |
 | Plain | About 1.39 MB | 8 KB kept free |
 
-The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped.
+The budget covers the executable and the Fizz Asset Packs (`.FAP`) together (see [Assets and packs](ARCHITECTURE.md#assets-and-packs)). `tools/check-dos.sh` prints `SIZE <bytes>` for `FIZZ2.EXE` against a provisional `BUDGET 1100000` and fails if it is over; it counts the executable alone until packs exist, and then counts both. The figure is a tracked metric, not a design limit. Fizz 2's own save and config reserve is still to be confirmed. The Milestone 0 `FIZZ2.EXE` is 32,768 bytes, unstripped; with the slice (the rules, the level, the sprite data and the drawing) it is 71,168 bytes, about 6% of the budget.
 
 For scale, Fizz 1 embeds about 436 KB of assets in an 862 KB stripped executable: `sprites.bin` 102,252 bytes, `sound.bin` 279,348 bytes and `titles.bin` 54,488 bytes. The Episode 2 sprite design canvas holds 211 sprites, about 146 KB at one byte per pixel and about 73 KB at four bits per pixel. That count includes variants of Ben and three enemy rosters, so the sprites that ship will be fewer. Music and the larger backdrops are likely to take more room than sprites do.
 
@@ -227,8 +228,8 @@ Files mirrored or adapted from other work name their source in a header comment.
 - x87 cycle cost. DOSBox with `cycles=max` hides it.
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
-- Audio. Nothing in the skeleton makes sound.
-- The slice replay on Web and DOS. Only native x86_64 (debug and release builds, which agree) runs it so far; `fizz-ep2` builds for `wasm32-unknown-unknown` and type-checks for the DOS target, but the parity gate does not run the slice until the presenters switch.
-- That the slice level is pleasant to play. The replay proves it can be finished, not that it is fun, and the camera has not been built.
+- Audio. Nothing in the builds makes sound yet.
+- The slice replay on the Web. Native x86_64 (debug and release builds, which agree) and DOS (headless DOSBox, with the x87 at 53 bits) reproduce `slice-replay.txt`; the Web build is not run against it until the Web slice lands, and `tools/check-parity.sh` still compares the Milestone 0 transcript.
+- That the slice level is pleasant to play. The replay proves it can be finished, not that it is fun. The DOS build's `/LIVE` has been played only by DOSBox AUTOTYPE key presses, so the feel of the camera and the keys, and the speed of the drawing on a real 486, are unverified. The DOS screenshot in the manual comes from DOSBox.
 - Bundling the Web build into a launcher.
 - The GitHub-hosted runner for the `parity` job.

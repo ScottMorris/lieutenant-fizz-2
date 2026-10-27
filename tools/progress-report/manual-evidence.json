@@ -60,11 +60,46 @@
    "prs": [
     5
    ],
-   "evidence": "`tools/check-dos.sh` runs all three: `/REPLAY` must print the golden transcript, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
-   "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it."
+   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the Milestone 0 golden transcript, `/SLICE` must print the slice's golden transcript (`FINAL TICK 1268 HASH d1a225bf14ab4828`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it; and that `/SLICE` takes about 21 seconds, which the BIOS tick bound of 383 to 387 covers only as a count."
   },
   {
-   "section": "The screen",
+   "section": "The slice on DOS",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-dos.sh` runs `/SLICE` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD strip is tested in `fizz-present-dos` (`the_slice_hud_shows_ammo_key_deaths_and_tick`). The screenshot is a real DOSBox Staging grab of `/SLICE` under a virtual X server.",
+   "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which does not exist yet."
+  },
+  {
+   "section": "The level",
+   "shelf": "catalogued",
+   "evidence": "The level's tests in `fizz-ep2` check its size, the named places and that the door starts closed; the replay climbs from the spawn through the door to the exit, which `check-dos.sh` repeats on DOS (`EXIT yes`). The colours are the `tile_colour` table of `fizz-slice-view`, with a test that the tile types have distinct colours.",
+   "gaps": "that the level is pleasant to play; the colour names in the section were read from the code and the screenshot, not checked by a test."
+  },
+  {
+   "section": "Moves",
+   "shelf": "catalogued",
+   "evidence": "Walking, jumping with a cut, the pogo and its held high bounce and the stun shots are proved bit for bit against Fizz 1's golden traces (`tests/fizz1`), and the slice replay uses them. The key mapping of both layouts is tested in `fizz-present-dos`.",
+   "gaps": "the Alt key on DOS, which the keyboard smoke does not type, and the pogo and Fizz keys in a live DOSBox session (the replay feeds them as buttons, not as key presses)."
+  },
+  {
+   "section": "The red key and the door",
+   "shelf": "catalogued",
+   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, and the `key_door` trace against Fizz 1. The replay on DOS opens the door."
+  },
+  {
+   "section": "The chicken",
+   "shelf": "catalogued",
+   "evidence": "The `gloop_patrol`, `stomp`, `stomp_pogo` and `fizz_stun` traces against Fizz 1; the replay stuns the chicken once by a shot and once by a stomp. A test in `fizz-slice-view` checks that a stunned chicken is drawn differently from a walking one.",
+   "gaps": "the look of the chicken (a placeholder) and its flashing, which are drawn in the code and seen in a screenshot only."
+  },
+  {
+   "section": "Death and respawn",
+   "shelf": "catalogued",
+   "evidence": "The replay dies once on the spikes carrying the key, and `the_script_exercises_every_rule_of_the_slice` checks that the key drops, the ammo refills and the door switch resets; `check-dos.sh` repeats the run on DOS.",
+   "gaps": "the look of Ben's tumble, which uses a borrowed pose because the first game has no dead pose."
+  },
+  {
+   "section": "The Web screen",
    "shelf": "catalogued",
    "prs": [
     1,
