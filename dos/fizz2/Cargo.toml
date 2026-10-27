@@ -1,6 +1,6 @@
 [package]
 name = "fizz2"
-description = "FIZZ2.EXE: the Milestone 0 hello-tick program for DOS (replay, live play, panic check)"
+description = "FIZZ2.EXE: the Milestone 1 slice for DOS (live play, scripted replays, panic check)"
 publish = false
 edition.workspace = true
 license.workspace = true
@@ -10,6 +10,7 @@ authors.workspace = true
 [dependencies]
 fizz-dos-rt = { path = "../rt" }
 fizz-sim = { path = "../../crates/fizz-sim" }
+fizz-ep2 = { path = "../../crates/fizz-ep2" }
 fizz-hello = { path = "../../crates/fizz-hello" }
 fizz-hal = { path = "../../crates/fizz-hal" }
 fizz-present-dos = { path = "../../crates/fizz-present-dos" }

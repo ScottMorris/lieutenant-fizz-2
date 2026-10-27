@@ -1,12 +1,15 @@
-// FIZZ2.EXE, the Milestone 0 hello-tick program: the shared rules, presenter and HAL on a 486-class DOS target.
+// FIZZ2.EXE: the shared rules, presenter and HAL on a 486-class DOS target, playing the Milestone 1 slice.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_hello::replay`'s.
 //
-//   FIZZ2.EXE /REPLAY   runs the built-in M0 script for 600 ticks at 60 Hz and prints transcript v1 plus platform lines
-//   FIZZ2.EXE /LIVE     keyboard play; Esc ends it. The default when no mode is given
+//   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc ends it. The default when no mode is given
+//   FIZZ2.EXE /SLICE    runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//                       v1 plus the platform lines: the parity gate for the slice
+//   FIZZ2.EXE /REPLAY   runs the Milestone 0 script for 600 ticks at 60 Hz and prints its transcript plus platform lines. It
+//                       stays until the Milestone 0 gate is retired
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /PANIC    hooks IRQ 0 and panics, to show the clean-up list runs (exit status 3)
@@ -22,9 +25,10 @@ mod hal;
 
 use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
+use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_hello::{M0_SCRIPT, M0_TICKS, World, hash, step};
-use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render};
+use fizz_present_dos::{Frame, Layout, ega_palette, key_to_buttons, present, render, render_slice};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -35,16 +39,20 @@ const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
 const LIVE_TICK_CAP: u64 = 1800;
 
+/// Bytes the transcript buffer holds. The slice's transcript is about 700 bytes; the rest is room for the events and lines
+/// that later milestones add to it.
+const TRANSCRIPT_BYTES: usize = 8192;
+
 /// A fixed buffer for the transcript, so nothing is printed (and no DOS call made) while the screen is in graphics mode.
 struct Transcript {
-    bytes: [u8; 2048],
+    bytes: [u8; TRANSCRIPT_BYTES],
     len: usize,
 }
 
 impl Transcript {
     const fn new() -> Self {
         Transcript {
-            bytes: [0; 2048],
+            bytes: [0; TRANSCRIPT_BYTES],
             len: 0,
         }
     }
@@ -110,6 +118,11 @@ fn draw(display: &mut DosDisplay, frame: &mut Frame, world: &World) {
     let _ = present(display, frame);
 }
 
+fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World) {
+    render_slice(world, frame);
+    let _ = present(display, frame);
+}
+
 fn main() -> i32 {
     fpu::set_double_precision();
     let args = env::args();
@@ -125,6 +138,8 @@ fn main() -> i32 {
         .unwrap_or("/LIVE");
     if mode.eq_ignore_ascii_case("/REPLAY") {
         replay()
+    } else if mode.eq_ignore_ascii_case("/SLICE") {
+        slice_replay()
     } else if mode.eq_ignore_ascii_case("/PANIC") {
         if let Err(e) = timer::hook_60hz() {
             println!("HOOK FAILED {:?}", e);
@@ -200,6 +215,81 @@ fn replay() -> i32 {
     0
 }
 
+/// The slice's scripted run, with the same platform lines as `/REPLAY` plus whether Ben reached the exit. The script is
+/// played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
+fn slice_replay() -> i32 {
+    let session = match start_session(false) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("HOOK FAILED {:?}", e);
+            return 1;
+        }
+    };
+    let mut display = DosDisplay;
+    if open_display(&mut display).is_err() {
+        end_session(&mut display);
+        println!("DISPLAY FAILED");
+        return 1;
+    }
+
+    let clock = DosClock;
+    let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
+    let mut frame = Frame::new();
+    let mut world = level::world();
+    let mut out = Transcript::new();
+    let mut prev = Buttons::NONE;
+    let mut run = 0usize;
+    let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
+
+    let _ = writeln!(out, "SLICE REPLAY 1");
+    let _ = writeln!(out, "TICK 0 HASH {:016x}", fizz_ep2::hash(&world).finish());
+    draw_slice_frame(&mut display, &mut frame, &world);
+
+    while world.tick.0 < SLICE_TICKS {
+        let due = pacer.due(&clock);
+        for _ in 0..due {
+            if world.tick.0 >= SLICE_TICKS {
+                break;
+            }
+            while left == 0 && run + 1 < SLICE_SCRIPT.len() {
+                run += 1;
+                left = u32::from(SLICE_SCRIPT[run].0);
+            }
+            let now = SLICE_SCRIPT[run].1;
+            left = left.saturating_sub(1);
+            fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
+            prev = now;
+            if world.tick.0.is_multiple_of(60) {
+                let _ = writeln!(out, "TICK {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
+            }
+        }
+        if due > 0 {
+            draw_slice_frame(&mut display, &mut frame, &world);
+        }
+    }
+    let _ = writeln!(
+        out,
+        "FINAL TICK {} HASH {:016x}",
+        world.tick.0,
+        fizz_ep2::hash(&world).finish()
+    );
+
+    let cw = fpu::control_word();
+    let bios_end = timer::bios_ticks();
+    end_session(&mut display);
+    let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
+
+    for line in out.text().lines() {
+        println!("{}", line);
+    }
+    let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
+    println!("EXIT {}", if exited { "yes" } else { "no" });
+    println!("FPU CW {:04X}", cw);
+    println!("BIOS TICKS {}", bios_end.wrapping_sub(session.bios_start));
+    println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
+    0
+}
+
 fn live(layout: Layout) -> i32 {
     let session = match start_session(true) {
         Ok(s) => s,
@@ -220,12 +310,13 @@ fn live(layout: Layout) -> i32 {
     let mut input = DosInput::new();
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
-    let mut world = World::new();
+    let mut world = level::world();
     let mut quit = false;
 
-    draw(&mut display, &mut frame, &world);
+    draw_slice_frame(&mut display, &mut frame, &world);
     while !quit && world.tick.0 < LIVE_TICK_CAP {
-        for _ in 0..pacer.due(&clock) {
+        let due = pacer.due(&clock);
+        for _ in 0..due {
             while let Some(event) = input.poll_key() {
                 if event.code == KeyCode::Escape && event.pressed {
                     quit = true;
@@ -236,15 +327,18 @@ fn live(layout: Layout) -> i32 {
             if quit || world.tick.0 >= LIVE_TICK_CAP {
                 break;
             }
-            step(&mut world, latch.frame());
-            draw(&mut display, &mut frame, &world);
+            fizz_ep2::step(&mut world, latch.frame());
+        }
+        if due > 0 {
+            draw_slice_frame(&mut display, &mut frame, &world);
         }
     }
 
     end_session(&mut display);
     let restored = vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
-    let moved = world.x.to_bits() != 160.0_f64.to_bits() || world.y.to_bits() != 100.0_f64.to_bits();
-    println!("LIVE TICKS {} HASH {:016x}", world.tick.0, hash(&world).finish());
+    // Ben has moved when he is anywhere but the spawn he started at: a step changes `x`, a jump changes `y`.
+    let moved = world.ben.b.x.to_bits() != level::SPAWN.0.to_bits() || world.ben.b.y.to_bits() != level::SPAWN.1.to_bits();
+    println!("LIVE TICKS {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
     println!("MOVED {}", if moved { "yes" } else { "no" });
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     0

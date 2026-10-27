@@ -46,9 +46,11 @@ dependencies = [
 name = "fizz-present-dos"
 version = "0.1.0"
 dependencies = [
+ "fizz-ep2",
  "fizz-hal",
  "fizz-hello",
  "fizz-sim",
+ "fizz-slice-view",
  "fizz-view",
 ]
 
