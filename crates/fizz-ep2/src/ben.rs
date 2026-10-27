@@ -30,6 +30,19 @@ pub const SHOT_SPEED: f64 = 16.0;
 pub const SHOT_LIFE: f64 = 1.1;
 /// Seconds of the shooting pose after a shot.
 pub const SHOOT_POSE: f64 = 0.25;
+/// Seconds Up or Down must be held before the camera starts to look (Fizz 1's `look_up > 0.2` test).
+pub const LOOK_DELAY: f64 = 0.2;
+/// Seconds the look takes to rise from nothing to its full reach once the delay has passed. Fizz 1's camera chases its aim
+/// point exponentially at 8 per second, which covers 95% of the distance in `ln(20) / 8` = 0.37 s; a straight ramp of 0.35 s
+/// covers the same distance in about the same time without an `exp`.
+pub const LOOK_RAMP: f64 = 0.35;
+/// How far the view looks up or down in tiles, measured from the middle of Ben's body (Fizz 1's 3.6, which it measures from
+/// his feet).
+pub const LOOK_REACH: f64 = 3.6;
+/// How fast the look offset may change in tiles per second. It is a little above the ramp's own speed (`LOOK_REACH /
+/// LOOK_RAMP` = 10.3), so while a button is held the offset equals the ramp, and after a release it returns to nothing in
+/// 0.3 s instead of snapping back when the timer resets.
+pub const LOOK_RATE: f64 = 12.0;
 /// Below this magnitude a velocity snaps to zero, so an idle pogo's drag never reaches the subnormal range, where x87 at
 /// 53 bits and SSE2 round differently. This is a departure from Fizz 1, which lets the value decay. It is 2^-1000.
 const SNAP: f64 = f64::from_bits((1023 - 1000) << 52);
@@ -76,6 +89,16 @@ pub struct Ben {
     pub rise_y: f64,
     /// Seconds before Ben may kick off a wall again. Wall kicks are not ported; the timer only counts down.
     pub wall_t: f64,
+    /// Seconds Up has been held alone while Ben is idle (Fizz 1's `Player::look_up`). Zero otherwise.
+    pub look_up: f64,
+    /// Seconds Down has been held alone while Ben is idle (Fizz 1's `Player::look_down`). Zero otherwise.
+    pub look_down: f64,
+    /// The direction of Ben's last shot: 1 up, -1 down, 0 level (Fizz 1's `Player::aim`). It keeps its value until the next
+    /// shot, and the shooting pose reads it while `shoot_t` runs.
+    pub aim: i8,
+    /// How far the view is looking, in tiles, positive up: the stateless camera's memory. It follows [`Ben::look_target`] at
+    /// no more than [`LOOK_RATE`] tiles a second. Fizz 1 has no such field; it keeps the same memory in its camera position.
+    pub look_offset: f64,
 }
 
 impl Ben {
@@ -93,6 +116,26 @@ impl Ben {
             bumped: false,
             rise_y: 0.0,
             wall_t: 0.0,
+            look_up: 0.0,
+            look_down: 0.0,
+            aim: 0,
+            look_offset: 0.0,
+        }
+    }
+
+    /// Where the look offset is heading: nothing until a look timer passes [`LOOK_DELAY`], then a straight ramp over
+    /// [`LOOK_RAMP`] seconds to [`LOOK_REACH`] tiles up or down. It is a function of the timers alone.
+    pub fn look_target(&self) -> f64 {
+        let (held, sign) = if self.look_up > 0.0 {
+            (self.look_up, 1.0)
+        } else {
+            (self.look_down, -1.0)
+        };
+        let share = ((held - LOOK_DELAY) / LOOK_RAMP).clamp(0.0, 1.0);
+        if share == 0.0 {
+            0.0
+        } else {
+            sign * LOOK_REACH * share
         }
     }
 
@@ -160,6 +203,26 @@ impl Ben {
             if ax != 0.0 {
                 self.face = ax;
             }
+            let idle = self.b.on_ground && !self.pogo && ax == 0.0;
+            self.look_down = if h.contains(Buttons::DOWN) && !h.contains(Buttons::UP) && idle {
+                self.look_down + dt
+            } else {
+                0.0
+            };
+            self.look_up = if h.contains(Buttons::UP) && !h.contains(Buttons::DOWN) && idle {
+                self.look_up + dt
+            } else {
+                0.0
+            };
+            let (target, step) = (self.look_target(), LOOK_RATE * dt);
+            let gap = target - self.look_offset;
+            self.look_offset = if gap.abs() <= step {
+                target
+            } else if gap > 0.0 {
+                self.look_offset + step
+            } else {
+                self.look_offset - step
+            };
             let b = &mut self.b;
             if b.on_ground && !self.pogo {
                 if ax != 0.0 {
@@ -258,11 +321,15 @@ impl Ben {
         let b = &self.b;
         let (mut vx, mut vy) = (self.face * SHOT_SPEED, 0.0);
         let (mut sx, mut sy) = (b.x + b.w / 2.0 + self.face * 0.6, b.y + 0.85);
+        let mut aim = 0;
         if h.contains(Buttons::UP) {
             (vx, vy, sx, sy) = (0.0, SHOT_SPEED, b.x + b.w / 2.0, b.y + 1.5);
+            aim = 1;
         } else if h.contains(Buttons::DOWN) && !b.on_ground {
             (vx, vy, sx, sy) = (0.0, -SHOT_SPEED, b.x + b.w / 2.0, b.y);
+            aim = -1;
         }
+        self.aim = aim;
         shots.push(Shot {
             x: sx,
             y: sy,
@@ -285,6 +352,221 @@ mod tests {
         assert_eq!(snap(-SNAP / 2.0), 0.0);
         assert_eq!(snap(1e-308), 0.0);
         assert_eq!(snap(-0.5), -0.5);
+    }
+
+    /// A flat floor of solid tiles under row 1, a ceiling-free arena and Ben standing on it.
+    fn arena() -> (TileMap, Ben) {
+        let mut map = TileMap::new(24, 14, fizz_phys::TileProps::default());
+        map.props.set_flags(1, fizz_phys::tilemap::SOLID);
+        for x in 0..24 {
+            map.set(x, 0, 1);
+            map.set(x, 1, 1);
+        }
+        (map, Ben::new(10.0, 2.0))
+    }
+
+    /// Holds `held` for `ticks` ticks (the first has the press edges), returning the shots fired.
+    fn hold(
+        map: &TileMap,
+        ben: &mut Ben,
+        prev: &mut Buttons,
+        held: Buttons,
+        ticks: u32,
+        ammo: &mut u32,
+    ) -> Vec<Shot> {
+        let mut shots = Vec::new();
+        for _ in 0..ticks {
+            ben.tick(
+                map,
+                &[],
+                InputFrame::from_transition(*prev, held),
+                ammo,
+                &mut shots,
+            );
+            *prev = held;
+        }
+        shots
+    }
+
+    #[test]
+    fn a_look_timer_starts_while_idle_and_resets_on_release() {
+        let (map, mut ben) = arena();
+        let (mut prev, mut ammo) = (Buttons::NONE, 5);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 5, &mut ammo);
+        hold(&map, &mut ben, &mut prev, Buttons::UP, 60, &mut ammo);
+        assert!((ben.look_up - 1.0).abs() < 1e-9 && ben.look_down == 0.0);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 1, &mut ammo);
+        assert_eq!(ben.look_up, 0.0);
+        hold(&map, &mut ben, &mut prev, Buttons::DOWN, 30, &mut ammo);
+        assert!((ben.look_down - 0.5).abs() < 1e-9 && ben.look_up == 0.0);
+    }
+
+    #[test]
+    fn a_look_does_not_start_when_moving_airborne_on_the_pogo_or_with_both_held() {
+        let (map, mut ben) = arena();
+        let (mut prev, mut ammo) = (Buttons::NONE, 5);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 5, &mut ammo);
+        hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::UP.union(Buttons::DOWN),
+            20,
+            &mut ammo,
+        );
+        assert_eq!((ben.look_up, ben.look_down), (0.0, 0.0));
+        hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::UP.union(Buttons::RIGHT),
+            20,
+            &mut ammo,
+        );
+        assert_eq!(ben.look_up, 0.0);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 40, &mut ammo);
+        hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::UP.union(Buttons::JUMP),
+            1,
+            &mut ammo,
+        );
+        assert!(!ben.b.on_ground);
+        hold(&map, &mut ben, &mut prev, Buttons::UP, 10, &mut ammo);
+        assert_eq!(ben.look_up, 0.0, "airborne");
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 60, &mut ammo);
+        assert!(ben.b.on_ground);
+        hold(&map, &mut ben, &mut prev, Buttons::POGO, 1, &mut ammo);
+        hold(&map, &mut ben, &mut prev, Buttons::DOWN, 20, &mut ammo);
+        assert!(ben.pogo);
+        assert_eq!(ben.look_down, 0.0, "on the pogo");
+    }
+
+    #[test]
+    fn up_fires_straight_up_and_down_fires_straight_down_only_in_the_air() {
+        let (map, mut ben) = arena();
+        let (mut prev, mut ammo) = (Buttons::NONE, 5);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 5, &mut ammo);
+        let (cx, y) = (ben.b.x + ben.b.w / 2.0, ben.b.y);
+        let s = hold(&map, &mut ben, &mut prev, Buttons::FIRE, 1, &mut ammo);
+        assert_eq!(
+            (s[0].vx, s[0].vy, s[0].x, s[0].y),
+            (16.0, 0.0, cx + 0.6, y + 0.85)
+        );
+        assert_eq!(ben.aim, 0);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 1, &mut ammo);
+        let s = hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::UP.union(Buttons::FIRE),
+            1,
+            &mut ammo,
+        );
+        assert_eq!((s[0].vx, s[0].vy, s[0].x, s[0].y), (0.0, 16.0, cx, y + 1.5));
+        assert_eq!(ben.aim, 1);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 1, &mut ammo);
+        let s = hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::DOWN.union(Buttons::FIRE),
+            1,
+            &mut ammo,
+        );
+        assert_eq!(
+            (s[0].vx, s[0].vy),
+            (16.0, 0.0),
+            "on the ground Down stays level"
+        );
+        assert_eq!(ben.aim, 0);
+        hold(&map, &mut ben, &mut prev, Buttons::JUMP, 1, &mut ammo);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 5, &mut ammo);
+        let (y, vy) = (ben.b.y, ben.b.vy);
+        assert!(!ben.b.on_ground && vy != 0.0);
+        let s = hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::DOWN.union(Buttons::FIRE),
+            1,
+            &mut ammo,
+        );
+        assert_eq!((s[0].vx, s[0].vy, s[0].x, s[0].y), (0.0, -16.0, cx, y));
+        assert_eq!(ben.aim, -1);
+        assert_eq!(ammo, 1);
+    }
+
+    #[test]
+    fn a_shot_with_no_ammo_leaves_the_aim_alone() {
+        let (map, mut ben) = arena();
+        let (mut prev, mut ammo) = (Buttons::NONE, 0);
+        ben.aim = 1;
+        hold(
+            &map,
+            &mut ben,
+            &mut prev,
+            Buttons::DOWN.union(Buttons::FIRE),
+            1,
+            &mut ammo,
+        );
+        assert_eq!(ben.aim, 1);
+    }
+
+    #[test]
+    fn the_look_target_ramps_after_the_delay_and_the_offset_follows_and_returns() {
+        let mut ben = Ben::new(0.0, 0.0);
+        let mut last = 0.0;
+        for n in 0..90 {
+            ben.look_up = f64::from(n) * STEP;
+            let t = ben.look_target();
+            assert!(t >= last, "monotone");
+            if ben.look_up <= LOOK_DELAY {
+                assert_eq!(t, 0.0);
+            }
+            last = t;
+        }
+        assert_eq!(last, LOOK_REACH);
+        ben.look_up = 0.0;
+        ben.look_down = LOOK_DELAY + LOOK_RAMP / 2.0;
+        assert!(
+            (ben.look_target() + LOOK_REACH / 2.0).abs() < 1e-12,
+            "down is negative"
+        );
+        ben.look_down = 0.0;
+        assert_eq!(ben.look_target(), 0.0);
+        assert!(ben.look_target().is_sign_positive());
+    }
+
+    #[test]
+    fn the_look_offset_rises_to_the_reach_and_returns_to_nothing_after_release() {
+        let (map, mut ben) = arena();
+        let (mut prev, mut ammo) = (Buttons::NONE, 5);
+        hold(&map, &mut ben, &mut prev, Buttons::NONE, 5, &mut ammo);
+        let mut last = 0.0;
+        for _ in 0..60 {
+            hold(&map, &mut ben, &mut prev, Buttons::UP, 1, &mut ammo);
+            assert!(ben.look_offset >= last && ben.look_offset <= LOOK_REACH);
+            last = ben.look_offset;
+        }
+        assert_eq!(ben.look_offset, LOOK_REACH);
+        let mut ticks = 0;
+        while ben.look_offset != 0.0 {
+            let before = ben.look_offset;
+            hold(&map, &mut ben, &mut prev, Buttons::NONE, 1, &mut ammo);
+            assert!(
+                ben.look_offset < before && ben.look_offset >= 0.0,
+                "monotone return"
+            );
+            ticks += 1;
+        }
+        assert!((17..=19).contains(&ticks), "about 0.3 s, took {ticks}");
+        for _ in 0..60 {
+            hold(&map, &mut ben, &mut prev, Buttons::DOWN, 1, &mut ammo);
+        }
+        assert_eq!(ben.look_offset, -LOOK_REACH);
     }
 
     #[test]

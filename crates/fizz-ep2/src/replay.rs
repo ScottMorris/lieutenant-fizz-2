@@ -303,7 +303,7 @@ mod tests {
         // Adding `cluck_age`, `cluck_variant` and the chicken index to the event must not move the state hash.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1268 HASH 2145503c0d3b625f\n"),
+            t.ends_with("FINAL TICK 1268 HASH 0edebb797e63edff\n"),
             "{t}"
         );
     }
