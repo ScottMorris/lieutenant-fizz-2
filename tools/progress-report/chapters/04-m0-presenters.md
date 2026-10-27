@@ -92,7 +92,7 @@ id: web-shots
 kind: screenshot
 track: web
 title: The Web page in headless Chromium
-alt: Screenshots of the Web page: a dark canvas with a yellow marker and a HUD with the tick, the hash and the dash count below it, before and after key presses.
+alt: Screenshots of the Web page: an EGA blue field with a light-grey border, a yellow marker and a HUD with the tick, the hash and the dash count below it, before and after key presses.
 caption: The page at start, after Right and Down, and after a dash.
 at: figure shots web-start.png web-moved.png web-dash.png
 thumb: img:media/web-moved.png
