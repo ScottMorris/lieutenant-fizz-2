@@ -8,7 +8,7 @@
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc ends it. The default when no mode is given
 //   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
-//   FIZZ2.EXE /BENCH    runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
+//   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
@@ -140,10 +140,16 @@ fn main() -> i32 {
         .map(|a| a.as_str())
         .find(|a| !a.eq_ignore_ascii_case("/MODERN"))
         .unwrap_or("/LIVE");
+    // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
+    let bench_limit = args
+        .iter()
+        .filter_map(|a| a.parse::<u64>().ok())
+        .next()
+        .unwrap_or(SLICE_TICKS);
     if mode.eq_ignore_ascii_case("/REPLAY") {
         replay()
     } else if mode.eq_ignore_ascii_case("/BENCH") {
-        bench()
+        bench(bench_limit)
     } else if mode.eq_ignore_ascii_case("/PANIC") {
         if let Err(e) = timer::hook_60hz() {
             println!("HOOK FAILED {:?}", e);
@@ -224,7 +230,7 @@ fn replay() -> i32 {
 }
 
 /// Times the slice (see `bench`): the figures, then the platform lines, printed once the screen is back in text mode.
-fn bench() -> i32 {
+fn bench(limit: u64) -> i32 {
     let session = match start_session(false) {
         Ok(s) => s,
         Err(e) => {
@@ -238,7 +244,7 @@ fn bench() -> i32 {
         println!("DISPLAY FAILED");
         return 1;
     }
-    let (world, r) = bench::run(&mut display);
+    let (world, r) = bench::run(&mut display, limit);
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;

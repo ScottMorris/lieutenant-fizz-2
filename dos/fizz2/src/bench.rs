@@ -11,7 +11,7 @@
 // ticks follow each other as fast as the machine can go, which is what a budget needs. The 60 Hz interrupt still fires and shows
 // up in the maxima (a few microseconds on real hardware).
 use fizz_dos_rt::timer;
-use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, World};
+use fizz_ep2::{SLICE_SCRIPT, World};
 use fizz_present_dos::{Frame, present, render_slice};
 use fizz_sim::{Buttons, InputFrame};
 
@@ -93,8 +93,8 @@ fn overhead(sw: &mut Stopwatch) -> u64 {
 }
 
 /// Plays the slice script once from a fresh level, timing each tick's step, drawing (the picture and the HUD text into the
-/// buffer) and copy to the screen. The caller has hooked the timer and set mode 13h. Returns the final world with the report.
-pub fn run(display: &mut DosDisplay) -> (World, Report) {
+/// buffer) and copy to the screen, stopping after `limit` ticks (the whole script when it is `SLICE_TICKS` or more). The caller has hooked the timer and set mode 13h. Returns the final world with the report.
+pub fn run(display: &mut DosDisplay, limit: u64) -> (World, Report) {
     let mut sw = Stopwatch::new();
     let cost = overhead(&mut sw);
     let mut world = fizz_ep2::level::world();
@@ -103,6 +103,9 @@ pub fn run(display: &mut DosDisplay) -> (World, Report) {
     let mut prev = Buttons::NONE;
     for &(frames, now) in SLICE_SCRIPT {
         for _ in 0..frames {
+            if step.count >= limit {
+                break;
+            }
             let t0 = sw.now();
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
             let t1 = sw.now();
@@ -120,7 +123,7 @@ pub fn run(display: &mut DosDisplay) -> (World, Report) {
     (
         world,
         Report {
-            ticks: SLICE_TICKS,
+            ticks: step.count,
             overhead_clocks: cost,
             step,
             draw,
