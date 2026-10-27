@@ -29,8 +29,25 @@ pub const RESPAWN_AFTER: f64 = 1.4;
 /// and they are not hashed (the cluck timer and stream counter behind a [`Event::Cluck`] are).
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Event {
-    /// A chicken clucked. `variant` is below [`CLUCK_VARIANTS`](crate::chicken::CLUCK_VARIANTS).
-    Cluck { variant: u8 },
+    /// A chicken clucked. `variant` is below [`CLUCK_VARIANTS`](crate::chicken::CLUCK_VARIANTS) and `chicken` is the
+    /// chicken's index in [`World::chickens`].
+    Cluck { variant: u8, chicken: u8 },
+}
+
+/// What a presenter needs to draw a chicken and its cluck: where it is, which way it faces, and how far into its last
+/// cluck it is. Read-only; see [`World::chicken_views`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ChickenView {
+    /// Left edge of the body, in tiles.
+    pub x: f64,
+    /// Bottom edge of the body (its feet), in tiles.
+    pub y: f64,
+    /// Walking direction: -1 or 1.
+    pub dir: f64,
+    /// Ticks since the last cluck; [`CLUCK_NEVER`](crate::chicken::CLUCK_NEVER) before the first. Not hashed.
+    pub cluck_age: u32,
+    /// The variant of the last cluck. Not hashed.
+    pub cluck_variant: u8,
 }
 
 /// The progress bits that live outside any one body.
@@ -115,6 +132,18 @@ impl World {
         &self.events
     }
 
+    /// The chickens as a presenter draws them: position, facing and cluck presentation state, in list order. The cluck
+    /// age and variant are not part of the state hash.
+    pub fn chicken_views(&self) -> impl Iterator<Item = ChickenView> + '_ {
+        self.chickens.iter().map(|c| ChickenView {
+            x: c.b.x,
+            y: c.b.y,
+            dir: c.dir,
+            cluck_age: c.cluck_age,
+            cluck_variant: c.cluck_variant,
+        })
+    }
+
     /// Lays the red key with its centre at `(x, y)`.
     pub fn set_key(&mut self, x: f64, y: f64) {
         self.key = Some((x, y));
@@ -140,10 +169,16 @@ impl World {
         self.ben.b.px = self.ben.b.x;
         self.ben.b.py = self.ben.b.y;
         self.tick_ben(input);
-        for c in &mut self.chickens {
+        for (i, c) in self.chickens.iter_mut().enumerate() {
+            c.cluck_age = c.cluck_age.saturating_add(1);
             if let Some(variant) = c.tick(&self.map, self.tick.0) {
                 debug_assert!(variant < CLUCK_VARIANTS);
-                self.events.push(Event::Cluck { variant });
+                c.cluck_age = 0;
+                c.cluck_variant = variant;
+                self.events.push(Event::Cluck {
+                    variant,
+                    chicken: i as u8,
+                });
             }
         }
         self.tick_shots();
@@ -529,7 +564,7 @@ mod tests {
         for _ in 0..ticks {
             w.step(idle());
             for e in w.events() {
-                let Event::Cluck { variant } = *e;
+                let Event::Cluck { variant, .. } = *e;
                 out.push((w.tick.0, variant));
             }
         }
@@ -602,6 +637,84 @@ mod tests {
         assert_eq!(w.events().len(), 1);
         w.step(idle());
         assert!(w.events().is_empty());
+    }
+
+    #[test]
+    fn cluck_age_and_variant_follow_the_clucks() {
+        let mut w = quiet();
+        assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
+        let first = u64::from(w.chickens[0].cluck_timer);
+        for _ in 1..first {
+            w.step(idle());
+            assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
+        }
+        w.step(idle());
+        let Event::Cluck { variant, chicken } = w.events()[0];
+        assert_eq!(chicken, 0);
+        assert_eq!(w.chickens[0].cluck_age, 0);
+        assert_eq!(w.chickens[0].cluck_variant, variant);
+        for n in 1..=20 {
+            w.step(idle());
+            assert_eq!(w.chickens[0].cluck_age, n);
+            assert_eq!(w.chickens[0].cluck_variant, variant);
+        }
+        let v = w.chicken_views().next().unwrap();
+        assert_eq!((v.cluck_age, v.cluck_variant), (20, variant));
+        assert_eq!(v.dir, w.chickens[0].dir);
+    }
+
+    #[test]
+    fn cluck_age_saturates() {
+        let mut w = quiet();
+        w.chickens[0].cluck_age = u32::MAX - 1;
+        w.chickens[0].stun = 100.0;
+        w.step(idle());
+        w.step(idle());
+        assert_eq!(w.chickens[0].cluck_age, u32::MAX);
+        w.step(idle());
+        assert_eq!(w.chickens[0].cluck_age, u32::MAX);
+    }
+
+    #[test]
+    fn presentation_state_is_not_hashed() {
+        let mut a = quiet();
+        let mut b = quiet();
+        b.chickens[0].cluck_age = 7;
+        b.chickens[0].cluck_variant = 3;
+        assert_eq!(a.hash(), b.hash());
+        // Two worlds that differ only in presentation state hash alike for as long as they run.
+        for _ in 0..600 {
+            a.step(idle());
+            b.step(idle());
+            b.chickens[0].cluck_age = 7;
+            b.chickens[0].cluck_variant = 3;
+            assert_eq!(a.hash(), b.hash());
+        }
+    }
+
+    #[test]
+    fn events_name_the_chicken_that_clucked() {
+        let mut w = quiet();
+        w.add_chicken(10.0, 9.0, 1.0);
+        w.chickens[0].cluck_timer = 500;
+        w.chickens[1].cluck_timer = 1;
+        w.step(idle());
+        let Event::Cluck { chicken, variant } = w.events()[0];
+        assert_eq!(w.events().len(), 1);
+        assert_eq!(chicken, 1);
+        assert_eq!(w.chickens[1].cluck_age, 0);
+        assert_eq!(w.chickens[1].cluck_variant, variant);
+        assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
+    }
+
+    #[test]
+    fn a_respawn_forgets_the_last_cluck() {
+        let mut w = quiet();
+        w.chickens[0].cluck_age = 3;
+        w.chickens[0].cluck_variant = 2;
+        w.respawn();
+        assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
+        assert_eq!(w.chickens[0].cluck_variant, 0);
     }
 
     #[test]

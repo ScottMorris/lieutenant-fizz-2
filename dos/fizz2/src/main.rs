@@ -39,7 +39,7 @@ const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
 const LIVE_TICK_CAP: u64 = 1800;
 
-/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 792 bytes (about 33 bytes for each
+/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 798 bytes (about 33 bytes for each
 /// 60 ticks and 20 for each cluck), so 8,192 leaves ample room for the lines later milestones add to it.
 const TRANSCRIPT_BYTES: usize = 8192;
 

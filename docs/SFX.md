@@ -128,7 +128,7 @@ The converter already writes the config register with each patch, at the OPL2-sa
 
 On a plain OPL2 chip the enable write and the output bits are unused and harmless, but the panned path must only be used when an OPL3 was detected. Detection is not done here; it belongs to a later package, and the owner plans a text-mode start-up check screen. A Sound Blaster Pro 1, which has two separate OPL2 chips for stereo, is not supported. The PC speaker and a plain OPL2 stay mono.
 
-What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. For that, `Event::Cluck` will later need to say which chicken it came from, so the presenter can read its position. That change to the rules is not part of this work; today the event carries only the variant, and a presenter can play only centre.
+What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. `Event::Cluck` now carries the chicken's index, so a presenter can read the chicken's position from `World::chicken_views()` and derive the pan. No presenter does yet, and the Web `take_cluck` queue still returns the variant only, so a presenter plays centre today.
 
 ## The Web path
 
