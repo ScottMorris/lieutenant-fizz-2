@@ -39,25 +39,43 @@ pub fn blit_sprite(
         return;
     }
     let (ax, ay) = (i64::from(sprite.ax), i64::from(sprite.ay));
-    for sy in 0..sh {
-        let dy = i64::from(y) - ay + sy as i64;
-        if dy < 0 || dy >= fh {
-            continue;
-        }
-        let src = &sprite.pixels[sy * sw..(sy + 1) * sw];
-        let row = dy as usize * w;
-        for (sx, &p) in src.iter().enumerate() {
-            if p == TRANSPARENT {
-                continue;
+    // The sprite's rows `sy0..sy1` land on frame rows `top + sy`.
+    let top = i64::from(y) - ay;
+    let sy0 = (-top).clamp(0, sh as i64) as usize;
+    let sy1 = (fh - top).clamp(0, sh as i64) as usize;
+    // Facing right, source column `sx` lands on `left + sx`; flipped, on `right - sx`. The columns `sx0..sx1` are the ones that
+    // land inside the frame, so the rows below need no per-pixel clipping.
+    let (sx0, sx1, dx0) = if flip_x {
+        let right = i64::from(x) + ax - 1;
+        let sx0 = (right - (fw - 1)).clamp(0, sw as i64);
+        let sx1 = (right + 1).clamp(0, sw as i64);
+        (sx0 as usize, sx1 as usize, right - (sx1 - 1))
+    } else {
+        let left = i64::from(x) - ax;
+        let sx0 = (-left).clamp(0, sw as i64);
+        let sx1 = (fw - left).clamp(0, sw as i64);
+        (sx0 as usize, sx1 as usize, left + sx0)
+    };
+    if sx0 >= sx1 || sy0 >= sy1 {
+        return;
+    }
+    let n = sx1 - sx0;
+    let dx0 = dx0 as usize;
+    for sy in sy0..sy1 {
+        let row = (top + sy as i64) as usize * w;
+        let src = &sprite.pixels[sy * sw + sx0..sy * sw + sx1];
+        let dst = &mut frame[row + dx0..row + dx0 + n];
+        if flip_x {
+            for (d, &p) in dst.iter_mut().zip(src.iter().rev()) {
+                if p != TRANSPARENT {
+                    *d = p;
+                }
             }
-            let sx = sx as i64;
-            let dx = if flip_x {
-                i64::from(x) + ax - sx - 1
-            } else {
-                i64::from(x) - ax + sx
-            };
-            if dx >= 0 && dx < fw {
-                frame[row + dx as usize] = p;
+        } else {
+            for (d, &p) in dst.iter_mut().zip(src) {
+                if p != TRANSPARENT {
+                    *d = p;
+                }
             }
         }
     }
@@ -285,6 +303,46 @@ mod tests {
         let mut f = blank();
         blit_sprite(&mut f, W, H, &s, 10, 5, true);
         assert_eq!(&f[4 * W + 7..4 * W + 11], &[4, 3, 2, 1]);
+    }
+
+    /// The definition of a blit, one pixel at a time: the anchored, optionally mirrored position of each opaque pixel, kept when it
+    /// is inside the frame.
+    fn reference_blit(frame: &mut [u8], w: usize, h: usize, s: &Sprite, x: i32, y: i32, flip: bool) {
+        for sy in 0..usize::from(s.h) {
+            for sx in 0..usize::from(s.w) {
+                let p = s.pixels[sy * usize::from(s.w) + sx];
+                if p == TRANSPARENT {
+                    continue;
+                }
+                let dy = i64::from(y) - i64::from(s.ay) + sy as i64;
+                let dx = if flip {
+                    i64::from(x) + i64::from(s.ax) - sx as i64 - 1
+                } else {
+                    i64::from(x) - i64::from(s.ax) + sx as i64
+                };
+                if (0..h as i64).contains(&dy) && (0..w as i64).contains(&dx) {
+                    frame[dy as usize * w + dx as usize] = p;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_blit_equals_the_pixel_by_pixel_definition_at_every_position() {
+        // Every sprite, both facings, from well outside the frame on every side across it.
+        for s in SPRITES {
+            for flip in [false, true] {
+                for y in (-40..70).step_by(3) {
+                    for x in (-40..70).step_by(3) {
+                        let mut want = [200u8; 40 * 30];
+                        let mut got = [200u8; 40 * 30];
+                        reference_blit(&mut want, 40, 30, s, x, y, flip);
+                        blit_sprite(&mut got, 40, 30, s, x, y, flip);
+                        assert_eq!(got, want, "{} at ({x}, {y}) flip {flip}", s.name);
+                    }
+                }
+            }
+        }
     }
 
     #[test]
