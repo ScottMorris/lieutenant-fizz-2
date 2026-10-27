@@ -73,7 +73,7 @@ const DOORS: usize = 16;
 const SKY: u8 = LIGHT_BLUE;
 
 /// The flat colour of a tile, or `None` for tiles that show the sky.
-fn tile_colour(tile: u8) -> Option<u8> {
+const fn tile_colour(tile: u8) -> Option<u8> {
     match tile {
         WALLBG => Some(BLUE),
         FILL => Some(DARK_GREY),
@@ -85,6 +85,23 @@ fn tile_colour(tile: u8) -> Option<u8> {
         _ => None,
     }
 }
+
+/// Marks a tile type with no flat colour in [`TILE_COLOURS`] (the doors, which take their colour from the switch, and the tiles
+/// that show the sky).
+const NO_COLOUR: u8 = u8::MAX;
+
+/// `tile_colour` for every tile type, so the tile pass reads a byte in place of working through a `match` for each tile.
+static TILE_COLOURS: [u8; 256] = {
+    let mut table = [NO_COLOUR; 256];
+    let mut tile = 0;
+    while tile < 256 {
+        if let Some(colour) = tile_colour(tile as u8) {
+            table[tile] = colour;
+        }
+        tile += 1;
+    }
+    table
+};
 
 /// Draws `world` into `frame`, a `w` by `h` buffer of palette indices (use [`VIEW_W`] by [`VIEW_H`]).
 ///
@@ -108,7 +125,16 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     let mut door_count = 0;
     // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
     draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
-        let t = map.get(tx, ty);
+        // The pass only asks about tiles inside the map, so the index is valid for a map whose data holds `w * h` tiles.
+        let t = map
+            .data
+            .get((ty * map_w + tx) as usize)
+            .copied()
+            .unwrap_or(0);
+        let colour = TILE_COLOURS[usize::from(t)];
+        if colour != NO_COLOUR {
+            return Some(colour);
+        }
         if t == DOOR_R {
             if door_closed && door_count < DOORS {
                 doors[door_count] = (tx, ty);
@@ -116,7 +142,7 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
             door_count += usize::from(door_closed);
             return Some(if door_closed { BROWN } else { BLUE });
         }
-        tile_colour(t)
+        None
     });
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
