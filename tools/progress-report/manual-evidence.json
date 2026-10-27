@@ -1,0 +1,79 @@
+{
+ "note": "Maps each heading of docs/MANUAL.md to the evidence in this archive. `shelf` is catalogued (a named check backs what the section says), uncatalogued (built, not checked in the way the section describes) or none (the section describes no behaviour). `prs` give the state tag from gh. `gaps` names what the section says that no check covers. A heading of the manual missing here is shown as uncatalogued; a heading here missing from the manual fails the build.",
+ "sections": [
+  {
+   "section": "What this is",
+   "shelf": "none",
+   "evidence": "An overview. The status it states matches the front page: a marker, a clock and a hash, and no game."
+  },
+  {
+   "section": "Running it",
+   "shelf": "none",
+   "evidence": "The two subsections below."
+  },
+  {
+   "section": "Web",
+   "shelf": "catalogued",
+   "prs": [
+    6,
+    7
+   ],
+   "evidence": "`tools/build-web.sh` builds `dist/web` in the `parity` CI job, and headless Chromium loaded the served page for the screenshots of [chapter 4](chapter:m0-presenters#the-web-presenter-6).",
+   "gaps": "opening the page in a browser by hand; only headless Chromium has loaded it."
+  },
+  {
+   "section": "DOS",
+   "shelf": "catalogued",
+   "prs": [
+    3,
+    5
+   ],
+   "evidence": "`tools/build-dos.sh` writes `FIZZ2.EXE` and `CWSDPMI.EXE` to `dist/dos`, and `tools/check-dos.sh` runs them in headless DOSBox Staging ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "gaps": "js-dos, and a real 486 with a VGA display."
+  },
+  {
+   "section": "Controls",
+   "shelf": "catalogued",
+   "prs": [
+    4,
+    5,
+    6
+   ],
+   "evidence": "On DOS, `tools/check-dos.sh` types Right, Right, Down and Esc with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc ends `/LIVE` with status 0. The host test `every_mapped_key_drives_its_button` covers the arrows, `W` `A` `S` `D` and Space. On the Web, the captures send ArrowRight, ArrowDown and Space as key events, and the HUD counts the dash ([chapter 4](chapter:m0-presenters)).",
+   "gaps": "`W` `A` `S` `D` on the Web page, and a real keyboard on either version."
+  },
+  {
+   "section": "DOS modes",
+   "shelf": "catalogued",
+   "prs": [
+    5
+   ],
+   "evidence": "`tools/check-dos.sh` runs all three: `/REPLAY` must print the golden transcript, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it."
+  },
+  {
+   "section": "The screen",
+   "shelf": "catalogued",
+   "prs": [
+    1,
+    4,
+    7
+   ],
+   "evidence": "The HUD's text and the frame are pinned by golden checksums in `fizz-present-dos`; the hash is the parity gate's, equal on native, Web and DOS ([chapter 5](chapter:parity)); 60 steps a second is the pacer of `fizz-hal` and the timer of [chapter 3](chapter:m0-core#the-60-hz-timer-that-keeps-the-bios-clock); `clamping_zeroes_velocity_on_that_axis_only` keeps the square inside the screen, and the drag and snap-to-zero bring it to a stop."
+  },
+  {
+   "section": "Web and DOS compared",
+   "shelf": "uncatalogued",
+   "prs": [
+    7
+   ],
+   "evidence": "Same moves, same `TICK` and `HASH`: the parity gate ([chapter 5](chapter:parity)).",
+   "gaps": "no check compares the two screens' colours or border: they match by reading `web/main.js` and `fizz-present-dos` (EGA blue field, light-grey border, yellow marker with a light-cyan outline), and the screenshots of chapter 4 predate that match and show the older Web field colour; the Web marker position is rounded while the DOS one is truncated; and the Web HUD is page text below the canvas, while DOS draws it in the frame."
+  },
+  {
+   "section": "Coming",
+   "shelf": "none",
+   "evidence": "Planned work; see the [roadmap](chapter:roadmap)."
+  }
+ ]
+}

@@ -27,6 +27,7 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 - `docs/`: architecture, the platform skeleton reference, the proof-of-concept findings, the scene contract sketch
 - `assets/`: the animated README hero, hand-authored in the 16-colour EGA palette
 - `tools/`: `check.sh` (the pre-PR gate), the DOS and Web build scripts, `check-dos.sh` and `check-parity.sh`
+- `tools/progress-report/`: the generator of the progress archive (Gregory's chapters, the figure registry, captures in `media/`); its prose follows `tools/progress-report/VOICE.md`
 
 ## Commands
 
@@ -37,6 +38,9 @@ tools/setup-dos.sh                               # links vendor/ from $DOS_TOOLC
 tools/check-dos.sh                               # build FIZZ2.EXE and check it in headless DOSBox
 tools/build-web.sh                               # build dist/web (needs the pinned wasm-bindgen CLI)
 tools/check-parity.sh                            # native, Web and DOS transcripts must match: PARITY ok <hash>
+python3 tools/progress-report/build.py --check   # build and check the progress archive in dist/progress-report (--offline: gh snapshot)
+python3 tools/progress-report/gather.py --update-snapshot   # refresh the archive's committed gh snapshot
+python3 tools/progress-report/capture.py         # refresh the archive's DOSBox and Chromium screenshots
 ```
 
 The DOS toolchain is the shared `ci-dos` image pinned by digest; locally `vendor/` is a git-ignored copy of its toolchain layout. Rules crates keep the numeric model in `docs/PLATFORM.md`: `f64`, basic IEEE operations, no `exp` family, the x87 control word set by the program. `fizz-hal`, `fizz-present-dos` and `fizz-dos-rt` deny float arithmetic. Document every new build or emulator check in `docs/PLATFORM.md`. Do not add C or DJGPP glue by default.

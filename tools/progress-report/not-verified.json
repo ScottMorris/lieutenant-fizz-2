@@ -1,0 +1,10 @@
+[
+ {"what": "Real 486 hardware and a real display.", "why": "Every DOS result comes from headless DOSBox Staging 0.83.0 with CWSDPMI. No physical 486DX, VGA card, keyboard controller or monitor has run `FIZZ2.EXE`, and nobody has looked at its mode 13h picture on a screen."},
+ {"what": "x87 cycle cost.", "why": "DOSBox runs at `cycles=max`, which hides what the `f64` rules cost on a 486DX. Fizz 1's `m5/bench` and its 486 cycle estimator are the reference tools, and neither has been run against Fizz 2."},
+ {"what": "The Web page in a browser.", "why": "The WASM module is replayed under Node and Bun by `tools/web-replay.mjs`. The page in `web/`, its keyboard handling and its canvas have not been driven in any browser."},
+ {"what": "The DOS build in a browser.", "why": "No js-dos or other in-browser DOS run of `FIZZ2.EXE` has been tried."},
+ {"what": "Audio.", "why": "Nothing in the skeleton makes sound, and audio cannot be checked headless. The score library of the proof of concept is not part of this repository."},
+ {"what": "Bundling the Web build into a launcher.", "why": "`dist/web` uses relative URLs so a launcher can host it under any path; no launcher has."},
+ {"what": "The GitHub runner, beyond the runs recorded.", "why": "CI passed on the head commit of each pull request and on the merge commits listed in the evidence tables ({{m.ciGreen}} merged pull requests green on main). A run not listed there has not been seen."},
+ {"what": "Other DPMI hosts and DOS versions.", "why": "Only CWSDPMI under DOSBox's own DOS. FreeDOS, MS-DOS, EMM386 and HDPMI are untried, and the FreeDOS-bootable floppy has not been built."}
+]

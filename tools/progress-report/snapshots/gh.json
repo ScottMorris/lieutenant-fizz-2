@@ -1,0 +1,801 @@
+{
+ "capturedAt": "2026-10-27T12:14:36-04:00",
+ "data": {
+  "prs": [
+   {
+    "additions": 663,
+    "baseRefName": "main",
+    "changedFiles": 8,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:32Z",
+    "deletions": 1,
+    "headRefName": "feat/m0-hello-rules",
+    "headRefOid": "5aa5c1af2002581c3ae0037c6d8700233e030109",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:24Z",
+    "number": 1,
+    "state": "MERGED",
+    "title": "Add input frames and the hello-tick rules with a golden replay",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/1"
+   },
+   {
+    "additions": 1087,
+    "baseRefName": "feat/m0-hello-rules",
+    "changedFiles": 11,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:35Z",
+    "deletions": 1,
+    "headRefName": "feat/m0-hal",
+    "headRefOid": "1ea7aa94add03501ca6e8b732a8f28a31e1a1f66",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:25Z",
+    "number": 2,
+    "state": "MERGED",
+    "title": "Add the fizz-hal clock, input, display and ring seam",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/2"
+   },
+   {
+    "additions": 2522,
+    "baseRefName": "feat/m0-hal",
+    "changedFiles": 29,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:38Z",
+    "deletions": 0,
+    "headRefName": "chore/m0-dos-tooling",
+    "headRefOid": "45a3a351c07ed5b4c7229d9f098692e7a7904277",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "094999",
+      "description": "Build tooling and packaging updates",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXsWw",
+      "name": "build"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:26Z",
+    "number": 3,
+    "state": "MERGED",
+    "title": "Add the DOS target, Rust runtime and packaging tools",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/3"
+   },
+   {
+    "additions": 608,
+    "baseRefName": "chore/m0-dos-tooling",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:41Z",
+    "deletions": 1,
+    "headRefName": "feat/m0-dos-presenter",
+    "headRefOid": "c1827f0fe268828c5fc7d3d4d8c69589e558594e",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:27Z",
+    "number": 4,
+    "state": "MERGED",
+    "title": "Add the mode 13h hello presenter",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/4"
+   },
+   {
+    "additions": 461,
+    "baseRefName": "feat/m0-dos-presenter",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:44Z",
+    "deletions": 2,
+    "headRefName": "feat/m0-dos-hello",
+    "headRefOid": "2e937513e91117b440bed021b531672a6332abfb",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1f6feb",
+      "description": "Keyboard, gamepad and touch handling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuyA",
+      "name": "input"
+     },
+     {
+      "color": "0e8a16",
+      "description": "Web and DOS agreement: state hashes and presentation parity",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXwQA",
+      "name": "parity"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:28Z",
+    "number": 5,
+    "state": "MERGED",
+    "title": "Add the FIZZ2 hello-tick program and DOSBox checks",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/5"
+   },
+   {
+    "additions": 555,
+    "baseRefName": "feat/m0-dos-hello",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:47Z",
+    "deletions": 1,
+    "headRefName": "feat/m0-web-presenter",
+    "headRefOid": "6d138d17758331a06b31a72c7f238d04861ebd66",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     },
+     {
+      "color": "1f6feb",
+      "description": "Keyboard, gamepad and touch handling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuyA",
+      "name": "input"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:29Z",
+    "number": 6,
+    "state": "MERGED",
+    "title": "Add the wasm-bindgen Web presenter and static bundle",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/6"
+   },
+   {
+    "additions": 116,
+    "baseRefName": "feat/m0-web-presenter",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:50Z",
+    "deletions": 1,
+    "headRefName": "feat/m0-parity-gate",
+    "headRefOid": "912605369956439fc51b5126c428101b8062e8d5",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0e8a16",
+      "description": "Continuous integration workflows and checks",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXsvw",
+      "name": "ci"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "0e8a16",
+      "description": "Web and DOS agreement: state hashes and presentation parity",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXwQA",
+      "name": "parity"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:31Z",
+    "number": 7,
+    "state": "MERGED",
+    "title": "Add the cross-platform state-hash parity gate and CI job",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/7"
+   },
+   {
+    "additions": 238,
+    "baseRefName": "feat/m0-parity-gate",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T07:56:52Z",
+    "deletions": 21,
+    "headRefName": "docs/m0-platform-docs",
+    "headRefOid": "71c6dd1785b9f6de8578536ae18716cbb6833ee2",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "3d5a2d2399bdc55056cd3008bf666ac228018df9"
+    },
+    "mergedAt": "2026-10-27T14:54:32Z",
+    "number": 8,
+    "state": "MERGED",
+    "title": "Document the Milestone 0 platform skeleton",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/8"
+   },
+   {
+    "additions": 261,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T08:06:45Z",
+    "deletions": 20,
+    "headRefName": "docs/hero-ben-sprite",
+    "headRefOid": "b54d77dc7651538f7320a206d1ef918b0ac2c6da",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "efd5f683a89cc92eecb47c2275011c8e8e7ea7d8"
+    },
+    "mergedAt": "2026-10-27T15:06:46Z",
+    "number": 10,
+    "state": "MERGED",
+    "title": "Match the banner's Ben to his Fizz 1 sprite",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/10"
+   },
+   {
+    "additions": 36,
+    "baseRefName": "main",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:33:44Z",
+    "deletions": 16,
+    "headRefName": "docs/asset-packs",
+    "headRefOid": "3c8ba00b999245ecbf3c8d1bb90f23aad67fe2de",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "d92422f77c64d9fcddbb7eaa1ad6407c947789d3"
+    },
+    "mergedAt": "2026-10-27T16:13:47Z",
+    "number": 11,
+    "state": "MERGED",
+    "title": "Record that authored assets live in baked Fizz Asset Packs",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/11"
+   },
+   {
+    "additions": 5944,
+    "baseRefName": "main",
+    "changedFiles": 57,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:42:34Z",
+    "deletions": 0,
+    "headRefName": "docs/progress-report",
+    "headRefOid": "b361f2cc5a55dca4ed82b5e90a6d7b5dc8e0db4b",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 12,
+    "state": "OPEN",
+    "title": "Add the Fizz 2 progress archive and its generator",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/12"
+   },
+   {
+    "additions": 46,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:44:02Z",
+    "deletions": 0,
+    "headRefName": "docs/episode-2-lore",
+    "headRefOid": "b49223f8cb7541488e033c41363d2e75c9cc414b",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5ea46806781551334c7b3117b42e8413b4aa19c6"
+    },
+    "mergedAt": "2026-10-27T16:13:55Z",
+    "number": 13,
+    "state": "MERGED",
+    "title": "Record the Episode 2 setting and proposed level lore",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/13"
+   },
+   {
+    "additions": 67,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T15:49:22Z",
+    "deletions": 1,
+    "headRefName": "docs/manual-rule",
+    "headRefOid": "2751b7c9c25e4fc544a4fcfef7fa49f9b22b2cc9",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47fb25e7f201c4c33525f743d7802833ccfa6896"
+    },
+    "mergedAt": "2026-10-27T16:14:16Z",
+    "number": 14,
+    "state": "MERGED",
+    "title": "Require the player's manual to be written in parallel",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/14"
+   },
+   {
+    "additions": 7,
+    "baseRefName": "docs/manual-rule",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T16:02:04Z",
+    "deletions": 4,
+    "headRefName": "fix/web-ega-blue",
+    "headRefOid": "acdaacd924e9188bfc1b1762eafe60dbee412510",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47fb25e7f201c4c33525f743d7802833ccfa6896"
+    },
+    "mergedAt": "2026-10-27T16:14:18Z",
+    "number": 15,
+    "state": "MERGED",
+    "title": "Match the Web screen to the DOS colours",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/15"
+   },
+   {
+    "additions": 3,
+    "baseRefName": "main",
+    "changedFiles": 1,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T16:04:05Z",
+    "deletions": 3,
+    "headRefName": "fix/banner-pogo-timing",
+    "headRefOid": "faf1b647979f35e00378096d4182e1f642b5d18a",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     },
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "cad3018a98ad536dab8c8d28c483174d87352e11"
+    },
+    "mergedAt": "2026-10-27T16:13:33Z",
+    "number": 17,
+    "state": "MERGED",
+    "title": "Show the banner's pogo squash after each bounce, as Fizz 1 does",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/17"
+   }
+  ],
+  "runs": [
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T16:14:22Z",
+    "displayTitle": "Match the Web screen to the DOS colours (#15)",
+    "event": "push",
+    "headSha": "47fb25e7f201c4c33525f743d7802833ccfa6896",
+    "status": "pending",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538934591",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-27T16:13:58Z",
+    "displayTitle": "Record the Episode 2 setting and proposed level lore (#13)",
+    "event": "push",
+    "headSha": "5ea46806781551334c7b3117b42e8413b4aa19c6",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538868388",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-27T16:13:50Z",
+    "displayTitle": "Record that authored assets live in baked Fizz Asset Packs (#11)",
+    "event": "push",
+    "headSha": "d92422f77c64d9fcddbb7eaa1ad6407c947789d3",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538847242",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-27T16:13:36Z",
+    "displayTitle": "Show the banner's pogo squash after each bounce, as Fizz 1 does (#17)",
+    "event": "push",
+    "headSha": "cad3018a98ad536dab8c8d28c483174d87352e11",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40538808503",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T15:06:49Z",
+    "displayTitle": "Match the banner's Ben to his Fizz 1 sprite (#10)",
+    "event": "push",
+    "headSha": "efd5f683a89cc92eecb47c2275011c8e8e7ea7d8",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40527738809",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T14:54:40Z",
+    "displayTitle": "Document the Milestone 0 platform skeleton (#8)",
+    "event": "push",
+    "headSha": "3d5a2d2399bdc55056cd3008bf666ac228018df9",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40525711702",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T07:09:52Z",
+    "displayTitle": "docs: restore the README conventions note",
+    "event": "push",
+    "headSha": "3737b39cc446bc01ca9b0b1e83498769624f73dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40465460229",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T07:08:00Z",
+    "displayTitle": "docs: point the README badges at the ScottMorris repository",
+    "event": "push",
+    "headSha": "1e960a5077d323bcb1afa1b5ec485fb6a4c5ddb9",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40465274207",
+    "workflowName": "CI"
+   }
+  ]
+ }
+}

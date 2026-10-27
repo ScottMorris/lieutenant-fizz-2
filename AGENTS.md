@@ -21,6 +21,8 @@ All UI strings, identifiers, comments, commit messages, pull request description
 
 Write code comments, documentation and pull request prose as the author of the artefact, for a later reader. State facts and reasoning directly; do not mention reviews, reviewers, conversation history or commit hashes. Commit messages and PR test plans may record debugging context and measurements.
 
+The progress archive in `tools/progress-report/` follows `tools/progress-report/VOICE.md`, and its tests refuse the phrases that guide lists.
+
 ## Git Workflow
 
 Do not push, force-push, merge or alter shared settings without explicit user instruction. Use merge commits only; never squash or rebase-merge. Name branches `feat/<short-description>`, `docs/<short-description>`, `chore/<short-description>`, or `fix/issue-<number>-<short-description>`. Stage exact paths with `git add <path>`; never use `git add -A` or `git commit -a`. Do not commit build products, `target/`, `out/`, `dist/`, or `vendor/`.

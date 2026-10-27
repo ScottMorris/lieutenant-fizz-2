@@ -1,0 +1,18 @@
+{
+ "note": "Phrases the archive's prose must not contain. tests/test_report.py scans the chapters, pages, templates, generator strings and the built site for each `pattern` (a Python regular expression, case-insensitive) and VOICE.md lists every entry. VOICE.md itself is exempt, because it quotes them.",
+ "patterns": [
+  {"pattern": "right order for", "reason": "Grades the archive's own ordering.", "example": "That is the right order for an archive and a poor one for learning."},
+  {"pattern": "poor one for", "reason": "Grades the archive's own ordering.", "example": "a poor one for learning"},
+  {"pattern": "\\bMost [^.]{0,60}\\b(are|is) [^.]{0,80}\\. This (one|archive|page|diagram)", "reason": "A straw-man contrast with unnamed alternatives.", "example": "Most diagrams of how a program runs are drawn from memory. This one is drawn from the repository."},
+  {"pattern": "\\bThis (one|archive|page|site) is (drawn|built|written|made) from", "reason": "Praises the archive's method in the prose; the method page states it once.", "example": "This one is drawn from the repository."},
+  {"pattern": "\\bnot [a-z ]{3,30}, but ", "reason": "A 'not X, but Y' contrast that claims superiority over an unnamed alternative.", "example": "not from memory, but from the tree"},
+  {"pattern": "talks about itself", "reason": "A rule about the document's own style, justified at length.", "example": "a manual that talks about itself is hard to use at a bench"},
+  {"pattern": "only edited this part", "reason": "Narrates who did what; no reader needs it.", "example": "I keep the archive, so I have only edited this part."},
+  {"pattern": "in a stricter form", "reason": "Self-assurance about the method.", "example": "The same honesty rules as the log apply, in a stricter form."},
+  {"pattern": "found by a machine before", "reason": "Self-assurance about the method, outside the method page.", "example": "a moved file is found by a machine before a reader finds it"},
+  {"pattern": "work arrives in the order", "reason": "A truism about projects in general.", "example": "work arrives in the order it can be done"},
+  {"pattern": "\\b(worth noting|to be clear|the important part|needless to say)\\b", "reason": "Tells the reader what to think instead of giving the fact.", "example": "It is worth noting that the hash matches."},
+  {"pattern": "\\b(honest|honesty|plainly|candidly)\\b", "reason": "Self-praise or a tone marker; give the fact and its evidence.", "example": "To be honest, nothing has run on real hardware."},
+  {"pattern": "an archive you cannot audit", "reason": "A general truth about archives.", "example": "an archive you cannot audit is a rumour"}
+ ]
+}

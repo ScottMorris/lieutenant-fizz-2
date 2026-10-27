@@ -1,0 +1,75 @@
+---
+id: parity
+n: 5
+title: The parity gate
+date: 2026-10-27
+summary: The same FINAL TICK 600 HASH on native, Web and DOS, the three numeric rules that make it possible, and the script and CI job that enforce it.
+prs: [7]
+---
+The state hash is the arbiter between the platforms. After every tick the rules hash, in a fixed order, the tick as a `u64`, then `x`, `y`, `vx`, `vy` and `heading` as the bits of an `f64`, then `dashes` as a `u32`, with FNV-1a; a test locks the order. A replay of `M0_SCRIPT` prints transcript version 1: the line `M0 REPLAY 1`, a `TICK` line at tick 0 and after every 60 ticks, and a `FINAL` line. All three platforms print the golden file, `crates/fizz-hello/m0-replay.txt`, which ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`.
+
+<!-- figure parity -->
+
+## Three rules behind one hash
+
+Bit-identical `f64` results on SSE2, WebAssembly and the x87 rest on three decisions recorded in `docs/PLATFORM.md`:
+
+- **The x87 at 53 bits.** The x87 computes in 80 bits unless told otherwise. `FIZZ2.EXE` sets the control word to `0x{{sc.controlWord}}`, 53-bit precision with every exception masked, before the first tick. The runtime's `_start` only runs `FNINIT`, which leaves `0x037F` (64-bit precision), so a program that skipped the step would hash differently. The DOS run prints `FPU CW {{sc.controlWord}}` after the replay to show the word held.
+- **No exp family.** `libm` is pinned at `={{sc.libm}}` with default features off. On x86 targets without SSE its `exp`, `exp2` and `exp10` always run x87 assembly, so the rules crates may not use them. `atan2`, `sin` and `cos` run in software, and the replay, which uses all three, agrees on every platform.
+- **Snap to zero.** Velocities below 1/1024 become zero. Without it a decaying velocity reaches subnormal values, which the x87 at 53 bits, SSE2 and WebAssembly round differently.
+
+Interrupt handlers never touch the x87, and the HAL, the DOS presenter and the runtime deny float arithmetic, so nothing else can disturb the control word.
+
+## The replay, tick by tick
+
+The script runs for {{golden.finalTick}} ticks: idle, a run right, a diagonal, dashes while moving and while still, a long run left into the clamp, a run up, and an idle tail that lets the velocity decay to the snap.
+
+<!-- explainer replay -->
+
+<!-- figure script -->
+
+## The script and the CI job (#7)
+
+`tools/check-parity.sh` runs the replay natively with `cargo run -p fizz-hello --example replay`, in the built WebAssembly module under Node or Bun with `tools/web-replay.mjs`, and in headless DOSBox with `FIZZ2.EXE /REPLAY`. It compares only the `TICK` and `FINAL` lines of each with the golden file (carriage returns removed), requires the version line from native and Web, and prints `PARITY ok <hash>`. Platform lines such as `FPU`, `BIOS` and `VECTORS` use other prefixes and are checked by `tools/check-dos.sh`.
+
+The `parity` job in `.github/workflows/ci.yml` runs in the shared `ci-dos` image pinned by digest (`{{sc.ciImage}}`), which brings Rust, the `wasm32` and `i586` targets, Bun, DJGPP, DOSBox Staging and CWSDPMI. It installs the pinned `wasm-bindgen` command-line tool (cached), links the toolchain, and runs `tools/check-dos.sh`, `tools/build-web.sh` and `tools/check-parity.sh`. This is the output of the same three scripts run on the tree of `main`:
+
+<!-- figure measured -->
+
+## The shelves
+
+### Catalogued
+- #7 is merged with CI {{pr7.ci}} on `{{pr7.merge}}`; the `check` and `parity` jobs both passed on its head on the GitHub-hosted runner, and again on #8 and #10.
+- `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}` with native, Web and DOS compared, on the tree of `main` (`snapshots/measured.json`); the build refuses a measured hash that differs from the golden file.
+- `FPU CW {{sc.controlWord}}` after the DOS replay, checked by `tools/check-dos.sh`.
+
+### Uncatalogued
+- The x87 path on a real 486DX FPU: DOSBox emulates the x87, and an emulator bug and a hardware difference would look the same.
+- WebAssembly in a browser engine: the module was run under Node and Bun, and the screenshots in chapter 4 do not compare hashes with the golden file.
+
+### Wish list
+- A golden trace from Fizz 1's own physics, replayed on all three platforms (Milestone 1).
+- Parity of whole scenes, not only the rules' state, once scene intent exists (Milestone 3).
+
+> **From the stacks — Extended precision.** The 8087 and its successors keep intermediate results in an 80-bit format with a 64-bit significand. The precision-control field of the control word rounds results to 24 or 53 bits instead, which makes basic operations round like IEEE single or double on the x87.
+> Source: [x87, Wikipedia](https://en.wikipedia.org/wiki/X87)
+
+```figures
+id: parity
+kind: diagram
+track: shared
+title: One script, three platforms, one hash
+alt: Diagram of the 600-tick script running natively, as WebAssembly under Node and Bun, and as FIZZ2.EXE in DOSBox, all three producing transcripts equal to the golden file that ends with hash efc699079baa6a88.
+caption: Native, Web and DOS replay the same script to the same final hash.
+at: figure parity
+thumb: svg
+
+id: replay
+kind: explainer
+track: shared
+title: The golden replay, line by line
+alt: Step-through of the golden transcript: the version line, the eleven TICK lines with the scripted input of each second, the FINAL line and the three DOS platform lines.
+caption: Each hashed tick, with the input that led to it.
+at: explainer replay
+thumb: steps
+```

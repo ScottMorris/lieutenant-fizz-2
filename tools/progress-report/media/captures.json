@@ -1,0 +1,85 @@
+[
+ {
+  "file": "dos-replay-1.png",
+  "kind": "screenshot",
+  "track": "dos",
+  "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
+  "shows": "FIZZ2.EXE /REPLAY in DOSBox, about 3 seconds into the 600-tick script: the HUD shows the tick, the state hash and the dash count.",
+  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "dos-replay-2.png",
+  "kind": "screenshot",
+  "track": "dos",
+  "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
+  "shows": "FIZZ2.EXE /REPLAY in DOSBox, about 6 seconds in, after the script's dashes.",
+  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "dos-replay-3.png",
+  "kind": "screenshot",
+  "track": "dos",
+  "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
+  "shows": "FIZZ2.EXE /REPLAY in DOSBox, about 9 seconds in, near the end of the script.",
+  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "dos-live.png",
+  "kind": "screenshot",
+  "track": "dos",
+  "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
+  "shows": "FIZZ2.EXE /LIVE in DOSBox after AUTOTYPE pressed Right four times and Down twice: the marker has moved right and down from the centre.",
+  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "dos-replay.txt",
+  "kind": "transcript",
+  "track": "dos",
+  "source": "standard output of FIZZ2.EXE /REPLAY in DOSBox, through tools/dosrun.sh",
+  "shows": "The transcript FIZZ2.EXE printed during the grabbed replay run.",
+  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "web-start.png",
+  "kind": "screenshot",
+  "track": "web",
+  "source": "Chromium 154.0.8037.97 Arch Linux, headless, Page.captureScreenshot",
+  "shows": "The Web page in headless Chromium 1.5 seconds after loading, before any key: the 320 by 200 canvas, the marker at the centre and the HUD below.",
+  "hud": "TICK 88\nHASH 546d16a5e0662528\nDASH 0",
+  "command": "python3 tools/progress-report/capture.py (capture-web.py)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "web-moved.png",
+  "kind": "screenshot",
+  "track": "web",
+  "source": "Chromium 154.0.8037.97 Arch Linux, headless, Page.captureScreenshot",
+  "shows": "The Web page after ArrowRight held for 1.2 seconds and ArrowDown for 0.6 seconds, sent as real key events through the DevTools protocol.",
+  "hud": "TICK 217\nHASH 372cbf497177b05e\nDASH 0",
+  "command": "python3 tools/progress-report/capture.py (capture-web.py)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ },
+ {
+  "file": "web-dash.png",
+  "kind": "screenshot",
+  "track": "web",
+  "source": "Chromium 154.0.8037.97 Arch Linux, headless, Page.captureScreenshot",
+  "shows": "The Web page after one press of Space: the marker has dashed along its heading and the HUD counts one dash.",
+  "hud": "TICK 256\nHASH 07745a7e0c9dacb8\nDASH 1",
+  "command": "python3 tools/progress-report/capture.py (capture-web.py)",
+  "commit": "569a9ec",
+  "date": "2026-10-27"
+ }
+]

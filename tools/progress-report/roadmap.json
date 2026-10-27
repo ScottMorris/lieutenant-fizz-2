@@ -1,0 +1,32 @@
+{
+ "note": "Steps of the plan, by milestone. gather.py keeps a 'done' or 'done-emu' step only while every pull request it names is merged with CI passing on the commit that brought it into main; otherwise it drops the step to 'review' or 'progress' and says why. The tag of each step (merged, in review, in progress or planned) comes from gh. 'done-emu' means checked on the host, in WASM under Node and Bun, or in headless DOSBox; nothing has run on real hardware. Milestones 1 to 5 are the working plan; their order follows the restart plan in docs/POC-1-FINDINGS.md.",
+ "updated": "2026-10-27",
+ "milestones": [
+  {"id": "m0", "label": "M0 · Platform skeleton", "next": "Nothing: the milestone is merged. The throwaway fizz-hello rules stay until M1 replaces them."},
+  {"id": "m1", "label": "M1 · Reuse lf-sim", "next": "Decide whether Fizz 1's lf-sim is reused directly or ported with the same constants, and prove the match with a golden trace."},
+  {"id": "m2", "label": "M2 · Content pipeline", "next": "The first fizz-bake step: a Level Studio script baked into a Fizz Asset Pack (`.FAP`), with a per-target profile."},
+  {"id": "m3", "label": "M3 · Scene intent and camera", "next": "fizz-engine with scene intent, and the camera with Fizz 1's pixel-locking, shown on Web and DOS."},
+  {"id": "m4", "label": "M4 · Audio", "next": "Lower the IMF lab's composition source to OPL2 for DOS and play it on Web."},
+  {"id": "m5", "label": "M5 · CI gates and the 486 budget", "next": "Cycle and size budgets measured against a 486DX model, gated in CI."}
+ ],
+ "nodes": [
+  {"id": "rules", "milestone": "m0", "label": "Input frames and hello-tick rules", "state": "done-emu", "prs": [1], "what": "Buttons, InputFrame and InputLatch in fizz-sim; the fizz-hello marker rules; the 600-tick M0_SCRIPT and the golden transcript.", "evidence": "crates/fizz-hello/m0-replay.txt; cargo test"},
+  {"id": "hal", "milestone": "m0", "label": "fizz-hal", "state": "done-emu", "prs": [2], "what": "Clock and Pacer, Set 1 decoder, Display, SpscRing, and mock doubles.", "evidence": "cargo test -p fizz-hal; WebClock and DosClock are the two consumers of Clock"},
+  {"id": "dosrt", "milestone": "m0", "label": "DOS runtime and packaging", "state": "done-emu", "prs": [3], "what": "fizz-dos-rt: start-up, DPMI, heap, IRQ 0 at 60 Hz, IRQ 1, mode 13h, clean-up; elf2go32.py; RTSMOKE.EXE.", "evidence": "tools/check-dos.sh in headless DOSBox"},
+  {"id": "present-dos", "milestone": "m0", "label": "Mode 13h presenter", "state": "done-emu", "prs": [4], "what": "fizz-present-dos: the 320x200 frame, palette, 8x8 font, HUD and key mapping, with golden frame checksums.", "evidence": "cargo test -p fizz-present-dos"},
+  {"id": "fizz2exe", "milestone": "m0", "label": "FIZZ2.EXE", "state": "done-emu", "prs": [5], "what": "The hello-tick program with /REPLAY, /LIVE and /PANIC, and tools/check-dos.sh.", "evidence": "FPU CW 027F, BIOS TICKS 182, VECTORS RESTORED yes, MOVED yes, PANIC exit 3"},
+  {"id": "web", "milestone": "m0", "label": "Web presenter", "state": "done-emu", "prs": [6], "what": "fizz-present-web, the static page and tools/build-web.sh; the replay run from the built module.", "evidence": "node tools/web-replay.mjs matches the golden transcript"},
+  {"id": "parity", "milestone": "m0", "label": "Parity gate and CI job", "state": "done-emu", "prs": [7], "what": "tools/check-parity.sh and the parity job in the pinned ci-dos image.", "evidence": "PARITY ok efc699079baa6a88"},
+  {"id": "docs", "milestone": "m0", "label": "Platform reference", "state": "done", "prs": [8], "what": "docs/PLATFORM.md and the architecture update.", "evidence": "python3 -I tools/check-docs.py"},
+  {"id": "lfsim-decide", "milestone": "m1", "label": "Reuse or port lf-sim", "state": "decision", "what": "Fizz 1's lf-sim (crates/sim) holds the pogo physics, tilemap, bodies and lights. Reuse it directly or port it with the same constants.", "evidence": "docs/ARCHITECTURE.md, Open questions"},
+  {"id": "lfsim-trace", "milestone": "m1", "label": "Fizz 1 trace test", "state": "planned", "what": "A golden trace from Fizz 1's source that the Fizz 2 rules reproduce, on all three platforms.", "evidence": "AGENTS.md, Testing"},
+  {"id": "retire-hello", "milestone": "m1", "label": "Retire fizz-hello", "state": "planned", "what": "Delete the throwaway rules when the real ones hash identically on native, Web and DOS.", "evidence": "docs/PLATFORM.md, Layers as built"},
+  {"id": "bake", "milestone": "m2", "label": "fizz-bake", "state": "planned", "what": "The host tool that bakes authored assets for each target into Fizz Asset Packs (`.FAP`). DOS parses nothing at start-up.", "evidence": "docs/ARCHITECTURE.md, Crate plan"},
+  {"id": "studio", "milestone": "m2", "label": "Level Studio scripts", "state": "research", "what": "Level and overworld scripts from Fizz Level Studio as the authoring format, possibly extended for vertical mazes and gadgets.", "evidence": "docs/POC-1-FINDINGS.md, Level tooling"},
+  {"id": "engine", "milestone": "m3", "label": "fizz-engine scene intent", "state": "planned", "what": "Game, scene intent (tiles, sprites, lights, camera) and named events.", "evidence": "docs/SCENE-CONTRACT.md (a sketch, not a decision)"},
+  {"id": "camera", "milestone": "m3", "label": "Camera with pixel-locking", "state": "planned", "what": "Follow, look-ahead and look up and down as one deterministic module, with Fizz 1's pixel-locking.", "evidence": "Fizz 1 docs/ENGINE_SPEC.md: the camera snaps to the canvas-pixel grid each frame"},
+  {"id": "audio", "milestone": "m4", "label": "Audio from the IMF lab source", "state": "planned", "what": "A composition source played directly on Web and lowered to IMF or OPL2 for DOS, channel 5 kept for effects.", "evidence": "docs/POC-1-FINDINGS.md, Music direction"},
+  {"id": "budget486", "milestone": "m5", "label": "486 cycle budget", "state": "planned", "what": "A cycle estimate against a 486DX, since DOSBox at cycles=max hides x87 cost. Fizz 1's m5/bench and its estimator are the reference.", "evidence": "docs/ARCHITECTURE.md, Numeric model"},
+  {"id": "realhw", "milestone": "m5", "label": "A real 486", "state": "planned", "what": "FIZZ2.EXE on a physical 486DX with a VGA card and a real display.", "evidence": "docs/PLATFORM.md, Not verified"}
+ ]
+}
