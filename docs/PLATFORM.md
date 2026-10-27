@@ -7,6 +7,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 - [Layers as built](#layers-as-built)
 - [The hash transcript](#the-hash-transcript)
 - [Numeric model decisions](#numeric-model-decisions)
+- [Ben against Fizz 1](#ben-against-fizz-1)
 - [The hardware abstraction layer](#the-hardware-abstraction-layer)
 - [The DOS runtime](#the-dos-runtime)
 - [The Web build](#the-web-build)
@@ -62,6 +63,19 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 - Velocities below 1/1024 snap to zero. Without it, a decaying velocity reaches subnormal values, which x87 at 53 bits, SSE2 and WebAssembly round differently.
 - The x87 control word is `0x027F` (53-bit precision, all exceptions masked). The program sets it before the first tick. The runtime's `_start` only runs `FNINIT`, which leaves `0x037F` (64-bit precision), so a program that skips the step would hash differently.
 - Interrupt handlers never touch the x87.
+
+## Ben against Fizz 1
+
+`fizz-ep2` holds Ben's movement, ported line for line from Fizz 1's `tick_ben_move` (with the alive and dead branches of `tick_ben`, `tick_head_bump` and the fall check of `tick_ben_contacts`) on top of `fizz-phys`. It is proved against golden traces that Fizz 1's own simulation wrote, committed in `crates/fizz-ep2/tests/fizz1/`: `crates/fizz-ep2/tests/fizz1_traces.rs` parses each shared `.scn` scenario, runs it and compares every tick with the `.trace` as `f64` bit patterns, with no tolerance. The traces are regenerated with `tools/fizz1-trace`, which needs Fizz 1 at its pinned commit; the test needs only the committed files.
+
+Proven bit for bit: `fall`, `run`, `jump_full`, `jump_cut`, `pogo_idle`, `pogo_held`, `pogo_ceiling`, `oneway`, `wall_step` and `slope`. That covers walking and friction, the jump and its cut, gravity and terminal speed, the pogo and its held high bounce, the squash (which goes slightly negative and is not clamped), the taller head box, the 0.55 step-up, one-way platforms, slopes and the wall stop.
+
+Deferred, with `#[ignore]` reasons in the test file: `gloop_patrol`, `stomp`, `stomp_pogo`, `fizz_stun`, `key_door` and `route`. They need the chicken, the Fizz Blaster shots, the key and door and hazard contacts, which arrive with the slice level.
+
+Departures from Fizz 1:
+
+- Any velocity with a magnitude below 2^-1000 snaps to zero at the end of Ben's move. Fizz 1 lets an idle pogo's horizontal drag decay for ever, which reaches subnormal values where x87 at 53 bits and SSE2 differ. No golden trace changes with the snap, and a unit test runs an idle pogo for 30,000 ticks.
+- Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, wall kicks, lifts and conveyors under Ben are also not ported.
 
 ## The hardware abstraction layer
 
@@ -173,6 +187,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 | Mirrored from Desk's d0 spike and the earlier proof of concept (tag `poc-1`) | `dos/dos-elf.json`, `dos/link.ld`, `dos/rustfmt.toml`, and `dos/rt/src/` `start.rs`, `dpmi.rs`, `dos.rs`, `heap.rs`, `env.rs`, `panic.rs`, `cleanup.rs`, `io.rs` |
 | Adapted | `dos/.cargo/config.toml`; `dos/rt/src/` `lib.rs`, `fpu.rs` (keeps only the control word), `irq.rs`, `timer.rs` (60 Hz in place of 560 Hz) and `vga.rs`; `tools/elf2go32.py`, `tools/dosrun.sh`, `tools/build-dos.sh`, `tools/setup-dos.sh`; `crates/fizz-hal/src/ring.rs` from Desk's `ring.rs` |
 | Derived from Fizz 1 `crates/sim/src/` at commit `4bce036`, transformed as in fizz-dos `m2/patches/sim.patch` | `crates/fizz-phys/src/` `tilemap.rs`, `body.rs`, `platform.rs` and `rng.rs`; `fmath.rs` from fizz-dos `m2/sim/src/fmath.rs` without `exp`. `tools/lf-sim-drift.sh` compares them with a Fizz 1 checkout |
+| Ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036` | `crates/fizz-ep2/src/ben.rs`, proved by the traces in `crates/fizz-ep2/tests/fizz1/` |
 | Written for this repository | `dos/rt/src/` `ring.rs`, `port.rs` and `kbd.rs`; `dos/rtsmoke`; the rest of `crates/fizz-hal`, which follows Desk's shapes for time, input and video without port traits |
 
 ## Not verified

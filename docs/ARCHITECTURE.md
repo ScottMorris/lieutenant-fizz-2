@@ -95,7 +95,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-present-web` | Presenter | Web presentation: a `wasm-bindgen` `App` that paces the rules from browser time | Exists |
 | `fizz-dos-rt` (`dos/rt`) | Platform | The DOS runtime: start-up, DPMI, heap, interrupts, 60 Hz timer, keyboard, VGA and clean-up. Lives in the separate `dos/` workspace | Exists |
 | `fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy, with `libm` giving the maths functions method syntax (no `exp`). Function bodies stay identical to Fizz 1's; `tools/lf-sim-drift.sh` reports any drift | Exists |
-| `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`: Ben's movement, enemies, shots, world flags, levels, the replay and the hash. Replaces `fizz-hello` | Planned |
+| `fizz-ep2` | Rules | Episode 2's rules on `fizz-sim` and `fizz-phys`. Today it holds Ben's movement, ported line for line from Fizz 1 and proved against its golden traces; enemies, shots, world flags, levels, the replay and the hash follow. Replaces `fizz-hello` | Exists |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
 | `fizz-bake` | Baking | Host tool: bakes scripts, art and music into per-target Fizz Asset Packs (`.FAP`) | Planned |
 | `fizz-fap` | Baking | The Fizz Asset Pack format and loader that `fizz-bake` writes and both platforms read. The name is provisional | Planned |
