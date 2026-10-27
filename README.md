@@ -64,6 +64,10 @@ Fizz 2 draws on several Liminal HQ projects and names each one where it uses it.
 - Fizz Level Studio, an experiment, is the level and overworld authoring tool, with its own script language.
 - [Waypoint](https://github.com/liminal-hq/waypoint) and [Spindle](https://github.com/liminal-hq/spindle) set the repository conventions: the README shape, CI, release notes and labels.
 
+## Conventions
+
+Lieutenant Fizz 2 follows the [Liminal HQ](https://liminalhq.ca) conventions and copyright, and shares Fizz 1's palette, sense of humour and appetite for chocolate.
+
 ## Licence
 
 Licensed under either of the [Apache License, Version 2.0](LICENSE-APACHE) or the [MIT licence](LICENSE-MIT), at your option.
