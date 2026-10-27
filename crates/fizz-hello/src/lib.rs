@@ -6,7 +6,7 @@
 #![forbid(unsafe_code)]
 
 use core::f64::consts::FRAC_1_SQRT_2;
-use fizz_sim::{Buttons, InputFrame, Tick};
+use fizz_sim::{Buttons, InputFrame, StateHash, Tick};
 
 /// Everything the Milestone 0 rules remember between ticks.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -102,6 +102,19 @@ pub fn step(w: &mut World, f: InputFrame) {
     }
 
     w.tick = w.tick.next();
+}
+
+/// Hashes the world in a fixed field order: tick, x, y, vx, vy, heading, dashes.
+pub fn hash(w: &World) -> StateHash {
+    let mut h = StateHash::new();
+    h.write_u64(w.tick.0);
+    h.write_f64(w.x);
+    h.write_f64(w.y);
+    h.write_f64(w.vx);
+    h.write_f64(w.vy);
+    h.write_f64(w.heading);
+    h.write_u32(w.dashes);
+    h
 }
 
 fn axis(b: Buttons, positive: Buttons, negative: Buttons) -> f64 {
@@ -216,6 +229,41 @@ mod tests {
             assert!(ok(w.vx) && ok(w.vy));
         }
         assert_eq!((w.vx, w.vy), (0.0, 0.0));
+    }
+
+    #[test]
+    fn the_initial_hash_matches_an_independent_fnv1a_computation() {
+        // Computed outside Rust: FNV-1a 64 over tick as 8 LE bytes, five doubles as 8 LE bytes
+        // each (160.0, 100.0, 0.0, 0.0, 0.0), then dashes as 4 LE bytes.
+        assert_eq!(hash(&World::new()).finish(), 0x0231_7fd0_a71a_d280);
+    }
+
+    #[test]
+    fn hash_field_order_is_tick_x_y_vx_vy_heading_dashes() {
+        let w = World {
+            tick: Tick(7),
+            x: 1.5,
+            y: 2.5,
+            vx: 0.25,
+            vy: -0.5,
+            heading: 0.75,
+            dashes: 3,
+        };
+        assert_eq!(hash(&w).finish(), 0x26bd_4838_1388_449d);
+
+        // Swapping any two doubles changes the digest.
+        let swapped_xy = World {
+            x: w.y,
+            y: w.x,
+            ..w
+        };
+        let swapped_v = World {
+            vx: w.vy,
+            vy: w.vx,
+            ..w
+        };
+        assert_ne!(hash(&swapped_xy).finish(), hash(&w).finish());
+        assert_ne!(hash(&swapped_v).finish(), hash(&w).finish());
     }
 
     fn ok(v: f64) -> bool {
