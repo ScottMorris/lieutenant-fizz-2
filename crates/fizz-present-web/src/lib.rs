@@ -8,6 +8,7 @@
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_hello::{World, hash, step};
+use fizz_present_dos::marker_origin;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use wasm_bindgen::prelude::*;
 
@@ -122,6 +123,16 @@ impl App {
         self.world.y
     }
 
+    /// The screen column of the marker's left edge, from the rule the DOS presenter uses.
+    pub fn marker_px_x(&self) -> i32 {
+        marker_origin(&self.world).0
+    }
+
+    /// The screen row of the marker's top edge, from the rule the DOS presenter uses.
+    pub fn marker_px_y(&self) -> i32 {
+        marker_origin(&self.world).1
+    }
+
     pub fn dashes(&self) -> u32 {
         self.world.dashes
     }
@@ -181,6 +192,40 @@ mod tests {
         assert_eq!(app.dashes(), reference.dashes);
         assert_eq!(app.marker_x(), reference.x);
         assert_eq!(app.marker_y(), reference.y);
+    }
+
+    /// The marker's top-left corner in a rendered DOS frame: the first yellow pixel in row-major order.
+    fn dos_marker_corner(world: &World, frame: &mut fizz_present_dos::Frame) -> (i32, i32) {
+        fizz_present_dos::render(world, frame);
+        let at = frame
+            .pixels()
+            .iter()
+            .position(|&p| p == fizz_present_dos::YELLOW)
+            .expect("the marker is on screen");
+        (
+            (at % fizz_present_dos::WIDTH) as i32,
+            (at / fizz_present_dos::WIDTH) as i32,
+        )
+    }
+
+    #[test]
+    fn the_marker_pixel_matches_the_dos_frame_after_every_tick() {
+        let mut app = App::new();
+        let mut frame = fizz_present_dos::Frame::new();
+        let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
+        app.frame(now_ms);
+        for held in per_tick() {
+            set_keys(&mut app, prev, held);
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            assert_eq!(
+                (app.marker_px_x(), app.marker_px_y()),
+                dos_marker_corner(&app.world, &mut frame),
+                "tick {}",
+                app.world.tick.0
+            );
+            prev = held;
+        }
     }
 
     #[test]

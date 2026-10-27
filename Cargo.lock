@@ -41,6 +41,7 @@ version = "0.1.0"
 dependencies = [
  "fizz-hal",
  "fizz-hello",
+ "fizz-present-dos",
  "fizz-sim",
  "wasm-bindgen",
 ]

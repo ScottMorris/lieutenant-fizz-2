@@ -13,4 +13,5 @@ crate-type = ["cdylib", "rlib"]
 fizz-sim = { path = "../fizz-sim" }
 fizz-hello = { path = "../fizz-hello" }
 fizz-hal = { path = "../fizz-hal" }
+fizz-present-dos = { path = "../fizz-present-dos" }
 wasm-bindgen = "=0.2.125"
