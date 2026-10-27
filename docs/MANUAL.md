@@ -48,8 +48,8 @@ The square stays inside the screen. Letting go of the keys makes it slow to a st
 
 The two versions run the same rules, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the colours of the square and the text, the controls, the 60-steps-a-second pace and the HUD wording.
-- **Different:** the DOS version has an Esc key, three modes and a 30-second limit in `/LIVE`; the Web version runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen. The screen behind the square is a darker blue on the Web than on DOS. Neither version makes sound yet.
+- **Same:** the colours, the controls, the 60-steps-a-second pace and the HUD wording.
+- **Different:** the DOS version has an Esc key, three modes and a 30-second limit in `/LIVE`; the Web version runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen. Neither version makes sound yet.
 
 ## Coming
 
