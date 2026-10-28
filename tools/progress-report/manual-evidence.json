@@ -159,6 +159,12 @@
    "gaps": "`KEY`, `DOOR` and `EXIT` changing in the browser: the replay reaches all three in the host tests, but no browser run has played that far; the panel opened with `H` or the `?` button, which no run pressed, and a real window being resized or a phone being turned"
   },
   {
+   "section": "Options on the Web",
+   "shelf": "catalogued",
+   "evidence": "`web/options.test.ts` (under `bun test`) covers reading, writing and migrating the remembered settings, the row order and the look's data, and the host tests of `fizz-present-web` and `fizz-menu` cover the screens' rows, cursor and values. `tools/check-web-options.py` drives the built page in headless Chromium: Esc and the Pause key open Paused, TICK is frozen while a screen is up and the first frame after resuming runs no ticks, each change applies and persists in the `fizz2-options` blob and survives a reload, the older keys migrate, `?audio=classic` shows `*` and the note, the mouse paths work, reduced motion stops the animation, and the golden replay with the screens used in the middle of it ends on the golden hash.",
+   "gaps": "any real browser, fullscreen (where the browser takes the first Esc), touch, and a screen reader: only headless Chromium has run it, with synthesised key and mouse events"
+  },
+  {
    "section": "Sound on the Web",
    "shelf": "catalogued",
    "evidence": "`web/sfx.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` under `bun test`: each of the four variants schedules the voices of `assets/sfx/cluck.ts`, nothing plays before unlock, while muted, on a hidden tab or past four simultaneous clucks, and blocked storage does not break mute. `tools/check-web-sfx.py` drives the built page in headless Chromium with the same kind of stand-in: no context and no sound before a key press, the cluck at tick 197 scheduling variant 2 after one, `M` muting, and the choice surviving a reload. The `App` host tests check that no cluck is lost when a frame runs several ticks. The `cluck-path` diagram in [chapter 9](chapter:slice) shows each box of the Web path with its check.",

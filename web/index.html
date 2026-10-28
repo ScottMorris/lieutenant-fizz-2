@@ -26,20 +26,13 @@
       <!-- Spoken, not seen: the Fizz running out, the key picked up and a death. Nothing else, so it stays quiet. -->
       <p id="hud-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
       <!-- A few seconds of hint after load, then it fades. -->
-      <p id="toast" class="toast">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires. H shows the panel.</p>
+      <p id="toast" class="toast">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires. H shows the panel, Esc pauses and opens Options.</p>
       <button id="panel-toggle" type="button" aria-controls="panel" aria-expanded="false" title="Controls and notes (H)">?</button>
       <aside id="panel" hidden aria-label="Controls and notes">
         <p id="goal" class="help">Climb the lighthouse: fetch the red key, walk into the red door with it, and reach the exit. Mind the spikes and the chicken.</p>
         <p id="hint" class="help">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.</p>
         <div class="controls">
-          <button id="layout" type="button">Keys: Keen</button>
-          <button id="captions" type="button">Captions: on</button>
-          <button id="audio-mode" type="button">Sound placement: enhanced</button>
-          <button id="motion" type="button">Motion: full</button>
-          <button id="reset" type="button">Restart</button>
-          <button id="fullscreen" type="button" hidden>Fullscreen (F)</button>
-          <button id="sound" type="button" aria-pressed="true">Sound: on, M to toggle</button>
-          <button id="music" type="button" aria-pressed="true">Music: on</button>
+          <button id="open-options" type="button" title="Sound, music, placement, motion, captions and keys. Esc pauses the game and opens the same screens">Options (Esc)</button>
         </div>
         <pre id="hud">TICK 0
 HASH 0000000000000000

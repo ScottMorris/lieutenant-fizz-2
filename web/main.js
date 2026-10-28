@@ -9,6 +9,7 @@ import init, { App } from "./pkg/fizz_present_web.js";
 import { AudioRoot } from "./audio.ts";
 import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
+import { OptionsUi, ROW, ROW_OF, browserStorage, loadOptions, menuKeyFor, MENU_KEY, opensPaused, placementFromSearch, pullOptions, pushOptions, saveOptions } from "./options.ts";
 import { announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, sameHud } from "./hud.ts";
 
 // Button bits match `fizz_sim::Buttons`.
@@ -58,9 +59,6 @@ const LAYOUTS = {
   },
 };
 const OTHER = { keen: "modern", modern: "keen" };
-const STORAGE_KEY = "fizz2-layout";
-const CAPTIONS_KEY = "fizz2-captions";
-const MOTION_KEY = "fizz2-motion";
 
 // Every key either layout uses, for the Keyboard Lock request. Escape is left out so the browser's way out of fullscreen still works.
 const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.keys(l.keys)))];
@@ -72,13 +70,7 @@ const stage = document.getElementById("stage");
 const panel = document.getElementById("panel");
 const panelToggle = document.getElementById("panel-toggle");
 const toast = document.getElementById("toast");
-const resetButton = document.getElementById("reset");
-const layoutButton =document.getElementById("layout");
-const captionsButton = document.getElementById("captions");
-const motionButton = document.getElementById("motion");
-const musicButton = document.getElementById("music");
-const fullscreenButton = document.getElementById("fullscreen");
-const soundButton = document.getElementById("sound");
+const optionsButton = document.getElementById("open-options");
 const ctx = canvas.getContext("2d");
 const captionLayer = document.getElementById("caption-layer");
 const playHud = document.getElementById("play-hud");
@@ -184,62 +176,6 @@ function showCaptions(app) {
     el.style.opacity = String(opacity);
     el.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) scale(${size})`;
   });
-}
-
-function loadLayout() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved in LAYOUTS) return saved;
-  } catch {
-    // Storage can be blocked or missing; the default applies.
-  }
-  return "keen";
-}
-
-function saveLayout(name) {
-  try {
-    localStorage.setItem(STORAGE_KEY, name);
-  } catch {
-    // The choice just is not remembered.
-  }
-}
-
-// Captions are on unless the player turned them off; only an explicit "off" is remembered as off.
-function loadCaptions() {
-  try {
-    return localStorage.getItem(CAPTIONS_KEY) !== "off";
-  } catch {
-    // Storage can be blocked or missing; the default applies.
-    return true;
-  }
-}
-
-function saveCaptions(on) {
-  try {
-    localStorage.setItem(CAPTIONS_KEY, on ? "on" : "off");
-  } catch {
-    // The choice just is not remembered.
-  }
-}
-
-// Motion is Full unless the player chose Reduced, or has not chosen and the system asks for reduced motion
-// (prefers-reduced-motion: reduce). An explicit choice, remembered as "full" or "reduced", wins over the system.
-function loadMotion() {
-  try {
-    const saved = localStorage.getItem(MOTION_KEY);
-    if (saved === "full" || saved === "reduced") return saved;
-  } catch {
-    // Storage can be blocked or missing; the system preference applies.
-  }
-  return matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduced" : "full";
-}
-
-function saveMotion(motion) {
-  try {
-    localStorage.setItem(MOTION_KEY, motion);
-  } catch {
-    // The choice just is not remembered.
-  }
 }
 
 // Copies the frame the module just drew onto the canvas. The view is made again each frame because the module's memory can move
@@ -366,59 +302,32 @@ async function main() {
   // Read by tools/check-web-hud.py, to prove from outside that the HUD never covers Ben. Nothing in the page uses it.
   window.__benBox = () => app.ben_box();
 
+  // What the player chose is remembered as one blob (web/options.ts) and lives in the module while the screens are up. A `?audio=`
+  // address wins for this visit and shows `*` on the Placement row; it is not written back unless the player changes the row.
+  const storage = browserStorage();
+  let stored = loadOptions(storage);
+  const queried = placementFromSearch(location.search);
+  pushOptions(app, queried ? { ...stored, placement: queried } : stored);
+  if (queried) app.set_override(ROW.placement);
+  app.set_fullscreen_available(Boolean(document.fullscreenEnabled));
+
   // Sound: made on the first key press or click (browsers insist on a gesture), muted with M. Neither layout uses M.
   // One audio context for the clucks and the music, each on its own bus (web/audio.ts). The music is a placeholder song, started
-  // at the first key or click, and is a presenter detail: the rules never start it or read it.
+  // at the first key or click, and is a presenter detail: the rules never start it or read it. Both are given no storage of their
+  // own: the Options blob remembers their choices.
   const audio = new AudioRoot();
-  const sfx = new Sfx({ createContext: () => audio.context(), destination: () => audio.sfxBus });
-  const music = new Music(audio, { isMuted: () => sfx.muted });
-  const showSound = () => {
-    soundButton.textContent = `Sound: ${sfx.muted ? "off" : "on"}, M to toggle`;
-    soundButton.setAttribute("aria-pressed", String(!sfx.muted));
-  };
-  const showMusic = () => {
-    musicButton.textContent = `Music: ${music.enabled ? "on" : "off"}`;
-    musicButton.title = "Crater Fields, Fizz 1's song used as a placeholder. M mutes all sound, including the music";
-    musicButton.setAttribute("aria-pressed", String(music.enabled));
-  };
-  // The first gesture makes the context; the song starts from bar 1 if sound is on and the Music toggle is on.
+  const sfx = new Sfx({ createContext: () => audio.context(), destination: () => audio.sfxBus, storage: null });
+  const music = new Music(audio, { isMuted: () => sfx.muted, storage: null });
+  // The first gesture makes the context; the song starts from bar 1 if sound is on and the Music option is on.
   const unlockSound = () => {
     sfx.unlock();
     music.sync();
   };
-  showSound();
-  showMusic();
-  soundButton.addEventListener("click", () => {
-    unlockSound();
-    sfx.toggleMute();
-    music.sync();
-    showSound();
-    soundButton.blur();
-  });
-  musicButton.addEventListener("click", () => {
-    sfx.unlock();
-    music.toggle();
-    showMusic();
-    musicButton.blur();
-  });
   // Any click or tap on the page counts as the gesture too.
   addEventListener("pointerdown", unlockSound);
   document.addEventListener("visibilitychange", () => sfx.sync());
 
-  // Classic plays every sound centred at full level; Enhanced places it by where the chicken is on screen (the default). Remembered by Sfx.
-  const audioModeButton = document.getElementById("audio-mode");
-  const showAudioMode = () => {
-    audioModeButton.textContent = `Sound placement: ${sfx.mode}`;
-    audioModeButton.title = "Enhanced pans a sound toward the side it comes from and softens it outside the view; Classic plays it centred";
-  };
-  showAudioMode();
-  audioModeButton.addEventListener("click", () => {
-    sfx.setMode(sfx.mode === "enhanced" ? "classic" : "enhanced");
-    showAudioMode();
-    audioModeButton.blur();
-  });
-
-  let layout = loadLayout();
+  let layout = stored.keys;
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
   const held = new Map();
 
@@ -428,91 +337,113 @@ async function main() {
   };
 
   const showLayout = () => {
-    layoutButton.textContent = `Keys: ${LAYOUTS[layout].label}`;
-    layoutButton.title = `Switch to the ${LAYOUTS[OTHER[layout]].label} keys`;
     hint.textContent = LAYOUTS[layout].hint;
-    toast.textContent = `${LAYOUTS[layout].hint} H shows the panel.`;
+    toast.textContent = `${LAYOUTS[layout].hint} H shows the panel, Esc pauses and opens Options.`;
   };
-  showLayout();
 
-  layoutButton.addEventListener("click", () => {
-    releaseAll();
-    layout = OTHER[layout];
-    saveLayout(layout);
+  // Reduced motion turns off the screen shake when Ben dies; the rules and the sound are the same either way. System follows the
+  // device's setting.
+  const reducedMotion = (motion) => motion === "reduced" || (motion === "system" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  // Brings the page in line with the module's settings, and remembers them when `remember` is set. Every change applies at once.
+  const apply = (remember) => {
+    const now = pullOptions(app);
+    sfx.setMuted(now.sound === "off");
+    sfx.setMode(now.placement);
+    music.setEnabled(now.music === "on");
+    if (now.keys !== layout) {
+      releaseAll();
+      layout = now.keys;
+    }
     showLayout();
-    layoutButton.blur();
-  });
-
-  const setCaptions = (on) => {
-    app.set_captions(on);
-    saveCaptions(on);
-    captionsButton.textContent = `Captions: ${on ? "on" : "off"}`;
-    captionsButton.title = "Show or hide the words above a clucking chicken (V)";
+    app.set_captions(now.captions === "on");
+    app.set_shake(!reducedMotion(now.motion));
+    ui.setReducedMotion(!app.shake());
+    if (remember) {
+      // A placement from the address is for this visit only; it is saved when the player changes that row, which clears the star.
+      stored = { ...now, placement: app.menu_overridden(ROW.placement) ? stored.placement : now.placement };
+      saveOptions(storage, stored);
+    }
   };
-  // Apply the remembered choice without saving it again.
-  app.set_captions(loadCaptions());
-  captionsButton.textContent = `Captions: ${app.captions() ? "on" : "off"}`;
-  captionsButton.title = "Show or hide the words above a clucking chicken (V)";
-  captionsButton.addEventListener("click", () => {
-    setCaptions(!app.captions());
-    captionsButton.blur();
-  });
 
-  // Reduced motion turns off the screen shake when Ben dies; the rules and the sound are the same either way.
-  const showMotion = () => {
-    motionButton.textContent = `Motion: ${app.shake() ? "full" : "reduced"}`;
-    motionButton.title = "Full shakes the screen when Ben dies; Reduced keeps it still";
+  const toggleFullscreenRow = () => {
+    if ((app.menu_value(ROW.fullscreen) === 1) !== Boolean(document.fullscreenElement)) toggleFullscreen();
   };
-  app.set_shake(loadMotion() === "full");
-  showMotion();
-  motionButton.addEventListener("click", () => {
-    app.set_shake(!app.shake());
-    saveMotion(app.shake() ? "full" : "reduced");
-    showMotion();
-    motionButton.blur();
-  });
 
-  resetButton.addEventListener("click", () => {
-    releaseAll();
-    app.reset();
-    resetButton.blur();
+  // The Paused and Options screens, over the picture. The game is held while one is up (the loop below), and held keys are let go
+  // as it opens so Ben does not run on when it closes.
+  const ui = new OptionsUi(app, stage, {
+    onOpen: releaseAll,
+    onClose: () => {},
+    onChange: (row) => {
+      if (row === ROW.fullscreen) toggleFullscreenRow();
+      else apply(true);
+    },
   });
+  apply(false);
+  new ResizeObserver(() => ui.scale()).observe(stage);
 
-  if (document.fullscreenEnabled) {
-    fullscreenButton.hidden = false;
-    fullscreenButton.addEventListener("click", () => {
-      toggleFullscreen();
-      fullscreenButton.blur();
-    });
-  }
-  document.addEventListener("fullscreenchange", () => setKeyLock(Boolean(document.fullscreenElement)));
+  // Sets one option by its word, as the M and V keys do, and keeps an open screen right.
+  const setOption = (field, word) => {
+    const { row, words } = ROW_OF[field];
+    app.set_value(row, words.indexOf(word));
+    apply(true);
+    ui.sync();
+  };
+
+  optionsButton.addEventListener("click", () => {
+    setPanel(false);
+    ui.openOptions();
+    optionsButton.blur();
+  });
+  document.addEventListener("fullscreenchange", () => {
+    app.set_fullscreen(Boolean(document.fullscreenElement));
+    setKeyLock(Boolean(document.fullscreenElement));
+    ui.sync();
+  });
 
   const handle = (event, down) => {
     if (down) unlockSound();
-    if (event.code === "KeyM" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
+    if (event.code === "KeyM" && plain) {
       event.preventDefault();
-      if (down && !event.repeat) {
-        sfx.toggleMute();
-        music.sync();
-        showSound();
-      }
+      if (down && !event.repeat) setOption("sound", sfx.muted ? "on" : "off");
       return;
     }
-    if (event.code === "KeyF" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    if (event.code === "KeyF" && plain) {
       event.preventDefault();
       if (down && !event.repeat && document.fullscreenEnabled) toggleFullscreen();
       return;
     }
-    // H shows and hides the panel in both layouts; neither layout uses it.
-    if (event.code === "KeyH" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    // V toggles the captions in both layouts; neither layout uses it.
+    if (event.code === "KeyV" && plain) {
       event.preventDefault();
-      if (down && !event.repeat) setPanel(panel.hidden);
+      if (down && !event.repeat) setOption("captions", app.captions() ? "off" : "on");
       return;
     }
-    // V toggles the captions in both layouts; neither layout uses it.
-    if (event.code === "KeyV" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+    // Esc opens Paused, and goes back one screen when one is up. In fullscreen the browser keeps the first Esc for leaving it, so the
+    // second one, or the Pause key, is what the page sees. Pause also resumes from any screen.
+    if (opensPaused(event.code) && plain) {
       event.preventDefault();
-      if (down && !event.repeat) setCaptions(!app.captions());
+      if (!down || event.repeat) return;
+      if (!ui.isOpen) ui.openPaused();
+      else if (event.code === "Pause") ui.close();
+      else ui.key(MENU_KEY.back);
+      return;
+    }
+    if (ui.isOpen) {
+      // A screen takes the arrows, Enter and Space; the game's keys do nothing, and none is held while it is up.
+      const key = menuKeyFor(event.code);
+      if (key !== null && plain) {
+        event.preventDefault();
+        if (down && (!event.repeat || key <= MENU_KEY.right)) ui.key(key);
+      }
+      return;
+    }
+    // H shows and hides the panel in both layouts; neither layout uses it.
+    if (event.code === "KeyH" && plain) {
+      event.preventDefault();
+      if (down && !event.repeat) setPanel(panel.hidden);
       return;
     }
     const bits = LAYOUTS[layout].keys[event.code];
@@ -530,7 +461,9 @@ async function main() {
   addEventListener("blur", releaseAll);
 
   const loop = () => {
-    app.frame(performance.now());
+    // A screen up holds the game: the module drops its pacer, so the first frame after it restarts the clock and nothing is caught up.
+    if (ui.isOpen) app.hold();
+    else app.frame(performance.now());
     // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
     // Each cluck carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
     for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v, app.cluck_pan(), app.cluck_gain());

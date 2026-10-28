@@ -23,11 +23,14 @@ if command -v bun > /dev/null 2>&1 && [ -d node_modules/@liminal-hq/undertone ];
 else
   printf 'skipped: the music source checks (need bun and node_modules)\n'
 fi
-# The Web HUD check plays the golden replay in headless Chromium against dist/web (tools/build-web.sh); it is skipped without either.
+# The Web HUD and Options checks play the golden replay in headless Chromium against dist/web (tools/build-web.sh); they are skipped
+# without either.
 if [ -f dist/web/index.html ] && [ -x /usr/bin/chromium ] && command -v bun > /dev/null 2>&1; then
   bun test web/hud.test.ts
   python3 -I tools/check-web-hud.py
+  bun test web/options.test.ts
+  python3 -I tools/check-web-options.py
 else
-  printf 'skipped: the Web HUD check (needs dist/web, Chromium and bun)\n'
+  printf 'skipped: the Web HUD and Options checks (need dist/web, Chromium and bun)\n'
 fi
 printf 'All checks passed.\n'
