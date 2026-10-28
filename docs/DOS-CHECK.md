@@ -13,13 +13,15 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 - [Settings file and flags](#settings-file-and-flags)
 - [The probes](#the-probes)
 - [The `/PROBE` mode](#the-probe-mode)
+- [The `/CHECK` and `/CHECKCELLS` modes](#the-check-and-checkcells-modes)
+- [Rendering the cells to pictures](#rendering-the-cells-to-pictures)
 - [Memory floor](#memory-floor)
 - [The golden file](#the-golden-file)
 - [Not verified](#not-verified)
 
 ## Status
 
-The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. `FIZZ2.EXE` also reads `FIZZ2.CFG` and the sound flags, resolves them against the probe and prints the `SOUND` line in `/LIVE`, `/REPLAY` and `/PROBE` (see [Settings file and flags](#settings-file-and-flags)); nothing plays yet. The `/CHECK` screen itself arrives in a later change, so nothing here is visible to a player beyond `/PROBE` and that line, which the manual describes.
+The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. `FIZZ2.EXE /CHECK` shows the screen and `/CHECKCELLS` reads it back from video memory; both are described below. `FIZZ2.EXE` also reads `FIZZ2.CFG` and the sound flags, resolves them against the probe and prints the `SOUND` line in `/LIVE`, `/REPLAY` and `/PROBE` (see [Settings file and flags](#settings-file-and-flags)); nothing plays yet. `/CHECK` resolves its sound states from the same plan.
 
 ## What the screen shows
 
@@ -161,6 +163,25 @@ The planner's runs gave 3,696, 1,648, 624, 112 and 102 free pages for the same m
 
 `write_probe` writes the lines and `parse_probe` reads them back, both in `fizz-machine`, so the program and the host agree on the spelling. `cargo run -q -p fizz-machine --example cells-hash` reads a transcript on standard input and prints the `CELLS` line the host expects for its `PROBE` lines. `tools/check-dos.sh` runs `/PROBE` under these configurations, asserts the expected `PROBE` lines of each and that the program's `CELLS` equals the host's: no sound card, sb1, sb2, sbpro1, sbpro2, sb16 (also at base 240, with `oplmode = opl2` and with `oplmode = none`), no card with `oplmode = opl2`, the mouse driver off, a 2-axis joystick, the machines `ega`, `cga` and `hercules`, `cputype` 386 and pentium, and `memsize` 16, 4, 2 and 1. The runs take about 25 seconds in all. The check never runs the interactive `/CHECK`, which does not exist yet.
 
+## The `/CHECK` and `/CHECKCELLS` modes
+
+`FIZZ2.EXE /CHECK` runs the probes, resolves the sound plan, builds the 2,000 cells with `fizz_machine::cells` and writes them to the text page: `0xB8000` in mode 3, or `0xB0000` in mode 7 when the adapter is MDA or Hercules (`VideoClass::is_text_mono`). It runs before any timer or keyboard hook (the probes' waits need the PIT at the BIOS rate), reads keys through the BIOS (INT 16h), and hides the cursor. Esc puts the text mode back and exits with status 0; Enter puts it back and goes on to `/LIVE`. Enter is ignored while `ready` says a VGA or an x87 is missing, as the footer states. Any other key does nothing. The mode is registered with the clean-up list, so a panic leaves the screen in text mode too. The code is `dos/fizz2/src/check.rs` and `dos/rt/src/text.rs`.
+
+`/CHECK` waits for a person, so no script, test or CI job may run it. `crates/fizz-machine/tests/no-check-in-scripts.rs` reads every script and workflow under `tools/` and `.github/` and fails on any non-comment line that names `/CHECK` other than as the start of `/CHECKCELLS`.
+
+`FIZZ2.EXE /CHECKCELLS` is the form scripts use. It draws the same screen, reads the 4,000 bytes back from video memory, puts the text mode back and prints, with no key press:
+
+- the `PROBE` lines, as `/PROBE` does;
+- `CELLROW <row> <hex>`, 25 lines, each with 160 hexadecimal digits: the character byte and then the attribute byte of each of the row's 80 cells, in video-memory order (`write_cells_hex` and `parse_cells_hex` in `fizz-machine`);
+- `CELLS <hash>`, the hash of the bytes read back, and `CELLS WRITTEN <hash>`, the hash of the cells the program wrote (the two differ only if the adapter's memory did not hold what was written);
+- `EXIT yes`.
+
+`cargo run -q -p fizz-machine --example cells-hex` reads those `PROBE` lines on standard input and prints the `CELLROW` lines the pure builder makes for the same values with the default settings. `tools/check-dos.sh` runs `/CHECKCELLS` for a machine with no sound card, an SB16, an SB Pro 1 and the EGA, CGA and Hercules machines, and fails unless the lines are identical. A unit test in `fizz-machine` checks that the `CELLROW` text round-trips through `parse_cells_hex` for a colour, an EGA, a CGA and a monochrome screen.
+
+## Rendering the cells to pictures
+
+`python3 -I tools/render-cells.py <input> <output-dir>` draws cells as PNG files with a VGA 8x16 font, for the manual and the archive. The input is the golden file (one picture for each case, named after it) or the output of `/CHECKCELLS` (one picture, `check.png`). The sixteen text colours are VGA's. The font is not part of the repository: the tool reads a PSF2 console font with a Unicode table from the machine that runs it (the Linux `default8x16` by default, or `--font <file>`), and uses only the Python standard library. Running it over the golden file produces thirteen 1280 by 800 pictures, which are not committed.
+
 ## Memory floor
 
 `MEMORY_FLOOR_KB` is 1,024. Free memory below it shows a warning row (`N KB free, 1 MB wanted`) and does not stop the game; the check only blocks start when a VGA or an x87 is missing. Fizz 1's 10 MB does not apply: it came from that game's large simulation buffer, which Fizz 2 does not have.
@@ -187,4 +208,4 @@ BLESS=1 cargo test -p fizz-machine --test golden
 - The DSP and FM timing on real cards: the delays (3.3 and 23 microseconds after an FM write are rounded up to 4 and 24, the reset wait to 5) follow the datasheets, and DOSBox does not enforce them.
 - `pit::delay_us` on a machine whose timer another program left in a different mode: it assumes the BIOS's mode 3 and cannot read the mode back from the PIT.
 - How the screen looks on a real monochrome adapter. The attribute choices follow the documented behaviour of MDA and Hercules text, but no such adapter was available.
-- The screen in DOSBox: `/PROBE` hashes the cells and does not write them to video memory. Reading them back from video memory arrives with `/CHECK`.
+- The screen on a person's eyes: `/CHECKCELLS` proves that video memory holds the cells the builder made (in DOSBox, for colour, EGA, CGA and Hercules), and the renders show what they should look like with a VGA font, but the interactive `/CHECK` (keys, cursor hiding, Enter to `/LIVE`) is run by hand only and was not driven in this change. On a real machine nothing was seen.
