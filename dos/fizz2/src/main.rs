@@ -40,7 +40,7 @@ use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
-use fizz_present_dos::{DrawOptions, Frame, Layout, ega_palette, key_to_buttons, present, render_slice_with};
+use fizz_present_dos::{DrawOptions, Frame, Layout, Puffs, ega_palette, key_to_buttons, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -51,8 +51,8 @@ const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
 const LIVE_TICK_CAP: u64 = 1800;
 
-/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 798 bytes (about 33 bytes for each
-/// 60 ticks and 20 for each cluck), so 8,192 leaves ample room for the lines later milestones add to it.
+/// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 872 bytes (about 33 bytes for each
+/// 60 ticks, 20 for each cluck and 24 for each shot end), so 8,192 leaves ample room for the lines later milestones add to it.
 const TRANSCRIPT_BYTES: usize = 8192;
 
 /// A fixed buffer for the transcript, so nothing is printed (and no DOS call made) while the screen is in graphics mode.
@@ -125,16 +125,22 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &ega_palette())
 }
 
-fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions) {
-    render_slice_with(world, frame, options);
+fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &Puffs) {
+    render_slice_with(world, frame, options, puffs);
     let _ = present(display, frame);
 }
 
 /// The live loop's draw: waits for the vertical retrace, then copies, so the copy does not land mid-scan and tear. The wait
 /// is bounded inside `wait_vretrace` (a million status reads per phase), and it only delays the copy: the simulation is paced
 /// by the timer through the `Pacer` and never sees the retrace. `/REPLAY` does not wait.
-fn draw_slice_frame_synced(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions) {
-    render_slice_with(world, frame, options);
+fn draw_slice_frame_synced(
+    display: &mut DosDisplay,
+    frame: &mut Frame,
+    world: &fizz_ep2::World,
+    options: &DrawOptions,
+    puffs: &Puffs,
+) {
+    render_slice_with(world, frame, options, puffs);
     let _ = display.wait_vretrace();
     let _ = present(display, frame);
 }
@@ -225,12 +231,13 @@ fn replay(options: &DrawOptions) -> i32 {
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
+    let mut puffs = Puffs::new();
     let mut prev = Buttons::NONE;
     let mut run = 0usize;
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
 
     let _ = fizz_ep2::replay::write_start(&mut out, &world);
-    draw_slice_frame(&mut display, &mut frame, &world, options);
+    draw_slice_frame(&mut display, &mut frame, &world, options, &puffs);
 
     while world.tick.0 < SLICE_TICKS {
         let due = pacer.due(&clock);
@@ -247,9 +254,10 @@ fn replay(options: &DrawOptions) -> i32 {
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
+            puffs.observe(&world);
         }
         if due > 0 {
-            draw_slice_frame(&mut display, &mut frame, &world, options);
+            draw_slice_frame(&mut display, &mut frame, &world, options, &puffs);
         }
     }
     let _ = fizz_ep2::replay::write_final(&mut out, &world);
@@ -345,9 +353,10 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
     let mut world = level::world();
+    let mut puffs = Puffs::new();
     let mut quit = false;
 
-    draw_slice_frame_synced(&mut display, &mut frame, &world, options);
+    draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);
     while !quit && world.tick.0 < LIVE_TICK_CAP {
         let due = pacer.due(&clock);
         for _ in 0..due {
@@ -362,9 +371,10 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
                 break;
             }
             fizz_ep2::step(&mut world, latch.frame());
+            puffs.observe(&world);
         }
         if due > 0 {
-            draw_slice_frame_synced(&mut display, &mut frame, &world, options);
+            draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);
         }
     }
 

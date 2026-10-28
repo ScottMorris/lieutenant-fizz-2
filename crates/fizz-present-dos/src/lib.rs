@@ -17,7 +17,7 @@ use core::fmt::{self, Write};
 use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
 
-pub use fizz_slice_view::DrawOptions;
+pub use fizz_slice_view::{DrawOptions, Puffs};
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
 pub use palette::*;
@@ -61,8 +61,8 @@ impl Write for TextBuf {
 const SLICE_HUD_H: i32 = 10;
 
 /// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
-/// banner, which would add text below the HUD strip.
-pub const DIGEST_TICKS: [u64; 7] = [150, 270, 400, 602, 700, 865, 1000];
+/// banner, which would add text below the HUD strip. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
+pub const DIGEST_TICKS: [u64; 11] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000];
 
 /// An FNV-1a digest of the picture below the HUD strip, the part that `fizz_slice_view::draw_slice` alone draws. The DOS
 /// bench and the host `frames` example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any
@@ -78,24 +78,33 @@ pub fn frame_digest(frame: &Frame) -> u64 {
 
 /// Draws the slice: the shared picture from `fizz_slice_view`, then the text HUD over a black strip along the top (ammo,
 /// whether Ben carries the key, deaths and the tick), and a banner once Ben has reached the exit. The text is this
-/// presenter's own; the picture beneath it is the one the Web draws too. Captions are on; see [`render_slice_with`].
+/// presenter's own; the picture beneath it is the one the Web draws too. Captions are on and no puffs show; see
+/// [`render_slice_with`].
 pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
-    render_slice_with(world, frame, &fizz_slice_view::DrawOptions::default());
+    render_slice_with(
+        world,
+        frame,
+        &fizz_slice_view::DrawOptions::default(),
+        &Puffs::new(),
+    );
 }
 
-/// [`render_slice`] with the shared picture's options (the DOS `/NOCAPTIONS` switch sets `captions` false).
+/// [`render_slice`] with the shared picture's options (the DOS `/NOCAPTIONS` switch sets `captions` false) and the shot-end
+/// puffs the caller has gathered with [`Puffs::observe`] after each step.
 pub fn render_slice_with(
     world: &fizz_ep2::World,
     frame: &mut Frame,
     options: &fizz_slice_view::DrawOptions,
+    puffs: &Puffs,
 ) {
-    fizz_slice_view::draw_slice_with(
+    fizz_slice_view::draw_slice_puffs(
         frame.pixels_mut(),
         WIDTH,
         HEIGHT,
         world,
         world.tick.0 as u32,
         options,
+        puffs,
     );
     frame.fill_rect(0, 0, WIDTH as i32, SLICE_HUD_H, BLACK);
     let key = world.flags.contains(fizz_ep2::WorldFlags::KEY_RED);

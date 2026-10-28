@@ -21,8 +21,9 @@
 //! 4. The red door's sprite on each closed door tile. An open door shows the interior wall behind it.
 //! 5. The chicken (the Cluckzarg placeholder art).
 //! 6. The Fizz Blaster shots (the `bubble` sprite).
-//! 7. Ben (Fizz 1's sprites).
-//! 8. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//! 7. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
+//! 8. Ben (Fizz 1's sprites).
+//! 9. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
 //!
 //! # Choices that are ours
 //!
@@ -42,6 +43,13 @@
 //!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption follows its chicken's
 //!   position exactly and is cut off by the frame's edge as the chicken leaves it, never moved inside; it is dropped once the
 //!   chicken is more than one tile ([`CAPTION_REACH`]) outside the frame. The captions option gates only the text; the beak always moves.
+//! - **Shot-end puff.** Where a shot ends (the rules' `Event::ShotEnd`) Fizz 1 pushes a 16 by 16 puff that grows from 0.5x by
+//!   1.5 a second and fades out over 0.3 s. DOS has no alpha or scaling, so the view plays [`PUFF_TICKS`] (18) ticks of
+//!   four baked frames: `puff0` (8 pixels, 0.5x) for ticks 0 to 5, `puff1` (12 pixels, 0.75x) for 6 to 11, `puff2` (15
+//!   pixels, 0.95x, Fizz 1's size at the end of its life) for 12 to 14, and `puff3`, `puff2` thinned to a sparse dither, for 15 to
+//!   17. It is cyan, Ben's shot colour; the slice has no enemy shots, so there is no red one. A puff stays where the shot
+//!   ended in the world, so the camera moves past it. The rules keep no puff state: [`Puffs`] is the view's own fixed list,
+//!   fed by [`Puffs::observe`] after each step.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
 //!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
 //!   `shoot` while the rules' shooting pose runs (`aimUp` or `aimDown` when the shot went straight up or down, as Fizz 1's
@@ -219,7 +227,96 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     draw_slice_with(frame, w, h, world, tick, &DrawOptions::default());
 }
 
-/// Draws `world` as [`draw_slice`] does, with `options`.
+/// How long a shot-end puff lives: 0.3 s at 60 ticks a second, Fizz 1's `life: 0.3`.
+pub const PUFF_TICKS: u32 = TICKS_PER_SECOND * 3 / 10;
+/// The most puffs the list holds. Ben has five shots and a puff lasts 18 ticks, so a full list takes shots to end faster than
+/// the slice's fire rate allows; if one ever does, the oldest puff is replaced.
+pub const MAX_PUFFS: usize = 8;
+
+/// The baked frame of a puff `age` ticks after its shot ended, or `None` once it is over: `puff0` for ticks 0 to 5, `puff1` for
+/// 6 to 11, `puff2` for 12 to 14 and `puff3` (the dither) for 15 to 17.
+pub const fn puff_frame(age: u32) -> Option<usize> {
+    match age {
+        0..=5 => Some(0),
+        6..=11 => Some(1),
+        12..=14 => Some(2),
+        15..=17 => Some(3),
+        _ => None,
+    }
+}
+
+const PUFF_NAMES: [&str; 4] = ["puff0", "puff1", "puff2", "puff3"];
+
+/// One live puff: where its shot ended (sixteenths of a tile, y up) and the tick the rules emitted the event on.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Puff {
+    x: i32,
+    y: i32,
+    born: u32,
+}
+
+/// The shot-end puffs a presenter is showing: a fixed list of [`MAX_PUFFS`], no allocation. It is view state, not rules
+/// state; the Web and DOS presenters each keep one, call [`Puffs::observe`] after every `fizz_ep2::step` (the events last
+/// for one step only) and hand it to [`draw_slice_puffs`], so both draw the same puffs on the same ticks.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Puffs {
+    list: [Puff; MAX_PUFFS],
+    /// How many entries of `list` have ever been written, up to `MAX_PUFFS`.
+    len: usize,
+    /// Where the next puff goes: the oldest, once the list is full.
+    next: usize,
+}
+
+impl Default for Puffs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Puffs {
+    /// An empty list.
+    pub const fn new() -> Self {
+        Puffs {
+            list: [Puff {
+                x: 0,
+                y: 0,
+                born: 0,
+            }; MAX_PUFFS],
+            len: 0,
+            next: 0,
+        }
+    }
+
+    /// Takes the `ShotEnd` events of the step that just ran (at `world.tick`).
+    pub fn observe(&mut self, world: &World) {
+        for e in world.events() {
+            if let fizz_ep2::Event::ShotEnd { x, y } = *e {
+                self.list[self.next] = Puff {
+                    x,
+                    y,
+                    born: world.tick.0 as u32,
+                };
+                self.next = (self.next + 1) % MAX_PUFFS;
+                self.len = (self.len + 1).min(MAX_PUFFS);
+            }
+        }
+    }
+
+    /// Forgets every puff (a presenter restarting the level).
+    pub fn clear(&mut self) {
+        *self = Puffs::new();
+    }
+
+    /// The puffs still showing at `tick`, as `(x, y, frame)`: sixteenths of a tile, y up, and the index into the four baked frames.
+    pub fn live(&self, tick: u32) -> impl Iterator<Item = (i32, i32, usize)> + '_ {
+        self.list[..self.len].iter().filter_map(move |p| {
+            let frame = puff_frame(tick.wrapping_sub(p.born))?;
+            Some((p.x, p.y, frame))
+        })
+    }
+}
+
+/// Draws `world` as [`draw_slice`] does, with `options` and no puffs.
 pub fn draw_slice_with(
     frame: &mut [u8],
     w: usize,
@@ -227,6 +324,19 @@ pub fn draw_slice_with(
     world: &World,
     tick: u32,
     options: &DrawOptions,
+) {
+    draw_slice_puffs(frame, w, h, world, tick, options, &Puffs::new());
+}
+
+/// Draws `world` as [`draw_slice_with`] does, with the shot-end puffs `puffs` holds, aged by `world.tick`.
+pub fn draw_slice_puffs(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
 ) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
@@ -305,6 +415,15 @@ pub fn draw_slice_with(
         for s in &world.shots {
             let (sx, sy) = at(s.x, s.y);
             blit_sprite(frame, w, h, bubble, sx, sy + 4, false);
+        }
+    }
+
+    // Fizz 1 draws its effects after the shots and before Ben.
+    for (px, py, which) in puffs.live(world.tick.0 as u32) {
+        if let Some(puff) = sprite(PUFF_NAMES[which]) {
+            let (sx, sy) = (px - cam_x, map_h.saturating_mul(TILE_PX) - py - cam_y);
+            // The puff is anchored at its centre, as the shot's position is the centre of the bubble.
+            blit_sprite(frame, w, h, puff, sx, sy, false);
         }
     }
 
@@ -685,6 +804,146 @@ mod tests {
     }
 
     /// The world as it looked before chickens had a cluck to show: every chicken has never clucked.
+    /// Plays the slice script as a presenter does, with a puff list fed after every step, and calls `each` with the world and the list.
+    fn play_puffs(mut each: impl FnMut(&World, &Puffs)) {
+        let mut w = level::world();
+        let mut puffs = Puffs::new();
+        let mut prev = Buttons::NONE;
+        for &(frames, now) in SLICE_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                puffs.observe(&w);
+                each(&w, &puffs);
+            }
+        }
+    }
+
+    fn puff_picture(world: &World, puffs: &Puffs) -> Vec<u8> {
+        let mut f = vec![0xEE; VIEW_W * VIEW_H];
+        draw_slice_puffs(
+            &mut f,
+            VIEW_W,
+            VIEW_H,
+            world,
+            world.tick.0 as u32,
+            &DrawOptions::default(),
+            puffs,
+        );
+        f
+    }
+
+    #[test]
+    fn puff_frames_cover_eighteen_ticks_in_four_steps() {
+        assert_eq!(PUFF_TICKS, 18);
+        let frames: Vec<Option<usize>> = (0..20).map(puff_frame).collect();
+        assert_eq!(&frames[..6], &[Some(0); 6]);
+        assert_eq!(&frames[6..12], &[Some(1); 6]);
+        assert_eq!(&frames[12..15], &[Some(2); 3]);
+        assert_eq!(&frames[15..18], &[Some(3); 3]);
+        assert_eq!(&frames[18..], &[None, None]);
+        for name in PUFF_NAMES {
+            assert!(sprite(name).is_some(), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
+        // Each of the script's three shot ends gives a puff for ticks e..e+17 and no other tick.
+        let ends = [96u32, 106, 281];
+        let mut seen = [0u32; 3];
+        let mut blank = Vec::new();
+        play_puffs(|w, puffs| {
+            let t = w.tick.0 as u32;
+            let n = puffs.live(t).count();
+            let expect = ends
+                .iter()
+                .filter(|&&e| (e..e + PUFF_TICKS).contains(&t))
+                .count();
+            assert_eq!(n, expect, "tick {t}");
+            for (i, &e) in ends.iter().enumerate() {
+                if (e..e + PUFF_TICKS).contains(&t) {
+                    seen[i] += 1;
+                }
+            }
+            if n > 0 {
+                let with = puff_picture(w, puffs);
+                let without = picture(w, t);
+                let diff = with.iter().zip(&without).filter(|(a, b)| a != b).count();
+                // A puff is at most 15 by 15 and only the cyan and light cyan of the puff may differ.
+                assert!(diff <= 15 * 15 * n, "tick {t}: {diff} pixels differ");
+                assert!(
+                    with.iter()
+                        .zip(&without)
+                        .all(|(a, b)| a == b || *a == CYAN || *a == LIGHT_CYAN),
+                    "tick {t}"
+                );
+                if diff == 0 {
+                    blank.push(t);
+                }
+            }
+        });
+        assert_eq!(seen, [PUFF_TICKS; 3]);
+        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
+        // ends in the stunned chicken, whose body is the same cyan for three ticks of the puff's smallest frames.
+        let off_screen = 96..106;
+        let on_chicken = 285..288;
+        let expect: Vec<u32> = off_screen.chain(on_chicken).collect();
+        assert_eq!(blank, expect);
+    }
+
+    #[test]
+    fn the_puff_list_is_fixed_and_replaces_the_oldest() {
+        let mut w = level::world();
+        let mut puffs = Puffs::new();
+        for i in 0..(MAX_PUFFS as i32 + 3) {
+            w.tick = fizz_sim::Tick(100 + i as u64);
+            w.shots.clear();
+            w.shots.push(fizz_ep2::Shot {
+                x: 10.0 + f64::from(i),
+                y: 11.0,
+                vx: 0.0,
+                vy: 0.0,
+                life: 0.0,
+            });
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            puffs.observe(&w);
+        }
+        let now = w.tick.0 as u32;
+        let xs: Vec<i32> = puffs.live(now).map(|(x, _, _)| x).collect();
+        assert_eq!(xs.len(), MAX_PUFFS);
+        assert!(!xs.contains(&160) && xs.contains(&(160 + 16 * (MAX_PUFFS as i32 + 2))));
+        puffs.clear();
+        assert_eq!(puffs.live(now).count(), 0);
+    }
+
+    #[test]
+    fn frames_with_puffs_are_pinned() {
+        // Re-pinned for the shot-end puff: the ticks the DOS bench samples with a puff on screen, one for each baked frame. The
+        // second shot ends at 106, so 110 is its `puff0` (age 4), 118 its `puff2` (age 12) and 122 its dither `puff3` (age 16); the
+        // third ends at 281, so 290 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
+        // pictures at the other pinned ticks (and tick 100) are unchanged, because no visible puff is alive there.
+        let mut seen = Vec::new();
+        play_puffs(|w, puffs| {
+            if [100, 110, 118, 122, 290].contains(&w.tick.0) {
+                seen.push((w.tick.0, fnv(&puff_picture(w, puffs))));
+            }
+        });
+        assert_eq!(
+            seen,
+            [
+                (100, 0xa6fe3df278ade580),
+                (110, 0xb5a13cb31b085f37),
+                (118, 0xac81d6427c2e2454),
+                (122, 0x3ab92795c87062b3),
+                (290, 0xc9b88498e1a8db55)
+            ]
+        );
+    }
+
     fn without_clucks(world: &World) -> World {
         let mut w = world.clone();
         for c in &mut w.chickens {
