@@ -24,7 +24,7 @@ use fizz_view::sprites_data::sprite;
 use fizz_view::theme::FIZZ_INDEX;
 
 use crate::frame::Frame;
-use crate::palette::{BLACK, DIM_BASE, LIGHT_GREY, WHITE};
+use crate::palette::{BLACK, DIM_BASE, LIGHT_GREY, LIGHT_RED, WHITE};
 use crate::{HEIGHT, WIDTH};
 
 /// The heading's top edge, and the scale it is drawn at.
@@ -56,12 +56,14 @@ pub const OPTIONS_FOOTER: &str = "Up/Down choose, Left/Right change, Esc back";
 /// The Paused footer.
 pub const PAUSED_FOOTER: &str = "Up and Down choose, Enter selects, Esc resumes";
 
-/// What a menu screen shows: its heading, its rows, whether the override note shows, and its footer.
+/// What a menu screen shows: its heading, its rows, whether the override note shows, a message and its footer. A message takes
+/// the note's line, in light red (Fizz 1's slot message), and an empty one shows nothing.
 #[derive(Clone, Copy)]
 pub struct Screen<'a> {
     pub title: &'a str,
     pub rows: &'a [RowView],
     pub note: bool,
+    pub message: &'a str,
     pub footer: &'a str,
 }
 
@@ -70,6 +72,7 @@ pub struct MenuView {
     background: Frame,
     shown: Option<u64>,
     draws: u32,
+    message: &'static str,
 }
 
 impl MenuView {
@@ -78,7 +81,14 @@ impl MenuView {
             background: Frame::new(),
             shown: None,
             draws: 0,
+            message: "",
         }
+    }
+
+    /// Sets the message the next draws show in light red below the rows (`""` clears it). It changes what is drawn, so the next
+    /// draw happens.
+    pub fn set_message(&mut self, message: &'static str) {
+        self.message = message;
     }
 
     /// Freezes `picture` as the background: a dimmed copy of it, the whole frame. Call it once as the screen opens, and again
@@ -127,6 +137,7 @@ impl MenuView {
                 title: "Options",
                 rows: rows.as_slice(),
                 note: screen.show_note(),
+                message: self.message,
                 footer: OPTIONS_FOOTER,
             },
             tick,
@@ -142,6 +153,7 @@ impl MenuView {
                 title: "Paused",
                 rows: rows.as_slice(),
                 note: false,
+                message: self.message,
                 footer: PAUSED_FOOTER,
             },
             tick,
@@ -189,6 +201,7 @@ fn signature(screen: &Screen, bob: i32) -> u64 {
     };
     feed(screen.title.as_bytes());
     feed(screen.footer.as_bytes());
+    feed(screen.message.as_bytes());
     feed(&[u8::from(screen.note), bob as u8]);
     for row in screen.rows {
         feed(row.label.as_bytes());
@@ -272,7 +285,9 @@ fn render(screen: &Screen, bob: i32, out: &mut Frame) {
             shadowed(out, value_x, y + TEXT_DY, value, FIZZ_INDEX);
         }
     }
-    if screen.note {
+    if !screen.message.is_empty() {
+        centred(out, NOTE_Y, screen.message, LIGHT_RED);
+    } else if screen.note {
         centred(out, NOTE_Y, OVERRIDE_NOTE, LIGHT_GREY);
     }
     centred(out, FOOTER_Y, screen.footer, LIGHT_GREY);
@@ -396,6 +411,30 @@ mod tests {
 
     fn digest_options(cursor: usize, values: Values, over: Overrides, caps: &Caps) -> u64 {
         frame_digest(&options(cursor, values, over, caps))
+    }
+
+    #[test]
+    fn a_message_takes_the_notes_line_in_light_red() {
+        let screen = OptionsScreen::new(Values::default(), Overrides::NONE.with(RowId::FRAME_RATE));
+        let mut view = MenuView::new();
+        view.open(&picture());
+        let mut plain = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut plain));
+        let red = |f: &Frame| f.pixels().iter().filter(|&&p| p == LIGHT_RED).count();
+        // The soda can has a little light red of its own, so the message is judged by how much it adds.
+        let base = red(&plain);
+        // Setting a message changes the next draw, and the note's words are replaced.
+        view.set_message("Could not write FIZZ2.CFG");
+        let mut with = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut with));
+        assert!(red(&with) > base + 40, "{} over {}", red(&with), base);
+        assert_ne!(frame_digest(&plain), frame_digest(&with));
+        // Drawn again unchanged, it is not drawn.
+        assert!(!view.draw_options(&screen, &sb16(), 0, &mut with));
+        view.set_message("");
+        let mut cleared = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut cleared));
+        assert_eq!(frame_digest(&plain), frame_digest(&cleared));
     }
 
     #[test]
