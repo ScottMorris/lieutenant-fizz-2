@@ -27,7 +27,7 @@ The same lore sets the level's texturing and rules:
 
 ## Lighthouse Point (proposal)
 
-Lighthouse Point is an Earth coast at night. A lighthouse overlooks the shore, a chocolate factory stands on it, and a Zarg saucer lifts cocoa beans from the factory roof with a tractor beam, as the README banner shows. The saucers over the coast are the raid's visible edge; Siphon Works is the larger operation behind it.
+Lighthouse Point is an Earth coast at night. A lighthouse overlooks the shore, a chocolate factory stands on it, and a Zarg saucer lifts cocoa beans from the factory roof with a tractor beam, as the README banner shows. The Milestone 1 slice is a cut-down interior of this place (`crates/fizz-ep2/src/level.rs` names it Lighthouse Point): two shafts climbed by ledges, a red door between them and a gallery in the open air with the exit. The saucers over the coast are the raid's visible edge; Siphon Works is the larger operation behind it.
 
 ## The creatures (proposal)
 
