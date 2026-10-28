@@ -22,6 +22,7 @@ pub enum Mode {
     Probe,
     Panic,
     CfgTest,
+    MusicTest,
 }
 
 /// What a switch does.
@@ -35,6 +36,8 @@ pub enum Kind {
     Modern,
     /// Captions on (`true`) or off (`false`); the last one given wins.
     Captions(bool),
+    /// `/BENCH` also runs the 560 Hz audio service and the music (a developer switch).
+    BenchAudio,
     /// A sound choice, applied by `settings::apply_flags` (which also checks the value).
     Sound,
 }
@@ -233,6 +236,20 @@ pub const SWITCHES: &[Switch] = &[
         Kind::Mode(Mode::CfgTest),
         "Save FIZZ2.CFG from the sound switches and read it back",
     ),
+    sw(
+        "/MUSICTEST",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::MusicTest),
+        "Step two loops of the music as fast as possible and hash",
+    ),
+    sw(
+        "/AUDIO",
+        Arg::None,
+        Group::Developer,
+        Kind::BenchAudio,
+        "With /BENCH: run the 560 Hz audio service and the music",
+    ),
 ];
 
 /// The width of the help's name column.
@@ -277,6 +294,8 @@ pub struct Invocation {
     pub captions: bool,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
+    /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
+    pub bench_audio: bool,
 }
 
 /// The outcome of reading a command line.
@@ -304,6 +323,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         modern: false,
         captions: true,
         bench_ticks: None,
+        bench_audio: false,
     };
     let mut mode_seen = false;
     let mut number: Option<(&str, u64)> = None;
@@ -321,6 +341,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
                 mode_seen = true;
             }
             Kind::Mode(_) | Kind::Help => {}
+            Kind::BenchAudio => run.bench_audio = true,
             Kind::Modern => run.modern = true,
             Kind::Captions(on) => run.captions = on,
             Kind::Sound => {
@@ -491,6 +512,7 @@ mod tests {
             modern: false,
             captions: true,
             bench_ticks: None,
+            bench_audio: false,
         };
         let bench = Invocation {
             mode: Mode::Bench,
@@ -528,6 +550,20 @@ mod tests {
             })
         );
         assert_eq!(run(&["/BENCH"]), Parsed::Run(bench));
+        assert_eq!(
+            run(&["/BENCH", "/AUDIO"]),
+            Parsed::Run(Invocation {
+                bench_audio: true,
+                ..bench
+            })
+        );
+        assert_eq!(
+            run(&["/musictest", "/ADLIB"]),
+            Parsed::Run(Invocation {
+                mode: Mode::MusicTest,
+                ..live
+            })
+        );
         assert_eq!(
             run(&["/BENCH", "120"]),
             Parsed::Run(Invocation {

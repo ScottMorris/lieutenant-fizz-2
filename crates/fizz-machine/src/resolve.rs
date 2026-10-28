@@ -8,7 +8,7 @@
 // applies `route` to every OPL2-format register write.
 
 use crate::probe::{FmKind, Probe};
-use crate::route::OplMode;
+use crate::route::{OplMode, Stream};
 use crate::settings::{FxChoice, MusicChoice, Settings};
 
 /// How music will play.
@@ -19,6 +19,17 @@ pub enum MusicPlan {
     Opl2,
     /// OPL3 voices, stereo, on channels 0-4, 9-13 and 15-17.
     Opl3,
+}
+
+impl MusicPlan {
+    /// The format of the register stream this plan plays, or `None` when music is off.
+    pub const fn stream(self) -> Option<Stream> {
+        match self {
+            MusicPlan::Off => None,
+            MusicPlan::Opl2 => Some(Stream::Opl2),
+            MusicPlan::Opl3 => Some(Stream::Opl3),
+        }
+    }
 }
 
 /// How sound effects will play. Channels 5 and 14 stay reserved for them whatever music does. Music never uses the speaker.
@@ -459,6 +470,15 @@ mod tests {
             (r.opl, r.music, r.fx),
             (OplMode::Opl3, MusicPlan::Opl3, FxPlan::Ch5)
         );
+        // The stream kind decides what the router does: the OPL2 music of the first case is centred on the chip in OPL3 mode, and
+        // the OPL3 music of the second keeps its authored output bits.
+        let r = plan(MusicChoice::AdLib, FxChoice::Sb, &sb16);
+        let (mode, stream) = (r.opl, r.music.stream().unwrap());
+        assert_eq!(crate::route(mode, stream, 0, 0xC1, 0x06), 0x36);
+        let r = plan(MusicChoice::Sb, FxChoice::AdLib, &sb16);
+        let (mode, stream) = (r.opl, r.music.stream().unwrap());
+        assert_eq!(crate::route(mode, stream, 0, 0xC1, 0x16), 0x16);
+        assert_eq!(MusicPlan::Off.stream(), None);
         // Only OPL2 roles: the chip stays in its power-up mode.
         let r = plan(MusicChoice::AdLib, FxChoice::AdLib, &sb16);
         assert_eq!(r.opl, OplMode::Opl2);

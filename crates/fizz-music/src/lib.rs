@@ -1,15 +1,18 @@
-// Generated OPL2 and OPL3 register streams for the level music. This crate only holds the tables; the player that steps them comes later.
+// Generated OPL2 and OPL3 register streams for the level music, and the stepper that plays them (`MusicPlayer`).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // The streams are lowered by `tools/music/generate.ts` from the song source under `assets/music/` (see `docs/MUSIC.md`) and checked in
 // CI; `data.rs` and `data/*.bin` are generated. The song is a placeholder: Fizz 1's "Crater Fields". Nothing here allocates, touches
-// hardware or is `unsafe`.
+// hardware or is `unsafe`; the player hands the due writes to its caller.
 #![no_std]
 #![forbid(unsafe_code)]
 
 mod data;
+mod player;
+
+pub use player::{Card, Fnv, MAX_SILENCE_WRITES, MusicPlayer, Write, count_loops, writes_for};
 
 /// Bytes in one record: the register's low byte, the value, then a little-endian u16 holding the bank in its top bit and the number
 /// of 560 Hz ticks to wait after the write in the low 15 bits (the layout of `fizz_sfx::OplStep`).
@@ -48,6 +51,13 @@ pub struct Arrangement {
     pub dropped: &'static [Dropped],
 }
 
+impl Arrangement {
+    /// Ticks in the prelude and one pass of the loop.
+    pub const fn pass_ticks(&self) -> u32 {
+        self.prelude_ticks + self.loop_ticks
+    }
+}
+
 /// A song and its two arrangements.
 #[derive(Clone, Copy, Debug)]
 pub struct Song {
@@ -61,6 +71,16 @@ pub struct Song {
     pub opl2: Arrangement,
     /// Thirteen melodic channels with partner layers and stereo output bits, for an OPL3.
     pub opl3: Arrangement,
+}
+
+impl Song {
+    /// The arrangement for a card.
+    pub const fn arrangement(&self, card: Card) -> Arrangement {
+        match card {
+            Card::Opl2 => self.opl2,
+            Card::Opl3 => self.opl3,
+        }
+    }
 }
 
 /// Every song of the source.
@@ -80,6 +100,9 @@ pub fn reserved_registers() -> &'static [u8] {
 
 /// The most register writes any tick of a music stream may carry.
 pub const MAX_WRITES_PER_TICK: u32 = data::MAX_WRITES_PER_TICK;
+
+#[cfg(test)]
+extern crate std;
 
 #[cfg(test)]
 mod tests {

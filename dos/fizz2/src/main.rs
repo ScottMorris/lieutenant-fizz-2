@@ -23,10 +23,15 @@
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
 //                       last one given wins). The beak still moves. A settings-file field replaces this switch with the settings package
+//   FIZZ2.EXE /MUSICTEST  a test mode: steps two loops of the music the sound plan names as fast as possible through the real chip
+//                       writes (no timer) and prints the `MUSIC` line; `/MUSIC:OFF` prints `ARR off` and zeros
+//   FIZZ2.EXE /BENCH /AUDIO  the bench with the 560 Hz audio service, first without and then with music, and what the service costs
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
 // /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
-// line with the register writes and speaker steps it made; /BENCH keeps the 60 Hz timer its stopwatch is built for.
+// line with the register writes and speaker steps it made, and the music starts with the session: a `MUSIC` line next to it says what the
+// music wrote (the player's own tick count, the writes, the loops and the FNV-1a of every write); /BENCH keeps the 60 Hz timer unless it is
+// given /AUDIO.
 //
 // Output is printed only after the screen is back in text mode and the vectors are restored. Interrupt handlers (in the runtime)
 // never touch the x87; the control word is set to 027Fh first so `f64` rounds as IEEE doubles do.
@@ -153,6 +158,35 @@ fn play_events(world: &World, options: &DrawOptions) {
     }
 }
 
+/// The `MUSIC` lines: what the music wrote (the player's own tick count, not wall time), and the chip order and busiest tick. Call it once
+/// the service has stopped. The writes and hash are the ones `fizz_music::writes_for` gives for the same arrangement and ticks.
+fn print_music() {
+    let m = audio::music_report();
+    let arr = match m.arr {
+        1 => "opl2",
+        2 => "opl3",
+        _ => "off",
+    };
+    println!(
+        "MUSIC SONG {} ARR {} TICKS {} WRITES {} LOOPS {} HASH {:08x}",
+        fizz_music::level_song().id,
+        arr,
+        m.ticks,
+        m.writes,
+        m.loops,
+        m.hash
+    );
+    println!(
+        "MUSIC DETAIL ORDER {} MAX_PER_TICK {}",
+        match m.order {
+            1 => "ok",
+            2 => "bad",
+            _ => "none",
+        },
+        m.max_per_tick
+    );
+}
+
 /// The `AUDIO` line: how many OPL register writes and speaker steps the run made. Call it once the service has stopped.
 fn print_audio() {
     println!(
@@ -218,7 +252,9 @@ fn main() -> i32 {
         Mode::CheckCells => check::cells_mode(),
         Mode::CfgTest => sound::cfgtest_mode(),
         // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
+        Mode::Bench if run.bench_audio => bench_audio(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
+        Mode::MusicTest => music_test(),
         Mode::Panic => {
             // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
             let plan = sound::Plan::new(&machine::probe_machine());
@@ -226,7 +262,12 @@ fn main() -> i32 {
                 println!("HOOK FAILED {:?}", e);
                 return 1;
             }
+            audio::music_start();
             audio::cluck(0, &Placement::CENTRE);
+            // Let the music write for a while (about 0.4 s of 560 Hz ticks), so the clean-up has sounding channels to key off.
+            let until = timer::ticks().wrapping_add(200);
+            while timer::ticks().wrapping_sub(until) > u32::MAX / 2 {}
+            println!("MUSIC PANIC WRITES {}", audio::music_report().writes);
             println!("HOOKED, PANICKING");
             panic!("requested by /PANIC");
         }
@@ -261,6 +302,8 @@ fn replay(options: &DrawOptions) -> i32 {
         println!("DISPLAY FAILED");
         return 1;
     }
+    // The presenter starts the music, never the rules: nothing in `fizz_ep2` reads the music clock.
+    audio::music_start();
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
@@ -309,6 +352,7 @@ fn replay(options: &DrawOptions) -> i32 {
     }
     sound.print();
     print_audio();
+    print_music();
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
     println!("EXIT {}", if exited { "yes" } else { "no" });
     println!("FPU CW {:04X}", cw);
@@ -333,7 +377,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
         return 1;
     }
     let (cal_loops, cal_us) = bench::calibrate();
-    let (world, r) = bench::run(&mut display, limit, options);
+    let (world, r) = bench::run(&mut display, limit, options, false);
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -384,6 +428,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
         println!("DISPLAY FAILED");
         return 1;
     }
+    audio::music_start();
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
@@ -424,7 +469,134 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     println!("LIVE TICKS {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
     sound.print();
     print_audio();
+    print_music();
     println!("MOVED {}", if moved { "yes" } else { "no" });
+    println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
+    0
+}
+
+/// `/MUSICTEST`: the music's two loops through the real chip writes and no timer. The `MUSIC` line it prints is compared by the check with
+/// `fizz_music::writes_for` for the same arrangement and ticks.
+fn music_test() -> i32 {
+    // Probed first: the probes' waits need the PIT at the BIOS rate (nothing here hooks the timer).
+    let sound = sound::Plan::new(&machine::probe_machine());
+    if let Err(e) = audio::music_test(&sound.resolved) {
+        println!("HOOK FAILED {:?}", e);
+        return 1;
+    }
+    sound.print();
+    print_music();
+    println!("FPU CW {:04X}", fpu::control_word());
+    0
+}
+
+/// PIT clocks to microseconds (0.838 us each), in integers.
+fn clocks_to_us(clocks: u64) -> u64 {
+    clocks * 1_000_000 / 1_193_182
+}
+
+fn print_pass(name: &str, r: &bench::Report) {
+    for (section, s) in [
+        ("STEP", &r.step),
+        ("DRAW", &r.draw),
+        ("PRESENT", &r.present),
+        ("TOTAL", &r.total),
+    ] {
+        println!(
+            "BENCH AUDIO {} {} avg {} max {} units us",
+            name,
+            section,
+            s.avg_us(),
+            s.max_us()
+        );
+    }
+}
+
+/// `/BENCH /AUDIO`: the bench with the 560 Hz audio service running, first without music and then with it, each pass the whole script
+/// with its clucks played. It reports the step, draw and copy averages of both passes, what the interrupt costs (PIT counts latched at
+/// entry and exit), the most writes in one tick and the OPL status reads. DOSBox charges no time for ISA port I/O, so the microseconds
+/// here are the emulator's; the exact counts are the evidence, and the time on a real 486 is unmeasured.
+fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
+    let sound = sound::Plan::new(&machine::probe_machine());
+    let session = match start_session(false, Some(&sound.resolved)) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("HOOK FAILED {:?}", e);
+            return 1;
+        }
+    };
+    let mut display = DosDisplay;
+    if open_display(&mut display).is_err() {
+        end_session(&mut display);
+        println!("DISPLAY FAILED");
+        return 1;
+    }
+    audio::set_profile(true);
+    let (world_off, off) = bench::run(&mut display, limit, options, true);
+    let irq_off = audio::profile();
+    let music_off = audio::music_report();
+    audio::set_profile(true);
+    audio::music_start();
+    let (world_on, on) = bench::run(&mut display, limit, options, true);
+    let irq_on = audio::profile();
+    let music_on = audio::music_report();
+    let cw = fpu::control_word();
+    end_session(&mut display);
+    let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
+
+    sound.print();
+    println!(
+        "BENCH AUDIO TIMER PIT divisor {} (559.9 Hz), ARR {}",
+        timer::PIT_DIVISOR_560HZ,
+        match music_on.arr {
+            1 => "opl2",
+            2 => "opl3",
+            _ => "off",
+        }
+    );
+    println!("BENCH AUDIO TICKS {} {}", off.ticks, on.ticks);
+    print_pass("off", &off);
+    print_pass("on", &on);
+    for (name, p) in [("off", &irq_off), ("on", &irq_on)] {
+        let n = u64::from(p.count).max(1);
+        let tenths = clocks_to_us(u64::from(p.sum_clocks) * 10 / n);
+        println!(
+            "BENCH AUDIO {} IRQ count {} avg {}.{} max {} discarded {} units us",
+            name,
+            p.count,
+            tenths / 10,
+            tenths % 10,
+            clocks_to_us(u64::from(p.max_clocks)),
+            p.bad
+        );
+    }
+    let on_writes = irq_on.total_writes.wrapping_sub(irq_off.total_writes);
+    println!(
+        "BENCH AUDIO off MAX_WRITES_PER_TICK {} OPL_WRITES {} STATUS_READS {}",
+        irq_off.max_tick_writes,
+        irq_off.total_writes,
+        u64::from(irq_off.total_writes) * u64::from(audio::READS_PER_WRITE)
+    );
+    println!(
+        "BENCH AUDIO on MAX_WRITES_PER_TICK {} OPL_WRITES {} STATUS_READS {}",
+        irq_on.max_tick_writes,
+        on_writes,
+        u64::from(on_writes) * u64::from(audio::READS_PER_WRITE)
+    );
+    println!(
+        "BENCH AUDIO on MUSIC TICKS {} WRITES {} MAX_PER_TICK {} (before the pass: {} writes)",
+        music_on.ticks, music_on.writes, music_on.max_per_tick, music_off.writes
+    );
+    println!(
+        "BENCH AUDIO HASH {:016x} {:016x}",
+        fizz_ep2::hash(&world_off).finish(),
+        fizz_ep2::hash(&world_on).finish()
+    );
+    println!("BENCH AUDIO NOTE DOSBox charges no time for ISA port I/O: the counts are exact, the 486 time is not measured");
+    let exited = world_off.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED)
+        && world_on.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
+    println!("EXIT {}", if exited { "yes" } else { "no" });
+    println!("FPU CW {:04X}", cw);
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     0
 }

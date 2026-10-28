@@ -1,6 +1,6 @@
 # Music
 
-The slice's level music is a song source (Undertone patterns that a builder lays out as a full song), a script that lists every note, a generator that lowers the song to OPL2 and OPL3 register streams, and a Web player. The DOS build does not play it yet. This document covers what exists (the source, the lowering, the checks and the Web player) and marks the DOS player as planned.
+The slice's level music is a song source (Undertone patterns that a builder lays out as a full song), a script that lists every note, a generator that lowers the song to OPL2 and OPL3 register streams, and a Web player. The `fizz-music` crate steps the streams (the player below), the DOS audio service plays them on an AdLib or a Sound Blaster, and the Web player plays the song. This document covers what exists (the source, the lowering, the checks, the stepper and the Web player) and marks the DOS audio service as planned.
 
 ## Placeholder status
 
@@ -47,6 +47,7 @@ assets/music/*                        the song: note events on a 96-tick bar gri
 crates/fizz-music/data/crater-opl2.bin, crater-opl3.bin   4-byte records
 crates/fizz-music/src/data.rs         generated: the song table, loop point, tick counts, note counts, dropped notes, hashes
 crates/fizz-music/src/lib.rs          hand-written: the types, and the tables exposed through include_bytes!
+crates/fizz-music/src/player.rs       hand-written: the stepper (MusicPlayer), Fnv, writes_for and count_loops
 ```
 
 Run `bun tools/music/generate.ts` to rewrite the three files and `bun tools/music/generate.ts --check` to regenerate in memory and fail with a diff if a committed file is stale. Both run the checks first and refuse to write if any fails. `--check` runs in CI and in `tools/check.sh` next to the note-list check, and `bun test tools/music` holds the lowering to the numbers below.
@@ -128,18 +129,95 @@ The DOS port put 69 writes in tick 0, and again on every loop. Here no tick of e
 
 `bun tools/music/render-wav.ts <directory> [seconds]` writes an approximate WAV of the first minute (the default) of each arrangement for listening: mono for OPL2 and stereo for OPL3. It is `tools/sfx/render-wav.ts`'s two-operator model widened to the 18 channels in both banks with their output bits, plus a crude model of the drums. It is a listening aid only, its output is not committed, and it is not a chip: the envelopes are a rough table, there is no key scaling, tremolo or vibrato, and each drum is one operator over noise. Nobody has judged it against hardware or against DOSBox.
 
-## Players (planned)
+## Players
 
 ```text
 crates/fizz-music tables  ->  DOS player (the stepper, then the audio service)
 assets/music/*            ->  Web player (Undertone)
 ```
 
-- **`fizz-music` player (planned).** Adds a `no_std` stepper to the crate that steps these records at 560 Hz, loops at `loop_start`, and keys off only the music channels on stop, in the style of `fizz-sfx`.
-- **DOS audio service (planned).** Runs the stepper from the 560 Hz interrupt beside the cluck. It needs `fizz_machine::route` to leave an OPL3 music stream's output bits alone, a `MUSIC` log line carrying the writes and the hash, and `/BENCH /AUDIO`. The lowering does not touch the DOS runtime.
+- **`fizz-music` player (built).** A `no_std` stepper in the crate that steps these records at 560 Hz, loops at `loop_start`, and keys off only the music channels on stop, in the style of `fizz-sfx`. See below.
+- **DOS audio service (built).** Runs the stepper from the 560 Hz interrupt beside the cluck; see "The DOS audio service" below. The lowering does not touch the DOS runtime.
 - **Web player (built).** Plays the same song with Undertone's `arrange` and `loop`, started by the presenter and never by the rules code. See below.
 
 Music must not reach `fizz-ep2`: it adds no event, and no game logic reads the music clock.
+
+## The stepper (built)
+
+`fizz_music::MusicPlayer` is `no_std`, allocation-free, `forbid(unsafe_code)` and has no dependencies. It touches no hardware: it hands the writes that are due to the caller, which sends them to the chip. It is the music's counterpart of `fizz_sfx::OplPlayer`, with a slice in place of a callback so that an interrupt handler can fill a fixed buffer.
+
+```text
+MusicPlayer::new(level_song().arrangement(Card::Opl2 | Card::Opl3))
+tick(&mut [Write]) -> usize           the writes due on this 560 Hz tick (bank, reg, val); 0 while paused
+silence(&mut [Write]) -> usize        key the music off (below)
+pause(&mut [Write]) -> usize          stop stepping, then silence
+resume()                              carry on from the next record
+reset()                               back to the start of the prelude; writes nothing
+loops() -> u32, is_paused(), is_silent()
+Fnv::new() / .byte(b) / .write(tick, Write) / .value()
+writes_for(arrangement, ticks) -> (writes, hash)      a host helper: step a fresh player and hash it
+count_loops(arrangement, ticks) -> u32
+```
+
+`tick` plays the prelude once, then jumps back to `loop_start` at the end of each pass, forever, and `loops()` counts the jumps (0 until the loop first restarts). A buffer of `MAX_WRITES_PER_TICK` (16) is always enough. If the buffer is smaller the rest of that tick's writes come on the next call, late and in order, and the stream's waits are held until they have gone out. The test that steps the stream "as fast as possible" (the plan's `/MUSICTEST` idea) is `two_loops_repeat_the_pass_and_never_touch_a_reserved_register`: the DOS check can do the same with no clock.
+
+### Silence
+
+The player keeps a copy of the last value it handed out for each music channel's `0xB0+ch` register (both banks, so an OPL3 stream is covered) and for `0xBD`. `silence` writes each of those that has the key bit set (bit 5) again with that bit cleared, and `0xBD` with the five drum key bits (0x1f) cleared, leaving the rhythm-enable and depth bits alone. Nothing else is written, so the instruments, levels and pitches survive, and the music can carry on. It never writes channel 5's or 14's registers (the player does not even remember them) or `0x104` and `0x105`, and a second call writes nothing. At most 17 writes (`MAX_SILENCE_WRITES`) are made; with a smaller buffer, call again for the rest. The test calls it after every tick of a pass, on a clone of the player, and checks that every music channel ends keyed off and no reserved register is written.
+
+`pause` is `silence` plus a flag that stops `tick` (it returns 0 and the stream does not advance). `resume` clears the flag; the next `tick` continues with the next record, with no record skipped or repeated, but a note that was sounding stays off until its next key-on (a held pad is cut). `reset` restarts from the prelude without writing anything and keeps the copy of the key registers, so call `silence` first if the music is sounding.
+
+### The hash
+
+`Fnv` is the generator's FNV-1a accumulator (`tools/music/format.ts`): feed it each write as its due tick (u32 little-endian, counted from the first record), bank, register and value. It is integer-only, so the DOS build can run it in the 560 Hz handler. `writes_for(arrangement, pass_ticks())` steps one pass and returns the write count and the hash, which equal the arrangement's `record_count` and `hash` (2,961 and `0x4ae16486` for OPL2, 5,035 and `0xb31d1e26` for OPL3); the tests assert it. The later passes are the loop only, so their ticks restart at the loop point and the two passes hash alike. `cargo run -q -p fizz-music --example stream -- opl3 [ticks]` prints the stream as `tick bank reg val` lines.
+
+The stepper has run on the host and, through the DOS audio service below, in DOSBox. Nobody has run it on a DOS machine with a real chip or listened to it.
+
+## The DOS audio service (built)
+
+`fizz_dos_rt::audio` (`dos/rt/src/audio.rs`) plays the stepper from the 560 Hz timer interrupt, beside the cluck. The service holds an optional `MusicPlayer` for the arrangement the resolved `MusicPlan` names (`Opl2`: `Card::Opl2`; `Opl3`: `Card::Opl3`; `Off`, or a plan with no chip: none). `/LIVE` and `/REPLAY` call `audio::music_start()` once the session is up; the presenter starts the music and `fizz-ep2` never sees it. `/CHECK`, `/PROBE` and a plain `/BENCH` start none. The song loops until the program ends.
+
+**Order inside a tick.** (1) Take the pending requests (the cluck and the music start). (2) Step the music: `MusicPlayer::tick` into a 16-write stack buffer, each write sent with `opl_raw`. (3) Step the effect: channel 5's `OplPlayer`, or the OPL3 pair. (4) The speaker's player, every fourth tick. Music and effects use different channels, so the order only matters for timing: both go through the one `opl_raw`, which keeps the 6 and 35 status reads after the register and the data port (Fizz 1's settling times, not shortened), and they run one after another in the one handler, so the chip never sees two writers at once. The handler does not nest: a tick that runs long delays the next one and nothing else. Nothing in it allocates, blocks or uses the x87.
+
+**The OPL3 enable.** `start` calls `chip_up` before the service goes active: it writes `fizz_machine::enable_writes(mode)` (register 0x105 = 1, then 0x104 = 0, only for an OPL3) and keys every channel off, so the enable always precedes the first music write. The service notes the last value written to 0x105 and, at the first music write, records whether the OPL3 enable had been made (`MUSIC DETAIL ORDER ok`). A host test pins that `enable_writes` begins with 0x105 = 1.
+
+**`route`, by stream kind.** `route(mode, stream, bank, reg, val)` takes the kind of stream the write comes from. An OPL2-format stream (`Stream::Opl2`: the OPL2 music arrangement and the mono effect on channel 5) gets output bits 4 and 5 ORed onto a bank-0 write to 0xC0-0xC8 when the chip is in OPL3 mode, as before, so it sounds in both speakers. An OPL3-aware stream (`Stream::Opl3`: the OPL3 arrangement and the effect pair) is left as authored. Without that change the OR would have centred every voice of the OPL3 arrangement and turned channel 5's left-only bit into both. `MusicPlan::stream()` gives the kind. Host tests cover OPL2 music on an SB16 (`/MUSIC:ADLIB /FX:SB`, the chip in OPL3 mode for the pair) coming out centred, OPL3 music bits unchanged for every register, bank and value, and the pair's bits unchanged.
+
+**Channels.** OPL2 music writes channels 0-4 and 6-8, OPL3 music the 13 channels with the stereo bits in the stream; neither writes channel 5 or 14 (the generator refuses them and a `fizz-music` test steps two loops of each arrangement checking every register). The service never writes the music's registers on its own account. At exit and in the panic handler `stop` keys off every channel of both banks and the rhythm register and writes 0x105 = 0, which covers the music channels, so it does not call the player's `silence` (that is for a future pause).
+
+**Counters and the `MUSIC` line.** Music writes are not counted in `audio::register_writes`, so the `AUDIO` line still counts only the effects and the start and stop key-offs and the counts that tell the paths apart do not move (419, 440, 836 and 0 writes; see `tools/check-dos.sh`). The service counts its own: the music ticks (the player's own 560 Hz count, never wall time), writes, loops, the busiest tick, and an integer FNV-1a (`fizz_music::Fnv`) of every write's tick, bank, register and value as the stream authored it (before `route`). `/LIVE` and `/REPLAY` print them next to the `AUDIO` line:
+
+```text
+MUSIC SONG crater ARR <opl2|opl3|off> TICKS <t> WRITES <w> LOOPS <k> HASH <fnv, 8 hexadecimal digits>
+MUSIC DETAIL ORDER <ok|bad|none> MAX_PER_TICK <n>
+```
+
+With `ARR off` every number is zero and the hash is the empty FNV-1a, `811c9dc5`. The writes and hash equal `fizz_music::writes_for(arrangement, ticks)` for the printed `TICKS`; `cargo run -q -p fizz-music --example mline -- <opl2|opl3|off> [ticks]` prints the host's line.
+
+**`/MUSICTEST`.** A hidden developer switch (one line in the `fizz_machine::switches` table, group Developer, so `/?` is byte for byte what it was). It puts the chip up as `start` does, steps the plan's arrangement for its prelude, two full loops and one tick more (the tick the third pass starts on, so the player has jumped back twice) as fast as the machine allows through the same port-write path, with no timer, hook or pacing, puts the chip back as `stop` does, and prints `SOUND`, the `MUSIC` lines and `FPU CW`. For `/MUSIC:OFF`, no card, or `/NOSOUND` it prints `ARR off` and zeros. Exact values (DOSBox and host agree):
+
+| Arrangement | Ticks | Writes | Loops | Hash |
+| --- | --- | --- | --- | --- |
+| OPL2 (AdLib machine, or `/ADLIB` on an SB16) | 70,839 | 5,838 | 2 | `d4be55e3` |
+| OPL3 (SB16) | 70,845 | 9,892 | 2 | `fc857de4` |
+
+`tools/check-dos.sh` requires the console's line to equal the host's byte for byte in seven configurations (AdLib, SB16, SB16 with `/ADLIB`, SB16 with `/MUSIC:ADLIB /FX:SB`, `/MUSIC:OFF`, `/NOSOUND` and no card), and `/REPLAY` under each sound configuration of its ladder to print the `ARR` its `SOUND` line names, zero writes exactly when music is off, and for a chip the host's writes and hash for the run's own `TICKS`. The transcript is the golden one in every case, and `BIOS TICKS` stays inside 383-387.
+
+**`/BENCH /AUDIO`.** A hidden `/AUDIO` switch makes `/BENCH` hook the 560 Hz service instead of the 60 Hz timer and run the whole script twice with its clucks played: once with no music and once with it. The stopwatch counts periods of the timer as it is now (`timer::divisor()`), not `PIT_DIVISOR_60HZ`. The handler latches PIT channel 0 on entry and exit (no x87) to give each interrupt's time; the busiest tick's writes and the OPL status reads (41 per write) are exact. `/BENCH` alone is unchanged. DOSBox does not charge for ISA port I/O the way a bus does, so the microseconds below are the emulator's and the counts are the evidence; the time on a real 486 has not been measured.
+
+| `/BENCH /AUDIO` on an SB16 at 26,800 cycles per ms | Without music | With music |
+| --- | --- | --- |
+| Step, average / max (us) | 110 / 411 | 111 / 636 |
+| Draw, average / max (us) | 2,869 / 5,223 | 2,884 / 8,469 |
+| Copy, average / max (us) | 609 / 2,373 | 617 / 2,380 |
+| Interrupt, average / max (us) | 24.8 / 1,489 | 36.0 / 1,507 |
+| Most OPL writes in one tick | 22 (the pair's cluck) | 22 |
+| OPL writes in the pass, status reads | 816, 33,456 | 1,131, 46,371 |
+| Music writes in the pass | none | 336 in 2,729 ticks, at most 16 on a tick |
+
+One write is 2 port writes and 41 status reads, which the port's own assumption puts near 45 us on an ISA bus, so the 16-write cap bounds the music alone at about 0.7 ms of a 1.79 ms period, and the pair's cluck at 22 writes at about 1.0 ms. Both on one tick would be 38 writes, about 1.7 ms, right at the period: a late tick slows the clock by a little and the pacer catches up (it never changes the rules), but that case is arithmetic, not a measurement. The run's pass covers only the song's first 4.9 seconds, so it has not met the song's busiest passage on the DOS side. A few interrupt samples are discarded when the program's own latch of the same counter falls inside the handler's (the table's `discarded`).
+
+**Not verified.** Nobody has listened to any of this, in DOSBox or on hardware. The checks prove that the right bytes reach the right ports in the right order and that the rules do not notice, not that the sound is right: the instrument patches, the OPL3 stereo image, the balance against the cluck (there is no ducking on DOS), clipping on a real card and the `fast`, `compat` and `nuked` emulators, and the time on a 486 are all open. The loops and the third `LOOPS` jump are proved only by `/MUSICTEST`; a real-time `/REPLAY` is 21 seconds against a 63-second loop.
 
 ## The Web player (built)
 

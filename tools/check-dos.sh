@@ -77,12 +77,15 @@ status=0
 DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
 [ "$status" = 3 ] || fail "/PANIC status $status (expected 3)"
 echo "PANIC exit $status"
-# 3a. The same with an OPL3 in its own mode and a cluck sounding when the panic comes (the audio service is up): the clean-up list
-# silences the chip and puts the timer back, and the exit is still a status 3, not a hang.
+# 3a. The same with an OPL3 in its own mode, a cluck sounding and the music playing when the panic comes (the audio service is up): the
+# clean-up list silences the chip (every channel of both banks, so the music's too) and puts the timer back, and the exit is still a
+# status 3, not a hang. The music must have written something before the panic, or the case proves nothing about it.
 status=0
-DOS_CONF=$'[sblaster]\nsbtype = sb16' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
+out="$(DOS_CONF=$'[sblaster]\nsbtype = sb16' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC)" || status=$?
 [ "$status" = 3 ] || fail "/PANIC with the audio service on an OPL3: status $status (expected 3)"
-echo "PANIC (OPL3) exit $status"
+panic_writes="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^MUSIC PANIC WRITES \([0-9]*\)$/\1/p')"
+{ [ -n "$panic_writes" ] && [ "$panic_writes" -gt 0 ]; } || fail "/PANIC on an OPL3: the music had written '$panic_writes' times before the panic"
+echo "PANIC (OPL3, music running: $panic_writes music writes) exit $status"
 
 # 3a. The help: /?, /HELP and -? print the screen the switch table writes (crates/fizz-machine/tests/help.txt, which a host test keeps
 # equal to the table) and exit 0. It wins over every other switch, so `/? /LIVE` prints the help and does not play (the run ends at once and
@@ -157,6 +160,39 @@ for section in STEP DRAW PRESENT TOTAL; do
     [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
   fi
 done
+
+# 3b2. /BENCH /AUDIO: the same bench with the 560 Hz audio service, once without music and once with it (an OPL3 here). The picture and the
+# rules are untouched (the same final hash twice), the music writes only in the second pass and never more than 16 on a tick, and the
+# interrupt's figures are present. The microseconds are DOSBox's, which charges no time for ISA port I/O: the write and status-read counts
+# are the exact figures, and the time on a real 486 is not measured here.
+status=0
+out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=200 DOS_CONF=$'[sblaster]\nsbtype = sb16' tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH /AUDIO)" || status=$?
+echo "$out"
+[ "$status" = 0 ] || fail "/BENCH /AUDIO exited $status"
+out="$(printf '%s\n' "$out" | tr -d '\r')"
+golden_hash="$(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')"
+printf '%s\n' "$out" | grep -qx "BENCH AUDIO HASH $golden_hash $golden_hash" || fail "/BENCH /AUDIO ended on a different hash from $golden"
+printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1268 1268' || fail "/BENCH /AUDIO did not run the whole script twice"
+printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TIMER PIT divisor 2131 (559.9 Hz), ARR opl3' || fail "/BENCH /AUDIO is not at 560 Hz with the OPL3 arrangement"
+printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH /AUDIO did not reach the exit"
+printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH /AUDIO did not restore the vectors"
+for pass in off on; do
+  for section in STEP DRAW PRESENT TOTAL; do
+    avg="$(printf '%s\n' "$out" | sed -n "s/^BENCH AUDIO $pass $section avg \([0-9]*\) max [0-9]* units us$/\1/p")"
+    { [ -n "$avg" ] && [ "$avg" -gt 0 ]; } || fail "/BENCH /AUDIO $pass $section average is '$avg'"
+  done
+  irq="$(printf '%s\n' "$out" | grep -E "^BENCH AUDIO $pass IRQ count [0-9]+ avg [0-9]+\.[0-9] max [0-9]+ discarded [0-9]+ units us$" || true)"
+  [ -n "$irq" ] || fail "/BENCH /AUDIO printed no '$pass IRQ' line"
+  line="$(printf '%s\n' "$out" | grep -E "^BENCH AUDIO $pass MAX_WRITES_PER_TICK [0-9]+ OPL_WRITES [0-9]+ STATUS_READS [0-9]+$" || true)"
+  [ -n "$line" ] || fail "/BENCH /AUDIO printed no '$pass MAX_WRITES_PER_TICK' line"
+  set -- $line
+  [ "${9}" -eq $(( ${7} * 41 )) ] || fail "/BENCH /AUDIO $pass: STATUS_READS ${9} is not 41 times OPL_WRITES ${7}"
+  echo "BENCH AUDIO $pass: $irq; $line"
+done
+mline="$(printf '%s\n' "$out" | grep -E '^BENCH AUDIO on MUSIC TICKS [0-9]+ WRITES [0-9]+ MAX_PER_TICK [0-9]+ ' || true)"
+[ -n "$mline" ] || fail "/BENCH /AUDIO printed no 'on MUSIC' line"
+set -- $mline
+{ [ "$8" -gt 0 ] && [ "${10}" -le 16 ]; } || fail "/BENCH /AUDIO music wrote $8 times, at most ${10} on a tick: $mline"
 
 # 3c. The probes: /PROBE under one DOSBox configuration after another. tools/dosrun.sh sets `sbtype = none`, so a variant that wants
 # a Sound Blaster appends an `[sblaster]` section (the later value wins); `nosound = true` still emulates the OPL. Each run must exit 0
@@ -251,6 +287,37 @@ got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || tru
 [ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
 echo "REPLAY at memsize 1 ok"
+
+# 3d0. /MUSICTEST: two loops of the music through the real chip writes with no timer. The MUSIC line must equal the host's `writes_for` and
+# `count_loops` for the arrangement the plan names, byte for byte: exact write count and FNV-1a, so the DOS stepper, the port path and the
+# data in the executable agree with the generated tables. The OPL3 enable must precede the first write (ORDER ok). An OPL2 stream on an
+# SB16 (/ADLIB) is the router's case: the numbers are the authored stream's, the output bits are the router's (host-tested).
+cargo build -q -p fizz-music --example mline
+musictest_case() {
+  local name="$1" conf="$2" arr="$3" sound="$4" out status=0 want got
+  shift 4
+  out="$(DOS_CONF="$conf" DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /MUSICTEST "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/MUSICTEST ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qxF "$sound" || fail "/MUSICTEST ($name) printed no '$sound' line"
+  want="$(cargo run -q -p fizz-music --example mline -- "$arr")"
+  got="$(printf '%s\n' "$out" | grep '^MUSIC SONG ' || true)"
+  [ "$got" = "$want" ] || fail "/MUSICTEST ($name): '$got' differs from the host's '$want'"
+  printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/MUSICTEST ($name): FPU control word is not 027F"
+  if [ "$arr" = off ]; then
+    printf '%s\n' "$out" | grep -qx 'MUSIC DETAIL ORDER none MAX_PER_TICK 0' || fail "/MUSICTEST ($name): music was off but wrote"
+  else
+    printf '%s\n' "$out" | grep -qx 'MUSIC DETAIL ORDER ok MAX_PER_TICK 16' || fail "/MUSICTEST ($name): the detail line is not 'ORDER ok MAX_PER_TICK 16'"
+  fi
+  echo "MUSICTEST case $name ok ($got)"
+}
+musictest_case 'AdLib machine (OPL2 arrangement)' "$(sb none 'oplmode = opl2')" opl2 'SOUND MUSIC opl2 FX ch5'
+musictest_case 'SB16 (OPL3 arrangement)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch14'
+musictest_case 'SB16 with /ADLIB (OPL2 arrangement on an OPL3 chip)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5' /ADLIB
+musictest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
+musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch14' /MUSIC:OFF
+musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
+musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
 # 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
 # plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
@@ -384,7 +451,29 @@ replay_case() {
     speaker_chip) { { [ "$writes" -gt 0 ] && [ "$writes" -le 40 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and only the chip's start and stop writes)"; } ;;
     silent) { [ "$writes" -eq 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected no writes and no steps)" ;;
   esac
-  echo "REPLAY case $name ok ($expect; $audio)"
+  # The MUSIC line: the arrangement the SOUND line names (off when it says off), and for a chip, the exact writes and hash the host computes
+  # for the player's own tick count. The music never changes the AUDIO counts above: those count effects and the start and stop key-offs only.
+  local want_arr music parsed m_arr m_ticks m_writes m_loops m_hash host
+  want_arr="$(printf '%s\n' "$expect" | sed -n 's/^SOUND MUSIC \([a-z0-9]*\) .*/\1/p')"
+  music="$(printf '%s\n' "$out" | grep '^MUSIC SONG ' || true)"
+  parsed="$(printf '%s\n' "$music" | sed -n 's/^MUSIC SONG crater ARR \([a-z0-9]*\) TICKS \([0-9]*\) WRITES \([0-9]*\) LOOPS \([0-9]*\) HASH \([0-9a-f]\{8\}\)$/\1 \2 \3 \4 \5/p')"
+  [ -n "$parsed" ] || fail "/REPLAY ($name) printed no well-formed 'MUSIC SONG crater ARR ...' line: '$music'"
+  set -- $parsed
+  m_arr="$1"; m_ticks="$2"; m_writes="$3"; m_loops="$4"; m_hash="$5"
+  [ "$m_arr" = "$want_arr" ] || fail "/REPLAY ($name): MUSIC ARR '$m_arr' but the SOUND line says '$want_arr'"
+  if [ "$m_arr" = off ]; then
+    { [ "$m_ticks" -eq 0 ] && [ "$m_writes" -eq 0 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): music is off and the line says '$music'"
+  else
+    # About 21 s at 559.9 Hz is about 11,800 ticks of the player's own clock; loops stay 0 (the loop is 63 s).
+    { [ "$m_writes" -gt 0 ] && [ "$m_ticks" -ge 9000 ] && [ "$m_ticks" -le 14000 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): implausible '$music'"
+    host="$(cargo run -q -p fizz-music --example mline -- "$m_arr" "$m_ticks")"
+    [ "$music" = "$host" ] || fail "/REPLAY ($name): '$music' differs from the host's '$host'"
+    printf '%s\n' "$out" | grep -qE '^MUSIC DETAIL ORDER ok MAX_PER_TICK ([0-9]|1[0-6])$' || fail "/REPLAY ($name): bad MUSIC DETAIL line"
+  fi
+  local bios
+  bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
+  { [ -n "$bios" ] && [ "$bios" -ge 383 ] && [ "$bios" -le 387 ]; } || fail "/REPLAY ($name): BIOS TICKS '$bios' is outside 383-387"
+  echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
 AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
@@ -396,12 +485,31 @@ AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl
 AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
+# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 836 writes either way.
+AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch14' /MUSIC:OFF
+AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
+AUDIO=opl2 replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
 cfg_put "$V2"
 AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
 AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
 cfg_put 'junk'
 AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
 cfg_none
+
+# 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters): channel 5 on an
+# when music holds it, and silence 0.
+audio_count() {
+  local name="$1" conf="$2" want="$3" out
+  shift 3
+  out="$(DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qx "AUDIO WRITES $want" || fail "AUDIO count ($name): expected 'AUDIO WRITES $want', got '$(printf '%s\n' "$out" | grep '^AUDIO ')'"
+  echo "AUDIO count $name ok (AUDIO WRITES $want)"
+}
+cfg_none
+audio_count 'ch5 on an OPL2 (419)' "$(sb sb1)" '419 SPEAKER STEPS 0' /MODERN /ADLIB
+audio_count 'ch5 through the OR rule on an OPL3 (440)' "$SB16" '440 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+audio_count 'the OPL3 pair (836)' "$SB16" '836 SPEAKER STEPS 0' /SB
+audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
