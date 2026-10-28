@@ -55,6 +55,8 @@ version = "0.1.0"
 dependencies = [
  "fizz-ep2",
  "fizz-hal",
+ "fizz-machine",
+ "fizz-menu",
  "fizz-sfx",
  "fizz-sim",
  "fizz-slice-view",
