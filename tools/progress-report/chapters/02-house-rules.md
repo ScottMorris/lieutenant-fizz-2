@@ -14,7 +14,7 @@ The repository began on 27 October 2026 with seven commits on `main` and no pull
 | [`f2f6e66`](commit:f2f6e66) | 03:00 | `fizz-sim` with the 60 Hz `Tick` and the FNV-1a `StateHash`; `tools/check.sh`, `tools/check-docs.py`, `tools/check-headers.sh` |
 | [`c5bb1d5`](commit:c5bb1d5) | 03:00 | `docs/ARCHITECTURE.md`, `docs/POC-1-FINDINGS.md`, `docs/SCENE-CONTRACT.md` |
 | [`b229933`](commit:b229933) | 03:00 | The README and the animated EGA banner, `assets/hero.svg` |
-| [`14680d1`](commit:14680d1) | 03:00 | `.github/workflows/ci.yml` with the `check` job, templates, release notes configuration, `CHANGELOG.md` |
+| [`14680d1`](commit:14680d1) | 03:00 | `.github/workflows/ci.yml` with the `check` job, templates, release notes configuration, `CHANGELOG.md` (later split into `WORKLOG.md` and a release `CHANGELOG.md`) |
 | [`1e960a5`](commit:1e960a5) | 03:05 | README badges pointed at `ScottMorris/lieutenant-fizz-2` |
 | [`3737b39`](commit:3737b39) | 03:09 | The README's conventions note restored |
 
