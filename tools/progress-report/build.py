@@ -37,7 +37,7 @@ from mdlite import Ctx, esc, inline  # noqa: E402
 ARTIFACT_URL = "https://claude.ai/artifact/1K3wm9Su2dgs8ssGpK9Bbk"
 TITLE = "Fizz 2 Progress Report"
 DESCRIPTION = ("The archive of Lieutenant Fizz 2, chapter by chapter: what is catalogued with the check behind it, what is built and unverified, "
-               "and what is planned, with pull request evidence and a state tag from gh for each. There is no game yet, only the Milestone 0 skeleton.")
+               "and what is planned, with pull request evidence and a state tag from gh for each. The first slice plays on Web and DOS; chapters 8 and 9 describe it.")
 HEADLINE = ["prs", "ciGreen", "headCiGreen", "commitsAll", "files", "crates", "rustLines", "rtLines", "tests", "goldenTicks", "exeBytes", "budgetUsed"]
 TAGS = {"merged": "merged", "in review": "review", "in progress": "progress", "planned": "planned", "closed": "closed"}
 SHELF_TEXT = {
@@ -126,6 +126,11 @@ def values_of(data):
     vals["m0.biosRange"] = m0["scraped"]["biosRange"]
     for k, v in m0["tests"].items():
         vals["tests." + k.replace("-", "_")] = v
+    for k, v in (m0.get("measured") or {}).items():
+        if isinstance(v, (int, str)) and k not in ("how", "note"):
+            vals["m0ms." + k] = v
+    if m0.get("measured", {}).get("exeBytes") and f["scraped"].get("budget"):
+        vals["m0.budgetUsed"] = "%.1f%%" % (100.0 * m0["measured"]["exeBytes"] / f["scraped"]["budget"])
     for k, v in (data.get("measured") or {}).items():
         if isinstance(v, (int, str)) and k not in ("how", "note"):
             vals["ms." + k] = v
@@ -310,6 +315,9 @@ class Site:
                     "layers": lambda: dr.layers(d), "parity": lambda: dr.parity(d), "pr-stack": lambda: dr.pr_stack(d),
                     "milestones": lambda: dr.milestone_progress(d), "size-budget": lambda: dr.size_budget(d),
                     "anatomy-dos": lambda: dr.anatomy("dos", ctx, gather.ROOT, "Layers of FIZZ2.EXE from the program to the machine, each box marked built and verified, planned or not ours."),
+                    "crate-graph": lambda: dr.crate_graph(d, gather.ROOT), "maze": lambda: dr.maze(d, gather.ROOT),
+                    "trace-chart": lambda: charts.trace_chart(d, gather.ROOT), "cluck-path": lambda: flows.cluck_path(d, gather.ROOT),
+                    "dos-help": lambda: flows.help_text(d, gather.ROOT), "dos-probe": lambda: flows.text_run(d, "dos-probe.txt", "FIZZ2.EXE /PROBE", "Output of FIZZ2.EXE /PROBE in DOSBox"),
                     "nexts": lambda: dr.roadmap_lists(d), "roadmap-table": lambda: dr.roadmap_table(d, ctx), "measured": lambda: measured_block(d),
                 }
                 if fid not in table:

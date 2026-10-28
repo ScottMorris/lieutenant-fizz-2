@@ -1,5 +1,5 @@
 {
- "about": "Milestone 0 as it stood when fizz-hello was deleted. The crate, its golden transcript, its M0_SCRIPT and the 600-tick BIOS tick bound of tools/check-dos.sh no longer exist in the tree, so the chapters that describe Milestone 0 read these frozen values. Written once from the tree before the deletion; do not regenerate.",
+ "about": "Milestone 0 as it stood when fizz-hello was deleted. The crate, its golden transcript, its M0_SCRIPT and the 600-tick BIOS tick bound of tools/check-dos.sh no longer exist in the tree, so the chapters that describe Milestone 0 read these frozen values. Written once from the tree before the deletion; do not regenerate. The measured run of Milestone 0's three gates (tools/check-dos.sh, tools/build-web.sh, tools/check-parity.sh) is kept under `measured`.",
  "golden": {
   "text": "M0 REPLAY 1\nTICK 0 HASH 02317fd0a71ad280\nTICK 60 HASH 7749eefbd6dd93aa\nTICK 120 HASH 5ffbad52b93a1d96\nTICK 180 HASH a107162ec977fbeb\nTICK 240 HASH eb44475becca3436\nTICK 300 HASH aa2ebc2dd7283063\nTICK 360 HASH 85bf3fe6245fd375\nTICK 420 HASH 3f7dd74d74f3114c\nTICK 480 HASH c034c3845262a1cf\nTICK 540 HASH 729f540b25fd151a\nTICK 600 HASH efc699079baa6a88\nFINAL TICK 600 HASH efc699079baa6a88\n",
   "final": "efc699079baa6a88",
@@ -145,5 +145,54 @@
  },
  "scraped": {
   "biosRange": "180 to 184"
+ },
+ "measured": {
+  "note": "Numbers that need a build or an emulator run, which the generator cannot repeat from the tree. Update by hand when the build changes, with the commands and the commit.",
+  "commit": "e657aa2",
+  "parityWhen": "27 October 2026, on the tree of main at e657aa2",
+  "how": "On the tree of main at e657aa2, with vendor/ linked to a local copy of the ci-dos toolchain layout (DJGPP, DOSBox Staging 0.83.0, CWSDPMI): `DOS_TOOLCHAIN=... tools/setup-dos.sh`, then `tools/check-dos.sh` (which printed the replay, the platform lines, MOVED yes, PANIC exit 3, SIZE 32768, BUDGET 1100000 and DOS CHECK ok), `tools/build-web.sh`, and `tools/check-parity.sh` (which printed native, web and dos matches and PARITY ok efc699079baa6a88). Rust 1.98.0, wasm-bindgen 0.2.125, Node 22.21.1. The lines below are copied from that output unedited, carriage returns removed.  Every figure was unchanged from the run at 3d5a2d2.",
+  "commands": [
+   "tools/check-dos.sh",
+   "tools/build-web.sh",
+   "tools/check-parity.sh"
+  ],
+  "dosReplay": [
+   "M0 REPLAY 1",
+   "TICK 0 HASH 02317fd0a71ad280",
+   "TICK 60 HASH 7749eefbd6dd93aa",
+   "TICK 120 HASH 5ffbad52b93a1d96",
+   "TICK 180 HASH a107162ec977fbeb",
+   "TICK 240 HASH eb44475becca3436",
+   "TICK 300 HASH aa2ebc2dd7283063",
+   "TICK 360 HASH 85bf3fe6245fd375",
+   "TICK 420 HASH 3f7dd74d74f3114c",
+   "TICK 480 HASH c034c3845262a1cf",
+   "TICK 540 HASH 729f540b25fd151a",
+   "TICK 600 HASH efc699079baa6a88",
+   "FINAL TICK 600 HASH efc699079baa6a88",
+   "FPU CW 027F",
+   "BIOS TICKS 182",
+   "VECTORS RESTORED yes"
+  ],
+  "dosLive": [
+   "LIVE TICKS 152 HASH 778c7bef270b7b4c",
+   "MOVED yes",
+   "VECTORS RESTORED yes"
+  ],
+  "panicExit": 3,
+  "biosTicks": 182,
+  "exeBytes": 32768,
+  "rtsmokeBytes": 16384,
+  "cwsdpmiBytes": 21325,
+  "sizesHow": "ls -l dist/dos after tools/build-dos.sh: FIZZ2.EXE 32768, RTSMOKE.EXE 16384, CWSDPMI.EXE 21325 bytes.",
+  "budget": 1100000,
+  "parityHash": "efc699079baa6a88",
+  "parityLines": [
+   "check-parity: native matches",
+   "check-parity: web matches",
+   "check-parity: dos matches",
+   "PARITY ok efc699079baa6a88",
+   "platforms compared: native, web, dos"
+  ]
  }
 }

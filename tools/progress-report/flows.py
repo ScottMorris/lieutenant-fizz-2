@@ -123,7 +123,7 @@ def frame_path(D, root):
     o.append('<text x="0" y="146" font-size="13" class="a-t1">Web: canvas, floats allowed for display</text>')
     _row(o, FRAME_WEB, 156, 0, w, gap, "fr-arrow")
     o.append("</svg>")
-    cap = ("Each blue box is a file and a name found in the tree at build time. <code>fizz-present-dos</code> denies <code>clippy::float_arithmetic</code>; the Web page draws from the <code>f64</code> marker position. "
+    cap = ("Each blue box is a file and a name found in the tree at build time. <code>fizz-present-dos</code> denies <code>clippy::float_arithmetic</code>; the Web page draws the same world through <code>fizz-slice-view</code> into an RGBA frame. "
            "The screenshots below are the two ends of these paths.")
     return chart("".join(o), cap, "Frame path", 900)
 
@@ -173,15 +173,40 @@ def dos_transcript(D):
         raise ValueError("no capture record for dos-replay.txt")
     with open(os.path.join(MEDIA, "dos-replay.txt"), encoding="utf-8") as f:
         text = f.read()
-    gold = D["facts"]["m0"]["golden"].get("text") or ""
-    want = [l for l in gold.splitlines() if l.startswith(("TICK ", "FINAL "))]
-    got = [l for l in text.splitlines() if l.startswith(("TICK ", "FINAL "))]
+    gold = D["facts"]["golden"].get("text") or ""
+    kinds = ("TICK ", "FINAL ", "EVENT ")
+    want = [l for l in gold.splitlines() if l.startswith(kinds)]
+    got = [l for l in text.splitlines() if l.startswith(kinds)]
     if got != want:
-        raise ValueError("media/dos-replay.txt does not match the Milestone 0 transcript in snapshots/m0.json")
-    lines = "".join('<span class="ln%s">%s</span>\n' % (" ok" if l.startswith(("FPU", "BIOS", "VECTORS")) else "", esc(l)) for l in text.splitlines())
+        raise ValueError("media/dos-replay.txt does not match the slice golden transcript, crates/fizz-ep2/slice-replay.txt")
+    lines = "".join('<span class="ln%s">%s</span>\n' % (" ok" if l.startswith(("FPU", "BIOS", "VECTORS", "EXIT", "SOUND", "AUDIO")) else "", esc(l)) for l in text.splitlines())
     return ('<figure><pre class="term" tabindex="0" aria-label="Output of FIZZ2.EXE /REPLAY in DOSBox"><code>C:\\&gt; FIZZ2.EXE /REPLAY\n%s</code></pre><figcaption>The standard output of the run that the DOS screenshots come from, '
-            'unedited: %d <code>TICK</code> lines and <code>FINAL</code> equal to the Milestone 0 transcript in <code>snapshots/m0.json</code> (the build checks this), then the three DOS platform lines. %s; %s at %s, %s.</figcaption></figure>') % (
-        lines, len([l for l in got if l.startswith("TICK")]), esc(c["source"]), esc(c["command"]), esc(c["commit"]), esc(c["date"]))
+            'unedited: %d <code>TICK</code> lines, %d <code>EVENT</code> lines and <code>FINAL</code> equal to <code>crates/fizz-ep2/slice-replay.txt</code> (the build checks this), then the platform lines. %s; %s at %s, %s.</figcaption></figure>') % (
+        lines, len([l for l in got if l.startswith("TICK")]), len([l for l in got if l.startswith("EVENT")]), esc(c["source"]), esc(c["command"]), esc(c["commit"]), esc(c["date"]))
+
+
+def text_run(D, name, title, label):
+    """A DOSBox text run from media/, shown as a terminal with its record."""
+    caps = {c["file"]: c for c in load_captures()}
+    c = caps.get(name)
+    if not c:
+        raise ValueError("no capture record for %s" % name)
+    with open(os.path.join(MEDIA, name), encoding="utf-8") as f:
+        text = f.read()
+    lines = "".join('<span class="ln">%s</span>\n' % esc(l) for l in text.splitlines())
+    return ('<figure><pre class="term" tabindex="0" aria-label="%s"><code>C:\\&gt; %s\n%s</code></pre><figcaption>%s %s; %s at %s, %s.</figcaption></figure>') % (
+        esc(label), esc(title), lines, esc(c["shows"]), esc(c["source"]), esc(c["command"]), esc(c["commit"]), esc(c["date"]))
+
+
+def help_text(D, root):
+    """The help screen's text, checked against the golden file that the host tests compare the program's help with."""
+    with open(os.path.join(root, "crates", "fizz-machine", "tests", "help.txt"), encoding="utf-8") as f:
+        want = f.read().replace("\r", "").rstrip("\n")
+    with open(os.path.join(MEDIA, "dos-help.txt"), encoding="utf-8") as f:
+        got = f.read().replace("\r", "").rstrip("\n")
+    if want != got:
+        raise ValueError("media/dos-help.txt differs from crates/fizz-machine/tests/help.txt")
+    return text_run(D, "dos-help.txt", "FIZZ2.EXE /?", "Output of FIZZ2.EXE /? in DOSBox")
 
 
 def script_table(D):
@@ -193,3 +218,88 @@ def script_table(D):
     return ('<div class="tbl"><table class="script"><caption class="sr">The runs of M0_SCRIPT</caption><thead><tr><th scope="col" class="n">Run</th><th scope="col" class="n">From tick</th>'
             '<th scope="col" class="n">Frames</th><th scope="col">Buttons held</th></tr></thead><tbody>%s</tbody></table></div><p class="how">Recorded in <code>snapshots/m0.json</code> from <code>M0_SCRIPT</code> in '
             '<code>crates/fizz-hello/src/lib.rs</code> before that crate was deleted: %d runs, %s frames in all.</p>') % (rows, len(runs), num(total))
+
+
+# ---- the cluck, from the rules to the speaker -----------------------------------------------------------------------------------
+
+# (kind, line 1, line 2 (the file), line 3 (the evidence), file, name that must appear in it). Kinds: built is checked by the evidence named,
+# review is built and checked only as far as the evidence says, ext is the hardware, which nobody has listened to.
+CLUCK_SHARED = [
+    ("built", "World::step", "fizz-ep2 world.rs", "emits Event::Cluck (host tests)", "crates/fizz-ep2/src/world.rs", "Event::Cluck"),
+    ("built", "EVENT line", "slice-replay.txt", "native, Web and DOS print it", "crates/fizz-ep2/slice-replay.txt", "EVENT 197 cluck"),
+]
+CLUCK_DOS = [
+    ("built", "audio::cluck(variant)", "dos/fizz2 main.rs", "run by /REPLAY and /LIVE", "dos/fizz2/src/main.rs", "audio::cluck"),
+    ("built", "audio service", "dos/rt audio.rs, 560 Hz", "AUDIO line in check-dos.sh", "dos/rt/src/audio.rs", "pub fn cluck"),
+    ("built", "OplPlayer, SpeakerPlayer", "fizz-sfx", "host tests; the OR rule", "crates/fizz-sfx/src/lib.rs", "pub struct OplPlayer"),
+    ("review", "OPL ports, speaker", "ch5, ch14, PC speaker", "writes counted, not heard", None, None),
+    ("ext", "A real chip or speaker", "AdLib, Sound Blaster, PC", "nobody has listened", None, None),
+]
+CLUCK_WEB = [
+    ("built", "App::take_cluck()", "fizz-present-web", "host tests: none lost", "crates/fizz-present-web/src/lib.rs", "pub fn take_cluck"),
+    ("built", "loop in main.js", "web/main.js", "after every frame", "web/main.js", "playCluck"),
+    ("built", "Sfx.playCluck", "web/sfx.ts, Undertone", "bun test; stand-in context", "web/sfx.ts", "playCluck"),
+    ("review", "AudioContext voices", "assets/sfx/cluck.ts", "scheduled, not heard", "assets/sfx/cluck.ts", "CLUCK"),
+    ("ext", "A browser and speakers", "any real browser", "nobody has listened", None, None),
+]
+
+
+def check_cluck_paths(root):
+    problems = []
+    for row in CLUCK_SHARED + CLUCK_DOS + CLUCK_WEB:
+        path, needle = row[4], row[5]
+        if not path:
+            continue
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            problems.append("%s does not exist" % path)
+            continue
+        with open(full, encoding="utf-8") as f:
+            if needle not in f.read():
+                problems.append("%s no longer contains %r" % (path, needle))
+    return problems
+
+
+def _cbox(o, x, y, w, kind, l1, l2, l3):
+    h = 62
+    o.append('<rect x="%g" y="%g" width="%g" height="%g" rx="5" class="a-%s" stroke-width="1.5"%s/>' % (x, y, w, h, kind, ' stroke-dasharray="6 4"' if kind == "ext" else ""))
+    o.append('<text x="%g" y="%g" text-anchor="middle" font-size="12" class="a-t1 a-t1-%s">%s</text>' % (x + w / 2, y + 18, kind, esc(l1)))
+    o.append('<text x="%g" y="%g" text-anchor="middle" font-size="10.5" class="a-t2 a-t2-%s">%s</text>' % (x + w / 2, y + 35, kind, esc(l2)))
+    o.append('<text x="%g" y="%g" text-anchor="middle" font-size="10.5" class="a-t2 a-t2-%s">%s</text>' % (x + w / 2, y + 51, kind, esc(l3)))
+
+
+def cluck_path(D, root):
+    problems = check_cluck_paths(root)
+    if problems:
+        raise ValueError("the cluck path diagram names code that moved: " + "; ".join(problems))
+    events = D["facts"]["golden"].get("events") or 0
+    X0, W, w = 26, 1000, 176
+    step = (W - X0 - w) / 4
+    desc = ("The path of the chicken's cluck. The rules emit Event::Cluck in World::step and the transcript prints it as an EVENT line, which native, Web and DOS reproduce. "
+            "On DOS the event goes to audio::cluck, the 560 Hz audio service, the OplPlayer or SpeakerPlayer of fizz-sfx, and the OPL2, OPL3 or speaker ports; the writes are counted in DOSBox and nobody has heard them on a real chip or speaker. "
+            "On Web the event goes to App::take_cluck, the loop in main.js, Sfx.playCluck with Undertone's voices and the browser's AudioContext; a stand-in context records what is scheduled and nobody has heard it in a real browser.")
+    o = ['<svg viewBox="0 0 %d 372" role="img" class="diagram" aria-label="%s">%s' % (W, esc(desc), arrow_defs("cl-arrow"))]
+    o.append('<text x="%d" y="16" font-size="13" class="a-t1">Shared: the rules (%d EVENT lines in the golden transcript)</text>' % (X0, events))
+    for i, row in enumerate(CLUCK_SHARED):
+        x = X0 + i * step
+        _cbox(o, x, 26, w, row[0], row[1], row[2], row[3])
+        if i:
+            o.append('<line x1="%g" y1="57" x2="%g" y2="57" class="d-line" stroke-width="1.4" marker-end="url(#cl-arrow)"/>' % (x - step + w, x - 2))
+    dos_y, web_y, bus_y = 138, 268, 112
+    ev_x = X0 + step + w / 2
+    trunk = 10
+    o.append('<path d="M%g,88 V%d H%g" class="d-line" stroke-width="1.4" fill="none"/>' % (ev_x, bus_y, trunk))
+    o.append('<path d="M%g,%d V%g" class="d-line" stroke-width="1.4" fill="none" marker-end="url(#cl-arrow)"/>' % (X0 + w / 2, bus_y, dos_y - 2))
+    o.append('<path d="M%d,%d V%g H%g" class="d-line" stroke-width="1.4" fill="none" marker-end="url(#cl-arrow)"/>' % (trunk, bus_y, web_y + 31, X0 - 2))
+    for label, rows, y in (("DOS: FIZZ2.EXE", CLUCK_DOS, dos_y), ("Web: the page in a browser", CLUCK_WEB, web_y)):
+        o.append('<text x="%d" y="%d" text-anchor="end" font-size="13" class="a-t1">%s</text>' % (W - 4, y - 8, esc(label)))
+        for i, row in enumerate(rows):
+            x = X0 + i * step
+            _cbox(o, x, y, w, row[0], row[1], row[2], row[3])
+            if i:
+                o.append('<line x1="%g" y1="%g" x2="%g" y2="%g" class="d-line" stroke-width="1.4" marker-end="url(#cl-arrow)"/>' % (x - step + w, y + 31, x - 2, y + 31))
+    o.append('<text x="%d" y="364" font-size="11.5" class="d-text2">Blue: code in the tree with the check named. Black: built, checked only as far as the box says. Dashed grey: hardware or a browser nobody has listened to.</text></svg>' % X0)
+    cap = ("Each blue or black box is a file and a name that <code>flows.py</code> finds in the tree when the site is built (the two grey boxes name no file). The EVENT lines are the catalogued evidence that all three platforms agree on when and which cluck: "
+           "<code>tools/check-parity.sh</code> and <code>tools/check-dos.sh</code> compare them with <code>crates/fizz-ep2/slice-replay.txt</code>. Past that point the evidence is what was scheduled or written: "
+           "the audio service's register writes in DOSBox and the voices a stand-in <code>AudioContext</code> recorded. Hearing the cluck is uncatalogued until someone has listened.")
+    return chart("".join(o), cap, "The cluck from event to speaker", 900)

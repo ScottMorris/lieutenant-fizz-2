@@ -6,13 +6,16 @@
 #
 # Each chart makes one claim, labels its bars directly and repeats its numbers in text, so nothing depends on colour alone. The bar
 # style follows Desk's tools/progress-report/charts.py (same author, same licence).
+import os
+import struct
+
 from drawings import chart, num
 from mdlite import esc
 
-CRATE_ORDER = ["fizz-sim", "fizz-phys", "fizz-ep2", "fizz-hal", "fizz-view", "fizz-slice-view", "fizz-present-dos", "fizz-present-web", "fizz-dos-rt", "fizz2", "rtsmoke"]
+CRATE_ORDER = ["fizz-sim", "fizz-phys", "fizz-ep2", "fizz-hal", "fizz-machine", "fizz-view", "fizz-slice-view", "fizz-present-dos", "fizz-present-web", "fizz-sfx", "fizz-dos-rt", "fizz2", "rtsmoke"]
 WHERE = {"fizz-sim": "crates/fizz-sim", "fizz-phys": "crates/fizz-phys", "fizz-ep2": "crates/fizz-ep2", "fizz-hal": "crates/fizz-hal",
          "fizz-view": "crates/fizz-view", "fizz-slice-view": "crates/fizz-slice-view", "fizz-present-dos": "crates/fizz-present-dos",
-         "fizz-present-web": "crates/fizz-present-web", "fizz-dos-rt": "dos/rt", "fizz2": "dos/fizz2", "rtsmoke": "dos/rtsmoke"}
+         "fizz-present-web": "crates/fizz-present-web", "fizz-machine": "crates/fizz-machine", "fizz-sfx": "crates/fizz-sfx", "fizz-dos-rt": "dos/rt", "fizz2": "dos/fizz2", "rtsmoke": "dos/rtsmoke"}
 
 
 def bars(rows, title, label_w=170, bar_w=420, unit=""):
@@ -113,3 +116,75 @@ def floppy(D):
            "and the sizes of CWSDPMI.EXE and FIZZ2.EXE from the measured <code>tools/build-dos.sh</code> run in <code>snapshots/measured.json</code>. Dithered segments are reserves, not files. "
            "No such disk has been built.")
     return chart("".join(o), cap, "Floppy budget", 820)
+
+
+# ---- Fizz 1's golden traces ----------------------------------------------------------------------------------------------------
+
+TRACE_DIR = os.path.join("crates", "fizz-ep2", "tests", "fizz1")
+# (scenario, column, title, unit): the curves drawn from the committed traces. Columns are the trace format's field order.
+TRACE_PANELS = [("fall", 2, "fall: Ben's y", "tiles"), ("run", 3, "run: Ben's vx", "tiles/s"), ("pogo_held", 2, "pogo_held: Ben's y", "tiles"), ("look", 13, "look: look_up", "s")]
+
+
+def read_trace(root, name):
+    """The commit named in a committed trace's header, and its rows as lists of fields."""
+    with open(os.path.join(root, TRACE_DIR, name + ".trace"), encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    if lines[0] != "FIZZ1 TRACE 2" or lines[1] != "scenario " + name:
+        raise ValueError("%s.trace does not start with FIZZ1 TRACE 2 and its own name" % name)
+    return lines[2].split()[1], [l.split(" ") for l in lines[3:]]
+
+
+def f64(h):
+    return struct.unpack(">d", bytes.fromhex(h))[0]
+
+
+def trace_stats(root):
+    names = sorted(n[:-6] for n in os.listdir(os.path.join(root, TRACE_DIR)) if n.endswith(".trace"))
+    stats, commit = [], None
+    for n in names:
+        commit, rows = read_trace(root, n)
+        chicken = "|" in rows[0]
+        fields = len(rows[0]) - (1 if chicken else 0)
+        stats.append((n, len(rows), fields, 7 + (5 if chicken else 0)))
+    return stats, commit
+
+
+def trace_chart(D, root):
+    stats, commit = trace_stats(root)
+    total_rows = sum(s[1] for s in stats)
+    total_fields = sum(s[1] * s[2] for s in stats)
+    total_f64 = sum(s[1] * s[3] for s in stats)
+    PW, PH, X0, Y0, GAP = 205, 110, 14, 34, 14
+    W = X0 * 2 + 4 * PW + 3 * GAP
+    BAR_Y = Y0 + PH + 78
+    H = BAR_Y + len(stats) * 18 + 12
+    label = ("Four curves from Fizz 1's golden traces and a bar for each of the %d scenarios. Fizz 2's rules reproduce all %s rows of the %d traces bit for bit: %s values, of which %s are 64-bit floating-point numbers, with a tolerance of zero." % (
+        len(stats), num(total_rows), len(stats), num(total_fields), num(total_f64)))
+    o = ['<svg viewBox="0 0 %d %d" role="img" class="diagram" aria-label="%s">' % (W, H, esc(label))]
+    o.append('<text x="%d" y="18" font-size="13" class="a-t1">Fizz 1 wrote these curves (commit %s); the Fizz 2 test finds no differing bit.</text>' % (X0, esc(commit)))
+    for i, (name, col, title, unit) in enumerate(TRACE_PANELS):
+        _, rows = read_trace(root, name)
+        ys = [f64(r[col]) for r in rows]
+        lo, hi = min(ys), max(ys)
+        if hi == lo:
+            hi = lo + 1
+        x0 = X0 + i * (PW + GAP)
+        pts = " ".join("%.1f,%.1f" % (x0 + k / (len(ys) - 1) * PW, Y0 + PH - (v - lo) / (hi - lo) * PH) for k, v in enumerate(ys))
+        o.append('<rect x="%d" y="%d" width="%d" height="%d" class="a-ext"/>' % (x0, Y0, PW, PH))
+        o.append('<polyline points="%s" fill="none" class="d-hot" stroke-width="1.6"/>' % pts)
+        o.append('<text x="%d" y="%d" font-size="12" class="a-t1">%s</text>' % (x0, Y0 + PH + 16, esc(title)))
+        o.append('<text x="%d" y="%d" font-size="11" class="d-text2 num">%s to %s %s over %d ticks</text>' % (x0, Y0 + PH + 31, "%.3g" % lo, "%.3g" % hi, unit, len(ys) - 1))
+        o.append('<text x="%d" y="%d" font-size="11" class="d-text2 num">%d rows, equal in the test</text>' % (x0, Y0 + PH + 45, len(ys)))
+    o.append('<text x="%d" y="%d" font-size="13" class="a-t1">Rows compared in each of the %d scenarios</text>' % (X0, BAR_Y - 6, len(stats)))
+    mx = max(s[1] for s in stats)
+    for i, (n, rows, fields, f64s) in enumerate(stats):
+        y = BAR_Y + i * 18
+        w = rows / mx * 420
+        o.append('<text x="%d" y="%d" text-anchor="end" font-size="11.5" class="a-t1">%s</text><rect x="%d" y="%d" width="%.1f" height="12" class="e11"/>'
+                 '<text x="%.1f" y="%d" font-size="11" class="num d-text2">%d rows, %d fields each</text>' % (X0 + 110, y + 10, esc(n), X0 + 120, y, w, X0 + 126 + w, y + 10, rows, fields))
+    o.append("</svg>")
+    cap = ("The traces are the committed files in <code>%s</code>, read when the site is built; each curve is a column of one trace, its 64-bit values decoded from the hexadecimal bit patterns. "
+           "Fizz 2 is not recomputed here: <code>crates/fizz-ep2/tests/fizz1_traces.rs</code> runs each scenario through <code>fizz_ep2::World</code> and fails on the first row whose text differs from the trace, "
+           "and <code>cargo test --workspace</code> runs it in <code>tools/check.sh</code>. Together the %d traces hold %s rows and %s values, %s of them 64-bit floating-point numbers."
+           ) % (TRACE_DIR.replace(os.sep, "/"), len(stats), num(total_rows), num(total_fields), num(total_f64))
+    return chart("".join(o), cap, "Fizz 1 and Fizz 2 traces", 880)

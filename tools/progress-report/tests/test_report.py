@@ -378,6 +378,32 @@ class DrawingTests(unittest.TestCase):
             self.assertIn("<title>", html, fn.__name__)
         self.assertIn("<svg", flows.input_path(D, gather.ROOT))
         self.assertIn("<svg", flows.frame_path(D, gather.ROOT))
+        for html in (dr.crate_graph(D, gather.ROOT), dr.maze(D, gather.ROOT), charts.trace_chart(D, gather.ROOT), flows.cluck_path(D, gather.ROOT)):
+            self.assertIn("<svg", html)
+            self.assertIn("<title>", html)
+
+    def test_the_maze_and_the_crate_graph_follow_the_tree(self):
+        facts = dr.level_facts(gather.ROOT)
+        self.assertEqual(len(facts["rows"]), 48)
+        self.assertTrue(all(len(r) == 32 for r in facts["rows"]))
+        graph = dr.crate_graph(self.D, gather.ROOT)
+        for crate in dr.crate_deps(gather.ROOT):
+            self.assertIn(crate, graph)
+
+    def test_the_trace_chart_counts_every_committed_trace(self):
+        stats, commit = charts.trace_stats(gather.ROOT)
+        self.assertEqual(len(stats), 18)
+        self.assertEqual(commit, "4bce036")
+        self.assertIn("18 scenarios", charts.trace_chart(self.D, gather.ROOT))
+
+    def test_the_cluck_path_refuses_code_that_moved(self):
+        original = flows.CLUCK_DOS[1]
+        flows.CLUCK_DOS[1] = original[:5] + ("pub fn no_such_function",)
+        try:
+            with self.assertRaises(ValueError):
+                flows.cluck_path(self.D, gather.ROOT)
+        finally:
+            flows.CLUCK_DOS[1] = original
 
     def test_the_replay_explainer_has_a_step_per_line(self):
         html = dr.replay(self.D, mdlite.Ctx())
@@ -386,7 +412,7 @@ class DrawingTests(unittest.TestCase):
 
     def test_the_replay_refuses_a_measured_run_that_differs(self):
         D = copy.deepcopy(self.D)
-        D["measured"]["dosReplay"] = [l.replace("efc699079baa6a88", "0" * 16) for l in D["measured"]["dosReplay"]]
+        D["facts"]["m0"]["measured"]["dosReplay"] = [l.replace("efc699079baa6a88", "0" * 16) for l in D["facts"]["m0"]["measured"]["dosReplay"]]
         with self.assertRaises(ValueError):
             dr.replay(D, mdlite.Ctx())
         D = copy.deepcopy(self.D)
@@ -398,14 +424,14 @@ class DrawingTests(unittest.TestCase):
         html = dr.timer(self.D, mdlite.Ctx())
         self.assertIn("182 BIOS ticks", html)
         D = copy.deepcopy(self.D)
-        D["measured"]["biosTicks"] = 170
+        D["facts"]["m0"]["measured"]["biosTicks"] = 170
         with self.assertRaises(ValueError):
             dr.timer(D, mdlite.Ctx())
 
     def test_the_dos_transcript_matches_the_golden_file(self):
         self.assertIn("FPU CW 027F", flows.dos_transcript(self.D))
         D = copy.deepcopy(self.D)
-        D["facts"]["m0"]["golden"]["text"] = D["facts"]["m0"]["golden"]["text"].replace("efc699079baa6a88", "0" * 16)
+        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("0edebb797e63edff", "0" * 16)
         with self.assertRaises(ValueError):
             flows.dos_transcript(D)
 
