@@ -70,6 +70,69 @@ const captionsButton = document.getElementById("captions");
 const fullscreenButton = document.getElementById("fullscreen");
 const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
+const captionLayer = document.getElementById("caption-layer");
+
+// Cluck captions follow Fizz 1's Web text (design/melting/engine.js, `cap`): 15 px bold italic at a 960 px canvas, centred, rising
+// from half a line to 1.8 lines above its anchor over the caption's life, popping in at 0.8 to 1.05 times its size, and fading
+// out. The rest of the timing, which chicken has one and for how long, comes from the module (`caption_progress`).
+const CAPTION_FONT_PX = 15;
+const CAPTION_REFERENCE_WIDTH = 960;
+// The word sits this many picture pixels above the chicken's feet: two Fizz 1 tiles, which is 32 here.
+const CAPTION_ANCHOR_ABOVE_FEET = 32;
+const CAPTION_POP = 0.2;
+// CSS `ease-out`, near enough.
+const easeOut = (t) => 1 - (1 - t) * (1 - t);
+const lerp = (a, b, t) => a + (b - a) * t;
+const captionEls = [];
+
+// Shows the module's live captions as text over the canvas. Position comes in picture pixels and follows the canvas's displayed
+// size; the type size follows it too, but only modestly, so it stays readable on a narrow page and does not balloon in fullscreen.
+function showCaptions(app) {
+  const shownWidth = captionLayer.clientWidth;
+  const shownHeight = captionLayer.clientHeight;
+  const scale = shownWidth / app.width();
+  const fontPx = Math.min(24, Math.max(11, (CAPTION_FONT_PX * shownWidth) / CAPTION_REFERENCE_WIDTH));
+  const count = shownWidth > 0 ? app.caption_count() : 0;
+  while (captionEls.length < count) {
+    const el = document.createElement("div");
+    el.className = "caption";
+    captionLayer.appendChild(el);
+    captionEls.push(el);
+  }
+  captionEls.forEach((el, i) => {
+    if (i >= count) {
+      el.hidden = true;
+      return;
+    }
+    const word = app.caption_word(i);
+    el.hidden = false;
+    if (el.textContent !== word) el.textContent = word;
+    el.style.fontSize = `${fontPx}px`;
+    el.style.color = app.caption_colour(i);
+    const p = app.caption_progress(i);
+    // Fizz 1's keyframes: pop in over the first fifth, then drift up and fade.
+    let lift, size, opacity;
+    if (p < CAPTION_POP) {
+      const t = easeOut(p / CAPTION_POP);
+      lift = lerp(0.5, 0.6, t);
+      size = lerp(0.8, 1.05, t);
+      opacity = 1;
+    } else {
+      const t = easeOut((p - CAPTION_POP) / (1 - CAPTION_POP));
+      lift = lerp(0.6, 1.8, t);
+      size = lerp(1.05, 1, t);
+      opacity = 1 - t;
+    }
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    // The anchor is the word's centre; lift is in word heights. It follows the chicken exactly, as in Fizz 1: never moved to stay
+    // inside, so the layer's overflow clips it as the chicken leaves. The module drops it a tile outside the picture.
+    const cx = app.caption_x(i) * scale;
+    const cy = (app.caption_y(i) - CAPTION_ANCHOR_ABOVE_FEET) * scale + (0.5 - lift) * h;
+    el.style.opacity = String(opacity);
+    el.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) scale(${size})`;
+  });
+}
 
 function loadLayout() {
   try {
@@ -260,6 +323,7 @@ async function main() {
     // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
     for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v);
     draw(app, wasm.memory);
+    showCaptions(app);
     showHud(app);
     requestAnimationFrame(loop);
   };

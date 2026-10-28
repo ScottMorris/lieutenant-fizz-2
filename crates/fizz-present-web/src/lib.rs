@@ -8,7 +8,9 @@
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
-use fizz_slice_view::{DrawOptions, VIEW_H, VIEW_W, draw_slice_with};
+use fizz_slice_view::{
+    CAPTION_TICKS, CaptionView, DrawOptions, VIEW_H, VIEW_W, caption_view, draw_slice_with,
+};
 use wasm_bindgen::prelude::*;
 
 /// Most ticks run for one displayed frame. Time beyond this is dropped, so a hidden tab does not cause a burst on return.
@@ -96,7 +98,10 @@ pub struct App {
     /// The cluck variants emitted since the page last drained them, oldest first. `cluck_head` is the next one to hand out.
     clucks: Vec<u8>,
     cluck_head: usize,
-    options: DrawOptions,
+    /// Whether the cluck captions are shown. The picture never carries them on the Web: the page draws them as text.
+    captions: bool,
+    /// The live captions of the last [`App::render`], empty when captions are off.
+    live_captions: Vec<CaptionView>,
 }
 
 impl Default for App {
@@ -119,7 +124,8 @@ impl App {
             rgba: vec![0; VIEW_W * VIEW_H * 4],
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
-            options: DrawOptions::default(),
+            captions: true,
+            live_captions: Vec::new(),
         }
     }
 
@@ -190,26 +196,78 @@ impl App {
         }
     }
 
-    /// Turns the in-world cluck captions on or off (on by default). The beak still moves; only the text goes.
+    /// Turns the cluck captions on or off (on by default). The beak still moves; only the text goes.
     pub fn set_captions(&mut self, on: bool) {
-        self.options.captions = on;
+        self.captions = on;
     }
 
-    /// Whether the in-world cluck captions are drawn.
+    /// Whether the cluck captions are shown.
     pub fn captions(&self) -> bool {
-        self.options.captions
+        self.captions
+    }
+
+    /// How many captions are live after the last [`App::render`]. Zero when captions are off.
+    ///
+    /// The page draws these as text over the canvas, not as pixels in the picture, so the words keep a readable size at
+    /// any canvas size. Read them with [`App::caption_word`] and the other `caption_` accessors for an index below this.
+    pub fn caption_count(&self) -> usize {
+        self.live_captions.len()
+    }
+
+    /// The word of caption `i` (lower-case, as in Fizz 1), or an empty string past the end.
+    pub fn caption_word(&self, i: usize) -> String {
+        self.live_captions
+            .get(i)
+            .map_or_else(String::new, |c| c.text.into())
+    }
+
+    /// The x of caption `i`, the chicken's centre, in canvas pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
+    pub fn caption_x(&self, i: usize) -> f64 {
+        self.live_captions.get(i).map_or(0.0, |c| f64::from(c.x))
+    }
+
+    /// The y of caption `i`, the chicken's feet, in canvas pixels (0 to `height`; it may lie up to a tile outside, and is not clamped).
+    pub fn caption_y(&self, i: usize) -> f64 {
+        self.live_captions.get(i).map_or(0.0, |c| f64::from(c.y))
+    }
+
+    /// How far into its life caption `i` is, from 0 (new) to just under 1 (gone). It is the same life the pixel caption
+    /// has, `CAPTION_TICKS` ticks.
+    pub fn caption_progress(&self, i: usize) -> f64 {
+        self.live_captions
+            .get(i)
+            .map_or(1.0, |c| f64::from(c.age) / f64::from(CAPTION_TICKS))
+    }
+
+    /// The colour of caption `i` as `#rrggbb`: the variant's bright colour, which Fizz 1's Web text also uses.
+    pub fn caption_colour(&self, i: usize) -> String {
+        let [r, g, b, _] = self
+            .live_captions
+            .get(i)
+            .map_or([255; 4], |c| EGA_RGBA[usize::from(c.bright & 15)]);
+        format!("#{r:02x}{g:02x}{b:02x}")
     }
 
     /// Draws the current world into the frame buffers.
     pub fn render(&mut self) {
+        // The picture has no captions on the Web; they are text over the canvas (see `caption_count`).
         draw_slice_with(
             &mut self.indexed,
             VIEW_W,
             VIEW_H,
             &self.world,
             self.world.tick.0 as u32,
-            &self.options,
+            &DrawOptions { captions: false },
         );
+        self.live_captions.clear();
+        if self.captions {
+            self.live_captions.extend(
+                self.world
+                    .chickens
+                    .iter()
+                    .filter_map(|c| caption_view(&self.world, VIEW_W, VIEW_H, c)),
+            );
+        }
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
         for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
             *px = EGA_RGBA[usize::from(i & 15)];
@@ -295,22 +353,32 @@ mod tests {
     const FRAME_MS: f64 = 1000.0 / 60.0;
 
     #[test]
-    fn captions_are_on_by_default_and_gate_only_the_text() {
+    fn captions_are_text_for_the_page_and_never_pixels() {
         let mut app = App::new();
         assert!(app.captions());
-        // A chicken in view, just after a cluck.
+        // A chicken in view, just after a double cluck.
         app.world.ben.b.x = 12.0;
         app.world.ben.b.y = 11.0;
+        app.world.chickens[0].cluck_variant = 2;
         app.world.chickens[0].cluck_age = 1;
         app.render();
         let on = app.rgba.clone();
+        assert_eq!(app.caption_count(), 1);
+        assert_eq!(app.caption_word(0), "bwuk-BWUK");
+        assert_eq!(app.caption_colour(0), "#ff5555");
+        assert!(app.caption_progress(0) > 0.0 && app.caption_progress(0) < 0.1);
+        assert!(
+            (0.0..320.0).contains(&app.caption_x(0)) && (0.0..200.0).contains(&app.caption_y(0))
+        );
+        // The picture is the same with the captions off: the words are not in it. The beak is, and stays.
         app.set_captions(false);
         assert!(!app.captions());
         app.render();
-        assert_ne!(on, app.rgba);
+        assert_eq!(app.caption_count(), 0);
+        assert_eq!(on, app.rgba);
         app.set_captions(true);
         app.render();
-        assert_eq!(on, app.rgba);
+        assert_eq!(app.caption_count(), 1);
     }
 
     #[test]
