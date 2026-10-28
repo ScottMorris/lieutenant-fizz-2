@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
-"""Draws the animated diagram of how a sound is placed, for docs/SFX.md.
+"""Draws the animated diagram of how a sound is placed, for docs/SOUND.md.
 
 The picture shows three panels: where a chicken is across the view, the level each ear gets at every position, and how the two
 levels reach each playback path. The curves are drawn with the same formula as crates/fizz-sfx/src/place.rs (Fizz 1's sound
 field), in floating point, because a picture does not need the whole-number tables.
 
 The SVG is animated with SMIL: a chicken walks across and back and the markers follow it. Its embedded script that pauses the
-animation for readers who ask for reduced motion is ignored when the SVG is shown as an image, so docs/SFX.md also links the
+animation for readers who ask for reduced motion is ignored when the SVG is shown as an image, so docs/SOUND.md also links the
 static PNG.
 
 usage: python3 tools/docs/positional-sound.py            write docs/images/positional-sound.svg

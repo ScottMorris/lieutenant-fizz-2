@@ -187,7 +187,7 @@ World::step -> Event::Cluck { variant, chicken }
 | Web, Enhanced | `App.take_cluck()` returns the variant and `cluck_pan()` and `cluck_gain()` give the pan (-0.6 to 0.6) and distance (0.4 to 1) of that cluck. `Sfx.playCluck(variant, pan, gain)` gives each Undertone voice an equal-power `StereoPannerNode` and scales its gain. Undertone already takes both per voice, so there are no extra nodes of ours and no fork. |
 | Web, Classic | The pan and gain are ignored: centred, full level, the cached stack. |
 
-DOS is always Enhanced in this version. It has no setting for Classic yet: the Options screen will own it. On the Web the choice is the "Sound placement" button in the H panel (Enhanced by default), remembered in `localStorage` under `fizz2-audio` (`classic` or `enhanced`); a `?audio=classic` or `?audio=enhanced` query decides for that visit without being saved. Classic is Fizz 1's Classic mode: everything centred at full level.
+On DOS the choice is the Sound placement row of the Options screen (Enhanced by default), saved in `FIZZ2.CFG`, and it applies at once. On the Web it is the Placement row of the Options screen, remembered in the `placement` field of the `fizz2-options` blob in `localStorage` (`classic` or `enhanced`); a `?audio=classic` or `?audio=enhanced` query decides for that visit without being saved. Classic is Fizz 1's Classic mode: everything centred at full level.
 
 ### Levels and the dB step
 
@@ -332,7 +332,7 @@ The converter is the same author's code, MIT in `lieutenant-fizz-dos` and dual-l
 
 ## Not verified
 
-- Nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
+- Apart from the owner's playtests of 28 October 2026, in which the cluck played in the builds and sounded good (one listener, not a measurement), nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
 - The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The OPL3 pair has run in DOSBox's headless emulator only, where the writes are counted and the positions are never heard; the register numbers for bank 1 and the total-level attenuation rest on the lab's conventions and the chip's documented layout, not on a test against hardware. Whether the pan and the distance sound right, whether the -3 dB centre matches a single voice by ear, and whether Fizz 1's 0.6 pan width is enough on small speakers are all unheard.
 - The Web plays the cluck, but that has been checked only against stand-ins for `AudioContext`. A real browser's autoplay policy, its hidden-tab behaviour, the overall loudness and any clipping (each voice's gain is at most 0.3, but the sum is not measured) have not been tried. The manual describes the Web's cluck and the DOS one.
 - Nobody has heard the music in any form either, on the Web or in a lowered one; [MUSIC.md](MUSIC.md) lists what is unverified there.

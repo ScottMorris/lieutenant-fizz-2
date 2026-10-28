@@ -15,7 +15,7 @@
 // short notes, a filter that opens at the attack). Nobody has listened to them. How effects should really sound is a separate
 // discovery track; this module is meant to be replaced by a designed effect without touching the pipeline, which reads only the
 // `EFFECTS` table at the bottom. Layering rule the downmix relies on: voices that share a start time put the main layer at the
-// highest gain, and a noise breath starts a little before the pitched note it belongs to (see docs/SFX.md).
+// highest gain, and a noise breath starts a little before the pitched note it belongs to (see docs/SOUND.md).
 
 import { breath, curve, repeat, type SfxVoice } from './voice.ts';
 

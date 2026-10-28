@@ -1,5 +1,5 @@
 // Prints the register writes the DOS audio service makes for one cluck, as `tick bank reg val` lines (the listening clips and the
-// cost figures in docs/SFX.md read them, so they come from the real player, not a copy of it).
+// cost figures in docs/SOUND.md read them, so they come from the real player, not a copy of it).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
