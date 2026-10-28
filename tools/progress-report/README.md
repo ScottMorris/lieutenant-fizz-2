@@ -34,9 +34,9 @@ The site is living: after new pull requests merge, rebuilding refreshes the coun
 | `build.py` | Renders the pages, copies the banner and the captures, writes `manifest.json`, and checks the result with `--check` |
 | `mdlite.py` | The small markdown reader for chapters |
 | `figures.py` | The figure registry: parsing, validation and the gallery's previews |
-| `drawings.py` | The layer, parity, stack and anatomy diagrams, the milestone chart, and the replay and timer step-throughs |
-| `charts.py` | Lines and tests per package, pull request sizes, CI results and the floppy budget |
-| `flows.py` | The input and frame path diagrams, the screenshots, the DOSBox transcript and the replay script table |
+| `drawings.py` | The layer, parity, stack, anatomy, crate matrix and level map diagrams, the milestone chart, and the replay and timer step-throughs |
+| `charts.py` | Lines and tests per package, pull request sizes, CI results, the floppy budget and Fizz 1's traces |
+| `flows.py` | The input, frame and cluck path diagrams, the screenshots, the DOSBox transcripts and the replay script table |
 | `manual.py`, `manual-evidence.json` | The Manual page from `docs/MANUAL.md`, and the map from its sections to the archive's evidence |
 | `capture.py`, `capture-dos.sh`, `capture-web.py` | The tools that make `media/` |
 | `chapters/NN-id.md` | One chapter per stretch of the work, in reading order; reference pages at the end |
@@ -60,7 +60,7 @@ The site is living: after new pull requests merge, rebuilding refreshes the coun
 
 ## Chapters and figures
 
-A chapter is `chapters/NN-id.md`: a front matter (`id`, `n`, `title`, `date`, `summary`, `prs`, and `section: reference` with a `kicker` for reference pages), the narrative, a `figures` block and three shelves. Inline markup is `**bold**`, `*em*`, `` `code` ``, links with the schemes `chapter:ID#anchor`, `pr:N`, `commit:HASH` and `repo:PATH`, and placeholders such as `{{m.prs}}`, `{{pr7.merge}}`, `{{sc.pitDivisor}}` or `{{ms.biosTicks}}`, which come from the data and fail the build if unknown. Inline images are markdown images, a link with `!` in front and the alt text in the brackets. Directives are HTML comments on their own line: `<!-- explainer replay -->` (also `timer`), `<!-- figure NAME -->` (`layers`, `parity`, `pr-stack`, `anatomy-dos`, `input-path`, `frame-path`, `milestones`, `loc`, `tests`, `pr-sizes`, `ci`, `floppy`, `dos-transcript`, `shots FILE...`, and the tables `nexts`, `roadmap-table`, `script`, `measured`) and `<!-- facts KEY ... -->`.
+A chapter is `chapters/NN-id.md`: a front matter (`id`, `n`, `title`, `date`, `summary`, `prs`, and `section: reference` with a `kicker` for reference pages), the narrative, a `figures` block and three shelves. Inline markup is `**bold**`, `*em*`, `` `code` ``, links with the schemes `chapter:ID#anchor`, `pr:N`, `commit:HASH` and `repo:PATH`, and placeholders such as `{{m.prs}}`, `{{pr7.merge}}`, `{{sc.pitDivisor}}` or `{{ms.biosTicks}}`, which come from the data and fail the build if unknown. Inline images are markdown images, a link with `!` in front and the alt text in the brackets. Directives are HTML comments on their own line: `<!-- explainer replay -->` (also `timer`), `<!-- figure NAME -->` (`layers`, `parity`, `pr-stack`, `anatomy-dos`, `input-path`, `frame-path`, `cluck-path`, `crate-graph`, `maze`, `trace-chart`, `dos-help`, `dos-probe`, `milestones`, `loc`, `tests`, `pr-sizes`, `ci`, `floppy`, `dos-transcript`, `shots FILE...`, and the tables `nexts`, `roadmap-table`, `script`, `measured`) and `<!-- facts KEY ... -->`.
 
 The shelves are `### Catalogued`, `### Uncatalogued` and `### Wish list`, each followed by a list. A "From the workbench" sidebar is a block quote starting `> **From the workbench — Title.**` with a `> Source:` line.
 
