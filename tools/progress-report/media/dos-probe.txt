@@ -1,0 +1,16 @@
+PROBE video vga
+PROBE mouse yes
+PROBE joystick no
+PROBE fm none
+PROBE dsp none
+PROBE blaster none
+PROBE x87 yes
+PROBE cpu 486
+PROBE free_kb 14524
+CELLS 2cd289414e90d289
+SOUND MUSIC off FX speaker
+HEAP 262144
+PAGES FREE 3631
+EXIT yes
+FPU CW 027F
+VECTORS RESTORED yes

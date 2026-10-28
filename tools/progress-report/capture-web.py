@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-# Captures screenshots of the Milestone 0 Web page in headless Chromium, with real key presses, for the progress report's media.
+# Captures screenshots of the Web slice in headless Chromium, with real key events and a fake clock, for the progress report's media.
 #
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: python3 tools/progress-report/capture-web.py OUTDIR [--port 9417] [--chromium /usr/bin/chromium]
+# usage: python3 tools/progress-report/capture-web.py OUTDIR [--port 9417] [--chromium /usr/bin/chromium] [--explore]
 #
 # Standard library only. Needs dist/web from tools/build-web.sh. dist/web is served on 127.0.0.1:PORT by `http.server` in a thread,
-# Chromium runs headless with a remote-debugging port, and this script speaks the DevTools protocol over a minimal WebSocket client:
-# it opens index.html, waits in real time, sends keys with Input.dispatchKeyEvent (the page sees ordinary keydown and keyup events
-# with their `code`), and saves Page.captureScreenshot as PNG. Each shot is listed with the time and keys in OUTDIR/web.json.
+# Chromium runs headless with a remote-debugging port, and this script speaks the DevTools protocol over a minimal WebSocket client.
+# A script injected before the page loads replaces `performance.now` and `requestAnimationFrame` with a clock that this script
+# advances by exactly one 60 Hz tick per frame (at the whole millisecond where the pacer's integer arithmetic makes the next tick due), so the page plays the same ticks every run: keys are sent with Input.dispatchKeyEvent
+# (the page sees ordinary keydown and keyup events with their `code`) between frames, and Page.captureScreenshot saves the picture.
+# The `replay` scenes press the keys of `SLICE_SCRIPT` (read from crates/fizz-ep2/src/replay.rs) one tick at a time, so the page
+# reaches the golden transcript's states; the HUD's HASH at tick 60 is compared with the golden file's before anything is saved.
+# Each shot is listed with its scene, window size, tick and the page's HUD in OUTDIR/web.json. --explore saves a shot every
+# 10 ticks of the replay instead, to choose ticks from.
 import base64
 import functools
 import http.server
 import json
 import os
+import re
 import shutil
 import socket
 import socketserver
@@ -27,13 +33,57 @@ import time
 import urllib.request
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
-KEYS = {"ArrowRight": 39, "ArrowDown": 40, "ArrowLeft": 37, "ArrowUp": 38, "Space": 32, "ControlLeft": 17}
-# (file, [(action, argument)]): actions run in order; "wait" is seconds of real time.
-PLAN = [
-    ("web-start.png", [("wait", 1.5)]),
-    ("web-moved.png", [("down", "ArrowRight"), ("wait", 1.2), ("up", "ArrowRight"), ("down", "ArrowDown"), ("wait", 0.6), ("up", "ArrowDown"), ("wait", 0.3)]),
-    ("web-dash.png", [("down", "ControlLeft"), ("wait", 0.1), ("up", "ControlLeft"), ("wait", 0.5)]),
+CODES = {"L": "ArrowLeft", "R": "ArrowRight", "U": "ArrowUp", "D": "ArrowDown", "J": "ControlLeft", "P": "AltLeft", "F": "Space"}
+KEYS = {"ArrowRight": 39, "ArrowDown": 40, "ArrowLeft": 37, "ArrowUp": 38, "Space": 32, "ControlLeft": 17, "AltLeft": 18}
+KEY_TEXT = {"Space": " ", "ControlLeft": "Control", "AltLeft": "Alt"}
+MODIFIER = {"ControlLeft": 2, "AltLeft": 1}
+
+# Replaces the page's clock before its scripts run: time moves only when __frame(ms) is called, and sets the clock to `ms`.
+CLOCK = """
+(() => {
+  let now = 0;
+  let queue = [];
+  performance.now = () => now;
+  window.requestAnimationFrame = (cb) => { queue.push(cb); return queue.length; };
+  window.__frame = (ms) => { now = ms; const run = queue; queue = []; run.forEach((cb) => cb(now)); };
+})();
+"""
+
+# Scenes: (file, window width, window height, kind, argument). Kind "hold" takes ([(first tick, end tick, buttons)], ticks to
+# play) and presses the buttons for those ticks; kind "replay" plays SLICE_SCRIPT and stops at the tick given, or, for
+# ("death", n), n ticks after the HUD first reads DEATHS 1. Kind "ledge" plays the first n ticks of SLICE_SCRIPT, which leave Ben
+# standing on the first ledge, then presses buttons as "hold" does, counted from that tick: (n, spans, ticks to play).
+SCENES = [
+    ("web-start.png", 960, 540, "hold", ([], 40)),
+    ("web-portrait.png", 390, 780, "hold", ([], 40)),
+    ("web-wide.png", 1600, 520, "hold", ([], 40)),
+    ("web-look-up.png", 960, 540, "ledge", (150, [(0, 90, "U")], 90)),
+    ("web-aim-up.png", 960, 540, "hold", ([(30, 31, "UF")], 36)),
+    ("web-puff.png", 960, 540, "replay", 108),
+    ("web-cluck.png", 960, 540, "replay", 201),
+    ("web-stars.png", 960, 540, "replay", 300),
 ]
+
+
+def slice_script():
+    """SLICE_SCRIPT as a list of (ticks, buttons), buttons being a string of the letters L R U D J P F."""
+    with open(os.path.join(ROOT, "crates", "fizz-ep2", "src", "replay.rs"), encoding="utf-8") as f:
+        text = f.read()
+    body = text[text.index("pub const SLICE_SCRIPT"):text.index("/// The number of ticks the transcript covers")]
+    runs = []
+    for n, expr in re.findall(r"^\s*\((\d+), ([^\n]*)\),\s*(?://.*)?$", body, re.M):
+        parts = re.findall(r"\b(IDLE|[UDLRJFP])\b", expr.replace(".union", " "))
+        runs.append((int(n), "".join("" if p == "IDLE" else p for p in parts)))
+    return runs
+
+
+def golden_hash(tick):
+    with open(os.path.join(ROOT, "crates", "fizz-ep2", "slice-replay.txt"), encoding="utf-8") as f:
+        for line in f:
+            m = re.match(r"TICK (\d+) HASH ([0-9a-f]{16})", line)
+            if m and int(m.group(1)) == tick:
+                return m.group(2)
+    return None
 
 
 class WebSocket:
@@ -95,9 +145,57 @@ def free_port():
         return s.getsockname()[1]
 
 
-def key(ws, kind, code):
-    args = {"type": "keyDown" if kind == "down" else "keyUp", "code": code, "key": {"Space": " ", "ControlLeft": "Control"}.get(code, code), "windowsVirtualKeyCode": KEYS[code]}
-    ws.call("Input.dispatchKeyEvent", **args)
+class Page:
+    def __init__(self, ws, url):
+        self.ws, self.url, self.down, self.frames = ws, url, set(), 0
+
+    def js(self, expression):
+        return self.ws.call("Runtime.evaluate", expression=expression, returnByValue=True)["result"].get("value")
+
+    def load(self, width, height):
+        self.ws.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=1, mobile=False)
+        self.ws.call("Page.navigate", url=self.url)
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            if self.js("typeof window.__frame === 'function' && !!document.getElementById('screen')"):
+                break
+            time.sleep(0.05)
+        time.sleep(0.6)  # the module's start, and the debounced fit of the view to the window (80 ms)
+        self.down, self.frames = set(), 0
+        self.js("window.__frame(0)")  # the first frame only starts the pacer's clock
+
+    def frame(self):
+        # Frame k is at ceil(k * 1000 / 60) ms: the first whole millisecond at which tick k is due.
+        self.frames += 1
+        self.js("window.__frame(%d)" % -(-self.frames * 1000 // 60))
+
+    def tick(self):
+        return int(self.js("Number(/TICK (\\d+)/.exec(document.getElementById('hud').textContent)[1])"))
+
+    def hud(self):
+        return self.js("document.getElementById('hud').textContent")
+
+    def hold(self, letters):
+        want = {CODES[c] for c in letters}
+        for code in sorted(self.down - want):
+            self.ws.call("Input.dispatchKeyEvent", type="keyUp", code=code, key=KEY_TEXT.get(code, code), windowsVirtualKeyCode=KEYS[code], modifiers=0)
+        for code in sorted(want - self.down):
+            mods = sum(MODIFIER.get(c, 0) for c in want if c in MODIFIER)
+            self.ws.call("Input.dispatchKeyEvent", type="keyDown", code=code, key=KEY_TEXT.get(code, code), windowsVirtualKeyCode=KEYS[code], modifiers=mods)
+        self.down = want
+
+    def step(self, letters):
+        """One tick with `letters` held: set the keys, run a frame, and check that the page advanced by exactly one tick."""
+        before = self.tick()
+        self.hold(letters)
+        self.frame()
+        if self.tick() != before + 1:
+            raise RuntimeError("the page moved from tick %d to %d in one frame" % (before, self.tick()))
+
+    def shot(self, out, name):
+        png = base64.b64decode(self.ws.call("Page.captureScreenshot", format="png")["data"])
+        with open(os.path.join(out, name), "wb") as f:
+            f.write(png)
 
 
 def main(argv):
@@ -107,14 +205,17 @@ def main(argv):
     out = os.path.abspath(argv[1])
     port = int(argv[argv.index("--port") + 1]) if "--port" in argv else 9417
     chromium = argv[argv.index("--chromium") + 1] if "--chromium" in argv else "/usr/bin/chromium"
+    explore = "--explore" in argv
     site = os.path.join(ROOT, "dist", "web")
     if not os.path.exists(os.path.join(site, "index.html")):
         print("capture-web: no dist/web; run tools/build-web.sh", file=sys.stderr)
         return 2
     os.makedirs(out, exist_ok=True)
+
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
+
     handler = functools.partial(Quiet, directory=site)
     socketserver.TCPServer.allow_reuse_address = True
     httpd = socketserver.TCPServer(("127.0.0.1", port), handler)
@@ -122,9 +223,10 @@ def main(argv):
     # Chromium's singleton socket path must be short, so its profile lives under /tmp.
     profile = tempfile.mkdtemp(prefix="fz2cr.", dir="/tmp")
     debug = free_port()
-    proc = subprocess.Popen([chromium, "--headless", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=720,560",
+    proc = subprocess.Popen([chromium, "--headless", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=960,540",
                              "--remote-debugging-port=%d" % debug, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dict(os.environ, TMPDIR=profile))
     shots = []
+    per_tick = [b for n, b in slice_script() for _ in range(n)]
     try:
         for _ in range(100):
             try:
@@ -137,21 +239,47 @@ def main(argv):
             raise RuntimeError("Chromium did not open its debugging port")
         ws = WebSocket(page["webSocketDebuggerUrl"])
         ws.call("Page.enable")
-        ws.call("Emulation.setDeviceMetricsOverride", width=720, height=560, deviceScaleFactor=1, mobile=False)
-        ws.call("Page.navigate", url="http://127.0.0.1:%d/index.html" % port)
-        t0 = time.time()
-        for name, steps in PLAN:
-            for action, arg in steps:
-                if action == "wait":
-                    time.sleep(arg)
-                else:
-                    key(ws, action, arg)
-            hud = ws.call("Runtime.evaluate", expression="document.getElementById('hud').textContent", returnByValue=True)["result"].get("value")
-            png = base64.b64decode(ws.call("Page.captureScreenshot", format="png")["data"])
-            with open(os.path.join(out, name), "wb") as f:
-                f.write(png)
-            shots.append({"file": name, "seconds": round(time.time() - t0, 1), "steps": steps, "hud": hud})
-            print("%s  %s" % (name, (hud or "").replace("\n", " | ")))
+        ws.call("Page.addScriptToEvaluateOnNewDocument", source=CLOCK)
+        p = Page(ws, "http://127.0.0.1:%d/index.html" % port)
+        for name, w, h, kind, arg in SCENES:
+            if explore and kind != "replay":
+                continue
+            p.load(w, h)
+            if kind == "hold":
+                spans, until = arg
+                for t in range(until):
+                    p.step("".join(b for a, z, b in spans if a <= t < z))
+            elif kind == "ledge":
+                lead, spans, until = arg
+                for held in per_tick[:lead]:
+                    p.step(held)
+                for t in range(until):
+                    p.step("".join(b for a, z, b in spans if a <= t < z))
+            else:
+                if p.tick() != 0:
+                    raise RuntimeError("the page is at tick %d, not 0" % p.tick())
+                stop = None
+                for t, held in enumerate(per_tick):
+                    p.step(held)
+                    if t + 1 == 60:
+                        want, got = golden_hash(60), re.search(r"HASH ([0-9a-f]{16})", p.hud()).group(1)
+                        if want != got:
+                            raise RuntimeError("the page's hash at tick 60 is %s, the golden file's is %s" % (got, want))
+                    if explore and (t + 1) % 10 == 0:
+                        p.shot(out, "explore-%04d.png" % (t + 1))
+                    if isinstance(arg, tuple):
+                        if stop is None and "DEATHS 1" in p.hud():
+                            stop = t + 1 + arg[1]
+                        if stop is not None and t + 1 == stop and not explore:
+                            break
+                    elif t + 1 == arg and not explore:
+                        break
+            if explore:
+                break
+            hud = p.hud()
+            p.shot(out, name)
+            shots.append({"file": name, "width": w, "height": h, "scene": kind, "tick": p.tick(), "hud": hud})
+            print("%s  %dx%d  %s" % (name, w, h, hud.replace("\n", " | ")))
     finally:
         proc.terminate()
         proc.wait(timeout=10)

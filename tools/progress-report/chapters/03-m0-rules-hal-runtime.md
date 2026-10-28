@@ -41,8 +41,8 @@ Under CWSDPMI `hlt` is privileged, so the game loop paces itself with a volatile
 ### Catalogued
 - #1, #2 and #3 are merged into `main` with CI {{pr3.ci}} on the merge commit `{{pr3.merge}}` and every check green on each head ({{m.headCiGreen}}).
 - `cargo test --workspace` runs the {{tests.fizz_sim}} `fizz-sim`, {{tests.fizz_hello}} `fizz-hello` and {{tests.fizz_hal}} `fizz-hal` test declarations in the `check` job.
-- The timer keeps the BIOS clock in DOSBox: the measured replay printed `BIOS TICKS {{ms.biosTicks}}` over 600 ticks, which is 600 × {{sc.pitDivisor}} ÷ 65,536 rounded down, and `tools/check-dos.sh` requires {{m0.biosRange}}.
-- Every vector is restored in DOSBox: `VECTORS RESTORED yes` after `/REPLAY` and `/LIVE`, and `/PANIC` exits with status {{ms.panicExit}}.
+- The timer keeps the BIOS clock in DOSBox: the Milestone 0 replay printed `BIOS TICKS {{m0ms.biosTicks}}` over 600 ticks, which is 600 × {{sc.pitDivisor}} ÷ 65,536 rounded down, and `tools/check-dos.sh` requires {{m0.biosRange}}.
+- Every vector is restored in DOSBox: `VECTORS RESTORED yes` after `/REPLAY` and `/LIVE`, and `/PANIC` exits with status {{m0ms.panicExit}}.
 
 ### Uncatalogued
 - The timer, the keyboard handler and the clean-up on a real 486 and a real 8042 keyboard controller.

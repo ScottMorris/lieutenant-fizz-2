@@ -296,8 +296,8 @@ def stacks(prs):
 
 CRATES = [
     ("fizz-sim", r"^crates/fizz-sim/.*\.rs$"), ("fizz-phys", r"^crates/fizz-phys/.*\.rs$"), ("fizz-ep2", r"^crates/fizz-ep2/.*\.rs$"),
-    ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"), ("fizz-view", r"^crates/fizz-view/.*\.rs$"), ("fizz-slice-view", r"^crates/fizz-slice-view/.*\.rs$"),
-    ("fizz-present-dos", r"^crates/fizz-present-dos/.*\.rs$"), ("fizz-present-web", r"^crates/fizz-present-web/.*\.rs$"),
+    ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"), ("fizz-machine", r"^crates/fizz-machine/.*\.rs$"), ("fizz-view", r"^crates/fizz-view/.*\.rs$"), ("fizz-slice-view", r"^crates/fizz-slice-view/.*\.rs$"),
+    ("fizz-present-dos", r"^crates/fizz-present-dos/.*\.rs$"), ("fizz-present-web", r"^crates/fizz-present-web/.*\.rs$"), ("fizz-sfx", r"^crates/fizz-sfx/.*\.rs$"),
     ("fizz-dos-rt", r"^dos/rt/.*\.rs$"), ("fizz2", r"^dos/fizz2/.*\.rs$"), ("rtsmoke", r"^dos/rtsmoke/.*\.rs$"),
 ]
 # The slice's golden transcript: the one the parity and DOS gates compare. Milestone 0's transcript, script and BIOS bound belong to
@@ -496,9 +496,8 @@ def gather(root=ROOT, ref="main", offline=False, dry_run=False):
     missing += ["scraped." + k for k, v in sc.items() if v is None]
     if not gold.get("final"):
         missing.append("golden.final")
-    m0_final = facts["m0"]["golden"]["final"]
-    if measured and measured.get("parityHash") != m0_final:
-        warnings.append("snapshots/measured.json records PARITY %s but the Milestone 0 transcript in snapshots/m0.json ends %s" % (measured.get("parityHash"), m0_final))
+    if measured and measured.get("parityHash") != gold.get("final"):
+        warnings.append("snapshots/measured.json records PARITY %s but %s ends %s" % (measured.get("parityHash"), GOLDEN, gold.get("final")))
     now = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     return {
         "generated": now, "ref": ref, "head": fp[0]["hash"] if fp else None, "shallow": repo.is_shallow(),

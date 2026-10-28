@@ -122,16 +122,17 @@ def legend(states):
 # (row, x, w, kind, line1, line2); kind is built (merged, checked on the host or in an emulator), plan or ext (not ours).
 LAYER_ROWS = ["Content", "Intent", "Baking", "Presenters", "Platform", "Machine"]
 LAYER_BOXES = [
-    (0, 0, 2, "built", "fizz-sim · fizz-hello", "60 Hz tick, state hash, input frames; throwaway rules (#1)"),
-    (0, 2, 2, "plan", "Episode 2 rules", "lf-sim reused or ported (M1)"),
+    (0, 0, 2, "built", "fizz-sim · fizz-phys", "tick, hash, input; Fizz 1's physics (#22)"),
+    (0, 2, 2, "built", "fizz-ep2", "Ben, the chicken, the level, the replay (#27, #29)"),
     (1, 0, 4, "plan", "fizz-engine: scene, audio and event intent", "docs/SCENE-CONTRACT.md is a sketch (M3)"),
     (2, 0, 4, "plan", "fizz-bake", "Level Studio scripts, art and music lowered per target (M2)"),
-    (3, 0, 2, "built", "fizz-present-web", "wasm-bindgen App, canvas page (#6)"),
-    (3, 2, 2, "built", "fizz-present-dos", "320x200 frame, palette, font (#4)"),
-    (4, 0, 1, "built", "Web page", "web/: JS shim (#6)"),
-    (4, 1, 1, "built", "fizz-hal", "clock, input, display, ring (#2)"),
-    (4, 2, 2, "built", "fizz-dos-rt and FIZZ2.EXE", "DPMI, IRQ 0 at 60 Hz, IRQ 1, mode 13h (#3, #5)"),
-    (5, 0, 2, "ext", "A browser, or Node and Bun", "only Node and Bun have run the module"),
+    (3, 0, 2, "built", "fizz-present-web · fizz-slice-view", "wasm-bindgen App; the one slice drawing (#31, #32)"),
+    (3, 2, 2, "built", "fizz-present-dos · fizz-slice-view", "320x200 frame, HUD, pixel captions (#31)"),
+    (4, 0, 1, "built", "Web page, sfx.ts", "canvas, panel, Undertone cluck (#45)"),
+    (4, 1, 1, "built", "fizz-hal · fizz-machine", "clock, input, display; probe and settings"),
+    (4, 2, 1, "built", "fizz-sfx", "the cluck on OPL2, OPL3, the speaker"),
+    (4, 3, 1, "built", "fizz-dos-rt · FIZZ2.EXE", "DPMI, 560 Hz timer, audio, mode 13h"),
+    (5, 0, 2, "ext", "A browser, or Node and Bun", "only headless Chromium, Node and Bun have run it"),
     (5, 2, 2, "ext", "DOSBox Staging and CWSDPMI", "headless; a real 486 is untried"),
 ]
 
@@ -139,8 +140,8 @@ LAYER_BOXES = [
 def layers_svg():
     X0, CW, RH, GAP, TOP = 110, 215, 50, 14, 34
     W, H = X0 + 4 * CW + 4, TOP + len(LAYER_ROWS) * (RH + GAP) + 26
-    label = ("Layers of Fizz 2 from content to the machine, Web on the left and DOS on the right. Built and merged: fizz-sim and fizz-hello, "
-             "both presenters, the Web page, fizz-hal and the DOS runtime. Planned: the Episode 2 rules, fizz-engine and fizz-bake. "
+    label = ("Layers of Fizz 2 from content to the machine, Web on the left and DOS on the right. Built and merged: the rules in fizz-sim, fizz-phys and fizz-ep2, "
+             "the shared slice drawing with both presenters, the Web page, fizz-hal, fizz-machine, fizz-sfx and the DOS runtime. Planned: fizz-engine and fizz-bake. "
              "Not ours: the browser or JavaScript runtime, DOSBox and CWSDPMI.")
     o = ['<svg viewBox="0 0 %d %d" role="img" aria-label="%s" class="diagram">' % (W, H, esc(label)),
          '<text x="%d" y="20" text-anchor="middle" font-size="14" class="d-title">Web</text>' % (X0 + CW),
@@ -159,7 +160,7 @@ def layers_svg():
 
 
 def layers(D):
-    cap = ("The layers of <code>docs/ARCHITECTURE.md</code> as built at the end of Milestone 0, with the pull request that added each box. "
+    cap = ("The layers of <code>docs/ARCHITECTURE.md</code> as built at the end of Milestone 1, with the pull request that added each box. "
            "Intent flows up and lowering flows down: nothing in the content row depends on a presenter.")
     return chart(layers_svg(), cap, "Layer diagram", 880)
 
@@ -167,21 +168,21 @@ def layers(D):
 # ---- the three-platform parity picture -------------------------------------------------------------------------------------------
 
 def parity(D):
-    g = D["facts"]["m0"]["golden"]
+    g = D["facts"]["golden"]
     m = D.get("measured") or {}
     final = g.get("final") or "unknown"
     if m.get("parityHash") and m["parityHash"] != final:
         raise ValueError("measured.json records PARITY %s but the golden transcript ends %s" % (m["parityHash"], final))
     cols = [
-        ("Native x86_64", "cargo run -p fizz-hello", "--example replay", "SSE2 f64"),
+        ("Native x86_64", "cargo run -p fizz-ep2", "--example replay", "SSE2 f64"),
         ("Web (WASM)", "node tools/web-replay.mjs", "Node and Bun", "WebAssembly f64"),
         ("DOS (DOSBox)", "FIZZ2.EXE /REPLAY", "headless DOSBox Staging", "x87 at 53 bits, CW 027F"),
     ]
     W, BW, BH = 900, 260, 92
     o = ['<svg viewBox="0 0 %d 330" role="img" class="diagram" aria-label="%s"><defs><marker id="par-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="d-arrow"/></marker></defs>' % (
-        W, esc("The same 600-tick script runs natively, as WebAssembly and in DOSBox. All three transcripts equal the golden file, which ends FINAL TICK %d HASH %s." % (g.get("finalTick") or 0, final)))]
-    o.append('<rect x="320" y="6" width="260" height="44" rx="6" class="a-ext"/><text x="450" y="25" text-anchor="middle" font-size="13" class="a-t1 a-t1-ext">M0_SCRIPT</text>'
-             '<text x="450" y="41" text-anchor="middle" font-size="11" class="a-t2 a-t2-ext">600 ticks of input, in fizz-hello</text>')
+        W, esc("The same %d-tick slice script runs natively, as WebAssembly and in DOSBox. All three transcripts equal the golden file, which ends FINAL TICK %d HASH %s." % (g.get("finalTick") or 0, g.get("finalTick") or 0, final)))]
+    o.append('<rect x="320" y="6" width="260" height="44" rx="6" class="a-ext"/><text x="450" y="25" text-anchor="middle" font-size="13" class="a-t1 a-t1-ext">SLICE_SCRIPT</text>'
+             '<text x="450" y="41" text-anchor="middle" font-size="11" class="a-t2 a-t2-ext">%s ticks of input, in fizz-ep2</text>' % num(g.get("finalTick") or 0))
     for i, (name, cmd, where, fp) in enumerate(cols):
         x = 20 + i * (BW + 30)
         o.append('<line x1="450" y1="50" x2="%d" y2="86" class="d-line" stroke-width="1.3" marker-end="url(#par-arrow)"/>' % (x + BW / 2))
@@ -191,11 +192,12 @@ def parity(D):
             o.append('<text x="%d" y="%d" text-anchor="middle" font-size="11.5" class="a-t2 a-t2-built">%s</text>' % (x + BW / 2, 130 + k * 16, esc(t)))
         o.append('<line x1="%d" y1="%d" x2="450" y2="226" class="d-line" stroke-width="1.3" marker-end="url(#par-arrow)"/>' % (x + BW / 2, 88 + BH))
     o.append('<rect x="250" y="228" width="400" height="58" rx="6" class="a-built" stroke-width="2.2"/>'
-             '<text x="450" y="250" text-anchor="middle" font-size="12" class="a-t2 a-t2-built">TICK and FINAL lines equal the M0 golden file</text>'
+             '<text x="450" y="250" text-anchor="middle" font-size="12" class="a-t2 a-t2-built">TICK, FINAL and EVENT lines equal the slice golden file</text>'
              '<text x="450" y="273" text-anchor="middle" font-size="14" class="a-t1 a-t1-built num">FINAL TICK %d HASH %s</text>' % (g.get("finalTick") or 0, esc(final)))
     o.append('<text x="450" y="314" text-anchor="middle" font-size="12" class="d-text2">tools/check-parity.sh prints PARITY ok %s</text></svg>' % esc(final))
-    cap = ("The parity gate. The final hash is read from the golden file in the tree; <code>snapshots/measured.json</code> holds the run of "
-           "<code>tools/check-parity.sh</code> that printed it (%s), and the build refuses a measured hash that differs from the golden file.") % esc(m.get("parityWhen", "date not recorded"))
+    cap = ("The parity gate on the slice. The final hash is read from <code>crates/fizz-ep2/slice-replay.txt</code> in the tree; <code>snapshots/measured.json</code> holds the run of "
+           "<code>tools/check-parity.sh</code> that printed it (%s), and the build refuses a measured hash that differs from the golden file. Milestone 0's marker replay ended "
+           "<code>%s</code> on the same three platforms.") % (esc(m.get("parityWhen", "date not recorded")), esc(D["facts"]["m0"]["golden"].get("final") or "?"))
     return chart("".join(o), cap, "Parity diagram", 820)
 
 
@@ -348,7 +350,7 @@ def held_between(runs, a, b):
 
 def replay(D, ctx):
     g = D["facts"]["m0"]["golden"]
-    m = D.get("measured") or {}
+    m = D["facts"]["m0"].get("measured") or {}
     text = g.get("text") or ""
     lines = [l for l in text.splitlines() if l.strip()]
     if not lines or lines[0] != "M0 REPLAY 1":
@@ -386,8 +388,8 @@ def replay(D, ctx):
         steps.append(("DOS only: %s" % word, "`%s`. %s" % (l, why)))
         at.append(len(steps) - 1)
     stage = console(shown, at, "The golden transcript, followed by the DOS platform lines")
-    cap = ("Every line comes from the Milestone 0 transcript in <code>snapshots/m0.json</code>, followed by the platform lines of the measured DOS run in <code>snapshots/measured.json</code>. "
-           "The build refuses a measured DOS run whose <code>TICK</code> and <code>FINAL</code> lines differ from the golden file.")
+    cap = ("Every line comes from the Milestone 0 transcript in <code>snapshots/m0.json</code>, followed by the platform lines of Milestone 0's measured DOS run, also in <code>snapshots/m0.json</code>. "
+           "The build refuses a measured DOS run whose <code>TICK</code> and <code>FINAL</code> lines differ from the transcript.")
     return stepper("replay", "The golden replay, line by line", stage, steps, cap, ctx)
 
 
@@ -398,7 +400,7 @@ PIT_HZ = 1193182
 
 def timer(D, ctx):
     sc = D["facts"]["scraped"]
-    m = D.get("measured") or {}
+    m = D["facts"]["m0"].get("measured") or {}
     div = sc.get("pitDivisor")
     if not div:
         raise ValueError("no PIT divisor in docs/PLATFORM.md")
@@ -541,3 +543,203 @@ def anatomy(name, ctx, root, alt_lead):
     return ('<figure><div class="chart scroll" tabindex="0" aria-label="%s, scrolls sideways"><div style="min-width:820px">%s</div></div>%s<figcaption>%s</figcaption>%s</figure>') % (
         esc(data["title"]), titled("".join(o), data["title"]), key,
         "Drawn from <code>tools/progress-report/anatomy-%s.json</code>, updated %s. Each box is a file, a crate or a pull request; the table below lists the evidence for each." % (name, esc(data["updated"])), table)
+
+
+# ---- the crate graph, read from the Cargo.toml files ----------------------------------------------------------------------------
+
+CRATE_ROLE = {  # name: (fill class, what it is)
+    "fizz-sim": ("e11", "tick, hash, input"), "fizz-phys": ("e11", "Fizz 1's physics"), "fizz-ep2": ("e11", "Ben, chicken, level"),
+    "fizz-view": ("e10", "frame, camera, font"), "fizz-slice-view": ("e10", "the one slice drawing"),
+    "fizz-present-dos": ("e10", "320x200 frame, HUD"), "fizz-present-web": ("e10", "wasm-bindgen App"),
+    "fizz-hal": ("e14", "clock, input, display"), "fizz-machine": ("e14", "probe, settings, check"),
+    "fizz-sfx": ("e12", "cluck on OPL and speaker"),
+    "fizz-dos-rt": ("e13", "DPMI, timer, audio, VGA"), "fizz2": ("e13", "FIZZ2.EXE"), "rtsmoke": ("e13", "runtime smoke test"),
+}
+CRATE_LEGEND = [("e11", "rules"), ("e10", "drawing and presenters"), ("e14", "HAL and machine model"), ("e12", "sound"), ("e13", "the dos/ workspace")]
+
+
+def crate_deps(root):
+    """{crate: (runtime deps, dev deps)} from the Cargo.toml of every package under crates/ and dos/, path dependencies on workspace crates only."""
+    out = {}
+    for sub in ("crates", "dos"):
+        base = os.path.join(root, sub)
+        for name in sorted(os.listdir(base)):
+            path = os.path.join(base, name, "Cargo.toml")
+            if not os.path.isfile(path):
+                continue
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+            pkg = re.search(r'^name\s*=\s*"([^"]+)"', text, re.M).group(1)
+            deps, dev, section = [], [], ""
+            for line in text.splitlines():
+                m = re.match(r"^\[(.+)\]$", line.strip())
+                if m:
+                    section = m.group(1)
+                    continue
+                dm = re.match(r'^([A-Za-z0-9_-]+)\s*=\s*\{[^}]*path\s*=', line.strip())
+                if dm:
+                    (deps if section == "dependencies" else dev if section == "dev-dependencies" else []).append(dm.group(1))
+            out[pkg] = (deps, dev)
+    return out
+
+
+def crate_graph(D, root):
+    """The workspace's dependencies as a matrix: a row for each package, a mark in the column of each package it uses."""
+    deps = crate_deps(root)
+    for pkg in deps:
+        if pkg not in CRATE_ROLE:
+            raise ValueError("crate %s has no role in drawings.CRATE_ROLE" % pkg)
+    depth = {}
+
+    def level(p):
+        if p not in depth:
+            depth[p] = 1 + max([level(q) for q in deps[p][0]] or [-1])
+        return depth[p]
+
+    for p in deps:
+        level(p)
+    order = sorted(deps, key=lambda p: (depth[p], list(CRATE_ROLE).index(p)))
+    N, CS, X0, Y0 = len(order), 30, 190, 130
+    W, H = max(X0 + N * CS + 20, 760), Y0 + N * CS + 58
+    count = sum(len(a) + len(b) for a, b in deps.values())
+    label = ("Dependency matrix of the %d packages of the repository, read from their Cargo.toml files. Each row is a package and each mark is a package it uses: %s." % (
+        len(deps), "; ".join("%s uses %s" % (p, ", ".join(deps[p][0] + [x + " (tests only)" for x in deps[p][1]]) or "nothing in the workspace") for p in order)))
+    o = ['<svg viewBox="0 0 %d %d" role="img" class="diagram" aria-label="%s">' % (W, H, esc(label))]
+    for i, p in enumerate(order):
+        fill, what = CRATE_ROLE[p]
+        cx = X0 + i * CS + CS / 2
+        o.append('<g transform="translate(%g,%d) rotate(-55)"><text x="0" y="0" font-size="12" class="a-t1">%s</text></g>' % (cx - 4, Y0 - 8, esc(p)))
+        y = Y0 + i * CS
+        o.append('<rect x="0" y="%d" width="12" height="%d" class="%s"/><text x="18" y="%d" font-size="12.5" class="a-t1">%s</text><text x="%d" y="%d" text-anchor="end" font-size="10.5" class="d-muted">depth %d</text>' % (
+            y + 2, CS - 4, fill, y + CS / 2 + 4, esc(p), X0 - 8, y + CS / 2 + 4, depth[p]))
+    for r in range(N):
+        for c in range(N):
+            x, y = X0 + c * CS, Y0 + r * CS
+            o.append('<rect x="%d" y="%d" width="%d" height="%d" class="a-ext" opacity="%s"/>' % (x, y, CS, CS, "0.35" if r == c else "0.12"))
+    for i, p in enumerate(order):
+        run, dev = deps[p]
+        for q in run:
+            x, y = X0 + order.index(q) * CS, Y0 + i * CS
+            o.append('<rect x="%d" y="%d" width="%d" height="%d" class="%s"/>' % (x + 4, y + 4, CS - 8, CS - 8, CRATE_ROLE[q][0]))
+        for q in dev:
+            x, y = X0 + order.index(q) * CS, Y0 + i * CS
+            o.append('<rect x="%d" y="%d" width="%d" height="%d" fill="none" class="d-line" stroke-width="1.5" stroke-dasharray="3 2"/>' % (x + 4, y + 4, CS - 8, CS - 8))
+    lx, ly = 0, Y0 + N * CS + 22
+    for cls, name in CRATE_LEGEND:
+        o.append('<rect x="%d" y="%d" width="12" height="12" class="%s"/><text x="%d" y="%d" font-size="11.5" class="d-text2">%s</text>' % (lx, ly, cls, lx + 17, ly + 11, esc(name)))
+        lx += 24 + 7 * len(name) + 20
+    o.append('<text x="0" y="%d" font-size="11.5" class="d-text2">A filled mark: the package in the row uses the one in the column. A dashed mark: used by tests only.</text></svg>' % (ly + 34))
+    cap = ("The %d packages of the workspace and of <code>dos/</code> with the %d path dependencies in their <code>Cargo.toml</code> files, read when the site is built and sorted by depth; "
+           "a package missing from the picture's roles fails the build.") % (len(deps), count)
+    return chart("".join(o), cap, "Crate dependency matrix", 700)
+
+
+# ---- the maze, read from level.rs ----------------------------------------------------------------------------------------------
+
+TILE_CLASS = {".": "e0", "w": "e1", "#": "e8", "B": "e7", "=": "e10", "^": "e12", "D": "e6", "E": "e14"}
+TILE_NAME = [("e0", "sky"), ("e1", "wall behind the rooms"), ("e8", "solid fill"), ("e7", "solid block"), ("e10", "one-way platform"), ("e12", "spikes"), ("e6", "red door"), ("e14", "exit")]
+
+
+def level_facts(root):
+    """The slice level's rows (top row first) and named places, read from crates/fizz-ep2/src/level.rs."""
+    with open(os.path.join(root, "crates", "fizz-ep2", "src", "level.rs"), encoding="utf-8") as f:
+        text = f.read()
+    block = text[text.index("const ROWS"):]
+    rows = re.findall(r'^\s*"([.w#B=^DE]{32})",', block, re.M)
+    if len(rows) != 48:
+        raise ValueError("level.rs has %d rows of 32 tiles, not 48" % len(rows))
+
+    def pair(name):
+        m = re.search(r"pub const %s: \(f64, f64(?:, f64)?\) = \(([-\d.]+), ([-\d.]+)" % name, text)
+        if not m:
+            raise ValueError("level.rs has no %s" % name)
+        return float(m.group(1)), float(m.group(2))
+
+    return {"rows": rows, "spawn": pair("SPAWN"), "key": pair("KEY"), "chicken": pair("CHICKEN")}
+
+
+def maze(D, root):
+    f = level_facts(root)
+    rows, H, W, S = f["rows"], 48, 32, 11
+    grid = {(x, H - 1 - i): c for i, row in enumerate(rows) for x, c in enumerate(row)}
+    X0, Y0 = 56, 10
+
+    def px(x, y):  # the centre of tile coordinates (x, y), y up
+        return X0 + x * S, Y0 + (H - y) * S
+
+    # Ledges: runs of one-way platform tiles, with the shaft they belong to.
+    runs = []
+    for y in range(H):
+        x = 0
+        while x < W:
+            if grid[(x, y)] == "=":
+                x0 = x
+                while x < W and grid[(x, y)] == "=":
+                    x += 1
+                runs.append((y, x0, x - 1))
+            else:
+                x += 1
+    left = sorted([r for r in runs if r[2] < 15], key=lambda r: r[0])
+    right = sorted([r for r in runs if r[1] > 15], key=lambda r: r[0])
+    door_x, door_ys = 15, [y for y in range(H) if grid[(15, y)] == "D"]
+    exit_ys = [y for y in range(H) if grid[(20, y)] == "E"]
+    if not door_ys or not exit_ys:
+        raise ValueError("level.rs has no red door in column 15 or no exit in column 20")
+    spawn, key, chick = f["spawn"], f["key"], f["chicken"]
+    chick_row = int(chick[1]) - 1
+    key_run = [r for r in left if r[0] == int(key[1]) - 1][0]
+    route = [(spawn[0] + 0.35, spawn[1])]
+    for y, a, b in left:
+        if y == key_run[0]:
+            route.append(((a + b) / 2 + 0.5, y + 1))
+            route.append((key[0], y + 1))
+        elif y < door_ys[0]:
+            route.append(((a + b) / 2 + 0.5, y + 1))
+    route.append((door_x + 0.5, door_ys[0] + 0.5))
+    for y, a, b in right:
+        route.append(((a + b) / 2 + 0.5, y + 1))
+    route.append((20.5, exit_ys[0]))
+    legend_x = X0 + W * S + 28
+    W_SVG, H_SVG = legend_x + 300, Y0 + H * S + 24
+    label = ("Map of the slice level, 32 tiles wide and 48 tall, read from crates/fizz-ep2/src/level.rs. Ben starts on the floor of the left shaft beside a run of spikes. "
+             "One-way ledges climb the left shaft; the chicken walks the long ledge at the third level and the red key lies at its far left end. "
+             "Above it the ledges lead to the red door in the wall between the shafts. Through the door the right shaft climbs to a gallery, where the exit stands.")
+    o = ['<svg viewBox="0 0 %d %d" role="img" class="diagram" aria-label="%s"><defs><marker id="mz-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="d-arrow-hot"/></marker></defs>' % (W_SVG, H_SVG, esc(label))]
+    for y in range(H):
+        for x in range(W):
+            o.append('<rect x="%d" y="%d" width="%d" height="%d" class="%s"/>' % (X0 + x * S, Y0 + (H - 1 - y) * S, S, S, TILE_CLASS[grid[(x, y)]]))
+    for y in range(0, H, 6):
+        o.append('<text x="%d" y="%d" text-anchor="end" font-size="10.5" class="d-muted num">y %d</text>' % (X0 - 6, Y0 + (H - y) * S - 2, y))
+    pts = " ".join("%g,%g" % px(x, y) for x, y in route)
+    o.append('<polyline points="%s" class="d-hot" stroke-width="2" stroke-dasharray="5 3" marker-end="url(#mz-arrow)"/>' % pts)
+    marks = [("Start", spawn[0] + 0.35, spawn[1] + 0.7, 1), ("Key", key[0], key[1], 2), ("Chicken", chick[0] + 0.45, chick[1] + 0.7, 3), ("Door", door_x + 0.5, door_ys[1], 4), ("Exit", 20.5, exit_ys[0] + 1, 5)]
+    for name, x, y, n in marks:
+        cx, cy = px(x, y)
+        o.append('<circle cx="%g" cy="%g" r="8" class="e15" stroke="#000" stroke-width="1"/><text x="%g" y="%g" text-anchor="middle" font-size="11" class="pg-t">%d</text>' % (cx, cy, cx, cy + 4, n))
+    o.append('<text x="%d" y="%d" font-size="13" class="d-title">Key: tile colours</text>' % (legend_x, Y0 + 14))
+    for i, (cls, name) in enumerate(TILE_NAME):
+        y = Y0 + 26 + i * 20
+        o.append('<rect x="%d" y="%d" width="14" height="14" class="%s" stroke="#888" stroke-width="0.5"/><text x="%d" y="%d" font-size="12" class="d-text2">%s</text>' % (legend_x, y, cls, legend_x + 22, y + 12, esc(name)))
+    y = Y0 + 26 + len(TILE_NAME) * 20 + 14
+    o.append('<text x="%d" y="%d" font-size="13" class="d-title">The route</text>' % (legend_x, y))
+    steps = ["Start on the floor, beside the spikes.", "Climb the ledges to the long third one: the key is at its left end and the chicken walks it.",
+             "Climb on to the red door, a wall of three tiles at x = 15.", "Walk into the door with the key: it opens.", "Climb the right shaft to the gallery and the exit."]
+    yy = y + 20
+    for lab, t in zip(["1", "2, 3", "4", "4", "5"], steps):
+        words, line, wrapped = t.split(), "", []
+        for w in words:
+            if len(line) + len(w) > 36:
+                wrapped.append(line)
+                line = w
+            else:
+                line = (line + " " + w).strip()
+        wrapped.append(line)
+        o.append('<text x="%d" y="%d" font-size="12" class="a-t1">%s</text>' % (legend_x, yy, esc(lab)))
+        for n, text in enumerate(wrapped):
+            o.append('<text x="%d" y="%d" font-size="12" class="d-text2">%s</text>' % (legend_x + 34, yy + n * 14, esc(text)))
+        yy += len(wrapped) * 14 + 8
+    o.append("</svg>")
+    cap = ("The level of <code>crates/fizz-ep2/src/level.rs</code>, drawn from the file's own rows when the site is built, with the places named there (<code>SPAWN</code>, <code>KEY</code>, "
+           "<code>CHICKEN</code>, the door tiles and the exit tiles). The dashed route is schematic: straight lines through the middle of each ledge in the order the replay climbs them. "
+           "The replay itself, which reaches the exit with the door open, is what <code>tools/check-dos.sh</code> and <code>tools/check-parity.sh</code> compare (<code>EXIT yes</code>).")
+    return chart("".join(o), cap, "Map of the slice level", 760)
