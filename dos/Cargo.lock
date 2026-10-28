@@ -7,6 +7,7 @@ name = "fizz-dos-rt"
 version = "0.1.0"
 dependencies = [
  "fizz-machine",
+ "fizz-music",
  "fizz-sfx",
 ]
 
@@ -25,6 +26,10 @@ version = "0.1.0"
 
 [[package]]
 name = "fizz-machine"
+version = "0.1.0"
+
+[[package]]
+name = "fizz-music"
 version = "0.1.0"
 
 [[package]]
@@ -75,6 +80,7 @@ dependencies = [
  "fizz-ep2",
  "fizz-hal",
  "fizz-machine",
+ "fizz-music",
  "fizz-present-dos",
  "fizz-sim",
 ]

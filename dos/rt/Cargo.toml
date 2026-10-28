@@ -13,6 +13,8 @@ default = ["panic-handler"]
 panic-handler = []
 
 [dependencies]
-# The audio service steps the effect records and applies the OPL write router; both crates are no_std, safe and dependency-free.
+# The audio service steps the effect records and the music streams and applies the OPL write router; all three crates are no_std, safe and
+# dependency-free.
 fizz-sfx = { path = "../../crates/fizz-sfx" }
 fizz-machine = { path = "../../crates/fizz-machine" }
+fizz-music = { path = "../../crates/fizz-music" }
