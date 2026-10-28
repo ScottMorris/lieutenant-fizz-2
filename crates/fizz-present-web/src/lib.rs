@@ -121,6 +121,8 @@ pub struct App {
     cluck_head: usize,
     /// Whether the cluck captions are shown. The picture never carries them on the Web: the page draws them as text.
     captions: bool,
+    /// Whether the view shakes when Ben dies. The page turns it off for Reduced Motion.
+    shake: bool,
     /// The live captions of the last [`App::render`], empty when captions are off.
     live_captions: Vec<CaptionView>,
 }
@@ -148,6 +150,7 @@ impl App {
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
             captions: true,
+            shake: true,
             live_captions: Vec::new(),
         }
     }
@@ -222,6 +225,16 @@ impl App {
     /// Turns the cluck captions on or off (on by default). The beak still moves; only the text goes.
     pub fn set_captions(&mut self, on: bool) {
         self.captions = on;
+    }
+
+    /// Turns the death shake on or off (on by default). Off draws the camera still, which is the Reduced Motion setting.
+    pub fn set_shake(&mut self, on: bool) {
+        self.shake = on;
+    }
+
+    /// Whether the view shakes when Ben dies.
+    pub fn shake(&self) -> bool {
+        self.shake
     }
 
     /// Whether the cluck captions are shown.
@@ -313,7 +326,10 @@ impl App {
             self.view_h,
             &self.world,
             self.world.tick.0 as u32,
-            &DrawOptions { captions: false },
+            &DrawOptions {
+                captions: false,
+                shake: self.shake,
+            },
         );
         self.live_captions.clear();
         if self.captions {
@@ -436,6 +452,29 @@ mod tests {
         app.set_captions(true);
         app.render();
         assert_eq!(app.caption_count(), 1);
+    }
+
+    #[test]
+    fn reduced_motion_keeps_the_view_still_when_ben_dies() {
+        let mut app = App::new();
+        assert!(app.shake());
+        app.world.ben.b.x = 14.0;
+        app.world.ben.b.y = 3.0;
+        app.world.ben.kill();
+        app.world.ben.dead = 0.001 + 1.0 / 60.0;
+        app.render();
+        let shaken = app.rgba.clone();
+        app.set_shake(false);
+        assert!(!app.shake());
+        app.render();
+        assert_ne!(shaken, app.rgba);
+        // Alive, the setting changes nothing.
+        app.world.ben.dead = 0.0;
+        app.render();
+        let still = app.rgba.clone();
+        app.set_shake(true);
+        app.render();
+        assert_eq!(still, app.rgba);
     }
 
     #[test]
