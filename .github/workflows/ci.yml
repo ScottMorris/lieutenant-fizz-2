@@ -69,3 +69,7 @@ jobs:
           bun tools/sprites/roundtrip.ts
       - name: Check the generated sound data
         run: bun tools/sfx/downmix.ts --check
+      - name: Test the music source and check its note list
+        run: |
+          bun test assets/music
+          bun tools/music/notes.ts --check

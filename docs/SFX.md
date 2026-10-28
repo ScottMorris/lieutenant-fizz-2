@@ -125,7 +125,7 @@ Last-wins between effects, detection of an OPL2, the 560 Hz timer and the ports 
 
 Start-up and shutdown. When the plan uses the chip (`opl` is not `None`, even for music that does not play yet), `start` keys off every channel of bank 0 and the rhythm register and, for an OPL3, first writes 0x105 = 1 and 0x104 = 0 and keys off bank 1. `audio::stop` is on the clean-up list, so it runs at exit and in the panic handler: it keys off both banks, writes 0x105 = 0 so an OPL3 leaves OPL3 mode, and closes the speaker gate. The timer's own clean-up puts the PIT and the vector back. A write to the chip is the register port, six status reads, the data port and 35 status reads (Fizz 1's settling times), so the busiest tick of a cluck, the patch with about a dozen writes, takes roughly 40 port reads each.
 
-Music is not played yet. The plan's music field only decides whether the chip runs in OPL3 mode, and channels 5 and 14 are the effects' whatever it holds.
+Music is not played yet (the song source and its checks are in [MUSIC.md](MUSIC.md)). The plan's music field only decides whether the chip runs in OPL3 mode, and channels 5 and 14 are the effects' whatever it holds.
 
 The run's `AUDIO WRITES <n> SPEAKER STEPS <m>` line counts every OPL register write the service made (the start and stop key-offs included) and every speaker step. `tools/check-dos.sh` runs `/REPLAY` under an OPL3 Sound Blaster, a Pro 2, an OPL2 Sound Blaster, an OPL2 with no Sound Blaster, no card and the flags, requires the golden `TICK`, `FINAL` and `EVENT` lines every time, and requires writes with a chip, speaker steps on the speaker and zeros when silent.
 
