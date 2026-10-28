@@ -156,7 +156,15 @@ mod tests {
         assert_eq!(d.feed(0x1C), ev(KeyCode::Enter, true));
         assert_eq!(d.feed(0x9C), ev(KeyCode::Enter, false));
         let out = feed_all(&mut d, &[0xE0, 0x1C, 0xE0, 0x9C]);
-        assert_eq!(out, [None, ev(KeyCode::Enter, true), None, ev(KeyCode::Enter, false)]);
+        assert_eq!(
+            out,
+            [
+                None,
+                ev(KeyCode::Enter, true),
+                None,
+                ev(KeyCode::Enter, false)
+            ]
+        );
     }
 
     #[test]
