@@ -38,8 +38,9 @@
 //!   from bright to dark halfway through and blinks out over the last quarter. Fizz 1's in-world sound captions (`cap` in
 //!   `episodes/episode-1/game/src/world.rs`, a table of text and colour; 950 ms, 24 pixels of rise, linear fade, a 1-pixel
 //!   shadow) are the model; the slice is 320 pixels wide, so the rise is halved, and the 8 by 8 font has capital shapes
-//!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption near the edge is moved inside the frame
-//!   instead of being dropped, unless its chicken is more than 50 pixels off screen (Fizz 1's limit), when it is dropped. The captions option gates only the text; the beak always moves.
+//!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption follows its chicken's
+//!   position exactly and is cut off by the frame's edge as the chicken leaves it, never moved inside; it is dropped once the
+//!   chicken is more than one tile ([`CAPTION_REACH`]) outside the frame. The captions option gates only the text; the beak always moves.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
 //!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
 //!   `shoot` while the rules' shooting pose runs (`aimUp` or `aimDown` when the shot went straight up or down, as Fizz 1's
@@ -334,8 +335,10 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
 /// pixels of air.
 pub const CAPTION_ABOVE_FEET: i32 = 34;
 
-/// How far outside the frame, in pixels, a chicken's feet may be and still have a caption (Fizz 1's limit).
-pub const CAPTION_REACH: i32 = 50;
+/// How far outside the frame, in pixels, a chicken's feet may be and still have a caption: one tile. Fizz 1 drops a caption
+/// whose source is more than 50 CSS pixels outside the viewport, about 5% of its roughly 1000 by 700 pixel viewport and so
+/// under one tile; 16 pixels is the same proportion of this 320 by 200 frame.
+pub const CAPTION_REACH: i32 = 16;
 
 /// Where a chicken's live caption stands, before a presenter decides how to draw it. Both presenters take it from
 /// [`caption_view`], so they agree on which captions exist, for how long and for which chicken.
@@ -348,15 +351,15 @@ pub struct CaptionView {
     pub dark: u8,
     /// Ticks since the cluck, from 0 up to but not including [`CAPTION_TICKS`].
     pub age: u32,
-    /// The chicken's feet in frame pixels, which may lie outside the frame by up to [`CAPTION_REACH`].
+    /// The chicken's feet in frame pixels, which may lie outside the frame by up to [`CAPTION_REACH`]; presenters draw it there unclamped and let the edge clip it.
     pub x: i32,
     pub y: i32,
 }
 
 /// The caption of chicken `c` in a `w` by `h` frame drawn from `world`, or `None` when it has none: no cluck yet, the
-/// caption's life is over, or the chicken is more than 50 pixels off screen (Fizz 1's limit, because clamping would pin a
-/// word to the edge for a chicken the player cannot see; the feet may be that far below the frame while the head is still
-/// in it). Pure: it reads the chicken and the camera only.
+/// caption's life is over, or the chicken's feet are more than [`CAPTION_REACH`] outside the frame on any side. The position is the chicken's
+/// true one, never clamped, so a presenter lets the frame cut a word off as its chicken leaves, as Fizz 1 does. Pure: it
+/// reads the chicken and the camera only.
 pub fn caption_view(
     world: &World,
     w: usize,
@@ -379,7 +382,7 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
     if x < -CAPTION_REACH
         || x > w as i32 + CAPTION_REACH
         || y < -CAPTION_REACH
-        || y > h as i32 + CAPTION_REACH + CAPTION_ABOVE_FEET
+        || y > h as i32 + CAPTION_REACH
     {
         return None;
     }
@@ -411,9 +414,9 @@ fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at:
     let rise = (age * CAPTION_RISE as u32 / CAPTION_TICKS) as i32;
     let text = cap.text;
     let width = text_width(text);
-    // Centred on the chicken, a little above its head, and moved inside the frame (the shadow needs one more pixel).
-    let left = (cap.x - width / 2).clamp(0, (w as i32 - width - 1).max(0));
-    let top = (cap.y - CAPTION_ABOVE_FEET - rise).clamp(0, (h as i32 - 9).max(0));
+    // Centred on the chicken, a little above its head, and not moved: the frame clips it per pixel.
+    let left = cap.x - width / 2;
+    let top = cap.y - CAPTION_ABOVE_FEET - rise;
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
     draw_text(frame, w, h, left, top, text, colour);
 }
@@ -491,8 +494,8 @@ mod tests {
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
         (197, 0x2d57854b7aee9077, 0x72d540e334aa0693),
         (217, 0x03843befb7eff66f, 0x1b12c767752c9322),
-        (853, 0x3026d93845e773b9, 0x8e928974e44f33b3),
-        (873, 0x8107ef252b16db26, 0x0b38a92100a6d5cc),
+        (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
+        (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
         (1094, 0xfdb0c73c8b23cb88, 0xfdb0c73c8b23cb88),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
@@ -550,8 +553,8 @@ mod tests {
     fn frames_at_chosen_ticks_are_pinned() {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
-        // Tick 865 is 12 ticks after the cluck at 853: a caption floats in the picture, so its digest changed when the
-        // cluck visuals arrived (from 0x1e0d93372eb50e10). `without_clucks` draws the world as it was drawn before, and its
+        // Tick 865 is 12 ticks after the cluck at 853. Its chicken is off screen below the frame, so no caption is drawn and the
+        // digest is the old one again (it was pinned to a clamped caption once). `without_clucks` draws the world as it was drawn before, and its
         // digests are the old ones at every tick, which shows the change is the cluck's pixels and nothing else.
         let mut seen = Vec::new();
         let mut old = Vec::new();
@@ -585,7 +588,7 @@ mod tests {
                 (400, 0xe88d2a8a227b4cfb),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xdda9c10396315bd2),
-                (865, 0x99314a9f8475a4fe),
+                (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
             ]
@@ -657,6 +660,43 @@ mod tests {
         assert!(view(&far).is_none());
     }
 
+    #[test]
+    fn a_caption_follows_its_chicken_off_the_edge_unclamped() {
+        let view = |w: &World| caption_view(w, VIEW_W, VIEW_H, &w.chickens[0]);
+        let on_screen = view(&cluck_world(0, 3)).expect("a caption");
+        // Move the chicken so its feet stand `x` frame pixels from the left edge (the camera follows Ben, not the chicken).
+        let with_feet_at = |x: i32| {
+            let mut w = cluck_world(0, 3);
+            w.chickens[0].b.x += f64::from(x - on_screen.x) / 16.0;
+            w
+        };
+        // Just off the left edge: the caption stands at the chicken's true x, so the frame cuts it off.
+        let cap = view(&with_feet_at(-6)).expect("a clipped caption");
+        assert_eq!((cap.x, cap.y), (-6, on_screen.y));
+        // Exactly one tile out still has one; 20 pixels out has none; the same on the right.
+        assert_eq!(view(&with_feet_at(-CAPTION_REACH)).map(|c| c.x), Some(-16));
+        assert!(view(&with_feet_at(-20)).is_none());
+        assert_eq!(
+            view(&with_feet_at(VIEW_W as i32 + 16)).map(|c| c.x),
+            Some(336)
+        );
+        assert!(view(&with_feet_at(VIEW_W as i32 + 20)).is_none());
+        // The pixel word is centred on the chicken and cut by the frame: with the feet at -6 it spans -42 to 30, so its
+        // right part is drawn and no pixel is moved in to keep the whole word.
+        let w = with_feet_at(-6);
+        let mut with = vec![0u8; VIEW_W * VIEW_H];
+        draw_slice(&mut with, VIEW_W, VIEW_H, &w, 0);
+        let mut bare = vec![0u8; VIEW_W * VIEW_H];
+        let off = DrawOptions { captions: false };
+        draw_slice_with(&mut bare, VIEW_W, VIEW_H, &w, 0, &off);
+        let changed: Vec<usize> = (0..with.len())
+            .filter(|&i| with[i] != bare[i])
+            .map(|i| i % VIEW_W)
+            .collect();
+        assert!(changed.iter().any(|&x| x < 8), "{changed:?}");
+        assert!(changed.iter().all(|&x| x <= 31), "{changed:?}");
+    }
+
     /// Every world in the replay whose chicken clucked within the caption's life, with the cluck's age.
     fn cluck_moments() -> Vec<(World, u32)> {
         let mut out = Vec::new();
@@ -721,7 +761,7 @@ mod tests {
             }
         }
         assert!(
-            beaks >= 10 && captions >= 50,
+            beaks >= 10 && captions >= 40,
             "{beaks} beak frames, {captions} caption frames"
         );
     }
@@ -851,8 +891,8 @@ mod tests {
         let (first, last) = (top(0).unwrap(), top(CAPTION_TICKS - 1).unwrap());
         assert_eq!(first - last, CAPTION_RISE as usize - 1, "{first} to {last}");
         assert!((0..CAPTION_TICKS).all(|a| top(a).is_none_or(|y| y <= first && y >= last)));
-        // At the left edge, the right edge and the top of the frame the caption is moved inside, not dropped.
-        for (x, y) in [(2.0, 11.0), (21.0, 11.0), (8.0, 17.0)] {
+        // At the left edge, the right edge and the top of the frame the caption is cut by the frame, not moved inside.
+        for (x, y) in [(2.0, 11.0), (21.0, 11.0), (8.0, 16.0)] {
             let mut w = w.clone();
             w.chickens[0].b.x = x;
             w.chickens[0].b.y = y;
@@ -860,7 +900,8 @@ mod tests {
             let t = w.tick.0 as u32;
             let on = picture_with(&w, t, true);
             let off = picture_with(&w, t, false);
-            let (x0, y0, x1, y1) = changed_box(&off, &on).expect("caption");
+            let (x0, y0, x1, y1) =
+                changed_box(&off, &on).unwrap_or_else(|| panic!("caption at {x},{y}"));
             assert!(x1 < VIEW_W && y1 < VIEW_H, "{x0},{y0}..{x1},{y1}");
         }
         // A frame too small for the text is safe.

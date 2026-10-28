@@ -125,11 +125,10 @@ function showCaptions(app) {
     }
     const w = el.offsetWidth;
     const h = el.offsetHeight;
-    // The anchor is the word's centre; lift is in word heights. Keep the whole word inside the canvas, as the DOS picture does.
-    let cx = app.caption_x(i) * scale;
-    let cy = (app.caption_y(i) - CAPTION_ANCHOR_ABOVE_FEET) * scale + (0.5 - lift) * h;
-    cx = Math.min(Math.max(cx, w / 2 + 2), Math.max(shownWidth - w / 2 - 2, w / 2 + 2));
-    cy = Math.min(Math.max(cy, h / 2 + 2), Math.max(shownHeight - h / 2 - 2, h / 2 + 2));
+    // The anchor is the word's centre; lift is in word heights. It follows the chicken exactly, as in Fizz 1: never moved to stay
+    // inside, so the layer's overflow clips it as the chicken leaves. The module drops it a tile outside the picture.
+    const cx = app.caption_x(i) * scale;
+    const cy = (app.caption_y(i) - CAPTION_ANCHOR_ABOVE_FEET) * scale + (0.5 - lift) * h;
     el.style.opacity = String(opacity);
     el.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) scale(${size})`;
   });

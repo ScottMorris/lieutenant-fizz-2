@@ -221,12 +221,12 @@ impl App {
             .map_or_else(String::new, |c| c.text.into())
     }
 
-    /// The x of caption `i`, the chicken's centre, in canvas pixels (0 to `width`; it may lie a little outside).
+    /// The x of caption `i`, the chicken's centre, in canvas pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
     pub fn caption_x(&self, i: usize) -> f64 {
         self.live_captions.get(i).map_or(0.0, |c| f64::from(c.x))
     }
 
-    /// The y of caption `i`, the chicken's feet, in canvas pixels (0 to `height`; it may lie a little outside).
+    /// The y of caption `i`, the chicken's feet, in canvas pixels (0 to `height`; it may lie up to a tile outside, and is not clamped).
     pub fn caption_y(&self, i: usize) -> f64 {
         self.live_captions.get(i).map_or(0.0, |c| f64::from(c.y))
     }

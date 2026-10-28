@@ -42,7 +42,7 @@ On the Web there is no quit key; close the tab.
 
 ### Captions
 
-When the chicken clucks, its beak opens and its words float above its head for about a second, rising a little and fading, as the sound words do in Lieutenant Fizz 1. The words depend on the cluck: `buh-gawk!`, `bwuk`, `bwuk-bwuk` or `bwuk, bwuk` (on the Web they are lower-case text over the picture, as in Lieutenant Fizz 1; the DOS screen font has only capital letters, so there they show as capitals), each in its own colour. The double clucks open the beak twice. A word near the edge of the picture moves inside it, and the chicken's words are left out while it is far off screen. There is no sound yet, so these are the only sign that the chicken has clucked.
+When the chicken clucks, its beak opens and its words float above its head for about a second, rising a little and fading, as the sound words do in Lieutenant Fizz 1. The words depend on the cluck: `buh-gawk!`, `bwuk`, `bwuk-bwuk` or `bwuk, bwuk` (on the Web they are lower-case text over the picture, as in Lieutenant Fizz 1; the DOS screen font has only capital letters, so there they show as capitals), each in its own colour. The double clucks open the beak twice. The words stay with the chicken, so as it walks off the edge of the picture its words are cut off by the edge with it, and they are left out once it is more than a tile outside the picture. There is no sound yet, so these are the only sign that the chicken has clucked.
 
 ![The Web slice just after the chicken clucks: its beak is open and BWUK-BWUK floats above it, drawn at the top of the picture because the chicken stands near it. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-cluck.png)
 
