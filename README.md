@@ -45,6 +45,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `crates/fizz-view` | What both presenters share below the scene: the pixel rule, the follow camera, sprite and tile drawing, the font and the generated sprite data |
 | `crates/fizz-slice-view` | `draw_slice`, the one routine that draws the slice for both presenters |
 | `crates/fizz-sfx` | Generated OPL2 and PC speaker data for the cluck and the steppers that play it |
+| `crates/fizz-music` | Generated OPL2 and OPL3 register streams for the placeholder level music (no player yet) |
 | `crates/fizz-hal` | Hardware abstraction traits mirrored from Desk: clock, input, display and the interrupt ring |
 | `crates/fizz-machine` | The pure model of the DOS start-up check: probe data, sound settings and resolver, and the text screen |
 | `crates/fizz-present-dos` | The DOS frame, palette, font and key mapping, with no DOS calls |

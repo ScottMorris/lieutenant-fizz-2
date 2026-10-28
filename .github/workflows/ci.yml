@@ -73,3 +73,7 @@ jobs:
         run: |
           bun test assets/music
           bun tools/music/notes.ts --check
+      - name: Test the music lowering and check the generated music data
+        run: |
+          bun test tools/music
+          bun tools/music/generate.ts --check
