@@ -38,7 +38,7 @@ On the Web there is no quit key; close the tab.
 ### Choosing your keys
 
 - **Web:** the Keys button in the panel (`H`) switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
-- **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys. Without it you get the Keen keys.
+- **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys, or `FIZZ2.EXE /KEEN` for the Keen keys. With neither, you get the layout saved in `FIZZ2.CFG`, and the Keen keys if there is no file.
 
 ### Captions
 
@@ -49,7 +49,7 @@ When the chicken clucks, its beak opens and its words float above its head for a
 *The Web build (commit b238803) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
 
 - **Web:** the Captions button in the panel (`H`) turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
-- **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. A choice kept between runs comes with the settings screen, later.
+- **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. With neither, the choice saved in `FIZZ2.CFG` is used.
 
 Turning captions off hides only the words; the beak still opens.
 
@@ -72,7 +72,7 @@ On the Web, press `F` or use the Fullscreen button to fill the screen, and press
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
 
 - `/LIVE` — you play the slice. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
@@ -88,13 +88,12 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 
 ### Command-line switches
 
-Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), options (`/MODERN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), options (`/MODERN`, `/KEEN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
 
 The help screen, as `FIZZ2.EXE /?` prints it:
 
 ```
-Lieutenant Fizz 2 for DOS
-Usage: FIZZ2.EXE [mode] [switches]. Letter case does not matter.
+Lieutenant Fizz 2 for DOS. Usage: FIZZ2.EXE [mode] [switches]; case is ignored.
 Modes (the first one given is used; /LIVE is the default)
   /LIVE         Play the slice from the keyboard; Esc ends it
   /REPLAY       Run the built-in script and print its transcript
@@ -105,6 +104,7 @@ Modes (the first one given is used; /LIVE is the default)
   /?            Show this help (also /HELP and -?); nothing else runs
 Options (for this run; where one has an opposite, the last one given wins)
   /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
+  /KEEN         Use Keen's keys, even if FIZZ2.CFG saved the Modern ones
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
@@ -134,7 +134,7 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins.
 
-To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)). A screen to change it will come later, and until then the game does not write the file itself.
+To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)), whether the screen shakes and spins when Ben dies (Motion: Full or Reduced), how sound effects are placed (Enhanced, or Classic with every effect centred at full volume), the captions (On or Off) and the key layout (Keen or Modern). When you ask for none of these on the command line, the file's choice is used, and a choice you give on the command line wins over the file for that run only. `/KEEN`, `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS` are the switches for the last two. A screen to change the file will come later, and until then the game does not write the file itself. A value in the file that the game does not understand resets only that one choice to its usual setting. Older files, from earlier builds, are still read.
 
 ### Frame rate on DOS
 
@@ -289,7 +289,7 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
-- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Motion, Restart, Fullscreen, Sound and Music buttons, a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Motion, Restart, Fullscreen, Sound and Music buttons, a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
