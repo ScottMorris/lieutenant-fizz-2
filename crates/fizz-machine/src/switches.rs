@@ -25,6 +25,7 @@ pub enum Mode {
     MusicTest,
     ReplanTest,
     MenuShot,
+    Options,
 }
 
 /// What a switch does.
@@ -117,7 +118,7 @@ pub const SWITCHES: &[Switch] = &[
         Arg::None,
         Group::Modes,
         Kind::Mode(Mode::Live),
-        "Play the slice from the keyboard; Esc ends it",
+        "Play the slice from the keyboard; Esc pauses",
     ),
     sw(
         "/REPLAY",
@@ -289,6 +290,13 @@ pub const SWITCHES: &[Switch] = &[
         Group::Developer,
         Kind::Mode(Mode::MenuShot),
         "Draw the Options and Paused screens and print their hashes",
+    ),
+    sw(
+        "/OPTIONS",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::Options),
+        "Open the Options screen at once; Esc leaves",
     ),
     sw(
         "/AUDIO",
@@ -687,6 +695,13 @@ mod tests {
             run(&["/menushot"]),
             Parsed::Run(Invocation {
                 mode: Mode::MenuShot,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/options"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Options,
                 ..live
             })
         );
