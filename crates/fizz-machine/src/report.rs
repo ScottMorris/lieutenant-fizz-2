@@ -247,7 +247,10 @@ mod tests {
         let auto = Settings::default();
         assert_eq!(sound(auto, &sb16, None), "SOUND MUSIC opl3 FX ch14");
         assert_eq!(sound(auto, &opl2, None), "SOUND MUSIC opl2 FX ch5");
-        assert_eq!(sound(auto, &Probe::BARE, None), "SOUND MUSIC off FX speaker");
+        assert_eq!(
+            sound(auto, &Probe::BARE, None),
+            "SOUND MUSIC off FX speaker"
+        );
         let sb = Settings {
             music: MusicChoice::Sb,
             fx: FxChoice::Sb,

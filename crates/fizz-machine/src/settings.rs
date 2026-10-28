@@ -457,14 +457,20 @@ mod tests {
         let (p, issue) = Config::parse_prefs(&bytes);
         assert_eq!(issue, Some(ConfigIssue::BadMusic));
         assert_eq!(p.sound.music, MusicChoice::Auto);
-        assert_eq!((p.sound.fx, p.frame_rate), (FxChoice::Speaker, FrameRate::Hz30));
+        assert_eq!(
+            (p.sound.fx, p.frame_rate),
+            (FxChoice::Speaker, FrameRate::Hz30)
+        );
 
         let mut bytes = Config::encode_prefs(&base);
         bytes[6] = 5;
         let (p, issue) = Config::parse_prefs(&bytes);
         assert_eq!(issue, Some(ConfigIssue::BadEffects));
         assert_eq!(p.sound.fx, FxChoice::Auto);
-        assert_eq!((p.sound.music, p.frame_rate), (MusicChoice::AdLib, FrameRate::Hz30));
+        assert_eq!(
+            (p.sound.music, p.frame_rate),
+            (MusicChoice::AdLib, FrameRate::Hz30)
+        );
 
         let mut bytes = Config::encode_prefs(&base);
         bytes[7] = 3;

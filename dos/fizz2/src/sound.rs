@@ -92,11 +92,18 @@ pub fn cfgtest_mode() -> i32 {
         let _ = write!(hex, "{b:02X}");
     }
     println!("CFG BYTES {hex}");
-    println!("CFG ROUNDTRIP {}", if back == prefs && issue.is_none() { "yes" } else { "no" });
+    println!(
+        "CFG ROUNDTRIP {}",
+        if back == prefs && issue.is_none() { "yes" } else { "no" }
+    );
     println!("FPU CW {:04X}", fpu::control_word());
     println!(
         "VECTORS RESTORED {}",
-        if irq0.is_some() && dpmi::get_pm_vector(irq::vector_of(0)).ok() == irq0 { "yes" } else { "no" }
+        if irq0.is_some() && dpmi::get_pm_vector(irq::vector_of(0)).ok() == irq0 {
+            "yes"
+        } else {
+            "no"
+        }
     );
     0
 }
