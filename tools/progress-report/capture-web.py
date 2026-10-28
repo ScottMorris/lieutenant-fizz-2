@@ -4,7 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: python3 tools/progress-report/capture-web.py OUTDIR [--port 9417] [--chromium /usr/bin/chromium] [--explore]
+# usage: python3 tools/progress-report/capture-web.py OUTDIR [--port 9417] [--chromium /usr/bin/chromium] [--explore] [--manual]
 #
 # Standard library only. Needs dist/web from tools/build-web.sh. dist/web is served on 127.0.0.1:PORT by `http.server` in a thread,
 # Chromium runs headless with a remote-debugging port, and this script speaks the DevTools protocol over a minimal WebSocket client.
@@ -14,7 +14,8 @@
 # The `replay` scenes press the keys of `SLICE_SCRIPT` (read from crates/fizz-ep2/src/replay.rs) one tick at a time, so the page
 # reaches the golden transcript's states; the HUD's HASH at tick 60 is compared with the golden file's before anything is saved.
 # Each shot is listed with its scene, window size, tick and the page's HUD in OUTDIR/web.json. --explore saves a shot every
-# 10 ticks of the replay instead, to choose ticks from.
+# 10 ticks of the replay instead, to choose ticks from. --manual takes the manual's screenshots (MANUAL_SCENES, 1280 by 720 and a phone
+# window) instead of the archive's, under the names docs/images uses; the page's HUD for each is still listed in web.json.
 import base64
 import functools
 import http.server
@@ -36,6 +37,8 @@ ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 CODES = {"L": "ArrowLeft", "R": "ArrowRight", "U": "ArrowUp", "D": "ArrowDown", "J": "ControlLeft", "P": "AltLeft", "F": "Space"}
 KEYS = {"ArrowRight": 39, "ArrowDown": 40, "ArrowLeft": 37, "ArrowUp": 38, "Space": 32, "ControlLeft": 17, "AltLeft": 18}
 KEY_TEXT = {"Space": " ", "ControlLeft": "Control", "AltLeft": "Alt"}
+# Keys of the page's own screens, pressed one at a time by the "menu" and "panel" scenes: code -> (virtual key, key).
+PAGE_KEYS = {"Escape": (27, "Escape"), "ArrowDown": (40, "ArrowDown"), "Enter": (13, "Enter"), "KeyH": (72, "h")}
 MODIFIER = {"ControlLeft": 2, "AltLeft": 1}
 
 # Replaces the page's clock before its scripts run: time moves only when __frame(ms) is called, and sets the clock to `ms`.
@@ -52,7 +55,9 @@ CLOCK = """
 # Scenes: (file, window width, window height, kind, argument). Kind "hold" takes ([(first tick, end tick, buttons)], ticks to
 # play) and presses the buttons for those ticks; kind "replay" plays SLICE_SCRIPT and stops at the tick given, or, for
 # ("death", n), n ticks after the HUD first reads DEATHS 1. Kind "ledge" plays the first n ticks of SLICE_SCRIPT, which leave Ben
-# standing on the first ledge, then presses buttons as "hold" does, counted from that tick: (n, spans, ticks to play).
+# standing on the first ledge, then presses buttons as "hold" does, counted from that tick: (n, spans, ticks to play). Kind "menu" plays
+# n ticks with nothing held, then presses the page keys in the list one after another ("Escape" opens Paused, then "ArrowDown" and "Enter"
+# open Options); kind "panel" plays n ticks and presses H to show the panel.
 SCENES = [
     ("web-start.png", 960, 540, "hold", ([], 40)),
     ("web-portrait.png", 390, 780, "hold", ([], 40)),
@@ -62,6 +67,23 @@ SCENES = [
     ("web-puff.png", 960, 540, "replay", 108),
     ("web-cluck.png", 960, 540, "replay", 201),
     ("web-stars.png", 960, 540, "replay", 300),
+    ("web-paused.png", 960, 540, "menu", (60, ["Escape"])),
+    ("web-options.png", 960, 540, "menu", (60, ["Escape", "ArrowDown", "Enter"])),
+]
+
+# The manual's screenshots: (file under docs/images, window width, height, kind, argument), the same kinds.
+MANUAL_SCENES = [
+    ("web-slice-fire.png", 1280, 720, "hold", ([(38, 39, "F")], 40)),
+    ("web-cluck.png", 1280, 720, "replay", 201),
+    ("web-stun.png", 1280, 720, "replay", 300),
+    ("web-look-up.png", 1280, 720, "ledge", (150, [(0, 60, "U")], 60)),
+    ("web-look-down.png", 1280, 720, "ledge", (236, [(0, 90, "D")], 90)),
+    ("web-aim-down.png", 1280, 720, "hold", ([(30, 50, "J"), (37, 39, "DF")], 41)),
+    ("web-puff.png", 1280, 720, "replay", 108),
+    ("web-panel.png", 1280, 720, "panel", 40),
+    ("web-portrait.png", 540, 1140, "replay", 300),
+    ("web-paused.png", 1280, 720, "menu", (40, ["Escape"])),
+    ("web-options.png", 1280, 720, "menu", (40, ["Escape", "ArrowDown", "Enter"])),
 ]
 
 
@@ -192,6 +214,11 @@ class Page:
         if self.tick() != before + 1:
             raise RuntimeError("the page moved from tick %d to %d in one frame" % (before, self.tick()))
 
+    def press(self, code):
+        vk, key = PAGE_KEYS[code]
+        for kind in ("keyDown", "keyUp"):
+            self.ws.call("Input.dispatchKeyEvent", type=kind, code=code, key=key, windowsVirtualKeyCode=vk)
+
     def shot(self, out, name):
         png = base64.b64decode(self.ws.call("Page.captureScreenshot", format="png")["data"])
         with open(os.path.join(out, name), "wb") as f:
@@ -206,6 +233,7 @@ def main(argv):
     port = int(argv[argv.index("--port") + 1]) if "--port" in argv else 9417
     chromium = argv[argv.index("--chromium") + 1] if "--chromium" in argv else "/usr/bin/chromium"
     explore = "--explore" in argv
+    scenes = MANUAL_SCENES if "--manual" in argv else SCENES
     site = os.path.join(ROOT, "dist", "web")
     if not os.path.exists(os.path.join(site, "index.html")):
         print("capture-web: no dist/web; run tools/build-web.sh", file=sys.stderr)
@@ -241,7 +269,7 @@ def main(argv):
         ws.call("Page.enable")
         ws.call("Page.addScriptToEvaluateOnNewDocument", source=CLOCK)
         p = Page(ws, "http://127.0.0.1:%d/index.html" % port)
-        for name, w, h, kind, arg in SCENES:
+        for name, w, h, kind, arg in scenes:
             if explore and kind != "replay":
                 continue
             p.load(w, h)
@@ -249,6 +277,13 @@ def main(argv):
                 spans, until = arg
                 for t in range(until):
                     p.step("".join(b for a, z, b in spans if a <= t < z))
+            elif kind in ("menu", "panel"):
+                for _ in range(arg if kind == "panel" else arg[0]):
+                    p.step("")
+                for code in ["KeyH"] if kind == "panel" else arg[1]:
+                    p.press(code)
+                    if kind == "menu":
+                        p.frame()  # the game is held, so the frame draws the screen and runs no tick
             elif kind == "ledge":
                 lead, spans, until = arg
                 for held in per_tick[:lead]:
