@@ -13,6 +13,7 @@
 import * as Undertone from '@liminal-hq/undertone';
 import type { AudioContextLike } from '@liminal-hq/undertone';
 import { CLUCK } from '../assets/sfx/cluck.ts';
+import { routedContext } from './audio.ts';
 import { effectSeconds, isNoise, type SfxVoice } from '../assets/sfx/voice.ts';
 
 /** Most clucks sounding at once. Further ones are dropped, so a pile-up cannot clip. */
@@ -103,6 +104,8 @@ export interface SfxOptions {
   storage?: StorageLike | null;
   /** The page's query string, for `?audio=classic`. The default is `location.search`. */
   search?: string;
+  /** The node the clucks end in, once the context exists (the audio root's sfx bus). Without it they go straight to the speakers. */
+  destination?: () => unknown;
 }
 
 function defaultContext(): ContextLike {
@@ -133,6 +136,8 @@ export class Sfx {
   private readonly createContext: () => ContextLike;
   private readonly isHidden: () => boolean;
   private readonly storage: StorageLike | null;
+  private readonly destination: (() => unknown) | undefined;
+  private routed: ContextLike | null = null;
   private ctx: ContextLike | null = null;
   private failed = false;
   private _muted: boolean;
@@ -146,6 +151,7 @@ export class Sfx {
     this.createContext = options.createContext ?? defaultContext;
     this.isHidden = options.isHidden ?? (() => typeof document !== 'undefined' && document.hidden);
     this.storage = options.storage === undefined ? defaultStorage() : options.storage;
+    this.destination = options.destination;
     this._muted = this.readMuted();
     const queried = new URLSearchParams(options.search ?? defaultSearch()).get('audio');
     // A `?audio=` query chooses the mode for this visit and wins over the remembered choice, which it does not overwrite.
@@ -251,7 +257,7 @@ export class Sfx {
         fx = this.U.stack(...voices.map((v) => buildVoice(this.U, v, pan, gain)));
         if (centred) this.cache.set(Math.trunc(variant), fx);
       }
-      fx.play({ ctx });
+      fx.play({ ctx: this.target(ctx) });
     } catch (err) {
       console.warn('A cluck could not be played', err);
       return false;
@@ -266,6 +272,14 @@ export class Sfx {
     } catch {
       return 'enhanced';
     }
+  }
+
+  /** The context a cluck is played into: the real one, or a view of it ending in the sfx bus. */
+  private target(ctx: ContextLike): ContextLike {
+    const dest = this.destination?.();
+    if (!dest) return ctx;
+    this.routed ??= routedContext(ctx, dest) as ContextLike;
+    return this.routed;
   }
 
   private readMuted(): boolean {

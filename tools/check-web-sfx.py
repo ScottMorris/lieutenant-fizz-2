@@ -12,7 +12,11 @@
 # slice transcript lists first, at tick 197. The checks are:
 #   1. no key pressed: no AudioContext is made and nothing is scheduled, though the cluck at tick 197 has passed;
 #   2. a key pressed first: one context, resumed, and the cluck's oscillators match the variant's voices in assets/sfx/cluck.ts;
-#   3. M mutes: the button says off, nothing is scheduled, the choice is in localStorage and survives a reload; M turns it on again.
+#   3. M mutes: the button says off, nothing is scheduled, the choice is in localStorage and survives a reload; M turns it on again;
+#   4. the placeholder music (assets/music, web/music.ts): nothing is audible before a key; the first key schedules bar 1's notes
+#      (the bass, its partner, the pad and the hats of assets/music/events.ts) and the shared context is made once; M suspends the
+#      context; a muted page does not start the song; the Music button turns the song off, remembered as fizz2-music, and back on.
+# The stand-in's clock stays at 0, so only the first fraction of a second of the song is scheduled: bar 1's first beat.
 # This proves what the page asks the browser to play. It does not hear anything: the sound has not been listened to.
 import functools
 import http.server
@@ -36,25 +40,28 @@ spec.loader.exec_module(capture)
 
 KEYS = {"ShiftLeft": 16, "KeyM": 77}
 KEY_TEXT = {"ShiftLeft": "Shift", "KeyM": "m"}
+NUDGE = 0.01  # seconds: the largest nudge of a part (the partner voices start 2 ms late)
+START_LATENCY = 0.1  # seconds: Undertone's loop starts its pattern this long after it is called
 
 # Replaces AudioContext before the page's scripts run and records what is scheduled into window.__audio.
 STUB = """
 (() => {
-  const log = { made: 0, resumed: 0, osc: [], noise: 0, panners: 0 };
+  const log = { made: 0, resumed: 0, suspended: 0, state: 'none', osc: [], noise: 0, noiseStarts: [], panners: 0, limiters: 0 };
   window.__audio = log;
   const param = (onSet) => ({ value: 0, setValueAtTime(v, t) { if (onSet) onSet(v, t); }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
   const node = (extra = {}) => ({ connect() {}, start() {}, stop() {}, ...extra });
   window.AudioContext = class {
-    constructor() { log.made++; this.state = 'suspended'; this.currentTime = 0; this.sampleRate = 44100; this.destination = node(); }
-    resume() { log.resumed++; this.state = 'running'; return Promise.resolve(); }
-    suspend() { this.state = 'suspended'; return Promise.resolve(); }
+    constructor() { log.made++; this.state = 'suspended'; log.state = this.state; this.currentTime = 0; this.sampleRate = 44100; this.destination = node(); }
+    resume() { log.resumed++; this.state = log.state = 'running'; return Promise.resolve(); }
+    suspend() { log.suspended++; this.state = log.state = 'suspended'; return Promise.resolve(); }
+    createDynamicsCompressor() { log.limiters++; return node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }); }
     createOscillator() { const o = { type: 'sine', hz: null }; log.osc.push(o);
-      return node({ type: 'sine', frequency: param((v) => { if (o.hz === null) o.hz = v; }), start() { o.type = this.type; } }); }
+      return node({ type: 'sine', frequency: param((v) => { if (o.hz === null) o.hz = v; }), start(t) { o.type = this.type; o.t = t; } }); }
     createGain() { return node({ gain: param() }); }
     createBiquadFilter() { return node({ type: 'lowpass', frequency: param(), Q: param() }); }
     createStereoPanner() { log.panners++; return node({ pan: param() }); }
     createChannelMerger() { return node(); }
-    createBufferSource() { log.noise++; return node({ buffer: null, loop: false, playbackRate: param() }); }
+    createBufferSource() { log.noise++; return node({ buffer: null, loop: false, playbackRate: param(), start(t) { log.noiseStarts.push(t); } }); }
     createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) }; }
     createConvolver() { return node({ buffer: null }); }
     createDelay() { return node({ delayTime: param() }); }
@@ -69,6 +76,17 @@ def expected_voices(variant):
     script = (
         "import {CLUCK} from './assets/sfx/cluck.ts'; import {voiceHz,isNoise} from './assets/sfx/voice.ts';"
         "const v=CLUCK[%d]; console.log(JSON.stringify({tones:v.filter(x=>!isNoise(x.n)).map(x=>[x.w??'triangle',voiceHz(x)]),noise:v.filter(x=>isNoise(x.n)).length}))" % variant
+    )
+    out = subprocess.run(["bun", "-e", script], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+def expected_first_beat():
+    """The notes of the song at tick 0, from assets/music: sorted Hz of the tones, and the number of noise bursts."""
+    script = (
+        "import {levelSong} from './assets/music/songs.ts'; import {noteEvents} from './assets/music/events.ts';"
+        "const e=noteEvents(levelSong()).filter(x=>x.tick===0);"
+        "console.log(JSON.stringify({hz:e.filter(x=>x.midi!==null).map(x=>440*2**((x.midi-69)/12)).sort((a,b)=>a-b),noise:e.filter(x=>x.midi===null).length,parts:[...new Set(e.map(x=>x.part))]}))"
     )
     out = subprocess.run(["bun", "-e", script], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return json.loads(out)
@@ -119,6 +137,12 @@ class Page:
     def button(self):
         return self.js("document.getElementById('sound').textContent")
 
+    def music_button(self):
+        return self.js("document.getElementById('music').textContent")
+
+    def click(self, element_id):
+        self.js("document.getElementById(%r).click()" % element_id)
+
 
 failures = []
 
@@ -138,6 +162,7 @@ def main(argv):
         return 2
     tick, variant = golden_first_cluck()
     want = expected_voices(variant)
+    beat = expected_first_beat()
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
@@ -177,27 +202,70 @@ def main(argv):
         # 2. A key first: the cluck plays, as the right variant.
         page.load()
         page.key("ShiftLeft")
+        time.sleep(0.5)
+        music = page.audio()  # the song's first beat, scheduled by the key; the clock is frozen so nothing more follows
         page.wait_tick(tick + 20)
         a = page.audio()
-        check(a["made"] == 1 and a["resumed"] >= 1, "the first key makes one context and resumes it")
-        got = [[o["type"], o["hz"]] for o in a["osc"]]
+        check(a["made"] == 1 and a["resumed"] >= 1 and a["limiters"] == 1, "the first key makes one context with its limiter, and resumes it")
+        # The cluck's voices are the sources after the song's.
+        got = [[o["type"], o["hz"]] for o in a["osc"][len(music["osc"]):]]
         same = len(got) == len(want["tones"]) and all(g[0] == w[0] and abs(g[1] - w[1]) < 1e-6 for g, w in zip(got, want["tones"]))
-        check(same and a["noise"] == want["noise"] and a["panners"] in (0, len(want["tones"]) + want["noise"]),
+        check(same and a["noise"] - music["noise"] == want["noise"] and a["panners"] - music["panners"] in (0, len(want["tones"]) + want["noise"]),
               "the cluck at tick %d schedules variant %d: %d tones and %d noise bursts, placed (a panner on every voice, or none when the chicken is dead centre)" % (tick, variant, len(want["tones"]), want["noise"]))
 
         # 3. M mutes, and the choice is remembered.
         page.load()
         page.key("ShiftLeft")
+        time.sleep(0.5)
+        before = page.audio()
         page.key("KeyM")
         check(page.button() == "Sound: off, M to toggle", "M turns the button to off")
         page.wait_tick(tick + 20)
         a = page.audio()
-        check(not a["osc"] and a["noise"] == 0, "muted, the cluck schedules nothing")
+        check(a["state"] == "suspended" and a["suspended"] >= 1, "M suspends the shared context, so the song and the cluck stop together")
+        check(len(a["osc"]) == len(before["osc"]) and a["noise"] == before["noise"], "muted, the cluck schedules nothing")
         check(page.js("localStorage.getItem('fizz2-sound')") == "off", "the mute choice is in localStorage")
         page.load()
         check(page.button() == "Sound: off, M to toggle", "after a reload the page is still muted")
         page.key("KeyM")
         check(page.button() == "Sound: on, M to toggle", "M turns sound on again")
+        page.js("localStorage.clear()")
+
+        # 4. The music. Nothing before a key (check 1 covers the cluck; the song makes no source either); the first key starts bar 1.
+        page.load()
+        check(page.music_button() == "Music: on", "the Music button starts as 'Music: on'")
+        time.sleep(0.5)
+        a = page.audio()
+        check(a["made"] == 0 and not a["osc"] and a["noise"] == 0 and a["limiters"] == 0, "before any key the song makes no context and schedules nothing")
+        page.key("ShiftLeft")
+        time.sleep(0.5)
+        a = page.audio()
+        hz = sorted(o["hz"] for o in a["osc"] if o["t"] is not None and abs(o["t"] - START_LATENCY) < NUDGE)
+        check(len(hz) == len(beat["hz"]) and all(abs(x - y) < 1e-6 for x, y in zip(hz, beat["hz"])) and sum(1 for t in a["noiseStarts"] if abs(t - START_LATENCY) < NUDGE) == beat["noise"],
+              "the first key schedules bar 1's first beat: %d tones (%s) and %d hat burst" % (len(beat["hz"]), ", ".join("%.1f Hz" % x for x in beat["hz"]), beat["noise"]))
+        check(a["made"] == 1 and a["limiters"] == 1, "the clucks and the song share one context")
+        # The panel button turns only the song off, and the choice is remembered.
+        page.click("music")
+        check(page.music_button() == "Music: off" and page.js("localStorage.getItem('fizz2-music')") == "off", "the Music button turns the song off and remembers it")
+        check(page.audio()["state"] == "running", "turning the music off leaves the context running for the clucks")
+        page.load()
+        check(page.music_button() == "Music: off", "after a reload the music is still off")
+        page.key("ShiftLeft")
+        time.sleep(0.5)
+        a = page.audio()
+        check(not a["osc"] and a["noise"] == 0, "with the music off, the first key schedules no song")
+        page.click("music")
+        time.sleep(0.5)
+        a = page.audio()
+        check(len(a["osc"]) > 0 and page.js("localStorage.getItem('fizz2-music')") == "on", "the Music button turns the song back on, from bar 1")
+        # A muted page does not start the song at its first key.
+        page.js("localStorage.clear()")
+        page.js("localStorage.setItem('fizz2-sound', 'off')")
+        page.load()
+        page.key("ShiftLeft")
+        time.sleep(0.5)
+        a = page.audio()
+        check(not a["osc"] and a["noise"] == 0, "a page that starts muted schedules no song at its first key")
         page.js("localStorage.clear()")
     finally:
         proc.terminate()

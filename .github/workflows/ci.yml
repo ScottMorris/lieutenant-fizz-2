@@ -60,7 +60,7 @@ jobs:
       - name: Build the Web presenter
         run: tools/build-web.sh
       - name: Test the Web sound player
-        run: bun test web/sfx.test.ts
+        run: bun test web
       - name: Check parity
         run: tools/check-parity.sh
       - name: Check the sprite grids and generated data
