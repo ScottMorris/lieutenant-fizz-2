@@ -225,7 +225,7 @@ One write is 2 port writes and 41 status reads, which the port's own assumption 
 web/audio.ts     AudioRoot: one AudioContext, a music bus, an sfx bus, a limiter; routedContext
 web/music.ts     Music: builds the song as Fizz 1's loopSong does and loops it on the music bus
 web/sfx.ts       Sfx: the cluck, which now ends in the sfx bus when given a destination
-web/main.js      the lifecycle: first key or click, M, the panel's Music button, the hidden tab
+web/main.js      the lifecycle: first key or click, M, the Options screen's Music row, the hidden tab
 ```
 
 **Graph.** The cluck voices go into the sfx gain, the song into the music gain, and both into a `DynamicsCompressor` and out to the speakers. Undertone connects every voice to `ctx.destination`; `routedContext(ctx, bus)` is a view of the context whose destination is a bus, which is how each player is sent to its own gain. The limiter (threshold -6 dB, knee 6, ratio 6, attack 3 ms, release 150 ms) is there because Undertone has none and a cluck landing on a loud bar could clip; it should not be audible otherwise.
@@ -241,10 +241,10 @@ web/main.js      the lifecycle: first key or click, M, the panel's Music button,
 - Nothing is created or scheduled before a user gesture. The first key press or click (`pointerdown`, `keydown`) makes the context through `Sfx.unlock()` and then calls `Music.sync()`, which starts the song from bar 1 if the Music toggle is on and sound is not muted.
 - `M` mutes everything: `Sfx` suspends the shared context, which freezes the song and silences the cluck. Unmuting resumes it where it was. If the page started muted, the song starts from bar 1 the first time it is unmuted.
 - A hidden tab suspends the context and a shown one resumes it (`Sfx.sync`).
-- The panel's Music button stops and starts only the song, always from bar 1. The choice is remembered in `localStorage` as `fizz2-music` (`on` or `off`, default on); blocked storage just means it is not remembered.
+- The Music row of the Options screen stops and starts only the song, always from bar 1. The choice is remembered in the `music` field of the `fizz2-options` blob in `localStorage` (`on` or `off`, default on; `web/options.ts` migrates the older `fizz2-music` key); `Music` is given no storage of its own, and blocked storage just means it is not remembered.
 - The song keeps playing through death, respawn and the level exit. The rules never start, stop or read it: no `Event`, no change to the state hash or the golden transcript.
 - If Undertone throws, there is no music and one console warning; there is no built-in fallback synth.
 
-**Checks.** `bun test web/music.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` and a hand-stepped timer: over one loop the sources scheduled match `noteEvents()` for start time (nudge included), pitch (or noise) and pan, one for one; the loop repeats; the buses and the limiter are wired; nothing exists before unlock; `M` and the toggle behave; a broken Undertone warns once. `tools/check-web-sfx.py` drives the built page in headless Chromium with a stand-in: nothing before a key, bar 1's first beat after one, `M` suspends the context, a muted page starts no song, and the Music button works and is remembered. Listening renders are not committed.
+**Checks.** `bun test web/music.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` and a hand-stepped timer: over one loop the sources scheduled match `noteEvents()` for start time (nudge included), pitch (or noise) and pan, one for one; the loop repeats; the buses and the limiter are wired; nothing exists before unlock; `M` and the toggle behave; a broken Undertone warns once. `tools/check-web-sfx.py` drives the built page in headless Chromium with a stand-in: nothing before a key, bar 1's first beat after one, `M` suspends the context, a muted page starts no song, and the Music option works and is remembered. Listening renders are not committed.
 
 **Not verified.** Nobody has heard it. Browser autoplay behaviour in practice, the level of the two buses, whether the limiter is ever heard, the pans and how the song sounds against the cluck all need the owner's ears.
