@@ -551,7 +551,7 @@ CRATE_ROLE = {  # name: (fill class, what it is)
     "fizz-sim": ("e11", "tick, hash, input"), "fizz-phys": ("e11", "Fizz 1's physics"), "fizz-ep2": ("e11", "Ben, chicken, level"),
     "fizz-view": ("e10", "frame, camera, font"), "fizz-slice-view": ("e10", "the one slice drawing"),
     "fizz-present-dos": ("e10", "320x200 frame, HUD"), "fizz-present-web": ("e10", "wasm-bindgen App"),
-    "fizz-hal": ("e14", "clock, input, display"), "fizz-machine": ("e14", "probe, settings, check"),
+    "fizz-hal": ("e14", "clock, input, display"), "fizz-machine": ("e14", "probe, settings, check"), "fizz-menu": ("e14", "menu list, Options rows"),
     "fizz-sfx": ("e12", "cluck on OPL and speaker"), "fizz-music": ("e12", "music OPL streams"),
     "fizz-dos-rt": ("e13", "DPMI, timer, audio, VGA"), "fizz2": ("e13", "FIZZ2.EXE"), "rtsmoke": ("e13", "runtime smoke test"),
 }

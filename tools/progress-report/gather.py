@@ -296,7 +296,7 @@ def stacks(prs):
 
 CRATES = [
     ("fizz-sim", r"^crates/fizz-sim/.*\.rs$"), ("fizz-phys", r"^crates/fizz-phys/.*\.rs$"), ("fizz-ep2", r"^crates/fizz-ep2/.*\.rs$"),
-    ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"), ("fizz-machine", r"^crates/fizz-machine/.*\.rs$"), ("fizz-view", r"^crates/fizz-view/.*\.rs$"), ("fizz-slice-view", r"^crates/fizz-slice-view/.*\.rs$"),
+    ("fizz-hal", r"^crates/fizz-hal/.*\.rs$"), ("fizz-machine", r"^crates/fizz-machine/.*\.rs$"), ("fizz-menu", r"^crates/fizz-menu/.*\.rs$"), ("fizz-view", r"^crates/fizz-view/.*\.rs$"), ("fizz-slice-view", r"^crates/fizz-slice-view/.*\.rs$"),
     ("fizz-present-dos", r"^crates/fizz-present-dos/.*\.rs$"), ("fizz-present-web", r"^crates/fizz-present-web/.*\.rs$"), ("fizz-sfx", r"^crates/fizz-sfx/.*\.rs$"), ("fizz-music", r"^crates/fizz-music/.*\.rs$"),
     ("fizz-dos-rt", r"^dos/rt/.*\.rs$"), ("fizz2", r"^dos/fizz2/.*\.rs$"), ("rtsmoke", r"^dos/rtsmoke/.*\.rs$"),
 ]

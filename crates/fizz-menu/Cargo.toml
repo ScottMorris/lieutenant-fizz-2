@@ -1,0 +1,10 @@
+[package]
+name = "fizz-menu"
+description = "The menu model for Lieutenant Fizz 2: a generic list with a cursor, the Options screen's rows and words, and the Paused menu, as pure code"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-machine = { path = "../fizz-machine" }
