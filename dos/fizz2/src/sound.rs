@@ -6,8 +6,8 @@
 // Provenance: written for this repository.
 //
 // Precedence, per field: a flag wins over the file, the file over Auto. Flags are one-run overrides and are never saved: `save` takes the
-// `Prefs` that `load_file` returned, never the flagged settings. Nothing plays yet; the resolved plan is printed as the `SOUND` line and
-// handed on for the audio service.
+// `Prefs` that `load_file` returned, never the flagged settings. The resolved plan is printed as the `SOUND` line and
+// handed to the audio service (`fizz_dos_rt::audio`), which plays the cluck on it.
 use alloc::string::String;
 use core::fmt::Write;
 use fizz_dos_rt::dos::{DosError, File, Mode};
@@ -46,8 +46,7 @@ pub fn load(args: &[String]) -> (Settings, Option<ConfigIssue>) {
 
 /// What a run will do with sound: the resolved plan and the line that reports it.
 pub struct Plan {
-    /// Read by the audio service (P13); only the `SOUND` line uses it today.
-    #[allow(dead_code)]
+    /// What the audio service plays on (`fizz_dos_rt::audio::start`).
     pub resolved: Resolved,
     line: String,
 }

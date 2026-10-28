@@ -21,7 +21,10 @@
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
 //                       last one given wins). The beak still moves. A settings-file field replaces this switch with the settings package
-//   FIZZ2.EXE /PANIC    hooks IRQ 0 and panics, to show the clean-up list runs (exit status 3)
+//   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
+//
+// /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
+// line with the register writes and speaker steps it made; /BENCH keeps the 60 Hz timer its stopwatch is built for.
 //
 // Output is printed only after the screen is back in text mode and the vectors are restored. Interrupt handlers (in the runtime)
 // never touch the x87; the control word is set to 027Fh first so `f64` rounds as IEEE doubles do.
@@ -37,9 +40,10 @@ mod machine;
 mod sound;
 
 use core::fmt::{self, Write};
-use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
-use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level};
+use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
+use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
+use fizz_machine::Resolved;
 use fizz_present_dos::{DrawOptions, Frame, Layout, Puffs, ega_palette, key_to_buttons, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
@@ -99,10 +103,15 @@ fn vector_now(line: u8) -> Vector {
     dpmi::get_pm_vector(irq::vector_of(line)).ok()
 }
 
-fn start_session(keyboard: bool) -> Result<Session, irq::Error> {
+/// Hooks the timer: at 560 Hz with the audio service for `sound` when there is a plan, at 60 Hz when there is not (`/BENCH`, whose
+/// stopwatch is built for the 60 Hz period). The simulation is paced from either clock by the integer `Pacer`.
+fn start_session(keyboard: bool, sound: Option<&Resolved>) -> Result<Session, irq::Error> {
     let irq0 = vector_now(0);
     let irq1 = vector_now(1);
-    timer::hook_60hz()?;
+    match sound {
+        Some(plan) => audio::start(plan)?,
+        None => timer::hook_60hz()?,
+    }
     if keyboard {
         kbd::hook()?;
     }
@@ -117,7 +126,26 @@ fn start_session(keyboard: bool) -> Result<Session, irq::Error> {
 fn end_session(display: &mut DosDisplay) {
     display.restore_text_mode();
     kbd::unhook();
+    audio::stop();
     timer::unhook();
+}
+
+/// Hands the clucks the last step emitted to the audio service. It has no effect on the rules.
+fn play_events(world: &World) {
+    for event in world.events() {
+        match *event {
+            Event::Cluck { variant, .. } => audio::cluck(variant),
+        }
+    }
+}
+
+/// The `AUDIO` line: how many OPL register writes and speaker steps the run made. Call it once the service has stopped.
+fn print_audio() {
+    println!(
+        "AUDIO WRITES {} SPEAKER STEPS {}",
+        audio::register_writes(),
+        audio::speaker_steps()
+    );
 }
 
 fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
@@ -196,10 +224,13 @@ fn main() -> i32 {
     } else if mode.eq_ignore_ascii_case("/BENCH") {
         bench(bench_limit, &options)
     } else if mode.eq_ignore_ascii_case("/PANIC") {
-        if let Err(e) = timer::hook_60hz() {
+        // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
+        let plan = sound::Plan::new(&machine::probe_machine());
+        if let Err(e) = audio::start(&plan.resolved) {
             println!("HOOK FAILED {:?}", e);
             return 1;
         }
+        audio::cluck(0);
         println!("HOOKED, PANICKING");
         panic!("requested by /PANIC");
     } else {
@@ -212,7 +243,7 @@ fn main() -> i32 {
 fn replay(options: &DrawOptions) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
     let sound = sound::Plan::new(&machine::probe_machine());
-    let session = match start_session(false) {
+    let session = match start_session(false, Some(&sound.resolved)) {
         Ok(s) => s,
         Err(e) => {
             println!("HOOK FAILED {:?}", e);
@@ -252,6 +283,7 @@ fn replay(options: &DrawOptions) -> i32 {
             let now = SLICE_SCRIPT[run].1;
             left = left.saturating_sub(1);
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
+            play_events(&world);
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
             puffs.observe(&world);
@@ -271,6 +303,7 @@ fn replay(options: &DrawOptions) -> i32 {
         println!("{}", line);
     }
     sound.print();
+    print_audio();
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
     println!("EXIT {}", if exited { "yes" } else { "no" });
     println!("FPU CW {:04X}", cw);
@@ -281,7 +314,7 @@ fn replay(options: &DrawOptions) -> i32 {
 
 /// Times the slice (see `bench`): the figures, then the platform lines, printed once the screen is back in text mode.
 fn bench(limit: u64, options: &DrawOptions) -> i32 {
-    let session = match start_session(false) {
+    let session = match start_session(false, None) {
         Ok(s) => s,
         Err(e) => {
             println!("HOOK FAILED {:?}", e);
@@ -333,7 +366,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
 
 fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let sound = sound::Plan::new(&machine::probe_machine());
-    let session = match start_session(true) {
+    let session = match start_session(true, Some(&sound.resolved)) {
         Ok(s) => s,
         Err(e) => {
             println!("HOOK FAILED {:?}", e);
@@ -372,6 +405,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
             }
             fizz_ep2::step(&mut world, latch.frame());
             puffs.observe(&world);
+            play_events(&world);
         }
         if due > 0 {
             draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);
@@ -384,6 +418,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let moved = world.ben.b.x.to_bits() != level::SPAWN.0.to_bits() || world.ben.b.y.to_bits() != level::SPAWN.1.to_bits();
     println!("LIVE TICKS {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
     sound.print();
+    print_audio();
     println!("MOVED {}", if moved { "yes" } else { "no" });
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     0

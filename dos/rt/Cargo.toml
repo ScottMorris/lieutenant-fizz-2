@@ -11,3 +11,8 @@ authors.workspace = true
 # The panic handler is a lang item that `std` defines for itself, so a program that links `std` turns this off.
 default = ["panic-handler"]
 panic-handler = []
+
+[dependencies]
+# The audio service steps the effect records and applies the OPL write router; both crates are no_std, safe and dependency-free.
+fizz-sfx = { path = "../../crates/fizz-sfx" }
+fizz-machine = { path = "../../crates/fizz-machine" }
