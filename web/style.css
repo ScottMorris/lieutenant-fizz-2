@@ -75,6 +75,11 @@ canvas {
   will-change: transform, opacity;
 }
 
+:root {
+  /* Fizz 2's accent, light magenta ("grape"); crates/fizz-view/src/theme.rs holds the same value and a test keeps them equal. */
+  --fizz: #ff55ff;
+}
+
 /* The HUD: Fizz 1's desktop HUD panel (episodes/episode-1/src/ui/hud.css): dark glass, small dim labels over big pixel digits, 16 px
    from the corner. main.js sets --n, the whole-number pixel scale, from the stage's height (Fizz 1's rule, hud.ts `hudScale`) and
    --key-px for the key chip. It sits above the captions and below the panel and its toast, takes no clicks, and does not move. */
@@ -126,7 +131,7 @@ canvas {
 #play-hud .num {
   font-family: "Fizz Mono", ui-monospace, monospace;
   font-weight: 700;
-  color: #55ffff;
+  color: var(--fizz);
 }
 
 /* Deaths is a plain count, not the Fizz: Fizz 1's light text colour, so it is never taken for the ammunition. */

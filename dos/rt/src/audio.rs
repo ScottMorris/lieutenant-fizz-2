@@ -45,6 +45,24 @@
 // through two atomics only: the pending cluck (`xchg`, no `cmpxchg`, which DOSBox's 486 refuses) and the counters. `stop` clears the
 // active flag first, so a tick that arrives while the chip is being put back does nothing.
 //
+// Changing devices while the game runs (`replan`). The Options screen changes the music and effects devices without leaving the game.
+// `replan` runs in the program, never in the handler. It clears `ACTIVE` first (the handler returns before it touches the state, and
+// the handler never nests, so it is not part way through a tick when the program runs), then the program alone owns the state: it
+// silences what the old plan was using, swaps in a new `Service` built for the new plan (a plain store into a static, so nothing is
+// allocated and the handler never sees half of it), and sets `ACTIVE` again. Ticks that arrive while it works are skipped: the
+// timer and the BIOS clock go on, only the audio steps pause for the few milliseconds the key-off writes take. What it does:
+//
+// - when only the effects device changes and the chip mode and the music are as they were, the music keeps playing; the old effect
+//   is keyed off (channel 5 of bank 0, and of bank 1 for the pair) or the speaker gate closed, and the new device starts silent;
+// - otherwise every channel of both banks is keyed off, the speaker gate is closed when the old plan used the speaker, OPL3 mode is
+//   switched off (register 0x105 = 0) when the new plan has no OPL3 use and on (`chip_up`'s enable writes) when it has, and the music
+//   starts again from the first tick of its prelude on the new arrangement, if it had been started;
+// - the reserved channels are the plan's, as they are at `start`: effects on channel 5 of bank 0 (left, 0x10) and channel 14 (bank 1,
+//   right, 0x20), music on the others, music never on 0x104 or 0x105.
+//
+// The counters (`WRITES`, `ALL_WRITES`, `SPEAKER_STEPS`, `SERVICE_TICKS`) keep counting across a replan; the music's own counters start
+// again when its player does.
+//
 // Reset (`stop`, on the clean-up list, so also in the panic handler): every channel keyed off in both banks, register 0x105 back to 0 so an
 // OPL3 leaves OPL3 mode, the speaker gate closed.
 use crate::{cleanup, irq, port, timer};
@@ -93,6 +111,10 @@ static MUSIC_LOOPS: AtomicU32 = AtomicU32::new(0);
 static MUSIC_HASH: AtomicU32 = AtomicU32::new(0x811c_9dc5);
 static MUSIC_MAX_TICK: AtomicU32 = AtomicU32::new(0);
 static MUSIC_ORDER: AtomicU8 = AtomicU8::new(0);
+/// Handler ticks that ran the service, whatever it did. Written by the handler only.
+static SERVICE_TICKS: AtomicU32 = AtomicU32::new(0);
+/// Set by `music_start`: the program wants the music, so `replan` starts it again on a new arrangement.
+static MUSIC_WANTED: AtomicBool = AtomicBool::new(false);
 /// The most OPL writes any one tick made (music and effects together).
 static MAX_TICK_WRITES: AtomicU32 = AtomicU32::new(0);
 /// Whether the handler times itself, and its sum, largest and count in PIT clocks.
@@ -337,6 +359,7 @@ fn service() {
     // SAFETY: see `IrqCell`; this is the only reader after `start`.
     let state = unsafe { &mut *SERVICE.0.get() };
     let before = ALL_WRITES.load(Ordering::Relaxed);
+    SERVICE_TICKS.store(SERVICE_TICKS.load(Ordering::Relaxed).wrapping_add(1), Ordering::Relaxed);
     if PROFILE.load(Ordering::Relaxed) {
         let t0 = pit_count();
         state.tick();
@@ -393,6 +416,8 @@ fn reset(plan: &Resolved) {
     unsafe { *SERVICE.0.get() = Service::new(plan) };
     PENDING.store(0, Ordering::Relaxed);
     MUSIC_REQ.store(false, Ordering::Relaxed);
+    MUSIC_WANTED.store(false, Ordering::Relaxed);
+    SERVICE_TICKS.store(0, Ordering::Relaxed);
     WRITES.store(0, Ordering::Relaxed);
     ALL_WRITES.store(0, Ordering::Relaxed);
     OPL3_ON.store(false, Ordering::Relaxed);
@@ -444,8 +469,100 @@ fn chip_up(plan: &Resolved) {
 /// no music or the song is already playing. It plays until `stop` and loops itself.
 pub fn music_start() {
     if ACTIVE.load(Ordering::Relaxed) {
+        MUSIC_WANTED.store(true, Ordering::Relaxed);
         MUSIC_REQ.store(true, Ordering::Relaxed);
     }
+}
+
+/// Keys off every channel the old plan could have sounding on `mode` (1 OPL2, 2 OPL3, 0 none).
+fn silence_chip(mode: u8) {
+    if mode != 0 {
+        key_off_bank(0);
+        if mode == 2 {
+            key_off_bank(1);
+        }
+    }
+}
+
+/// Moves the running service to `plan`: the music and effects devices, live. Call it from the program, never from the handler. Returns
+/// whether anything changed (a plan equal to the one running does nothing, so the music is not restarted). A no-op when the service is
+/// not running. See the header for what is silenced, the OPL3 mode and the music restart.
+pub fn replan(plan: &Resolved) -> bool {
+    if !ACTIVE.load(Ordering::Relaxed) {
+        return false;
+    }
+    // The handler returns at once while this is clear, and cannot be part way through a tick: it does not nest, and this is the program.
+    ACTIVE.store(false, Ordering::Release);
+    // SAFETY: `ACTIVE` is clear, so the handler does not touch the cell until it is set again below.
+    let state = unsafe { &mut *SERVICE.0.get() };
+    let card = card_of(plan);
+    let changed = if state.opl == plan.opl && state.card == card && state.fx == plan.fx {
+        false
+    } else if state.opl == plan.opl && state.card == card {
+        // Only the effects device changed: the music goes on, the old effect is silenced.
+        if state.fx == FxPlan::Speaker {
+            speaker_off();
+        }
+        match state.fx {
+            FxPlan::Ch5 => opl_write(0, 0xB0 + EFFECT_CHANNEL, 0),
+            FxPlan::Ch14 => {
+                opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
+                opl_write(1, 0xB0 + EFFECT_CHANNEL, 0);
+            }
+            FxPlan::Off | FxPlan::Speaker => {}
+        }
+        state.fx = plan.fx;
+        state.opl_player = None;
+        state.pair = None;
+        state.speaker = None;
+        true
+    } else {
+        let old = CHIP.load(Ordering::Relaxed);
+        if state.fx == FxPlan::Speaker {
+            speaker_off();
+        }
+        silence_chip(old);
+        if old == 2 && plan.opl != OplMode::Opl3 {
+            opl_write(1, 0x05, 0x00);
+        }
+        let ticks = state.ticks;
+        *state = Service::new(plan);
+        state.ticks = ticks;
+        MUSIC_ARR.store(
+            match card {
+                None => 0,
+                Some(Card::Opl2) => 1,
+                Some(Card::Opl3) => 2,
+            },
+            Ordering::Relaxed,
+        );
+        MUSIC_TICKS.store(0, Ordering::Relaxed);
+        MUSIC_WRITES.store(0, Ordering::Relaxed);
+        MUSIC_LOOPS.store(0, Ordering::Relaxed);
+        MUSIC_HASH.store(Fnv::new().value(), Ordering::Relaxed);
+        MUSIC_MAX_TICK.store(0, Ordering::Relaxed);
+        MUSIC_ORDER.store(0, Ordering::Relaxed);
+        MUSIC_REQ.store(MUSIC_WANTED.load(Ordering::Relaxed), Ordering::Relaxed);
+        chip_up(plan);
+        true
+    };
+    ACTIVE.store(true, Ordering::Release);
+    changed
+}
+
+/// Whether the last write to register 0x105 turned OPL3 mode on (the chip's mode as the service left it).
+pub fn opl3_mode() -> bool {
+    OPL3_ON.load(Ordering::Relaxed)
+}
+
+/// Whether the PC speaker's gate and data bits (port 0x61 bits 0 and 1) are set: read from the port, so it is the hardware's answer.
+pub fn speaker_gate_open() -> bool {
+    port::inb(SPEAKER_PORT) & 3 != 0
+}
+
+/// Handler ticks that ran the service since `start`.
+pub fn service_ticks() -> u32 {
+    SERVICE_TICKS.load(Ordering::Relaxed)
 }
 
 /// Turns the handler's self-timing on or off (see the header). Call it before the run and read `profile` after `stop`.
@@ -555,16 +672,11 @@ pub fn stop() {
         return;
     }
     timer::set_tick_hook(None);
-    match CHIP.load(Ordering::Relaxed) {
-        0 => {}
-        mode => {
-            key_off_bank(0);
-            if mode == 2 {
-                key_off_bank(1);
-                // Back to OPL2 mode, so whatever runs next sees a chip in its power-up state.
-                opl_write(1, 0x05, 0x00);
-            }
-        }
+    let mode = CHIP.load(Ordering::Relaxed);
+    silence_chip(mode);
+    if mode == 2 {
+        // Back to OPL2 mode, so whatever runs next sees a chip in its power-up state.
+        opl_write(1, 0x05, 0x00);
     }
     speaker_off();
     cleanup::forget(stop);

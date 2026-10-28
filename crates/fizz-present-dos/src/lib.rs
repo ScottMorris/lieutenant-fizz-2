@@ -236,14 +236,14 @@ mod tests {
                 .filter(|&(x, y)| f.pixels()[y * WIDTH + x] == colour)
                 .count()
         };
-        assert!(in_box(&frame, LIGHT_CYAN) > 0);
+        assert!(in_box(&frame, fizz_view::theme::FIZZ_INDEX) > 0);
         assert_eq!(in_box(&frame, LIGHT_RED), 0);
         world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
         render_slice(&world, &mut frame);
         assert!(in_box(&frame, LIGHT_RED) > 0);
         world.ammo = 0;
         render_slice(&world, &mut frame);
-        assert_eq!(in_box(&frame, LIGHT_CYAN), 0);
+        assert_eq!(in_box(&frame, fizz_view::theme::FIZZ_INDEX), 0);
         // The right-hand end of the old bar, where TICK was, is now picture.
         same_outside(&frame, &bare);
     }

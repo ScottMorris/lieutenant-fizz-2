@@ -31,5 +31,6 @@ pub use resolve::{FxPlan, MusicPlan, Reason, Resolved, SoundState, SoundStates, 
 pub use route::{OplMode, Stream, enable_writes, route};
 pub use screen::{CELLS, COLS, MEMORY_FLOOR_KB, ROWS, cells, ready};
 pub use settings::{
-    Config, ConfigIssue, FlagReport, FrameRate, FxChoice, MusicChoice, Prefs, Settings, apply_flags,
+    Captions, Config, ConfigIssue, FlagReport, FrameRate, FxChoice, Keys, Motion, MusicChoice,
+    PlacementMode, Prefs, Settings, apply_flags,
 };

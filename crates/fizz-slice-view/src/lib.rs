@@ -47,7 +47,7 @@
 //!   1.5 a second and fades out over 0.3 s. DOS has no alpha or scaling, so the view plays [`PUFF_TICKS`] (18) ticks of
 //!   four baked frames: `puff0` (8 pixels, 0.5x) for ticks 0 to 5, `puff1` (12 pixels, 0.75x) for 6 to 11, `puff2` (15
 //!   pixels, 0.95x, Fizz 1's size at the end of its life) for 12 to 14, and `puff3`, `puff2` thinned to a sparse dither, for 15 to
-//!   17. It is cyan, Ben's shot colour; the slice has no enemy shots, so there is no red one. A puff stays where the shot
+//!   17. It is light magenta (Fizz 2's accent, `fizz_view::theme`), Ben's shot colour; the slice has no enemy shots, so there is no red one. A puff stays where the shot
 //!   ended in the world, so the camera moves past it. The rules keep no puff state: [`Puffs`] is the view's own fixed list,
 //!   fed by [`Puffs::observe`] after each step.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
@@ -922,6 +922,9 @@ fn blit_sprite_turned(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fizz_view::theme::FIZZ_INDEX;
+
+    const MAGENTA: u8 = 5;
     use fizz_ep2::level;
     use fizz_ep2::tiles::FILL;
     use fizz_ep2::world::{WorldFlags, step};
@@ -1164,12 +1167,12 @@ mod tests {
                 let with = puff_picture(w, puffs);
                 let without = picture(w, t);
                 let diff = with.iter().zip(&without).filter(|(a, b)| a != b).count();
-                // A puff is at most 15 by 15 and only the cyan and light cyan of the puff may differ.
+                // A puff is at most 15 by 15 and only the magenta and light magenta of the puff may differ.
                 assert!(diff <= 15 * 15 * n, "tick {t}: {diff} pixels differ");
                 assert!(
                     with.iter()
                         .zip(&without)
-                        .all(|(a, b)| a == b || *a == CYAN || *a == LIGHT_CYAN),
+                        .all(|(a, b)| a == b || *a == MAGENTA || *a == FIZZ_INDEX),
                     "tick {t}"
                 );
                 if diff == 0 {
@@ -1179,10 +1182,10 @@ mod tests {
         });
         assert_eq!(seen, [PUFF_TICKS; 3]);
         // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
-        // ends in the stunned chicken, whose body is the same cyan for three ticks of the puff's smallest frames.
+        // ends where its first three ticks leave no puff pixel in the frame (the picture is identical with and without the puff).
         let off_screen = 96..106;
-        let on_chicken = 285..288;
-        let expect: Vec<u32> = off_screen.chain(on_chicken).collect();
+        let hidden = 285..288;
+        let expect: Vec<u32> = off_screen.chain(hidden).collect();
         assert_eq!(blank, expect);
     }
 
@@ -1229,11 +1232,11 @@ mod tests {
         assert_eq!(
             seen,
             [
-                (100, 0xa6fe3df278ade580),
-                (110, 0xb5a13cb31b085f37),
-                (118, 0xac81d6427c2e2454),
-                (122, 0x3ab92795c87062b3),
-                (290, 0xc9b88498e1a8db55)
+                (100, 0xba0231d967abb0a0),
+                (110, 0x55260e66b1469bd9),
+                (118, 0x99d9df4620c971f0),
+                (122, 0x0facf9a9d78c6d75),
+                (290, 0x7d189607d70fe0f7)
             ]
         );
     }
@@ -1781,9 +1784,9 @@ mod tests {
                 ("stand", 0x3685_3ba7_d340_af03),
                 ("look up", 0x0814_4c64_8495_d0e4),
                 ("look down", 0x6efd_b16a_7546_e7cd),
-                ("aim level", 0xb78e_4f97_b6ae_b26e),
-                ("aim up", 0xac57_d4e8_fdef_dbe6),
-                ("aim down", 0x6c31_2cb2_b5dd_365e),
+                ("aim level", 0xaa84_66e3_2312_ec2e),
+                ("aim up", 0x5454_042d_e5be_5f2e),
+                ("aim down", 0x7d12_8656_0aae_d7ba),
             ]
         );
     }

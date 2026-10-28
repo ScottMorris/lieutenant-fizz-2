@@ -37,6 +37,29 @@ export const PUFF_SIZES = [8, 12, 15];
 /** Names of the baked puff frames: one per size, then the last size thinned to a dither (Fizz 1 fades the puff out; DOS has no alpha). */
 export const PUFF_NAMES = ['puff0', 'puff1', 'puff2', 'puff3'];
 
+/**
+ * The Fizz 2 recolour: Fizz 1 draws Ben's shots and puffs in cyan, and Fizz 2's Fizz colour is light magenta (EGA 13, "grape",
+ * `crates/fizz-view/src/theme.rs`). The letters below are swapped, by sprite name, after the Fizz 1 grid is read and before it is
+ * written, so re-running the exporter gives the same committed file. Light cyan `c` becomes light magenta `m`; cyan `C` and light
+ * blue `b` (the shot's body and the puff's core) become magenta `M`. Fizz 1's soda can (`soda()` in sprites/items.ts) has two
+ * light cyan bubble pixels and takes the same swap when it joins the slice.
+ */
+export const FIZZ_RECOLOUR: Record<string, Record<string, string>> = {
+  bubble: { c: 'm', b: 'M' },
+  puff0: { c: 'm', C: 'M' },
+  puff1: { c: 'm', C: 'M' },
+  puff2: { c: 'm', C: 'M' },
+  puff3: { c: 'm', C: 'M' },
+  soda: { c: 'm' },
+};
+
+/** Applies [`FIZZ_RECOLOUR`] to a sprite's rows, leaving every other letter alone. */
+export function recolour(name: string, rows: string[]): string[] {
+  const map = FIZZ_RECOLOUR[name];
+  if (!map) return rows;
+  return rows.map((r) => [...r].map((ch) => map[ch] ?? ch).join(''));
+}
+
 export const DEFAULT_FIZZ1 = `${homedir()}/source/liminal-hq/lieutenant-fizz`;
 
 export async function exportFizz1(fizz1: string): Promise<string> {
@@ -55,7 +78,7 @@ export async function exportFizz1(fizz1: string): Promise<string> {
       for (let x = 0; x < g.w; x++) r += g.at(x, y) ?? '.';
       rows.push(r);
     }
-    return { name, w: g.w, h: g.h, anchor: feetCentre(g.w, g.h), source: 'generated:fizz1', rows };
+    return { name, w: g.w, h: g.h, anchor: feetCentre(g.w, g.h), source: 'generated:fizz1', rows: recolour(name, rows) };
   });
   // The shot-end puff. Fizz 1's `puff()` (enemies.ts) is a 16 by 16 dithered ring (`W`) round a dithered core (`L`), tinted at
   // run time: cyan 0x55ffff for Ben's shots, which multiplies `W` to light cyan and `L` to about cyan. Baked here for the
@@ -81,7 +104,7 @@ export async function exportFizz1(fizz1: string): Promise<string> {
   puffs.push(last.map((r, y) => [...r].map((ch, x) => (y % 2 === 0 && x % 4 === 0 ? ch : '.')).join('')));
   puffs.forEach((rows, i) => {
     const n = rows.length;
-    sprites.push({ name: PUFF_NAMES[i], w: n, h: n, anchor: [n >> 1, n >> 1], source: 'generated:fizz1', rows });
+    sprites.push({ name: PUFF_NAMES[i], w: n, h: n, anchor: [n >> 1, n >> 1], source: 'generated:fizz1', rows: recolour(PUFF_NAMES[i], rows) });
   });
   return serialiseSet({ set: 'fizz1-slice', sprites });
 }

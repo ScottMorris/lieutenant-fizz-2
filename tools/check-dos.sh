@@ -319,6 +319,54 @@ musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch14'
 musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
 musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
+# 3d0b. /REPLANTEST: the audio service runs and `audio::replan` changes its music and effects devices live through eight plans (the
+# Options screen's job), printing a `REPLAN` line for each (see dos/fizz2/src/replan.rs). Under every card the walk must end cleanly with
+# the vectors restored, and each line must show: the handler kept ticking (TICKS rises) and so did what the plan plays (writes and music
+# ticks for a chip, speaker steps for the speaker); OPL3 mode on exactly when the new plan has OPL3 music or the OPL3 pair, so it is off
+# after the switch to AdLib; the speaker gate closed after any change, including those that leave a speaker cluck still sounding; and the
+# music starting again from its prelude (MUSIC0 0) when its device changed. At least one line must leave the speaker mid-cluck.
+replantest_case() {
+  local name="$1" conf="$2" out status=0 lines=0 left=0
+  local from to g0 opl gate changed m0 writes steps ticks music tmusic tfx fmusic want
+  out="$(DOS_CONF="$conf" DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /REPLANTEST)" || status=$?
+  [ "$status" = 0 ] || fail "/REPLANTEST ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qx 'REPLAN DONE 8' || fail "/REPLANTEST ($name) did not finish its eight plans"
+  printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/REPLANTEST ($name): FPU control word is not 027F"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLANTEST ($name) did not restore the vectors"
+  while read -r _ from _ to _ g0 _ opl _ gate _ changed _ m0 _ writes _ steps _ ticks _ music; do
+    lines=$((lines + 1))
+    tmusic="${to%%/*}" tfx="${to##*/}" fmusic="${from%%/*}" want=off
+    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch14 ]; then want=on; fi
+    [ "$opl" = "$want" ] || fail "/REPLANTEST ($name): OPL3 is $opl after $from -> $to (expected $want)"
+    [ "$ticks" -gt 0 ] || fail "/REPLANTEST ($name): the service stopped ticking after $from -> $to"
+    if [ "$changed" = yes ]; then
+      [ "$gate" = closed ] || fail "/REPLANTEST ($name): the speaker gate is $gate after $from -> $to"
+      if [ "$g0" = open ]; then left=$((left + 1)); fi
+      if [ "$from" != start ] && [ "$fmusic" != "$tmusic" ] && [ "$tmusic" != off ]; then
+        [ "$m0" = 0 ] || fail "/REPLANTEST ($name): the music did not start again after $from -> $to (MUSIC0 $m0)"
+      fi
+    fi
+    if [ "$tmusic" != off ]; then
+      { [ "$music" -gt 0 ] && [ "$writes" -gt 0 ]; } || fail "/REPLANTEST ($name): no music after $from -> $to"
+    else
+      [ "$music" = 0 ] || fail "/REPLANTEST ($name): music ticks $music after $from -> $to with the music off"
+    fi
+    if [ "$tfx" = speaker ]; then
+      [ "$steps" -gt 0 ] || fail "/REPLANTEST ($name): no speaker steps after $from -> $to"
+    else
+      [ "$steps" = 0 ] || fail "/REPLANTEST ($name): speaker steps $steps after $from -> $to"
+    fi
+  done < <(printf '%s\n' "$out" | grep '^REPLAN [^D]')
+  [ "$lines" = 8 ] || fail "/REPLANTEST ($name) printed $lines REPLAN lines, not 8"
+  [ "$left" -gt 0 ] || fail "/REPLANTEST ($name) never left a sounding speaker cluck"
+  echo "REPLANTEST case $name ok ($left changes left the speaker)"
+}
+replantest_case 'SB16' "$(sb sb16)"
+replantest_case 'SBPro2' "$(sb sbpro2)"
+replantest_case 'AdLib only' "$(sb none 'oplmode = opl2')"
+replantest_case 'no sound card' ''
+
 # 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
 # plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
 # file, the file over Auto, per field; flags never write the file; and a missing file is Auto with no message.
@@ -374,6 +422,19 @@ cfg_put 'FZ2C\x02\x02\x09\x00\x00'
 sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch14 cfg-effects' /PROBE
 cfg_put 'FZ2C\x02\x02\x02\x05\x00'
 sound_case 'corrupt: frame-rate byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5 cfg-framerate' /PROBE
+# Version 3 adds motion, placement, captions and keys (bytes 9 to 12); a bad value resets only its own field and has its own code.
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x01\x01\x01\x01'
+sound_case 'file v3' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x09\x00\x00\x00'
+sound_case 'corrupt: motion byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-motion' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x09\x00\x00'
+sound_case 'corrupt: placement byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-placement' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x09\x00'
+sound_case 'corrupt: captions byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-captions' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
+sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00'
+sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
 cfg_put ''
 sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
 # /LIVE prints the line too (Esc ends it).
@@ -388,7 +449,8 @@ cfg_none
 sound_case 'flags leave no file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with flags created FIZZ2.CFG"
 # The save path: /CFGTEST (a test mode, not for players) saves the settings the flags give with the 60 Hz frame rate, reads the file back
-# and prints it. The bytes are the documented version 2 layout, and a version 1 file is replaced by a version 2 one.
+# and prints it. The bytes are the documented version 3 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
+# set the keys and captions bytes), and a version 1 or 2 file is replaced by a version 3 one.
 cfgtest_case() {
   local name="$1" hex="$2" out status=0
   shift 2
@@ -403,11 +465,45 @@ cfgtest_case() {
   echo "CFGTEST case $name ok ($hex)"
 }
 cfg_none
-cfgtest_case 'sb and speaker' 465A32430203040200 /MUSIC:SB /FX:SPEAKER
-cfgtest_case 'nosound' 465A32430201010200 /NOSOUND
+cfgtest_case 'sb and speaker' 465A3243030304020001010000 /MUSIC:SB /FX:SPEAKER
+cfgtest_case 'nosound' 465A3243030101020001010000 /NOSOUND
+cfgtest_case 'modern keys, no captions' 465A3243030000020001010101 /MODERN /NOCAPTIONS
 cfg_put 'FZ2C\x01\x03\x03\x00'
-cfgtest_case 'replaces a version 1 file' 465A32430202020200 /ADLIB
-cfgtest_case 'no flags is Auto' 465A32430200000200
+cfgtest_case 'replaces a version 1 file' 465A3243030202020001010000 /ADLIB
+cfg_put "$V2"
+cfgtest_case 'replaces a version 2 file' 465A3243030000020001010000
+cfgtest_case 'no flags is Auto' 465A3243030000020001010000
+# The save is crash-safe: it writes FIZZ2.NEW, verifies it, deletes FIZZ2.CFG and renames. No FIZZ2.NEW is left behind, and the INT 24h
+# vector (the critical-error handler the save installs) is back where it was.
+cfgtest_case 'save leaves no FIZZ2.NEW' 465A3243030202020001010000 /ADLIB
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left FIZZ2.NEW behind"
+out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB | tr -d '\r')"
+printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "/CFGTEST did not restore INT 24h"
+# A read-only FIZZ2.CFG cannot be replaced: the save reports failure, the program exits cleanly with its vectors back, the file is
+# byte for byte what it was and no FIZZ2.NEW remains.
+cfg_put 'FZ2C\x02\x03\x03\x01\x00'
+chmod 444 "$cfgdir/FIZZ2.CFG"
+status=0
+out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB)" || status=$?
+chmod 644 "$cfgdir/FIZZ2.CFG"
+out="$(printf '%s\n' "$out" | tr -d '\r')"
+[ "$status" = 0 ] || fail "/CFGTEST on a read-only file exited $status"
+printf '%s\n' "$out" | grep -qx 'CFG SAVED no' || fail "a save over a read-only FIZZ2.CFG did not report failure"
+printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "a failed save did not restore the vectors"
+printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "a failed save did not restore INT 24h"
+[ "$(cfg_hex)" = '465a32430203030100' ] || fail "a failed save changed FIZZ2.CFG to $(cfg_hex)"
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a failed save left FIZZ2.NEW behind"
+echo "CFGTEST case read-only file ok"
+# A FIZZ2.NEW left by an interrupted save (the old file already deleted) is used when FIZZ2.CFG is missing, and a damaged one is not.
+cfg_none
+printf "$V2" > "$cfgdir/FIZZ2.NEW"
+sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
+printf 'junk' > "$cfgdir/FIZZ2.NEW"
+sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
+cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
 

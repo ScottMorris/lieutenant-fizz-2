@@ -8,7 +8,7 @@
 // A switch is added by adding one line to `SWITCHES` (and, if it does something new, a `Kind` and the code that acts on it). The
 // help text is written from the same lines, so a switch cannot be recognised without a help line or the reverse: the tests here
 // check both ways, and `tests/help.txt` holds the exact text. Matching is case-insensitive, as DOS reads a command line.
-use crate::settings::{FrameRate, Settings, apply_flags};
+use crate::settings::{Captions, FrameRate, Keys, Prefs, Settings, apply_flags};
 use core::fmt;
 
 /// What a mode switch asks the program to do. The first one on the command line is used; `Live` is the default.
@@ -23,6 +23,7 @@ pub enum Mode {
     Panic,
     CfgTest,
     MusicTest,
+    ReplanTest,
 }
 
 /// What a switch does.
@@ -32,10 +33,10 @@ pub enum Kind {
     Mode(Mode),
     /// Prints the help and exits.
     Help,
-    /// The Modern key layout instead of Keen's.
-    Modern,
-    /// Captions on (`true`) or off (`false`); the last one given wins.
-    Captions(bool),
+    /// A key layout for this run, over `FIZZ2.CFG`'s; the last one given wins.
+    Keys(Keys),
+    /// Captions on or off for this run, over `FIZZ2.CFG`'s; the last one given wins.
+    Captions(Captions),
     /// `/BENCH` also runs the 560 Hz audio service and the music (a developer switch).
     BenchAudio,
     /// The frame rate for this run, over `FIZZ2.CFG`'s; the last one given wins.
@@ -166,21 +167,28 @@ pub const SWITCHES: &[Switch] = &[
         "/MODERN",
         Arg::None,
         Group::Options,
-        Kind::Modern,
+        Kind::Keys(Keys::Modern),
         "Use the Modern keys (W A S D, Z X C) instead of Keen's",
+    ),
+    sw(
+        "/KEEN",
+        Arg::None,
+        Group::Options,
+        Kind::Keys(Keys::Keen),
+        "Use Keen's keys, even if FIZZ2.CFG saved the Modern ones",
     ),
     sw(
         "/CAPTIONS",
         Arg::None,
         Group::Options,
-        Kind::Captions(true),
+        Kind::Captions(Captions::On),
         "Show the chicken's captions",
     ),
     sw(
         "/NOCAPTIONS",
         Arg::None,
         Group::Options,
-        Kind::Captions(false),
+        Kind::Captions(Captions::Off),
         "Hide the captions",
     ),
     sw(
@@ -268,6 +276,13 @@ pub const SWITCHES: &[Switch] = &[
         "Step two loops of the music as fast as possible and hash",
     ),
     sw(
+        "/REPLANTEST",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::ReplanTest),
+        "Run the audio service and change its devices live",
+    ),
+    sw(
         "/AUDIO",
         Arg::None,
         Group::Developer,
@@ -314,14 +329,35 @@ pub fn lookup(arg: &str) -> Option<&'static Switch> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Invocation {
     pub mode: Mode,
-    pub modern: bool,
-    pub captions: bool,
+    /// The key layout a switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Keen, in force.
+    pub keys: Option<Keys>,
+    /// The captions a switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or On, in force.
+    pub captions: Option<Captions>,
     /// The frame rate a flag chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
     pub frame_rate: Option<FrameRate>,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
     /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
     pub bench_audio: bool,
+}
+
+impl Invocation {
+    /// The preferences this run uses: `file`'s, with each field a switch chose replaced by the switch's value (a switch beats the
+    /// file, the file beats the default). The sound switches are applied separately by `settings::apply_flags`. The result is for
+    /// the run only: the caller saves the file's own `Prefs`, never this.
+    pub fn over(&self, file: &Prefs) -> Prefs {
+        let mut prefs = *file;
+        if let Some(k) = self.keys {
+            prefs.keys = k;
+        }
+        if let Some(c) = self.captions {
+            prefs.captions = c;
+        }
+        if let Some(r) = self.frame_rate {
+            prefs.frame_rate = r;
+        }
+        prefs
+    }
 }
 
 /// The outcome of reading a command line.
@@ -346,8 +382,8 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
     }
     let mut run = Invocation {
         mode: Mode::Live,
-        modern: false,
-        captions: true,
+        keys: None,
+        captions: None,
         frame_rate: None,
         bench_ticks: None,
         bench_audio: false,
@@ -369,8 +405,8 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
             }
             Kind::Mode(_) | Kind::Help => {}
             Kind::BenchAudio => run.bench_audio = true,
-            Kind::Modern => run.modern = true,
-            Kind::Captions(on) => run.captions = on,
+            Kind::Keys(k) => run.keys = Some(k),
+            Kind::Captions(c) => run.captions = Some(c),
             Kind::FrameRate(r) => run.frame_rate = Some(r),
             Kind::Sound => {
                 if apply_flags(&mut Settings::default(), [arg]).applied != 1 {
@@ -390,8 +426,9 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
 /// Writes the help screen: lines ending in `\n` (the caller turns them into the console's line ends), at most 25 lines of 79
 /// characters, plain ASCII.
 pub fn write_help(out: &mut impl fmt::Write) -> fmt::Result {
-    out.write_str("Lieutenant Fizz 2 for DOS\n")?;
-    out.write_str("Usage: FIZZ2.EXE [mode] [switches]. Letter case does not matter.\n")?;
+    out.write_str(
+        "Lieutenant Fizz 2 for DOS. Usage: FIZZ2.EXE [mode] [switches]; case is ignored.\n",
+    )?;
     let mut group = None;
     for s in SWITCHES.iter().filter(|s| !s.hidden) {
         if group != Some(s.group) {
@@ -537,8 +574,8 @@ mod tests {
     fn modes_and_options_combine() {
         let live = Invocation {
             mode: Mode::Live,
-            modern: false,
-            captions: true,
+            keys: None,
+            captions: None,
             frame_rate: None,
             bench_ticks: None,
             bench_audio: false,
@@ -551,12 +588,25 @@ mod tests {
         assert_eq!(
             run(&["/modern", "/nocaptions"]),
             Parsed::Run(Invocation {
-                modern: true,
-                captions: false,
+                keys: Some(Keys::Modern),
+                captions: Some(Captions::Off),
                 ..live
             })
         );
-        assert_eq!(run(&["/NOCAPTIONS", "/CAPTIONS"]), Parsed::Run(live));
+        assert_eq!(
+            run(&["/NOCAPTIONS", "/CAPTIONS"]),
+            Parsed::Run(Invocation {
+                captions: Some(Captions::On),
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/MODERN", "/keen"]),
+            Parsed::Run(Invocation {
+                keys: Some(Keys::Keen),
+                ..live
+            })
+        );
         // The frame-rate flags combine with any mode and the last one wins.
         assert_eq!(
             run(&["/FPS30", "/REPLAY"]),
@@ -569,7 +619,7 @@ mod tests {
         assert_eq!(
             run(&["/fps30", "/FPS60", "/modern"]),
             Parsed::Run(Invocation {
-                modern: true,
+                keys: Some(Keys::Modern),
                 frame_rate: Some(FrameRate::Hz60),
                 ..live
             })
@@ -619,6 +669,13 @@ mod tests {
             })
         );
         assert_eq!(
+            run(&["/replantest"]),
+            Parsed::Run(Invocation {
+                mode: Mode::ReplanTest,
+                ..live
+            })
+        );
+        assert_eq!(
             run(&["/BENCH", "120"]),
             Parsed::Run(Invocation {
                 bench_ticks: Some(120),
@@ -644,5 +701,67 @@ mod tests {
         assert_eq!(run(&["/LIVE:1"]), Parsed::Unknown("/LIVE:1"));
         assert_eq!(run(&["/REPLAY", "12"]), Parsed::Unknown("12"));
         assert_eq!(run(&["12"]), Parsed::Unknown("12"));
+    }
+
+    fn invocation(args: &[&str]) -> Invocation {
+        match run(args) {
+            Parsed::Run(i) => i,
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn a_switch_beats_the_file_and_the_file_beats_the_default() {
+        let file = Prefs {
+            keys: Keys::Modern,
+            captions: Captions::Off,
+            frame_rate: FrameRate::Hz30,
+            ..Prefs::default()
+        };
+        // No switches: the file stands.
+        assert_eq!(invocation(&[]).over(&file), file);
+        // Each switch overrides only its own field.
+        assert_eq!(
+            invocation(&["/KEEN"]).over(&file),
+            Prefs {
+                keys: Keys::Keen,
+                ..file
+            }
+        );
+        assert_eq!(
+            invocation(&["/CAPTIONS"]).over(&file),
+            Prefs {
+                captions: Captions::On,
+                ..file
+            }
+        );
+        assert_eq!(
+            invocation(&["/FPS60"]).over(&file),
+            Prefs {
+                frame_rate: FrameRate::Hz60,
+                ..file
+            }
+        );
+        // Over a default file, /MODERN and /NOCAPTIONS apply; the last of a pair wins.
+        let none = Prefs::default();
+        assert_eq!(
+            invocation(&["/MODERN", "/NOCAPTIONS"]).over(&none),
+            Prefs {
+                keys: Keys::Modern,
+                captions: Captions::Off,
+                ..none
+            }
+        );
+        assert_eq!(
+            invocation(&["/MODERN", "/KEEN"]).over(&file).keys,
+            Keys::Keen
+        );
+        assert_eq!(
+            invocation(&["/KEEN", "/MODERN"]).over(&none).keys,
+            Keys::Modern
+        );
+        // The file itself is untouched, so saving it never writes a switch.
+        let _ = invocation(&["/KEEN", "/CAPTIONS"]).over(&file);
+        assert_eq!(file.keys, Keys::Modern);
     }
 }

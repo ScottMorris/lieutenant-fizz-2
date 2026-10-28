@@ -7,8 +7,8 @@
 // edge, and rows of text in Fizz 1's proportional pixel font with a one-pixel black shadow. The port dims the picture beneath
 // (`ui::dim`); here the DOS palette holds a dimmed copy of each EGA colour in entries 16 to 31 (see [`crate::dos_palette`]),
 // so the panel turns each picture pixel it covers into its dimmed counterpart and the scene shows through, darkened. The
-// slice has three things to show: `Fizz` (the ammunition, which Fizz 1 calls Fizz) in light cyan and light red
-// at zero, `Deaths`, and a chip for the red key: the key sprite when Ben carries it, its dim outline when he does not.
+// slice has three things to show: `Fizz` (the ammunition, which Fizz 1 calls Fizz) in light magenta (Fizz 2's accent,
+// `fizz_view::theme`) and light red at zero, `Deaths`, and a chip for the red key: the key sprite when Ben carries it, its dim outline when he does not.
 //
 // The box is a pill like the Web HUD's: its corners are rounded by [`RADIUS`] pixels, the edge follows the curve, and the pixels
 // beyond the curve are [`OUTSIDE`], which leaves the picture as it is.
@@ -21,7 +21,9 @@
 use fizz_view::pfont::{LINE, draw_text, text_width};
 use fizz_view::sprites_data::sprite;
 
-use crate::palette::{BLACK, DARK_GREY, DIM_BASE, LIGHT_CYAN, LIGHT_GREY, LIGHT_RED, WHITE};
+use fizz_view::theme::FIZZ_INDEX;
+
+use crate::palette::{BLACK, DARK_GREY, DIM_BASE, LIGHT_GREY, LIGHT_RED, WHITE};
 
 /// The box's left edge in the picture, in pixels.
 pub const X: usize = 4;
@@ -203,7 +205,7 @@ fn render(strip: &mut [u8; W * H], v: HudValues) {
     }
     let mut buf = [0u8; 2];
     let x = shadowed(strip, TEXT_X, ROW1_Y, "Fizz ", LIGHT_GREY);
-    let colour = if v.ammo == 0 { LIGHT_RED } else { LIGHT_CYAN };
+    let colour = if v.ammo == 0 { LIGHT_RED } else { FIZZ_INDEX };
     shadowed(strip, x, ROW1_Y, digits(v.ammo, &mut buf), colour);
     let x = shadowed(strip, TEXT_X, ROW2_Y, "Deaths ", LIGHT_GREY);
     shadowed(strip, x, ROW2_Y, digits(v.deaths, &mut buf), WHITE);
@@ -264,11 +266,11 @@ mod tests {
     #[test]
     fn ammo_is_light_cyan_and_turns_light_red_at_zero() {
         let five = rendered(vals(5, false, 0));
-        assert!(count(&five, LIGHT_CYAN) > 0);
+        assert!(count(&five, FIZZ_INDEX) > 0);
         assert_eq!(count(&five, LIGHT_RED), 0);
         let none = rendered(vals(0, false, 0));
         assert!(count(&none, LIGHT_RED) > 0);
-        assert_eq!(count(&none, LIGHT_CYAN), 0);
+        assert_eq!(count(&none, FIZZ_INDEX), 0);
         // One shot short of empty is still cyan.
         assert_eq!(count(&rendered(vals(1, false, 0)), LIGHT_RED), 0);
     }
@@ -500,7 +502,7 @@ mod tests {
         // The brightest thing behind the box is white or yellow at 4/13. The weakest pairs are the grey labels (about 3.8) and light red at zero ammo (about 2.7, over dimmed yellow); the black shadow adds an edge.
         assert!(worst(LIGHT_GREY) > 3.5, "{}", worst(LIGHT_GREY));
         assert!(worst(WHITE) > 7.0, "{}", worst(WHITE));
-        assert!(worst(LIGHT_CYAN) > 7.0, "{}", worst(LIGHT_CYAN));
+        assert!(worst(FIZZ_INDEX) > 3.0, "{}", worst(FIZZ_INDEX));
         assert!(worst(LIGHT_RED) > 2.5, "{}", worst(LIGHT_RED));
     }
 

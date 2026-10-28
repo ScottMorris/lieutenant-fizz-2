@@ -20,13 +20,16 @@
 //   FIZZ2.EXE /?        prints the help (also /HELP and -?) and exits 0; an unknown switch prints one line and exits 2
 //   (every switch is listed once, in fizz_machine::switches, which also writes the help)
 //   FIZZ2.EXE /CFGTEST  a test mode: saves FIZZ2.CFG from the sound flags, reads it back and prints the result
-//   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
+//   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of Keen; /KEEN selects Keen's
+//                       over a saved Modern. Captions, keys and the frame rate follow FIZZ2.CFG unless a switch says otherwise
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
 //                       last one given wins). The beak still moves. A settings-file field replaces this switch with the settings package
 //   FIZZ2.EXE /MUSICTEST  a test mode: steps two loops of the music the sound plan names as fast as possible through the real chip
 //                       writes (no timer) and prints the `MUSIC` line; `/MUSIC:OFF` prints `ARR off` and zeros
 //   FIZZ2.EXE /BENCH /AUDIO  the bench with the 560 Hz audio service, first without and then with music, and what the service costs
+//   FIZZ2.EXE /REPLANTEST  a test mode: runs the audio service, changes its music and effects devices live through a list of plans
+//                       (`audio::replan`) and prints a `REPLAN` line for each (replan.rs)
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
 // /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
@@ -42,19 +45,23 @@
 extern crate alloc;
 
 mod bench;
+mod cfgfile;
 mod check;
 mod frames;
 mod hal;
 mod machine;
+mod replan;
 mod sound;
 
 use alloc::string::String;
 use core::fmt::{self, Write};
+use core::sync::atomic::{AtomicBool, Ordering};
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
+use fizz_machine::{Captions, Keys, Motion, PlacementMode};
 use fizz_present_dos::{
     DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, key_to_buttons, present,
     render_slice_with,
@@ -144,14 +151,21 @@ fn end_session(display: &mut DosDisplay) {
     timer::unhook();
 }
 
-/// Hands the clucks the last step emitted to the audio service, each with where its chicken is in the view the frame is drawn in (the
-/// DOS sound is always Enhanced; the Options screen will own a Classic choice). Positions are read after the step, with the camera
-/// the picture uses; the view and the placement are for sound only and have no effect on the rules.
+/// Whether sound placement is Classic for this run (set once in `main` from `FIZZ2.CFG` and the switches; the program is single-threaded).
+static CLASSIC_PLACEMENT: AtomicBool = AtomicBool::new(false);
+
+/// Hands the clucks the last step emitted to the audio service, each with where its chicken is in the view the frame is drawn in
+/// (Enhanced), or centred at full volume (Classic). Positions are read after the step, with the camera the picture uses; the view
+/// and the placement are for sound only and have no effect on the rules.
 fn play_events(world: &World, options: &DrawOptions) {
     for event in world.events() {
         match *event {
             Event::Cluck { variant, chicken } => {
-                let place = cluck_placement(world, chicken, VIEW_W, VIEW_H, options);
+                let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
+                    Placement::CENTRE
+                } else {
+                    cluck_placement(world, chicken, VIEW_W, VIEW_H, options)
+                };
                 audio::cluck(variant, &place);
             }
             // The puff is drawn, not heard; the shot sound comes with the other effects in a later milestone.
@@ -236,12 +250,18 @@ fn main() -> i32 {
         }
         Parsed::Run(run) => run,
     };
-    let layout = if run.modern { Layout::Modern } else { Layout::Keen };
-    // The settings file that will hold the captions choice comes with the settings package; until then it is a switch.
+    // Per field, a switch beats `FIZZ2.CFG`, which beats the default; the switches are never saved (`sound::save` takes the file's own
+    // `Prefs`).
+    let prefs = run.over(&sound::load_file().0);
+    let layout = match prefs.keys {
+        Keys::Keen => Layout::Keen,
+        Keys::Modern => Layout::Modern,
+    };
+    CLASSIC_PLACEMENT.store(prefs.placement == PlacementMode::Classic, Ordering::Relaxed);
     let options = DrawOptions {
-        captions: run.captions,
-        // On: the Options screen (Milestone 1.5) will own this setting; FIZZ2.CFG v2's reserved detail byte is not used for it.
-        shake: true,
+        captions: prefs.captions == Captions::On,
+        // Motion gates the death shake and the death spin; Reduced leaves them off.
+        shake: prefs.motion == Motion::Full,
     };
     match run.mode {
         Mode::Live => live(layout, &options),
@@ -257,6 +277,7 @@ fn main() -> i32 {
         Mode::Bench if run.bench_audio => bench_audio(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::MusicTest => music_test(),
+        Mode::ReplanTest => replan::replan_mode(),
         Mode::Panic => {
             // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
             let plan = sound::Plan::new(&machine::probe_machine());
