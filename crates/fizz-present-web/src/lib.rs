@@ -8,10 +8,25 @@
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
-use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, VIEW_H, VIEW_W, caption_view, draw_slice_with,
-};
+use fizz_slice_view::{CAPTION_TICKS, CaptionView, DrawOptions, caption_view, draw_slice_with};
 use wasm_bindgen::prelude::*;
+
+/// The height of the Web view in pixels: 13 tiles of 16, the number of tiles Fizz 1 shows from top to bottom in a level. The DOS
+/// picture stays 200 tall; the Web view is not a projection of it.
+pub const WEB_VIEW_H: usize = 208;
+
+/// The default Web view width, used until the page reports its window with [`App::set_view`].
+pub const WEB_VIEW_W: usize = 320;
+
+/// The narrowest and widest view the Web presenter draws, in pixels: 6 tiles, about what Fizz 1 shows across a portrait phone, and
+/// 40 tiles, wider than the 32 tile level so a wider window gains nothing but sky at the sides.
+pub const MIN_VIEW_W: usize = 96;
+pub const MAX_VIEW_W: usize = 640;
+
+/// The shortest and tallest view [`App::set_view`] accepts, in pixels. The page keeps [`WEB_VIEW_H`]; the limits only keep a
+/// stray call from making a huge buffer.
+pub const MIN_VIEW_H: usize = 64;
+pub const MAX_VIEW_H: usize = 416;
 
 /// Most ticks run for one displayed frame. Time beyond this is dropped, so a hidden tab does not cause a burst on return.
 const MAX_CATCH_UP: u32 = 5;
@@ -83,8 +98,8 @@ const EGA_RGBA: [[u8; 4]; 16] = {
 
 /// The slice as the page sees it: paced by the shared integer `Pacer` and a key latch, over `fizz_ep2`'s world.
 ///
-/// `frame` runs whole ticks. `render` draws the world into a 320 by 200 palette-indexed buffer with the routine the DOS
-/// presenter also uses, then expands it to RGBA for the canvas. The page reads that buffer straight out of the module's memory
+/// `frame` runs whole ticks. `render` draws the world into a palette-indexed buffer, [`WEB_VIEW_H`] tall and as wide as the
+/// window's shape asks (see [`App::set_view`]), with the routine the DOS presenter also uses, then expands it to RGBA for the canvas. The page reads that buffer straight out of the module's memory
 /// through [`App::rgba_ptr`].
 #[wasm_bindgen]
 pub struct App {
@@ -93,6 +108,8 @@ pub struct App {
     clock: WebClock,
     pacer: Option<Pacer>,
     held: Buttons,
+    view_w: usize,
+    view_h: usize,
     indexed: Vec<u8>,
     rgba: Vec<u8>,
     /// The cluck variants emitted since the page last drained them, oldest first. `cluck_head` is the next one to hand out.
@@ -120,8 +137,10 @@ impl App {
             clock: WebClock::new(),
             pacer: None,
             held: Buttons::NONE,
-            indexed: vec![0; VIEW_W * VIEW_H],
-            rgba: vec![0; VIEW_W * VIEW_H * 4],
+            view_w: WEB_VIEW_W,
+            view_h: WEB_VIEW_H,
+            indexed: vec![0; WEB_VIEW_W * WEB_VIEW_H],
+            rgba: vec![0; WEB_VIEW_W * WEB_VIEW_H * 4],
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
             captions: true,
@@ -221,7 +240,7 @@ impl App {
             .map_or_else(String::new, |c| c.text.into())
     }
 
-    /// The x of caption `i`, the chicken's centre, in canvas pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
+    /// The x of caption `i`, the chicken's centre, in view pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
     pub fn caption_x(&self, i: usize) -> f64 {
         self.live_captions.get(i).map_or(0.0, |c| f64::from(c.x))
     }
@@ -248,13 +267,46 @@ impl App {
         format!("#{r:02x}{g:02x}{b:02x}")
     }
 
+    /// Sets the size of the view in pixels and makes the frame buffers match. The width is clamped to [`MIN_VIEW_W`]..=
+    /// [`MAX_VIEW_W`] and the height to [`MIN_VIEW_H`]..=[`MAX_VIEW_H`]; read [`App::width`] and [`App::height`] for what was
+    /// kept. The page calls this when the window's shape changes: it keeps the height at [`WEB_VIEW_H`] (13 tiles) and sets the
+    /// width from the aspect, as Fizz 1 does. Nothing in the rules changes; the buffers are zeroed until the next
+    /// [`App::render`], so the page renders before it copies. A call that changes nothing does nothing.
+    pub fn set_view(&mut self, w: u32, h: u32) {
+        let w = (w as usize).clamp(MIN_VIEW_W, MAX_VIEW_W);
+        let h = (h as usize).clamp(MIN_VIEW_H, MAX_VIEW_H);
+        if (w, h) == (self.view_w, self.view_h) {
+            return;
+        }
+        self.view_w = w;
+        self.view_h = h;
+        self.indexed = vec![0; w * h];
+        self.rgba = vec![0; w * h * 4];
+        self.live_captions.clear();
+    }
+
+    /// The tallest view the page should ask for in normal play, 13 tiles, in pixels.
+    pub fn default_view_h() -> u32 {
+        WEB_VIEW_H as u32
+    }
+
+    /// The narrowest view width, in pixels.
+    pub fn min_view_w() -> u32 {
+        MIN_VIEW_W as u32
+    }
+
+    /// The widest view width, in pixels.
+    pub fn max_view_w() -> u32 {
+        MAX_VIEW_W as u32
+    }
+
     /// Draws the current world into the frame buffers.
     pub fn render(&mut self) {
         // The picture has no captions on the Web; they are text over the canvas (see `caption_count`).
         draw_slice_with(
             &mut self.indexed,
-            VIEW_W,
-            VIEW_H,
+            self.view_w,
+            self.view_h,
             &self.world,
             self.world.tick.0 as u32,
             &DrawOptions { captions: false },
@@ -265,7 +317,7 @@ impl App {
                 self.world
                     .chickens
                     .iter()
-                    .filter_map(|c| caption_view(&self.world, VIEW_W, VIEW_H, c)),
+                    .filter_map(|c| caption_view(&self.world, self.view_w, self.view_h, c)),
             );
         }
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
@@ -276,12 +328,12 @@ impl App {
 
     /// The width of the frame in pixels.
     pub fn width(&self) -> u32 {
-        VIEW_W as u32
+        self.view_w as u32
     }
 
     /// The height of the frame in pixels.
     pub fn height(&self) -> u32 {
-        VIEW_H as u32
+        self.view_h as u32
     }
 
     /// The address of the RGBA frame in the module's memory: `rgba_len` bytes, valid until the next call that changes the app.
@@ -368,7 +420,8 @@ mod tests {
         assert_eq!(app.caption_colour(0), "#ff5555");
         assert!(app.caption_progress(0) > 0.0 && app.caption_progress(0) < 0.1);
         assert!(
-            (0.0..320.0).contains(&app.caption_x(0)) && (0.0..200.0).contains(&app.caption_y(0))
+            (0.0..f64::from(app.width())).contains(&app.caption_x(0))
+                && (0.0..f64::from(app.height())).contains(&app.caption_y(0))
         );
         // The picture is the same with the captions off: the words are not in it. The beak is, and stays.
         app.set_captions(false);
@@ -671,14 +724,53 @@ mod tests {
     fn the_rgba_frame_is_opaque_and_the_size_of_the_view() {
         let mut app = App::new();
         app.render();
-        assert_eq!((app.width(), app.height()), (320, 200));
-        assert_eq!(app.rgba_len(), 320 * 200 * 4);
+        assert_eq!((app.width(), app.height()), (320, 208));
+        assert_eq!(app.rgba_len(), 320 * 208 * 4);
         let (pixels, rest) = app.rgba.as_chunks::<4>();
         assert!(rest.is_empty());
         // Every pixel is one of the sixteen EGA colours, which are all opaque.
         assert!(pixels.iter().all(|p| EGA_RGBA.contains(p)));
         // The slice draws a whole picture, not a blank frame.
         assert!(pixels.iter().any(|p| p != &EGA_RGBA[0]));
+    }
+
+    #[test]
+    fn set_view_resizes_the_frame_and_clamps() {
+        let mut app = App::new();
+        let hash = app.hash_hex();
+        for (ask, got) in [
+            ((99, 208), (99, 208)),
+            ((640, 208), (640, 208)),
+            ((10, 208), (96, 208)),
+            ((5000, 5000), (640, 416)),
+            ((0, 0), (96, 64)),
+        ] {
+            app.set_view(ask.0, ask.1);
+            assert_eq!((app.width(), app.height()), got);
+            assert_eq!(app.rgba_len(), got.0 as usize * got.1 as usize * 4);
+            app.render();
+            let (pixels, rest) = app.rgba.as_chunks::<4>();
+            assert!(rest.is_empty() && pixels.iter().all(|p| EGA_RGBA.contains(p)));
+        }
+        // The view never touches the rules.
+        assert_eq!(app.hash_hex(), hash);
+    }
+
+    #[test]
+    fn captions_stay_in_view_pixels_at_any_size() {
+        for w in [96, 99, 640] {
+            let mut app = App::new();
+            app.set_view(w, 208);
+            app.world.ben.b.x = 12.0;
+            app.world.ben.b.y = 11.0;
+            app.world.chickens[0].cluck_variant = 2;
+            app.world.chickens[0].cluck_age = 1;
+            app.render();
+            if app.caption_count() == 1 {
+                let x = app.caption_x(0);
+                assert!((-16.0..=f64::from(w) + 16.0).contains(&x), "{w}: {x}");
+            }
+        }
     }
 
     #[test]
