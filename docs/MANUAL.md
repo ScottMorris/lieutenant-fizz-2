@@ -37,7 +37,7 @@ On the Web there is no quit key; close the tab.
 
 ### Choosing your keys
 
-- **Web:** the Keys button under the screen switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
+- **Web:** the Keys button in the panel (`H`) switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys. Without it you get the Keen keys.
 
 ### Captions
@@ -131,7 +131,7 @@ Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben 
 
 ## The Web slice
 
-The Web page plays the first slice of Episode 2. You are Ben, climbing the inside of a lighthouse. Fetch the red key, open the red door with it, climb the second shaft and walk into the exit. The chicken clucks now and then (see [Sound on the Web](#sound-on-the-web)), and the page shows the level in a fixed 320 by 200 window that scrolls with you.
+The Web page plays the first slice of Episode 2. You are Ben, climbing the inside of a lighthouse. Fetch the red key, open the red door with it, climb the second shaft and walk into the exit. The chicken clucks now and then (see [Sound on the Web](#sound-on-the-web)), and the page shows the level in a window that scrolls with you. The window is always 13 tiles tall, and a wider browser window shows more of the level to the sides, as in Fizz 1 (the DOS version keeps its fixed 320 by 200 picture).
 
 ![The Web slice at the start of the level, with Ben in the lower left, the chicken and the red key high above, a Fizz Blaster shot in flight and the heads-up text under the screen. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
 
@@ -171,7 +171,7 @@ You die on spikes, on a chicken that is not stunned, and by falling out of the b
 
 ### The Web heads-up text
 
-Under the screen, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. Below that, a goal line says what to do, the keys line shows the keys of the layout in use, and the Keys, Captions, Restart, Fullscreen and Sound buttons sit beneath it. Restart starts the level again from the first tick; it does not reload the page.
+The page is the game: the picture fills the whole window and nothing scrolls. It is always 13 tiles tall and as wide as the window's shape allows, so a phone held upright shows about six tiles across and an ultra-wide monitor shows the whole width of the level with sky at the sides. The picture is scaled to the window's height, in a whole-number multiple when the height is one of 208, 416, 624 and so on, and by a fraction otherwise (the pixels are then slightly uneven). Past about 80 tiles wide the picture stops growing and dark bars fill the rest. Resizing or turning the device resizes the picture after a moment; the game itself is not affected, and the fingerprint is the same at every window size. A hint shows for a few seconds after the page loads. Everything else is in a panel that you show and hide with `H` or the small `?` button in the bottom right corner (not Esc, which leaves fullscreen). In the panel, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. The panel also has a goal line that says what to do, the keys line for the layout in use, and the Keys, Captions, Restart, Fullscreen and Sound buttons. Restart starts the level again from the first tick; it does not reload the page.
 
 ### Sound on the Web
 
@@ -181,7 +181,7 @@ A browser does not let a page make sound until you have pressed a key or clicked
 
 ## The screen
 
-Both versions draw the same picture, a 320 by 200 window that follows Ben as he moves through the level. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text under the picture.
+Both versions draw the same level with the same camera that follows Ben as he moves through it; the DOS version in a fixed 320 by 200 window, the Web version in a window as wide as the browser's. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text under the picture.
 
 - `TICK` counts game steps. There are 60 a second.
 - `HASH` is a 16-digit fingerprint of everything that has happened so far. Two copies that were given the same moves show the same fingerprint, on any platform.
@@ -192,7 +192,7 @@ Both versions draw the same picture, a 320 by 200 window that follows Ben as he 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Only the Web version makes sound for now.
-- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 

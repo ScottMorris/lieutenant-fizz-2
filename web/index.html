@@ -13,27 +13,32 @@
   <body>
     <main>
       <div id="stage">
-        <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
+        <canvas id="screen" width="320" height="208" aria-label="Game screen"></canvas>
         <!-- The cluck captions are drawn here as text over the picture. They stand in for a sound, so a screen reader is not told. -->
         <div id="caption-layer" aria-hidden="true"></div>
       </div>
-      <pre id="hud">TICK 0
+      <!-- A few seconds of hint after load, then it fades. -->
+      <p id="toast" class="toast">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires. H shows the panel.</p>
+      <button id="panel-toggle" type="button" aria-controls="panel" aria-expanded="false" title="Controls and notes (H)">?</button>
+      <aside id="panel" hidden aria-label="Controls and notes">
+        <p id="goal" class="help">Climb the lighthouse: fetch the red key, walk into the red door with it, and reach the exit. Mind the spikes and the chicken.</p>
+        <p id="hint" class="help">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.</p>
+        <div class="controls">
+          <button id="layout" type="button">Keys: Keen</button>
+          <button id="captions" type="button">Captions: on</button>
+          <button id="reset" type="button">Restart</button>
+          <button id="fullscreen" type="button" hidden>Fullscreen (F)</button>
+          <button id="sound" type="button" aria-pressed="true">Sound: on, M to toggle</button>
+        </div>
+        <pre id="hud">TICK 0
 HASH 0000000000000000
 AMMO 5
 KEY  no
 DOOR shut
 DEATHS 0
 EXIT not yet</pre>
-      <p id="goal" class="help">Climb the lighthouse: fetch the red key, walk into the red door with it, and reach the exit. Mind the spikes and the chicken.</p>
-      <p id="hint" class="help">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires.</p>
-      <div class="controls">
-        <button id="layout" type="button">Keys: Keen</button>
-        <button id="captions" type="button">Captions: on</button>
-        <button id="reset" type="button">Restart</button>
-        <button id="fullscreen" type="button" hidden>Fullscreen (F)</button>
-        <button id="sound" type="button" aria-pressed="true">Sound: on, M to toggle</button>
-      </div>
-      <p class="note">A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. The chicken clucks, but a browser only allows sound after you press a key or click, so it starts then.</p>
+        <p class="note">Press H (or the ? button) to hide this panel. A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. The chicken clucks, but a browser only allows sound after you press a key or click, so it starts then.</p>
+      </aside>
     </main>
     <script type="module" src="./main.js"></script>
   </body>

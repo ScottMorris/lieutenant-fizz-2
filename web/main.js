@@ -64,6 +64,10 @@ const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.key
 const canvas = document.getElementById("screen");
 const hud = document.getElementById("hud");
 const hint = document.getElementById("hint");
+const stage = document.getElementById("stage");
+const panel = document.getElementById("panel");
+const panelToggle = document.getElementById("panel-toggle");
+const toast = document.getElementById("toast");
 const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
 const captionsButton = document.getElementById("captions");
@@ -72,12 +76,14 @@ const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
 const captionLayer = document.getElementById("caption-layer");
 
-// Cluck captions follow Fizz 1's Web text (design/melting/engine.js, `cap`): 15 px bold italic at a 960 px canvas, centred, rising
-// from half a line to 1.8 lines above its anchor over the caption's life, popping in at 0.8 to 1.05 times its size, and fading
-// out. The rest of the timing, which chicken has one and for how long, comes from the module (`caption_progress`).
+// Cluck captions follow Fizz 1's Web text (design/melting/engine.js, `cap`): 15 px bold italic, centred, rising from half a line to
+// 1.8 lines above its anchor over the caption's life, popping in at 0.8 to 1.05 times its size, and fading out. Fizz 1 draws the 15 px
+// where a tile is about 54 px on screen (48 to 60 across its window sizes), so the size here is that proportion of the tile's size on
+// screen. The rest of the timing, which chicken has one and for how long, comes from the module (`caption_progress`).
 const CAPTION_FONT_PX = 15;
-const CAPTION_REFERENCE_WIDTH = 960;
-// The word sits this many picture pixels above the chicken's feet: two Fizz 1 tiles, which is 32 here.
+const CAPTION_REFERENCE_TILE_PX = 54;
+const TILE = 16;
+// The word sits this many view pixels above the chicken's feet: two Fizz 1 tiles, which is 32 here.
 const CAPTION_ANCHOR_ABOVE_FEET = 32;
 const CAPTION_POP = 0.2;
 // CSS `ease-out`, near enough.
@@ -85,13 +91,47 @@ const easeOut = (t) => 1 - (1 - t) * (1 - t);
 const lerp = (a, b, t) => a + (b - a) * t;
 const captionEls = [];
 
-// Shows the module's live captions as text over the canvas. Position comes in picture pixels and follows the canvas's displayed
-// size; the type size follows it too, but only modestly, so it stays readable on a narrow page and does not balloon in fullscreen.
+// The view is VIEW_H pixels tall, 13 tiles as in Fizz 1, and as wide as the window's shape gives (Fizz 1 keeps the height in tiles
+// and lets the width follow the window). The limits come from the module: 6 tiles at the least, about what Fizz 1 shows across a
+// portrait phone, and a sanity bound at the most (1280 px, 80 tiles, a 1.3 MB buffer). The view is for drawing only; the rules never
+// see its size.
+let VIEW_H = 208;
+let MIN_VIEW_W = 96;
+let MAX_VIEW_W = 1280;
+let app = null;
+
+// Sizes the view to the window and the canvas to the view. The scale is the window height over VIEW_H, so a window whose height is a
+// multiple of 208 gets a whole-number scale and square, even pixels, and any other height a fractional one drawn with
+// nearest-neighbour (`image-rendering: pixelated`). The height is never traded for evenness: it is what keeps 13 tiles in view. The
+// width is rounded up so the canvas always covers the window, and the surplus (under one view pixel) is clipped at the edges. When
+// a width limit applies, the picture keeps its shape and the rest of the window is dark bars.
+function fitView() {
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  const wanted = Math.ceil((VIEW_H * w) / h);
+  const viewW = Math.min(MAX_VIEW_W, Math.max(MIN_VIEW_W, wanted));
+  const scale = viewW === wanted ? h / VIEW_H : Math.min(h / VIEW_H, w / viewW);
+  if (app) app.set_view(viewW, VIEW_H);
+  if (canvas.width !== viewW) canvas.width = viewW;
+  if (canvas.height !== VIEW_H) canvas.height = VIEW_H;
+  stage.style.width = `${viewW * scale}px`;
+  stage.style.height = `${VIEW_H * scale}px`;
+}
+
+let fitTimer = 0;
+// A resize or a turn of the phone fires many events; the buffers are rebuilt once it settles.
+function scheduleFit() {
+  clearTimeout(fitTimer);
+  fitTimer = setTimeout(fitView, 80);
+}
+
+// Shows the module's live captions as text over the canvas. Position comes in view pixels and follows the canvas's displayed size;
+// the type size is Fizz 1's proportion of the tile on screen, kept between 11 and 40 px so it stays readable on a small screen and
+// does not balloon on a huge one.
 function showCaptions(app) {
   const shownWidth = captionLayer.clientWidth;
-  const shownHeight = captionLayer.clientHeight;
   const scale = shownWidth / app.width();
-  const fontPx = Math.min(24, Math.max(11, (CAPTION_FONT_PX * shownWidth) / CAPTION_REFERENCE_WIDTH));
+  const fontPx = Math.min(40, Math.max(11, (CAPTION_FONT_PX * TILE * scale) / CAPTION_REFERENCE_TILE_PX));
   const count = shownWidth > 0 ? app.caption_count() : 0;
   while (captionEls.length < count) {
     const el = document.createElement("div");
@@ -174,6 +214,10 @@ function saveCaptions(on) {
 // when it grows, which would leave an older view pointing at nothing.
 function draw(app, memory) {
   app.render();
+  // `set_view` resized the module's frame; the canvas follows it in the same turn as the copy, so a frame is never put on a canvas
+  // of another size (resizing a canvas clears it, and the copy below draws it all again).
+  if (canvas.width !== app.width()) canvas.width = app.width();
+  if (canvas.height !== app.height()) canvas.height = app.height();
   const pixels = new Uint8ClampedArray(memory.buffer, app.rgba_ptr(), app.rgba_len());
   ctx.putImageData(new ImageData(pixels, app.width(), app.height()), 0, 0);
 }
@@ -210,9 +254,28 @@ async function toggleFullscreen() {
   }
 }
 
+// The overlay panel holds the controls, notes and HUD. H or the corner button toggles it; it starts hidden.
+function setPanel(open) {
+  panel.hidden = !open;
+  panelToggle.setAttribute("aria-expanded", String(open));
+  if (open) toast.classList.add("gone");
+}
+
 async function main() {
+  fitView();
+  addEventListener("resize", scheduleFit);
+  addEventListener("orientationchange", scheduleFit);
+  panelToggle.addEventListener("click", () => {
+    setPanel(panel.hidden);
+    panelToggle.blur();
+  });
+  setTimeout(() => toast.classList.add("gone"), 6000);
   const wasm = await init();
-  const app = new App();
+  app = new App();
+  VIEW_H = App.default_view_h();
+  MIN_VIEW_W = App.min_view_w();
+  MAX_VIEW_W = App.max_view_w();
+  fitView();
 
   // Sound: made on the first key press or click (browsers insist on a gesture), muted with M. Neither layout uses M.
   const sfx = new Sfx();
@@ -242,6 +305,7 @@ async function main() {
     layoutButton.textContent = `Keys: ${LAYOUTS[layout].label}`;
     layoutButton.title = `Switch to the ${LAYOUTS[OTHER[layout]].label} keys`;
     hint.textContent = LAYOUTS[layout].hint;
+    toast.textContent = `${LAYOUTS[layout].hint} H shows the panel.`;
   };
   showLayout();
 
@@ -296,6 +360,12 @@ async function main() {
     if (event.code === "KeyF" && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (down && !event.repeat && document.fullscreenEnabled) toggleFullscreen();
+      return;
+    }
+    // H shows and hides the panel in both layouts; neither layout uses it.
+    if (event.code === "KeyH" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (down && !event.repeat) setPanel(panel.hidden);
       return;
     }
     // V toggles the captions in both layouts; neither layout uses it.
