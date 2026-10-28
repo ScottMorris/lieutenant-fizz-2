@@ -659,7 +659,9 @@ frames_live() {
   if [ "$rate" = 30 ]; then
     { [ $(( n * 2 )) -ge $(( t - 2 )) ] && [ $(( n * 2 )) -le $(( t + 4 )) ]; } || fail "/LIVE frames case '$name': '$line' (expected about half as many frames as ticks)"
   else
-    { [ "$n" -ge "$t" ] && [ "$n" -le $(( t + 2 )) ]; } || fail "/LIVE frames case '$name': '$line' (expected a frame for each tick)"
+    # A live run starts and stops by wall-clock, so on a loaded machine the last few ticks can pass without a drawn frame (CI saw 170
+    # frames for 173 ticks): at 60 the frames track the ticks to within a handful, never half as many.
+    { [ "$n" -ge $(( t - 6 )) ] && [ "$n" -le $(( t + 2 )) ]; } || fail "/LIVE frames case '$name': '$line' (expected about a frame for each tick)"
   fi
   printf '%s\n' "$out" | tr -d '\r' | grep -qx 'VECTORS RESTORED yes' || fail "/LIVE frames case '$name' did not restore the vectors"
   echo "FRAMES live case $name ok ($line)"
