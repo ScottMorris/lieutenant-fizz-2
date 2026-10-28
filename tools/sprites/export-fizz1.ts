@@ -27,6 +27,9 @@ export const SLICE_NAMES = [
   'keyRed',
   'doorRed',
   'bubble',
+  // Fizz 1's stun stars (enemies.ts `stars(f)`, drawn by render.rs above a stunned enemy), 16 by 8, two frames.
+  'stars0',
+  'stars1',
 ];
 
 export const DEFAULT_FIZZ1 = `${homedir()}/source/liminal-hq/lieutenant-fizz`;
