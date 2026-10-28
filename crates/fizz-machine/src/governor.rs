@@ -43,7 +43,11 @@ impl FrameGovernor {
     pub const fn new(mode: FrameRate) -> Self {
         FrameGovernor {
             mode,
-            hz: if matches!(mode, FrameRate::Hz30) { 30 } else { 60 },
+            hz: if matches!(mode, FrameRate::Hz30) {
+                30
+            } else {
+                60
+            },
             drawn: 0,
             spent: 0,
             frames: 0,
@@ -82,10 +86,11 @@ impl FrameGovernor {
         if self.frames < WINDOW {
             return None;
         }
-        let pct = u32::try_from(self.spent * 60 * 100 / (u64::from(WINDOW) * u64::from(CLOCK_HZ))).unwrap_or(u32::MAX);
-        if pct > CHOOSE_30_ABOVE && pct <= CHOOSE_30_UP_TO {
+        let pct = u32::try_from(self.spent * 60 * 100 / (u64::from(WINDOW) * u64::from(CLOCK_HZ)))
+            .unwrap_or(u32::MAX);
+        if (CHOOSE_30_ABOVE + 1..=CHOOSE_30_UP_TO).contains(&pct) {
             self.hz = 30;
-        } else if pct > CHOOSE_60_ABOVE || pct < CHOOSE_60_BELOW {
+        } else if !(CHOOSE_60_BELOW..=CHOOSE_60_ABOVE).contains(&pct) {
             self.hz = 60;
         }
         self.spent = 0;
@@ -102,7 +107,11 @@ mod tests {
     /// The total cost, in 560 Hz ticks, of a window whose average is `pct` of a 60 Hz frame (the least total that gives `pct`).
     fn window_total(pct: u32) -> u64 {
         let t = (u64::from(pct) * 32 * 560).div_ceil(6000);
-        assert_eq!(t * 6000 / (32 * 560), u64::from(pct), "{pct} is not reachable");
+        assert_eq!(
+            t * 6000 / (32 * 560),
+            u64::from(pct),
+            "{pct} is not reachable"
+        );
         t
     }
 

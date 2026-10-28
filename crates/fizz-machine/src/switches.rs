@@ -71,7 +71,9 @@ impl Group {
     pub const fn title(self) -> Option<&'static str> {
         match self {
             Group::Modes => Some("Modes (the first one given is used; /LIVE is the default)"),
-            Group::Options => Some("Options (for this run; where one has an opposite, the last one given wins)"),
+            Group::Options => {
+                Some("Options (for this run; where one has an opposite, the last one given wins)")
+            }
             Group::Sound => Some("Sound (for this run only; FIZZ2.CFG keeps your saved choice)"),
             Group::Developer => None,
         }
