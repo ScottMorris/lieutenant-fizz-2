@@ -4,7 +4,7 @@
   {
    "section": "What this is",
    "shelf": "none",
-   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story or menu, and the cluck's sound on the Web only."
+   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story or menu, and the cluck's sound on both."
   },
   {
    "section": "Running it",
@@ -73,13 +73,19 @@
    "section": "Choosing your sound on DOS",
    "shelf": "catalogued",
    "evidence": "`tools/check-dos.sh` runs `/PROBE` under sb16, sb1 and no sound card with each flag and with planted version 1, version 2 and damaged `FIZZ2.CFG` files, and compares the whole `SOUND` line, including the fallback and file-problem words. It checks that a run with flags leaves the file as it was, that `/CFGTEST` saves the documented 9 bytes and reads them back, and that `/LIVE` prints the line. It runs `/REPLAY` under eight combinations of file and flags and requires the golden `TICK`, `FINAL` and `EVENT` lines every time. `fizz-machine` tests cover the file's round trip, the version 1 upgrade, every kind of corruption and the flag precedence.",
-   "gaps": "a real machine: every run is DOSBox's, and nothing plays, so whether the chosen device is the one you would hear is unchecked; the file on a real disk, for example read-only media; and the frame-rate byte, which nothing reads yet."
+   "gaps": "a real machine: every run is DOSBox's, so whether the chosen device is the one you would hear is unchecked (the `AUDIO` line only shows which path wrote); the file on a real disk, for example read-only media; and the frame-rate byte, which nothing reads yet."
+  },
+  {
+   "section": "Hearing the cluck on DOS",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-dos.sh` runs `/REPLAY` under an OPL3 Sound Blaster (Auto and `/SB`), a Sound Blaster Pro 2, an OPL2 Sound Blaster, `oplmode opl2` on a Sound Blaster 16, an AdLib-only machine, `/MUSIC:SB /FX:ADLIB` (an OPL3 carrying the channel-5 effect through the OR rule), `/SPEAKER`, no card and `/NOSOUND`. Every run must print the golden `TICK`, `FINAL` and `EVENT` lines, `BIOS TICKS` inside the bound and `VECTORS RESTORED yes`, and the `AUDIO WRITES <n> SPEAKER STEPS <m>` line must show writes on a chip, steps on the speaker and zeros for both when silent. A `/PANIC` run on an OPL3 with a cluck sounding exits 3. `fizz-sfx` and `fizz-machine` tests cover the players and the OR rule on the host. A DOSBox recording of the three paths is not silent and the `/NOSOUND` one is.",
+   "gaps": "how any of it sounds: nobody has listened on DOSBox or anywhere else, and a real OPL2, OPL3, Sound Blaster or PC speaker has not been tried (the register write timings are Fizz 1's, unmeasured here); that the chip really leaves OPL3 mode and goes quiet on exit and panic, which a headless run cannot hear; and the cost of the 560 Hz interrupt on a 486, which `/BENCH` (still at 60 Hz) does not include."
   },
   {
    "section": "The slice on DOS",
    "shelf": "catalogued",
    "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD strip is tested in `fizz-present-dos` (`the_slice_hud_shows_ammo_key_deaths_and_tick`). The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server.",
-   "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which does not exist yet."
+   "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which no one has heard on a real machine."
   },
   {
    "section": "The Web slice",

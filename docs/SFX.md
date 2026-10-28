@@ -15,10 +15,10 @@ crates/fizz-sfx/src/data.rs    generated: OPL2 records and PC speaker divisors p
         |
         |  fizz-sfx: OplPlayer, SpeakerPlayer
         v
-DOS audio service              steps them from its timer interrupt (Milestone 1.5, not built)
+DOS audio service              steps them from its 560 Hz timer interrupt (dos/rt/src/audio.rs)
 ```
 
-The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant, chicken }` (see "The Web path"). The DOS audio service is a separate package.
+The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant, chicken }` (see "The Web path"). The DOS audio service is described under "The DOS path".
 
 Each arrow loses something:
 
@@ -109,7 +109,25 @@ The converter is adapted from `convertSfx` in `m4/sound/fizz-dos/sfx.ts` of `lie
 - `SpeakerStep::{Divisor(u16), Off}`, and `SpeakerPlayer`: call `tick()` once per 140 Hz tick. It returns `None` once the list is spent; the step before that is always `Off`.
 - `EFFECT_CHANNEL` (5), `EFFECT_CHANNEL_PANNED` (14), `RESERVED_OPL_CHANNELS` (`[5, 14]`), `is_reserved_opl_channel`, `OPL_TICK_HZ` (560) and `SPEAKER_TICK_HZ` (140).
 
-Last-wins between effects, detection of an OPL2, the 560 Hz timer and the ports are the DOS audio service's business, not this crate's.
+Last-wins between effects, detection of an OPL2, the 560 Hz timer and the ports are the DOS audio service's business, not this crate's (see "The DOS path").
+
+## The DOS path
+
+`dos/rt/src/audio.rs` is the DOS audio service. `audio::start(&Resolved)` hooks IRQ 0 at 560 Hz (`timer::hook_560hz`, PIT divisor 2131, 559.9165 Hz) and installs a tick hook that the timer handler calls on every interrupt. The BIOS accumulator is the one `hook_60hz` used, now adding 2131 a tick: the BIOS handler runs on every 30.75th interrupt. The simulation is still paced by the integer `Pacer`, which reads the 560 Hz tick count as a clock of 559,916 millihertz and releases 60 steps a second. `audio::cluck(variant)` stores the variant in an atomic (the game calls it for every `Event::Cluck { variant, .. }`, in `FIZZ2.EXE`'s `play_events`), and the handler takes it up on the next tick; a second cluck replaces one still sounding (last wins). The handler allocates nothing, calls no DOS service and uses no x87. What it does with the cluck depends on the resolved plan (`fizz_machine::Resolved`, see [`DOS-CHECK.md`](DOS-CHECK.md)):
+
+| Plan | Device | What the service does each tick |
+| --- | --- | --- |
+| `FX ch5`, chip `Opl2` | AdLib or Sound Blaster OPL2 | `OplPlayer::new(variant).tick(..)` once per tick; each `(bank, reg, val)` is written to ports 0x388 and 0x389. |
+| `FX ch5`, chip `Opl3` (music on the Sound Blaster, effects on AdLib) | OPL3 in its own mode | The same, with `fizz_machine::route` on every write: a bank-0 write to registers 0xC0 to 0xC8 gets bits 4 and 5 set, so the mono voice sounds in both speakers. |
+| `FX ch14`, chip `Opl3` | OPL3, second bank | `OplPlayer::new_panned(variant, Pan::Centre)`: its first write is the enable (register 0x105), every other write goes to bank 1 (ports 0x38A and 0x38B) and the C0 register gets both output bits. Centre only; the pan arrives when `Event::Cluck` names its chicken. |
+| `FX speaker` | PC speaker | `SpeakerPlayer::new(variant)` stepped on every fourth tick (140 Hz): a divisor is written to PIT channel 2 (command 0xB6, port 0x42) and bits 0 and 1 of port 0x61 are set, `Off` clears them. |
+| `FX off`, or no device | none | The service runs and does nothing, so the clock is the same in every case. |
+
+Start-up and shutdown. When the plan uses the chip (`opl` is not `None`, even for music that does not play yet), `start` keys off every channel of bank 0 and the rhythm register and, for an OPL3, first writes 0x105 = 1 and 0x104 = 0 and keys off bank 1. `audio::stop` is on the clean-up list, so it runs at exit and in the panic handler: it keys off both banks, writes 0x105 = 0 so an OPL3 leaves OPL3 mode, and closes the speaker gate. The timer's own clean-up puts the PIT and the vector back. A write to the chip is the register port, six status reads, the data port and 35 status reads (Fizz 1's settling times), so the busiest tick of a cluck, the patch with about a dozen writes, takes roughly 40 port reads each.
+
+Music is not played yet. The plan's music field only decides whether the chip runs in OPL3 mode, and channels 5 and 14 are the effects' whatever it holds.
+
+The run's `AUDIO WRITES <n> SPEAKER STEPS <m>` line counts every OPL register write the service made (the start and stop key-offs included) and every speaker step. `tools/check-dos.sh` runs `/REPLAY` under an OPL3 Sound Blaster, a Pro 2, an OPL2 Sound Blaster, an OPL2 with no Sound Blaster, no card and the flags, requires the golden `TICK`, `FINAL` and `EVENT` lines every time, and requires writes with a chip, speaker steps on the speaker and zeros when silent.
 
 ## Reserved channels
 
@@ -180,4 +198,4 @@ The converter is the same author's code, MIT in `lieutenant-fizz-dos` and dual-l
 
 - Nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
 - The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The panned OPL3 path has not run on an OPL3 or in an emulator either, and the register numbers for bank 1 rest on the lab's conventions and the chip's documented layout, not on a test against hardware.
-- The Web plays the cluck, but that has been checked only against stand-ins for `AudioContext`. A real browser's autoplay policy, its hidden-tab behaviour, the overall loudness and any clipping (each voice's gain is at most 0.3, but the sum is not measured) have not been tried. DOS does not play yet, and the manual describes only the Web's sound.
+- The Web plays the cluck, but that has been checked only against stand-ins for `AudioContext`. A real browser's autoplay policy, its hidden-tab behaviour, the overall loudness and any clipping (each voice's gain is at most 0.3, but the sum is not measured) have not been tried. The manual describes the Web's cluck and the DOS one.
