@@ -182,8 +182,8 @@ def main(argv):
         check(a["made"] == 1 and a["resumed"] >= 1, "the first key makes one context and resumes it")
         got = [[o["type"], o["hz"]] for o in a["osc"]]
         same = len(got) == len(want["tones"]) and all(g[0] == w[0] and abs(g[1] - w[1]) < 1e-6 for g, w in zip(got, want["tones"]))
-        check(same and a["noise"] == want["noise"] and a["panners"] == 0,
-              "the cluck at tick %d schedules variant %d: %d tones and %d noise bursts, centred" % (tick, variant, len(want["tones"]), want["noise"]))
+        check(same and a["noise"] == want["noise"] and a["panners"] in (0, len(want["tones"]) + want["noise"]),
+              "the cluck at tick %d schedules variant %d: %d tones and %d noise bursts, placed (a panner on every voice, or none when the chicken is dead centre)" % (tick, variant, len(want["tones"]), want["noise"]))
 
         # 3. M mutes, and the choice is remembered.
         page.load()
