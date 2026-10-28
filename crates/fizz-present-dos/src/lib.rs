@@ -11,6 +11,7 @@
 
 mod frame;
 mod hud;
+pub mod menu;
 mod palette;
 
 use fizz_hal::{Display, HalError, KeyCode};

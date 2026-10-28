@@ -69,6 +69,64 @@ pub fn draw_text(frame: &mut [u8], w: usize, h: usize, x: i32, y: i32, text: &st
     }
 }
 
+/// The width in pixels of `text` drawn by [`draw_text_scaled`] at `k` times: every advance times `k`.
+pub fn text_width_scaled(text: &str, k: i32) -> i32 {
+    text_width(text).saturating_mul(k)
+}
+
+/// [`draw_text`] with every font pixel drawn as a `k` by `k` square (a headline), clipped to the frame like it. A `k` below one
+/// draws nothing. With `k` of one it draws exactly what [`draw_text`] does.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_text_scaled(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    x: i32,
+    y: i32,
+    text: &str,
+    colour: u8,
+    k: i32,
+) {
+    if k < 1 {
+        return;
+    }
+    let h = frame.len().checked_div(w).map_or(0, |rows| rows.min(h));
+    let mut pen = i64::from(x);
+    for c in text.chars() {
+        if let Some(g) = glyph(c) {
+            let gw = i64::from(g.w);
+            let k64 = i64::from(k);
+            if pen < w as i64 && pen + gw * k64 > 0 {
+                for (dy, &bits) in g.rows.iter().enumerate() {
+                    if bits == 0 {
+                        continue;
+                    }
+                    let top = i64::from(y) + dy as i64 * k64;
+                    let (y0, y1) = (top.max(0), (top + k64).min(h as i64));
+                    if y0 >= y1 {
+                        continue;
+                    }
+                    for dx in 0..gw {
+                        if bits >> (gw - 1 - dx) & 1 == 0 {
+                            continue;
+                        }
+                        let left = pen + dx * k64;
+                        let (x0, x1) = (left.max(0), (left + k64).min(w as i64));
+                        if x0 >= x1 {
+                            continue;
+                        }
+                        for py in y0..y1 {
+                            let row = py as usize * w;
+                            frame[row + x0 as usize..row + x1 as usize].fill(colour);
+                        }
+                    }
+                }
+            }
+        }
+        pen += i64::from(advance(c)) * i64::from(k);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -106,6 +164,47 @@ mod tests {
             assert!(glyph(c).unwrap().rows.len() > 7, "{c}");
         }
         assert_eq!(glyph('a').unwrap().rows.len(), 7);
+    }
+
+    #[test]
+    fn scaled_text_is_the_plain_text_with_every_pixel_a_square() {
+        let (w, h) = (60usize, 30usize);
+        let mut one = [0u8; 60 * 30];
+        draw_text(&mut one, w, h, 3, 2, "Op", 9);
+        let mut same = [0u8; 60 * 30];
+        draw_text_scaled(&mut same, w, h, 3, 2, "Op", 9, 1);
+        assert_eq!(one, same);
+        let mut two = [0u8; 60 * 30];
+        draw_text_scaled(&mut two, w, h, 3, 2, "Op", 9, 2);
+        let mut plain = [0u8; 30 * 15];
+        draw_text(&mut plain, 30, 15, 0, 0, "Op", 9);
+        for y in 0..15 {
+            for x in 0..30 {
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let (sx, sy) = (3 + x * 2 + dx, 2 + y * 2 + dy);
+                    if sx < w && sy < h {
+                        assert_eq!(two[sy * w + sx], plain[y * 30 + x], "{x},{y}");
+                    }
+                }
+            }
+        }
+        assert_eq!(text_width_scaled("Op", 2), text_width("Op") * 2);
+        // Off every side, with a zero or negative scale, an empty frame and a short buffer, nothing panics.
+        for (x, y) in [
+            (i32::MAX, 0),
+            (0, i32::MAX),
+            (i32::MIN, i32::MIN),
+            (-9, -9),
+            (50, 25),
+        ] {
+            draw_text_scaled(&mut two, w, h, x, y, "Op", 1, 3);
+        }
+        let before = two;
+        draw_text_scaled(&mut two, w, h, 0, 0, "Op", 1, 0);
+        draw_text_scaled(&mut two, w, h, 0, 0, "Op", 1, -2);
+        assert_eq!(before, two);
+        draw_text_scaled(&mut [], 0, 0, 0, 0, "A", 1, 2);
+        draw_text_scaled(&mut two[..50], w, h, 0, 0, "gy", 1, 2);
     }
 
     #[test]

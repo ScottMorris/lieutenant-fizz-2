@@ -448,6 +448,31 @@
       ]
     },
     {
+      "name": "soda",
+      "w": 16,
+      "h": 16,
+      "anchor": [8, 16],
+      "source": "generated:fizz1",
+      "rows": [
+        "................",
+        ".....kkkkkk.....",
+        "....kLLLLLLk....",
+        "....krrrrrrk....",
+        "....krWrrrrk....",
+        "....krrrrrrk....",
+        "....krrrrrrk....",
+        "....kWWWWWWk....",
+        "....kWWWWWWk....",
+        "....krrrrrrk....",
+        "....krrrrrrk....",
+        "....krrrrmrk....",
+        "....krrrmrrk....",
+        "....krrrrrrk....",
+        "....kLLLLLLk....",
+        ".....kkkkkk....."
+      ]
+    },
+    {
       "name": "stars0",
       "w": 16,
       "h": 8,

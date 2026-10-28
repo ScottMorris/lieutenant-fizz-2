@@ -62,9 +62,10 @@ use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_machine::{Captions, Keys, Motion, PlacementMode};
+use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, key_to_buttons, present,
-    render_slice_with,
+    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, frame_digest, key_to_buttons,
+    menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
@@ -278,6 +279,7 @@ fn main() -> i32 {
         Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::MusicTest => music_test(),
         Mode::ReplanTest => replan::replan_mode(),
+        Mode::MenuShot => menushot(),
         Mode::Panic => {
             // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
             let plan = sound::Plan::new(&machine::probe_machine());
@@ -437,6 +439,32 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     println!("EXIT {}", if exited { "yes" } else { "no" });
     println!("FPU CW {:04X}", cw);
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
+    0
+}
+
+/// `/MENUSHOT`: draws the Options and Paused screens over the slice's first frame, presents each for an instant and prints the
+/// hash of each finished frame (`MENUSHOT options <hex>`, `MENUSHOT paused <hex>`). The host's `menushot` example prints the same
+/// lines, and `tools/check-dos.sh` compares them. It starts no hooks: no timer, keyboard or audio.
+fn menushot() -> i32 {
+    let mut display = DosDisplay;
+    if open_display(&mut display).is_err() {
+        display.restore_text_mode();
+        println!("DISPLAY FAILED");
+        return 1;
+    }
+    // One frame, which holds the picture and then the finished screen, and the view's dimmed copy: about 130 KB of the 256 KB stack.
+    let mut view = MenuView::new();
+    let mut frame = Frame::new();
+    let mut hashes = [0u64; 2];
+    for (i, show) in [menu::shot_options, menu::shot_paused].into_iter().enumerate() {
+        render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &Puffs::new());
+        show(&mut view, &mut frame);
+        let _ = present(&mut display, &frame);
+        hashes[i] = frame_digest(&frame);
+    }
+    display.restore_text_mode();
+    println!("MENUSHOT options {:016x}", hashes[0]);
+    println!("MENUSHOT paused {:016x}", hashes[1]);
     0
 }
 

@@ -13,3 +13,7 @@ fizz-ep2 = { path = "../fizz-ep2" }
 fizz-slice-view = { path = "../fizz-slice-view" }
 fizz-sfx = { path = "../fizz-sfx" }
 fizz-view = { path = "../fizz-view" }
+fizz-menu = { path = "../fizz-menu" }
+
+[dev-dependencies]
+fizz-machine = { path = "../fizz-machine" }

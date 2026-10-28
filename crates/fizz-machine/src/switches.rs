@@ -24,6 +24,7 @@ pub enum Mode {
     CfgTest,
     MusicTest,
     ReplanTest,
+    MenuShot,
 }
 
 /// What a switch does.
@@ -281,6 +282,13 @@ pub const SWITCHES: &[Switch] = &[
         Group::Developer,
         Kind::Mode(Mode::ReplanTest),
         "Run the audio service and change its devices live",
+    ),
+    sw(
+        "/MENUSHOT",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::MenuShot),
+        "Draw the Options and Paused screens and print their hashes",
     ),
     sw(
         "/AUDIO",
@@ -672,6 +680,13 @@ mod tests {
             run(&["/replantest"]),
             Parsed::Run(Invocation {
                 mode: Mode::ReplanTest,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/menushot"]),
+            Parsed::Run(Invocation {
+                mode: Mode::MenuShot,
                 ..live
             })
         );
