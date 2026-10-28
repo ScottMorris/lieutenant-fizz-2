@@ -229,16 +229,16 @@ CLUCK_SHARED = [
     ("built", "EVENT line", "slice-replay.txt", "native, Web and DOS print it", "crates/fizz-ep2/slice-replay.txt", "EVENT 197 cluck"),
 ]
 CLUCK_DOS = [
-    ("built", "audio::cluck(variant)", "dos/fizz2 main.rs", "run by /REPLAY and /LIVE", "dos/fizz2/src/main.rs", "audio::cluck"),
+    ("built", "audio::cluck(placement)", "dos/fizz2 main.rs", "run by /REPLAY and /LIVE", "dos/fizz2/src/main.rs", "audio::cluck"),
     ("built", "audio service", "dos/rt audio.rs, 560 Hz", "AUDIO line in check-dos.sh", "dos/rt/src/audio.rs", "pub fn cluck"),
-    ("built", "OplPlayer, SpeakerPlayer", "fizz-sfx", "host tests; the OR rule", "crates/fizz-sfx/src/lib.rs", "pub struct OplPlayer"),
-    ("review", "OPL ports, speaker", "ch5, ch14, PC speaker", "writes counted, not heard", None, None),
+    ("built", "OplPair, OplPlayer", "fizz-sfx, place::place", "host tests; level per ear", "crates/fizz-sfx/src/lib.rs", "pub struct OplPlayer"),
+    ("review", "OPL ports, speaker", "ch5 left, ch14 right, PC", "writes counted, not heard", None, None),
     ("ext", "A real chip or speaker", "AdLib, Sound Blaster, PC", "nobody has listened", None, None),
 ]
 CLUCK_WEB = [
     ("built", "App::take_cluck()", "fizz-present-web", "host tests: none lost", "crates/fizz-present-web/src/lib.rs", "pub fn take_cluck"),
     ("built", "loop in main.js", "web/main.js", "after every frame", "web/main.js", "playCluck"),
-    ("built", "Sfx.playCluck", "web/sfx.ts, Undertone", "bun test; stand-in context", "web/sfx.ts", "playCluck"),
+    ("built", "Sfx.playCluck(pan, gain)", "web/sfx.ts, Undertone", "bun test; panner per voice", "web/sfx.ts", "playCluck"),
     ("review", "AudioContext voices", "assets/sfx/cluck.ts", "scheduled, not heard", "assets/sfx/cluck.ts", "CLUCK"),
     ("ext", "A browser and speakers", "any real browser", "nobody has listened", None, None),
 ]
@@ -276,8 +276,8 @@ def cluck_path(D, root):
     X0, W, w = 26, 1000, 176
     step = (W - X0 - w) / 4
     desc = ("The path of the chicken's cluck. The rules emit Event::Cluck in World::step and the transcript prints it as an EVENT line, which native, Web and DOS reproduce. "
-            "On DOS the event goes to audio::cluck, the 560 Hz audio service, the OplPlayer or SpeakerPlayer of fizz-sfx, and the OPL2, OPL3 or speaker ports; the writes are counted in DOSBox and nobody has heard them on a real chip or speaker. "
-            "On Web the event goes to App::take_cluck, the loop in main.js, Sfx.playCluck with Undertone's voices and the browser's AudioContext; a stand-in context records what is scheduled and nobody has heard it in a real browser.")
+            "On DOS the event goes, with its placement from fizz_sfx::place, to audio::cluck, the 560 Hz audio service, the OplPair, OplPlayer or SpeakerPlayer of fizz-sfx, and the OPL2 channel 5, the OPL3 pair (channel 5 left, channel 14 right) or speaker ports; the writes are counted in DOSBox and nobody has heard them on a real chip or speaker. "
+            "On Web the event goes to App::take_cluck, the loop in main.js, Sfx.playCluck with Undertone's voices, a stereo panner and a gain for each, and the browser's AudioContext; a stand-in context records what is scheduled and nobody has heard it in a real browser.")
     o = ['<svg viewBox="0 0 %d 372" role="img" class="diagram" aria-label="%s">%s' % (W, esc(desc), arrow_defs("cl-arrow"))]
     o.append('<text x="%d" y="16" font-size="13" class="a-t1">Shared: the rules (%d EVENT lines in the golden transcript)</text>' % (X0, events))
     for i, row in enumerate(CLUCK_SHARED):
