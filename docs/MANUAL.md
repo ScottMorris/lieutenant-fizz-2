@@ -175,7 +175,7 @@ The chicken walks to and fro along its ledge and turns round at walls and edges.
 
 ### Death and respawn on DOS
 
-Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air for a moment, then you start again at the beginning of the level, about a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open. The screen shakes sideways for a third of a second when you die, as in Lieutenant Fizz 1; a small shake, a pixel or so either way. The DOS version always shakes for now, and the Options screen will let you turn it off.
+Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air, spinning head over heels as he falls (about one and a quarter turns a second, as in Lieutenant Fizz 1), for a moment, then you start again at the beginning of the level, about a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open. The screen shakes sideways for a third of a second when you die, as in Lieutenant Fizz 1; a small shake, a pixel or so either way. The DOS version always shakes and spins for now, and the Options screen will let you turn both off.
 
 ## The Web slice
 
@@ -223,7 +223,7 @@ The keys for each action are in the table under Controls, in both the Keen and t
 
 ### Death and respawn on the Web
 
-You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies. The Motion button in the panel switches between Full and Reduced; Reduced keeps the screen still. Until you choose, the page follows your system's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake changes only the picture, never what happens in the game.
+You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies, and Ben spins as he falls. The Motion button in the panel switches between Full and Reduced; Reduced keeps the screen still and Ben's fall flat, in the flickering pose without the spin. Until you choose, the page follows your system's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake and the spin change only the picture, never what happens in the game.
 
 ### The Web heads-up text
 
