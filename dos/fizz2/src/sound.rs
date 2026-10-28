@@ -39,6 +39,11 @@ pub fn load(args: &[String]) -> (Settings, Option<ConfigIssue>) {
     (settings, issue)
 }
 
+/// The frame rate a run uses: the flag if one was given, else the file's byte (read with the same `load_file`), else Auto.
+pub fn frame_rate(flag: Option<fizz_machine::FrameRate>) -> fizz_machine::FrameRate {
+    flag.unwrap_or_else(|| load_file().0.frame_rate)
+}
+
 /// What a run will do with sound: the resolved plan and the line that reports it.
 pub struct Plan {
     /// What the audio service plays on (`fizz_dos_rt::audio::start`).
