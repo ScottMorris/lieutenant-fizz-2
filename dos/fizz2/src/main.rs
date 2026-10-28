@@ -153,7 +153,11 @@ fn main() -> i32 {
         .iter()
         .rfind(|a| a.eq_ignore_ascii_case("/CAPTIONS") || a.eq_ignore_ascii_case("/NOCAPTIONS"))
         .is_some_and(|a| a.eq_ignore_ascii_case("/NOCAPTIONS"));
-    let options = DrawOptions { captions };
+    let options = DrawOptions {
+        captions,
+        // On: the Options screen (Milestone 1.5) will own this setting; FIZZ2.CFG v2's reserved detail byte is not used for it.
+        shake: true,
+    };
     let mode = args
         .iter()
         .map(|a| a.as_str())

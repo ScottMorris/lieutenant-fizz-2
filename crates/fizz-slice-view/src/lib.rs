@@ -57,6 +57,8 @@
 //!
 //! # The camera
 //!
+//! After Ben dies the view shakes sideways for [`DEATH_SHAKE_TICKS`] ticks if [`DrawOptions::shake`] is on ([`death_shake_x`]).
+//!
 //! `fizz_view::follow` centres the view on the middle of Ben's body on both axes and clamps it to the map, in whole
 //! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
 //! 3.6 tiles, ramped and returned by the rules) is added to that centre before the clamp, so the view never leaves the map. The map's y-axis is flipped with `fizz_view::screen_y`.
@@ -130,12 +132,45 @@ pub struct DrawOptions {
     /// Draw the in-world captions that float above a chicken after it clucks. Off hides only the text; the beak still
     /// moves.
     pub captions: bool,
+    /// Shake the view sideways for a moment after Ben dies (Fizz 1's death shake). Off draws the camera still. A view
+    /// effect only: the rules never see it. See [`death_shake_x`].
+    pub shake: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on.
+    /// Captions on, shake on.
     fn default() -> Self {
-        DrawOptions { captions: true }
+        DrawOptions {
+            captions: true,
+            shake: true,
+        }
+    }
+}
+
+/// How many ticks the death shake lasts: Fizz 1 sets `shake` to 0.6 and takes 2 off it every second, so it is gone in
+/// 0.3 s, which is 18 ticks.
+pub const DEATH_SHAKE_TICKS: usize = 18;
+
+/// The camera's horizontal offset in whole pixels, per tick since Ben died (tick 0 is the tick of the death). Fizz 1 offsets
+/// the camera by `sin(t * 70) * shake * 0.15` tiles with `shake = 0.6 - 2t` for `t` seconds since the death; at 16 pixels
+/// to the tile that is `sin(n / 60 * 70) * (1.44 - 0.08 n)` pixels for tick `n`, rounded to the nearest pixel and baked
+/// here so the Web and DOS builds cannot differ in a float sine. It never passes 1 pixel either way (Fizz 1's peak is 1.44).
+const DEATH_SHAKE_X: [i32; DEATH_SHAKE_TICKS] =
+    [0, 1, 1, 0, -1, 0, 1, 1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0];
+
+/// The horizontal camera offset for the death shake, in pixels: zero unless Ben is dead and within [`DEATH_SHAKE_TICKS`]
+/// of dying. Derived from `Ben::dead`, which the rules already keep and hash (0.001 at the death, then a tick longer each
+/// tick), so it adds no state.
+pub fn death_shake_x(world: &World) -> i32 {
+    let dead = world.ben.dead;
+    // `dead` is 0.001 plus whole ticks of 1/60 s; scaling to ticks and flooring recovers the count despite the float sum.
+    if dead > 0.0 && dead < 1.0 {
+        DEATH_SHAKE_X
+            .get((dead * f64::from(TICKS_PER_SECOND)) as usize)
+            .copied()
+            .unwrap_or(0)
+    } else {
+        0
     }
 }
 
@@ -198,7 +233,7 @@ pub fn draw_slice_with(
 
     // The camera centres on the middle of Ben's body, raised or lowered by the look offset the rules keep (zero unless Ben is
     // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
-    let (cam_x, cam_y) = camera(world, w, h);
+    let (cam_x, cam_y) = camera_shaken(world, w, h, options);
 
     let door_closed = map.switch(DOOR_RED_CHANNEL);
     // The tile pass meets every visible tile, so it notes the closed doors for the sprites drawn after it; a view with more
@@ -280,6 +315,24 @@ pub fn draw_slice_with(
             draw_caption(frame, w, h, c, &at);
         }
     }
+}
+
+/// [`camera`] with the death shake added to the target when `options.shake` is on; `follow` then clamps it to the map as
+/// ever, so the shake never shows beyond the map's edge.
+fn camera_shaken(world: &World, w: usize, h: usize, options: &DrawOptions) -> (i32, i32) {
+    let shake = if options.shake {
+        death_shake_x(world)
+    } else {
+        0
+    };
+    let (map_w, map_h) = (world.map.w, world.map.h);
+    let ben = &world.ben;
+    let target_x = tile_px(ben.b.x + ben.b.w * 0.5).saturating_add(shake);
+    let target_y = screen_y(ben.b.y + ben.b.h * 0.5 + ben.look_offset, map_h);
+    (
+        follow(target_x, map_w.saturating_mul(TILE_PX), w as i32),
+        follow(target_y, map_h.saturating_mul(TILE_PX), h as i32),
+    )
 }
 
 /// The top left of the view in map pixels: Ben's centre plus the look offset, followed and clamped by `fizz_view::follow`.
@@ -584,6 +637,9 @@ mod tests {
     fn frames_at_chosen_ticks_are_pinned() {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
+        // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
+        // 0xe88d2a8a227b4cfb before the shake; the other ticks are not death frames and kept theirs.
+        //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
         // Tick 865 is 12 ticks after the cluck at 853. Its chicken is off screen below the frame, so no caption is drawn and the
@@ -603,7 +659,7 @@ mod tests {
                 (0, 0x5b84b8874be44ba4),
                 (150, 0x7abd20c31ae39a54),
                 (270, 0x9bf387153127ec74),
-                (400, 0xe88d2a8a227b4cfb),
+                (400, 0x2f5e4ba6e0a6569b),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
@@ -618,7 +674,7 @@ mod tests {
                 (150, 0x7abd20c31ae39a54),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
                 (270, 0x9bf387153127ec74),
-                (400, 0xe88d2a8a227b4cfb),
+                (400, 0x2f5e4ba6e0a6569b),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
@@ -646,7 +702,10 @@ mod tests {
             VIEW_H,
             world,
             tick,
-            &DrawOptions { captions },
+            &DrawOptions {
+                captions,
+                ..DrawOptions::default()
+            },
         );
         f
     }
@@ -720,7 +779,10 @@ mod tests {
         let mut with = vec![0u8; VIEW_W * VIEW_H];
         draw_slice(&mut with, VIEW_W, VIEW_H, &w, 0);
         let mut bare = vec![0u8; VIEW_W * VIEW_H];
-        let off = DrawOptions { captions: false };
+        let off = DrawOptions {
+            captions: false,
+            ..DrawOptions::default()
+        };
         draw_slice_with(&mut bare, VIEW_W, VIEW_H, &w, 0, &off);
         let changed: Vec<usize> = (0..with.len())
             .filter(|&i| with[i] != bare[i])
@@ -1495,5 +1557,85 @@ mod tests {
             }
         }
         assert_eq!(a.hash().finish(), b.hash().finish());
+    }
+
+    /// A world with Ben dead for `n` ticks, by the rules' own bookkeeping: `kill`, then `n` ticks of the dead branch.
+    fn dead_for(world: &World, n: usize) -> World {
+        let mut w = world.clone();
+        w.ben.kill();
+        let (mut ammo, mut shots) = (0, Vec::new());
+        for _ in 0..n {
+            w.ben
+                .tick(&w.map, &[], InputFrame::default(), &mut ammo, &mut shots);
+        }
+        w
+    }
+
+    fn shaken(w: &World, shake: bool) -> Vec<u8> {
+        let mut f = vec![0xEE; VIEW_W * VIEW_H];
+        let o = DrawOptions {
+            captions: true,
+            shake,
+        };
+        draw_slice_with(&mut f, VIEW_W, VIEW_H, w, 0, &o);
+        f
+    }
+
+    #[test]
+    fn the_death_shake_is_zero_when_alive_and_dies_away_in_18_ticks() {
+        let w = level::world();
+        assert_eq!(death_shake_x(&w), 0);
+        let mut moved = 0;
+        for n in 0..40 {
+            let x = death_shake_x(&dead_for(&w, n));
+            assert!(x.abs() <= 2, "tick {n}: {x}");
+            if n >= DEATH_SHAKE_TICKS {
+                assert_eq!(x, 0, "tick {n}");
+            }
+            moved += i32::from(x != 0);
+        }
+        assert!(moved >= 5, "it does shake: {moved} ticks");
+        // After the respawn Ben is alive again and the view is still.
+        let mut back = dead_for(&w, 10);
+        back.ben.dead = 0.0;
+        assert_eq!(death_shake_x(&back), 0);
+    }
+
+    #[test]
+    fn shake_off_is_the_still_picture_and_alive_frames_never_differ() {
+        let mut w = level::world();
+        w.ben.b.x = 14.0;
+        w.ben.b.y = 3.0;
+        assert!(DrawOptions::default().shake);
+        assert_eq!(shaken(&w, true), shaken(&w, false), "alive");
+        for n in 0..30 {
+            let d = dead_for(&w, n);
+            if death_shake_x(&d) == 0 {
+                assert_eq!(shaken(&d, true), shaken(&d, false), "tick {n}");
+            }
+        }
+        // A tick with an offset does move the picture.
+        let d = dead_for(&w, 1);
+        assert_ne!(death_shake_x(&d), 0);
+        assert_ne!(shaken(&d, true), shaken(&d, false));
+    }
+
+    #[test]
+    fn the_shaken_camera_still_clamps_to_the_map() {
+        let w = level::world();
+        let map_px = w.map.w * TILE_PX;
+        for (x, y) in [(0.0, 3.0), (w.map.w as f64 - 2.0, 3.0), (10.0, 3.0)] {
+            for n in 0..DEATH_SHAKE_TICKS {
+                let mut d = dead_for(&w, n);
+                d.ben.b.x = x;
+                d.ben.b.y = y;
+                let (cx, _) = camera_shaken(&d, VIEW_W, VIEW_H, &DrawOptions::default());
+                assert!(
+                    (0..=map_px - VIEW_W as i32).contains(&cx),
+                    "{x} tick {n}: {cx}"
+                );
+                assert!((cx - camera(&d, VIEW_W, VIEW_H).0).abs() <= 2);
+            }
+        }
     }
 }
