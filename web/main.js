@@ -6,6 +6,8 @@
 // Every URL is relative so the bundle works under any base path. The wasm module is the only import. The Rust side draws the frame
 // into its own memory; this file only copies those pixels onto the canvas and prints the HUD.
 import init, { App } from "./pkg/fizz_present_web.js";
+import { AudioRoot } from "./audio.ts";
+import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
 
 // Button bits match `fizz_sim::Buttons`.
@@ -73,6 +75,7 @@ const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
 const captionsButton = document.getElementById("captions");
 const motionButton = document.getElementById("motion");
+const musicButton = document.getElementById("music");
 const fullscreenButton = document.getElementById("fullscreen");
 const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
@@ -300,18 +303,42 @@ async function main() {
   fitView();
 
   // Sound: made on the first key press or click (browsers insist on a gesture), muted with M. Neither layout uses M.
-  const sfx = new Sfx();
+  // One audio context for the clucks and the music, each on its own bus (web/audio.ts). The music is a placeholder song, started
+  // at the first key or click, and is a presenter detail: the rules never start it or read it.
+  const audio = new AudioRoot();
+  const sfx = new Sfx({ createContext: () => audio.context(), destination: () => audio.sfxBus });
+  const music = new Music(audio, { isMuted: () => sfx.muted });
   const showSound = () => {
     soundButton.textContent = `Sound: ${sfx.muted ? "off" : "on"}, M to toggle`;
     soundButton.setAttribute("aria-pressed", String(!sfx.muted));
   };
-  showSound();
-  soundButton.addEventListener("click", () => {
+  const showMusic = () => {
+    musicButton.textContent = `Music: ${music.enabled ? "on" : "off"}`;
+    musicButton.title = "Crater Fields, Fizz 1's song used as a placeholder. M mutes all sound, including the music";
+    musicButton.setAttribute("aria-pressed", String(music.enabled));
+  };
+  // The first gesture makes the context; the song starts from bar 1 if sound is on and the Music toggle is on.
+  const unlockSound = () => {
     sfx.unlock();
+    music.sync();
+  };
+  showSound();
+  showMusic();
+  soundButton.addEventListener("click", () => {
+    unlockSound();
     sfx.toggleMute();
+    music.sync();
     showSound();
     soundButton.blur();
   });
+  musicButton.addEventListener("click", () => {
+    sfx.unlock();
+    music.toggle();
+    showMusic();
+    musicButton.blur();
+  });
+  // Any click or tap on the page counts as the gesture too.
+  addEventListener("pointerdown", unlockSound);
   document.addEventListener("visibilitychange", () => sfx.sync());
 
   // Classic plays every sound centred at full level; Enhanced places it by where the chicken is on screen (the default). Remembered by Sfx.
@@ -397,11 +424,12 @@ async function main() {
   document.addEventListener("fullscreenchange", () => setKeyLock(Boolean(document.fullscreenElement)));
 
   const handle = (event, down) => {
-    if (down) sfx.unlock();
+    if (down) unlockSound();
     if (event.code === "KeyM" && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (down && !event.repeat) {
         sfx.toggleMute();
+        music.sync();
         showSound();
       }
       return;
