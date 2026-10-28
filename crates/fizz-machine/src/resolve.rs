@@ -25,9 +25,10 @@ pub enum MusicPlan {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FxPlan {
     Off,
-    /// OPL2 channel 5, centred.
+    /// OPL2 channel 5, mono: no pan, the distance only (on an OPL3 in its own mode the OR rule puts it in both speakers).
     Ch5,
-    /// OPL3 channel 14 in bank 1.
+    /// The OPL3 pair: channel 5 (bank 0) is the left output and channel 14 (bank 1) the right, both playing the effect at the level
+    /// its place on screen gives each side. The name is the pair's second channel, kept so the `SOUND` line does not change.
     Ch14,
     /// The PC speaker, through PIT channel 2.
     Speaker,
