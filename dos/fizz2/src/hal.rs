@@ -8,10 +8,10 @@
 use fizz_dos_rt::{kbd, timer, vga};
 use fizz_hal::{Clock, Display, HalError, InputSource, KeyEvent, ModeInfo, Rgb6, Set1Decoder, Ticks};
 
-/// The PIT at divisor 19886 runs at 60.0011 Hz, which rounds to 60,001 millihertz.
-pub const PIT_MILLIHERTZ: u32 = 60_001;
+/// The PIT at divisor 2131 (the audio service's 560 Hz clock) runs at 559.9165 Hz, which rounds to 559,916 millihertz.
+pub const PIT_MILLIHERTZ: u32 = 559_916;
 
-/// The 60 Hz IRQ 0 tick counter as a `Clock`.
+/// The 560 Hz IRQ 0 tick counter as a `Clock`; the `Pacer` turns it into 60 Hz simulation steps with an integer remainder.
 pub struct DosClock;
 
 impl Clock for DosClock {

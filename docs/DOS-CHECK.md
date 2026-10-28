@@ -21,7 +21,7 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 
 ## Status
 
-The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. `FIZZ2.EXE /CHECK` shows the screen and `/CHECKCELLS` reads it back from video memory; both are described below. `FIZZ2.EXE` also reads `FIZZ2.CFG` and the sound flags, resolves them against the probe and prints the `SOUND` line in `/LIVE`, `/REPLAY` and `/PROBE` (see [Settings file and flags](#settings-file-and-flags)); nothing plays yet. `/CHECK` and `/CHECKCELLS` read the same file and flags, so the sound rows show what the game would use.
+The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. `FIZZ2.EXE /CHECK` shows the screen and `/CHECKCELLS` reads it back from video memory; both are described below. `FIZZ2.EXE` also reads `FIZZ2.CFG` and the sound flags, resolves them against the probe and prints the `SOUND` line in `/LIVE`, `/REPLAY` and `/PROBE` (see [Settings file and flags](#settings-file-and-flags)), and the audio service plays the cluck on the device the plan names (see [`SFX.md`](SFX.md#the-dos-path)). `/CHECK` and `/CHECKCELLS` read the same file and flags, so the sound rows show what the game would use.
 
 ## What the screen shows
 
@@ -118,7 +118,7 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 | `/SPEAKER` | music off, effects speaker |
 | `/NOSOUND` | music off, effects off |
 
-`apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself.
+`apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself. The program's switches, these among them, are listed once in `fizz_machine::switches`, which also writes the `/?` help and sends an unrecognised switch or a bad value such as `/MUSIC:FOO` to an error line and exit status 2 (see [PLATFORM.md](PLATFORM.md)).
 
 ### On DOS
 

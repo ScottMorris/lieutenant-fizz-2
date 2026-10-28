@@ -19,6 +19,7 @@ pub mod resolve;
 pub mod route;
 pub mod screen;
 pub mod settings;
+pub mod switches;
 
 pub use probe::{Blaster, CpuClass, FmKind, Probe, SoundBlaster, VideoClass, parse_blaster};
 pub use report::{

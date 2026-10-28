@@ -1,4 +1,4 @@
-// IRQ 0 at 60 Hz, with the BIOS clock still advancing at 18.2 Hz.
+// IRQ 0 at 60 Hz or 560 Hz, with the BIOS clock still advancing at 18.2 Hz.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -6,7 +6,9 @@
 // Provenance: adapted from fizz-2-dos-poc1 crates/fizz2-dos-rt/src/timer.rs (itself from Desk spikes/d0-rust-dos/rt/src/timer.rs).
 // Changes here: the divisor is 19886 (60 Hz) instead of 2131 (560 Hz); the hand-written IRQ 0 stub and the music callback are gone,
 // the tick and the accumulator are plain Rust in a handler of the shared `irq` registry; `hook_60hz`, `ticks` and `bios_ticks` are
-// the public surface.
+// the public surface. `hook_560hz` (divisor 2131, the IMF clock of Fizz 1's `m4/c/sound.c`) and `set_tick_hook` were added for the
+// audio service: the accumulator is the same design with the divisor held in a static, and the tick hook is a function the handler
+// calls on every interrupt.
 //
 // The PIT's input clock is 1,193,182 Hz, so divisor 19886 gives 60.0011 interrupts a second. The BIOS clock (the tick counter at
 // 0040:006C, which DOS reads for the time of day and the disk driver for timeouts) expects 65536 input clocks between ticks, 18.2065
@@ -17,12 +19,14 @@
 // There is no `HLT` anywhere: it is privileged under CWSDPMI. Waiting is a volatile spin on `ticks`.
 use crate::{cleanup, dpmi, irq, port};
 use core::ptr::read_volatile;
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 
 const PIT_COMMAND: u16 = 0x43;
 const PIT_CHANNEL0: u16 = 0x40;
 /// 1,193,182 / 19886 = 60.0011 Hz.
 pub const PIT_DIVISOR_60HZ: u16 = 19886;
+/// 1,193,182 / 2131 = 559.9165 Hz, the rate the OPL records and the speaker lists are timed in (four ticks to a speaker step).
+pub const PIT_DIVISOR_560HZ: u16 = 2131;
 const IRQ0: u8 = 0;
 
 /// Interrupts since `hook_60hz`. Written by the handler only.
@@ -30,10 +34,20 @@ static TICKS: AtomicU32 = AtomicU32::new(0);
 /// Input clocks owed to the BIOS clock, below 65536. Written by the handler only (and reset while unhooked).
 static ACC: AtomicU32 = AtomicU32::new(0);
 static HOOKED: AtomicBool = AtomicBool::new(false);
+/// The divisor the PIT is programmed with while hooked. Written before the vector is installed.
+static DIVISOR: AtomicU32 = AtomicU32::new(PIT_DIVISOR_60HZ as u32);
+/// A `fn()` the handler calls on every interrupt, as an address; 0 for none.
+static TICK_HOOK: AtomicUsize = AtomicUsize::new(0);
 
 fn on_irq0() -> irq::Action {
     TICKS.store(TICKS.load(Ordering::Relaxed).wrapping_add(1), Ordering::Release);
-    let acc = ACC.load(Ordering::Relaxed) + u32::from(PIT_DIVISOR_60HZ);
+    let hook = TICK_HOOK.load(Ordering::Relaxed);
+    if hook != 0 {
+        // SAFETY: the value was stored from a `fn()` by `set_tick_hook`.
+        let f: fn() = unsafe { core::mem::transmute::<usize, fn()>(hook) };
+        f();
+    }
+    let acc = ACC.load(Ordering::Relaxed) + DIVISOR.load(Ordering::Relaxed);
     if acc >= 65536 {
         ACC.store(acc - 65536, Ordering::Relaxed);
         irq::Action::Chain
@@ -50,12 +64,29 @@ fn program_pit(command: u8, divisor: u16) {
     port::outb(PIT_CHANNEL0, (divisor >> 8) as u8);
 }
 
+/// Sets the function the handler calls on every interrupt, before it counts the tick and decides about the BIOS: it runs in interrupt
+/// context (see `irq`), so it does bounded work and allocates nothing. `None` removes it. The caller removes it before the code it
+/// points to goes away; `unhook` does not.
+pub fn set_tick_hook(f: Option<fn()>) {
+    TICK_HOOK.store(f.map_or(0, |f| f as usize), Ordering::Relaxed);
+}
+
 /// Hooks IRQ 0 and sets the PIT to 60 Hz. The vector and the divisor are put back by `unhook`, and from the clean-up list at exit
 /// and in the panic handler.
 pub fn hook_60hz() -> Result<(), irq::Error> {
+    hook(PIT_DIVISOR_60HZ)
+}
+
+/// Hooks IRQ 0 and sets the PIT to 559.9 Hz, as `hook_60hz` does at its rate. `ticks` then counts at 559.9 Hz.
+pub fn hook_560hz() -> Result<(), irq::Error> {
+    hook(PIT_DIVISOR_560HZ)
+}
+
+fn hook(divisor: u16) -> Result<(), irq::Error> {
     if HOOKED.load(Ordering::Relaxed) {
         return Err(irq::Error::Busy);
     }
+    DIVISOR.store(u32::from(divisor), Ordering::Relaxed);
     TICKS.store(0, Ordering::Relaxed);
     ACC.store(0, Ordering::Relaxed);
     irq::install(IRQ0, on_irq0)?;
@@ -65,7 +96,7 @@ pub fn hook_60hz() -> Result<(), irq::Error> {
     }
     HOOKED.store(true, Ordering::Relaxed);
     // Mode 2 (rate generator), lobyte/hibyte access, binary count.
-    program_pit(0x34, PIT_DIVISOR_60HZ);
+    program_pit(0x34, divisor);
     Ok(())
 }
 
@@ -86,29 +117,35 @@ pub fn is_hooked() -> bool {
     HOOKED.load(Ordering::Relaxed)
 }
 
-/// Interrupts counted since `hook_60hz`, at 60.0011 Hz. It wraps after about 2.3 years.
+/// The divisor the PIT runs with while hooked (`PIT_DIVISOR_60HZ` until `hook_560hz` changes it).
+pub fn divisor() -> u16 {
+    DIVISOR.load(Ordering::Relaxed) as u16
+}
+
+/// Interrupts counted since the hook: 60.0011 Hz after `hook_60hz` (about 2.3 years to wrap), 559.9165 Hz after `hook_560hz`.
 pub fn ticks() -> u32 {
     TICKS.load(Ordering::Acquire)
 }
 
-/// Input clocks since `hook_60hz`, at 1,193,182 Hz (0.838 microseconds each): the interrupt count times the divisor, plus how far
+/// Input clocks since the hook, at 1,193,182 Hz (0.838 microseconds each): the interrupt count times the divisor, plus how far
 /// channel 0 has counted down in the current period. This is the 486's stopwatch, which has no `rdtsc`.
 ///
 /// The count is read with the latch command (a write of 0 to port 0x43 freezes channel 0's counter for two byte reads at 0x40).
 /// An interrupt can land between the reads and the interrupt count; the count is then read again, so the pair always belongs
 /// to one period. One more case remains: the counter has reloaded but IRQ 0 has not yet run, so `ticks` is a period behind.
 /// That window is a few microseconds and rare, and the value then reads one period (16,667 us) too low, so a caller that
-/// subtracts two readings must treat a result that goes backwards as that case and add `PIT_DIVISOR_60HZ`. A reading costs
+/// subtracts two readings must treat a result that goes backwards as that case and add one period (`divisor`). A reading costs
 /// two port reads and a port write, about 3 to 5 us on a 486.
 pub fn clocks() -> u64 {
+    let period = DIVISOR.load(Ordering::Relaxed);
     loop {
         let before = ticks();
         port::outb(PIT_COMMAND, 0x00);
         let lo = port::inb(PIT_CHANNEL0);
         let hi = port::inb(PIT_CHANNEL0);
         if before == ticks() {
-            let remaining = (u32::from(hi) << 8 | u32::from(lo)).min(u32::from(PIT_DIVISOR_60HZ));
-            return u64::from(before) * u64::from(PIT_DIVISOR_60HZ) + u64::from(PIT_DIVISOR_60HZ) - u64::from(remaining);
+            let remaining = (u32::from(hi) << 8 | u32::from(lo)).min(period);
+            return u64::from(before) * u64::from(period) + u64::from(period) - u64::from(remaining);
         }
     }
 }

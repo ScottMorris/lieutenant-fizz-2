@@ -21,7 +21,8 @@
 // - `port`     port I/O: `inb` and `outb`
 // - `ring`     a single-producer, single-consumer byte ring for handing bytes from an interrupt handler to the program
 // - `irq`      the interrupt registry: a stub per IRQ line that calls a Rust handler, and the end-of-interrupt
-// - `timer`    IRQ 0 at 60 Hz, with the BIOS clock still advancing at 18.2 Hz
+// - `timer`    IRQ 0 at 60 Hz or 560 Hz, with the BIOS clock still advancing at 18.2 Hz
+// - `audio`    the sound-effect service run from the 560 Hz tick: OPL2 channel 5, OPL3 channel 14, the PC speaker
 // - `kbd`      IRQ 1: raw scancodes into a ring, and the BIOS keyboard flags put back at the end
 // - `mem`      `memset` and `memcpy` on string instructions, in place of the generic loops
 // - `vga`      mode 13h, the palette, the vertical retrace and the frame buffer
@@ -36,6 +37,7 @@
 
 extern crate alloc;
 
+pub mod audio;
 pub mod cleanup;
 pub mod dos;
 pub mod dpmi;

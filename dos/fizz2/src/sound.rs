@@ -6,18 +6,13 @@
 // Provenance: written for this repository.
 //
 // Precedence, per field: a flag wins over the file, the file over Auto. Flags are one-run overrides and are never saved: `save` takes the
-// `Prefs` that `load_file` returned, never the flagged settings. Nothing plays yet; the resolved plan is printed as the `SOUND` line and
-// handed on for the audio service.
+// `Prefs` that `load_file` returned, never the flagged settings. The resolved plan is printed as the `SOUND` line and
+// handed to the audio service (`fizz_dos_rt::audio`), which plays the cluck on it.
 use alloc::string::String;
 use core::fmt::Write;
 use fizz_dos_rt::dos::{DosError, File, Mode};
 use fizz_dos_rt::{dpmi, env, fpu, irq, println};
 use fizz_machine::{Config, ConfigIssue, Prefs, Probe, Resolved, Settings, apply_flags, resolve, write_sound};
-
-/// True when `arg` is one of the sound flags (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`), so the mode search skips it.
-pub fn is_flag(arg: &str) -> bool {
-    apply_flags(&mut Settings::default(), [arg]).applied == 1
-}
 
 /// Reads `FIZZ2.CFG` from the current directory. A missing or unreadable file is Auto with no issue; a bad one is Auto with the first reason.
 pub fn load_file() -> (Prefs, Option<ConfigIssue>) {
@@ -46,8 +41,7 @@ pub fn load(args: &[String]) -> (Settings, Option<ConfigIssue>) {
 
 /// What a run will do with sound: the resolved plan and the line that reports it.
 pub struct Plan {
-    /// Read by the audio service (P13); only the `SOUND` line uses it today.
-    #[allow(dead_code)]
+    /// What the audio service plays on (`fizz_dos_rt::audio::start`).
     pub resolved: Resolved,
     line: String,
 }
