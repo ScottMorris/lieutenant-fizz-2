@@ -144,7 +144,7 @@ The run prints one more line when it ends, such as `AUDIO WRITES 425 SPEAKER STE
 
 ## The slice on DOS
 
-![The DOS build in DOSBox, a few seconds into the built-in run: Ben on a ledge of the shaft facing the chicken, with the HUD along the top.](img/dos-slice.png)
+![The DOS build in DOSBox, at the start of a run: Ben at the foot of the shaft and the chicken on the top ledge, with the HUD box in the top-left corner showing `Fizz 5`, `Deaths 0` and the key chip empty.](img/dos-slice.png)
 
 *Screenshot of the DOS build with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, at tick 249 of the built-in run. The emulator scales the 320 by 200 picture up.*
 
@@ -152,7 +152,7 @@ You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you 
 
 When you play with `/LIVE`, the DOS version waits for the screen to finish drawing before it shows each new picture, which keeps the picture from tearing. Nothing else about how it plays changes.
 
-The strip along the top is the HUD. `AMMO` is how many Fizz shots you have left, `KEY` shows `RED` while you carry the red key, `DEATHS` counts how many times you have died, and `TICK` counts game steps, 60 a second.
+The small box in the top-left corner is the HUD, in Fizz 1's own letters. `Fizz` is how many Fizz shots you have left; the number turns light red when none are left. `Deaths` counts how many times you have died. The chip at the right of the box is the red key: an outline while the key is on the floor, the key itself while you carry it. The box is drawn only when one of those changes, so it costs next to nothing. The game steps are no longer counted on the screen; `/BENCH` and the transcripts still print them, and the Web page shows them in its panel.
 
 ### The level on DOS
 
@@ -178,7 +178,7 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 
 ### The red key and the door
 
-Walk onto the red key to pick it up; the `KEY` in the HUD turns red. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
+Walk onto the red key to pick it up; the key chip in the HUD fills in. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
 
 ### The chicken
 
@@ -262,7 +262,7 @@ A browser does not let a page make sound until you have pressed a key or clicked
 
 ## The screen
 
-Both versions draw the same level with the same camera that follows Ben as he moves through it; the DOS version in a fixed 320 by 200 window, the Web version in a window as wide as the browser's. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text in the panel (`H`).
+Both versions draw the same level with the same camera that follows Ben as he moves through it; the DOS version in a fixed 320 by 200 window, the Web version in a window as wide as the browser's. The DOS version draws a small box of `Fizz`, `Deaths` and the key chip in the top-left corner of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text in the panel (`H`).
 
 - `TICK` counts game steps. There are 60 a second.
 - `HASH` is a 16-digit fingerprint of everything that has happened so far. Two copies that were given the same moves show the same fingerprint, on any platform.
