@@ -19,9 +19,13 @@ pub const WEB_VIEW_H: usize = 208;
 pub const WEB_VIEW_W: usize = 320;
 
 /// The narrowest and widest view the Web presenter draws, in pixels: 6 tiles, about what Fizz 1 shows across a portrait phone, and
-/// 40 tiles, wider than the 32 tile level so a wider window gains nothing but sky at the sides.
+/// 80 tiles. The ceiling is only a sanity bound on the buffers: 1280 by 208 is 266 KB of indices plus 1.06 MB of RGBA, about
+/// 1.3 MB, and it covers an aspect of 6.1 (a 32:9 monitor is 3.6). A level narrower than the view is centred, with sky at the sides.
+///
+/// The view size is for drawing only. `set_view` reaches the view and camera code and nothing else: the rules never read it
+/// (no waking, culling or spawning by view size), so the state hash and the events are the same at every size.
 pub const MIN_VIEW_W: usize = 96;
-pub const MAX_VIEW_W: usize = 640;
+pub const MAX_VIEW_W: usize = 1280;
 
 /// The shortest and tallest view [`App::set_view`] accepts, in pixels. The page keeps [`WEB_VIEW_H`]; the limits only keep a
 /// stray call from making a huge buffer.
@@ -740,9 +744,9 @@ mod tests {
         let hash = app.hash_hex();
         for (ask, got) in [
             ((99, 208), (99, 208)),
-            ((640, 208), (640, 208)),
+            ((1280, 208), (1280, 208)),
             ((10, 208), (96, 208)),
-            ((5000, 5000), (640, 416)),
+            ((5000, 5000), (1280, 416)),
             ((0, 0), (96, 64)),
         ] {
             app.set_view(ask.0, ask.1);
@@ -757,8 +761,33 @@ mod tests {
     }
 
     #[test]
+    fn the_view_size_never_reaches_the_rules() {
+        // The same moves at a phone, the default and an ultra-wide view, drawn every frame, hash identically tick for tick.
+        let run = |w: u32| {
+            let mut app = App::new();
+            app.set_view(w, 208);
+            let (mut prev, mut now_ms, mut hashes) = (Buttons::NONE, 0.0, Vec::new());
+            app.frame(now_ms);
+            for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+                for _ in 0..n {
+                    set_keys(&mut app, prev, held);
+                    now_ms += FRAME_MS;
+                    app.frame(now_ms);
+                    app.render();
+                    hashes.push(app.hash_hex());
+                    prev = held;
+                }
+            }
+            hashes
+        };
+        let base = run(320);
+        assert_eq!(run(96), base);
+        assert_eq!(run(1280), base);
+    }
+
+    #[test]
     fn captions_stay_in_view_pixels_at_any_size() {
-        for w in [96, 99, 640] {
+        for w in [96, 99, 640, 1280] {
             let mut app = App::new();
             app.set_view(w, 208);
             app.world.ben.b.x = 12.0;

@@ -8,21 +8,24 @@ body {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-/* The page is the game: the picture is centred in the window with a dark letterbox and nothing scrolls. */
+/* The page is the game: the view fills the window and nothing scrolls. If the window is wider or narrower than the view can be,
+   the picture keeps its shape and the rest is dark. */
 main {
   position: fixed;
   inset: 0;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* main.js sets the size (a whole-number multiple of 320x200 when one fits). Until it runs, fit 8:5 into the window. */
+/* main.js sets the size from the window: as tall as the window, as wide as the view it picked. Until it runs, fill the window. */
 #stage {
   position: relative;
-  width: min(100vw, 160vh);
-  width: min(100vw, 160dvh);
-  aspect-ratio: 8 / 5;
+  flex: none;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
 }
 
 canvas {
