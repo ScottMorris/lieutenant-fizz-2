@@ -4,11 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lieutenant Fizz 2 — First Slice</title>
+    <!-- Space Grotesk for the cluck captions, as in Fizz 1. Without the network the captions fall back to a bold italic sans. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap" />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <main>
-      <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
+      <div id="stage">
+        <canvas id="screen" width="320" height="200" aria-label="Game screen"></canvas>
+        <!-- The cluck captions are drawn here as text over the picture. They stand in for a sound, so a screen reader is not told. -->
+        <div id="caption-layer" aria-hidden="true"></div>
+      </div>
       <pre id="hud">TICK 0
 HASH 0000000000000000
 AMMO 5

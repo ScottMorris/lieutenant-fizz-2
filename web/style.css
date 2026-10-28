@@ -14,12 +14,42 @@ main {
   padding: 16px;
 }
 
-canvas {
+#stage {
+  position: relative;
   width: min(100%, 960px);
   aspect-ratio: 8 / 5;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
   background: #0000aa;
   outline: 1px solid #335;
+}
+
+/* Cluck captions: Fizz 1's look (bold italic Space Grotesk, a hairline black stroke and a hard black shadow), placed and sized
+   from main.js because they follow the chicken and scale with the canvas. */
+#caption-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-style: italic;
+  white-space: nowrap;
+  line-height: 1.2;
+  -webkit-text-stroke: 0.5px #000;
+  text-shadow: 2px 2px 0 #000;
+  will-change: transform, opacity;
 }
 
 #hud {
