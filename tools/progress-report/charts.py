@@ -12,10 +12,10 @@ import struct
 from drawings import chart, num
 from mdlite import esc
 
-CRATE_ORDER = ["fizz-sim", "fizz-phys", "fizz-ep2", "fizz-hal", "fizz-machine", "fizz-view", "fizz-slice-view", "fizz-present-dos", "fizz-present-web", "fizz-sfx", "fizz-dos-rt", "fizz2", "rtsmoke"]
+CRATE_ORDER = ["fizz-sim", "fizz-phys", "fizz-ep2", "fizz-hal", "fizz-machine", "fizz-view", "fizz-slice-view", "fizz-present-dos", "fizz-present-web", "fizz-sfx", "fizz-music", "fizz-dos-rt", "fizz2", "rtsmoke"]
 WHERE = {"fizz-sim": "crates/fizz-sim", "fizz-phys": "crates/fizz-phys", "fizz-ep2": "crates/fizz-ep2", "fizz-hal": "crates/fizz-hal",
          "fizz-view": "crates/fizz-view", "fizz-slice-view": "crates/fizz-slice-view", "fizz-present-dos": "crates/fizz-present-dos",
-         "fizz-present-web": "crates/fizz-present-web", "fizz-machine": "crates/fizz-machine", "fizz-sfx": "crates/fizz-sfx", "fizz-dos-rt": "dos/rt", "fizz2": "dos/fizz2", "rtsmoke": "dos/rtsmoke"}
+         "fizz-present-web": "crates/fizz-present-web", "fizz-machine": "crates/fizz-machine", "fizz-sfx": "crates/fizz-sfx", "fizz-music": "crates/fizz-music", "fizz-dos-rt": "dos/rt", "fizz2": "dos/fizz2", "rtsmoke": "dos/rtsmoke"}
 
 
 def bars(rows, title, label_w=170, bar_w=420, unit=""):

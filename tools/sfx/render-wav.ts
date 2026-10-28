@@ -32,7 +32,7 @@ import { OPL_CLOCK, IMF_RATE, EFFECT_RATE, type OplRecord } from './opl.ts';
 const SR = 44100;
 
 /** A small seeded generator so every render is the same. */
-function seeded(seed: number): () => number {
+export function seeded(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
@@ -40,7 +40,7 @@ function seeded(seed: number): () => number {
   };
 }
 
-function wav(samples: Float32Array, rate: number, channels = 1): Uint8Array {
+export function wav(samples: Float32Array, rate: number, channels = 1): Uint8Array {
   const out = new Uint8Array(44 + samples.length * 2);
   const v = new DataView(out.buffer);
   const tag = (o: number, t: string): void => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
@@ -169,11 +169,11 @@ export function renderRich(voices: readonly SfxVoice[]): Float32Array {
 
 // ---- opl2 ----
 
-const MULT = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15];
-const FEEDBACK = [0, Math.PI / 16, Math.PI / 8, Math.PI / 4, Math.PI / 2, Math.PI, 2 * Math.PI, 4 * Math.PI];
+export const MULT = [0.5, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 12, 12, 15, 15];
+export const FEEDBACK = [0, Math.PI / 16, Math.PI / 8, Math.PI / 4, Math.PI / 2, Math.PI, 2 * Math.PI, 4 * Math.PI];
 
 /** Seconds for an envelope to move 96 dB at a rate 1 to 15; a rough table (each step up halves the time twice every other step). */
-const seconds96 = (rate: number): number => (rate === 0 ? Infinity : 0.004 * 2 ** ((15 - rate) / 2));
+export const seconds96 = (rate: number): number => (rate === 0 ? Infinity : 0.004 * 2 ** ((15 - rate) / 2));
 
 class Operator {
   phase = 0;
