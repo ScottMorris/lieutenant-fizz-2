@@ -10,7 +10,8 @@
 //! The shape mirrors `fizz_hello::replay` so a presenter swaps one for the other: [`replay`] writes transcript v1, whose
 //! header is `SLICE REPLAY 1`, then `TICK <n> HASH <digest>` at tick 0 and every 60th tick, then
 //! `FINAL TICK <n> HASH <digest>`. Between them sit `EVENT <n> cluck <variant> <chicken>` lines, one per
-//! [`Event::Cluck`] the rules emitted on tick `n`; `<chicken>` is the chicken's index in the world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
+//! [`Event::Cluck`] the rules emitted on tick `n`, and `EVENT <n> shotend <x> <y>` lines, one per [`Event::ShotEnd`]; `<chicken>` is the
+//! chicken's index in the world's list, `<x>` and `<y>` are where the shot was, in sixteenths of a tile, as integers. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
 //! kind is why the gates compare `EVENT` lines too. The header stays `1` because no existing line changed its shape.
@@ -175,6 +176,7 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
             Event::Cluck { variant, chicken } => {
                 writeln!(out, "EVENT {} cluck {variant} {chicken}", w.tick.0)?
             }
+            Event::ShotEnd { x, y } => writeln!(out, "EVENT {} shotend {x} {y}", w.tick.0)?,
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -257,6 +259,7 @@ mod tests {
         transcript()
             .lines()
             .filter_map(|l| l.strip_prefix("EVENT "))
+            .filter(|l| l.split(' ').nth(1) == Some("cluck"))
             .map(|l| {
                 let f: Vec<&str> = l.split(' ').collect();
                 assert_eq!(f[1], "cluck");
@@ -280,6 +283,29 @@ mod tests {
             e.iter()
                 .all(|&(t, v)| (1..=SLICE_TICKS).contains(&t) && v < crate::CLUCK_VARIANTS)
         );
+    }
+
+    #[test]
+    fn the_script_ends_some_shots() {
+        let ends = transcript()
+            .lines()
+            .filter(|l| l.contains(" shotend "))
+            .count();
+        assert!((2..=20).contains(&ends), "{ends} shot ends");
+    }
+
+    #[test]
+    fn the_transcript_lines_of_a_shot_end_are_integers() {
+        for l in transcript().lines().filter(|l| l.contains(" shotend ")) {
+            let f: Vec<&str> = l.split(' ').collect();
+            assert_eq!(f.len(), 5, "{l}");
+            assert_eq!(f[0], "EVENT");
+            assert!(
+                f[1].parse::<u64>().is_ok()
+                    && f[3].parse::<i32>().is_ok()
+                    && f[4].parse::<i32>().is_ok()
+            );
+        }
     }
 
     #[test]

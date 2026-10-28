@@ -8,7 +8,9 @@
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
-use fizz_slice_view::{CAPTION_TICKS, CaptionView, DrawOptions, caption_view, draw_slice_with};
+use fizz_slice_view::{
+    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, caption_view, draw_slice_puffs,
+};
 use wasm_bindgen::prelude::*;
 
 /// The height of the Web view in pixels: 13 tiles of 16, the number of tiles Fizz 1 shows from top to bottom in a level. The DOS
@@ -121,8 +123,12 @@ pub struct App {
     cluck_head: usize,
     /// Whether the cluck captions are shown. The picture never carries them on the Web: the page draws them as text.
     captions: bool,
+    /// Whether the view shakes when Ben dies. The page turns it off for Reduced Motion.
+    shake: bool,
     /// The live captions of the last [`App::render`], empty when captions are off.
     live_captions: Vec<CaptionView>,
+    /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
+    puffs: Puffs,
 }
 
 impl Default for App {
@@ -148,7 +154,9 @@ impl App {
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
             captions: true,
+            shake: true,
             live_captions: Vec::new(),
+            puffs: Puffs::new(),
         }
     }
 
@@ -209,19 +217,32 @@ impl App {
         self.held = Buttons::NONE;
         self.clucks.clear();
         self.cluck_head = 0;
+        self.puffs.clear();
     }
 
-    /// Queues the cluck variants the step that just ran emitted.
+    /// Queues the cluck variants the step that just ran emitted, and takes its shot ends for the puffs.
     fn collect_events(&mut self) {
         for event in self.world.events() {
-            let fizz_ep2::Event::Cluck { variant, .. } = *event;
-            queue_cluck(&mut self.clucks, variant);
+            if let fizz_ep2::Event::Cluck { variant, .. } = *event {
+                queue_cluck(&mut self.clucks, variant);
+            }
         }
+        self.puffs.observe(&self.world);
     }
 
     /// Turns the cluck captions on or off (on by default). The beak still moves; only the text goes.
     pub fn set_captions(&mut self, on: bool) {
         self.captions = on;
+    }
+
+    /// Turns the death shake on or off (on by default). Off draws the camera still, which is the Reduced Motion setting.
+    pub fn set_shake(&mut self, on: bool) {
+        self.shake = on;
+    }
+
+    /// Whether the view shakes when Ben dies.
+    pub fn shake(&self) -> bool {
+        self.shake
     }
 
     /// Whether the cluck captions are shown.
@@ -307,13 +328,17 @@ impl App {
     /// Draws the current world into the frame buffers.
     pub fn render(&mut self) {
         // The picture has no captions on the Web; they are text over the canvas (see `caption_count`).
-        draw_slice_with(
+        draw_slice_puffs(
             &mut self.indexed,
             self.view_w,
             self.view_h,
             &self.world,
             self.world.tick.0 as u32,
-            &DrawOptions { captions: false },
+            &DrawOptions {
+                captions: false,
+                shake: self.shake,
+            },
+            &self.puffs,
         );
         self.live_captions.clear();
         if self.captions {
@@ -439,6 +464,29 @@ mod tests {
     }
 
     #[test]
+    fn reduced_motion_keeps_the_view_still_when_ben_dies() {
+        let mut app = App::new();
+        assert!(app.shake());
+        app.world.ben.b.x = 14.0;
+        app.world.ben.b.y = 3.0;
+        app.world.ben.kill();
+        app.world.ben.dead = 0.001 + 1.0 / 60.0;
+        app.render();
+        let shaken = app.rgba.clone();
+        app.set_shake(false);
+        assert!(!app.shake());
+        app.render();
+        assert_ne!(shaken, app.rgba);
+        // Alive, the setting changes nothing.
+        app.world.ben.dead = 0.0;
+        app.render();
+        let still = app.rgba.clone();
+        app.set_shake(true);
+        app.render();
+        assert_eq!(still, app.rgba);
+    }
+
+    #[test]
     fn a_long_stall_is_capped() {
         let mut app = App::new();
         app.frame(0.0);
@@ -504,6 +552,48 @@ mod tests {
         assert!(app.door_open());
         assert!(!app.has_key(), "the door spent the key");
         assert_eq!(app.deaths(), 1);
+    }
+
+    #[test]
+    fn the_app_draws_the_shot_end_puffs_a_reference_presenter_draws() {
+        // A reference that feeds its own Puffs from the rules' events, as the DOS presenter does, must draw the same pixels
+        // as the app does while a puff is alive, and the puff must show at the ticks the DOS bench samples.
+        let mut app = App::new();
+        let mut reference = fizz_ep2::level::world();
+        let mut puffs = Puffs::new();
+        let options = DrawOptions {
+            captions: false,
+            shake: true,
+        };
+        let (w, h) = (WEB_VIEW_W, WEB_VIEW_H);
+        let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
+        let mut puffed = 0;
+        app.frame(now_ms);
+        for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                set_keys(&mut app, prev, held);
+                now_ms += FRAME_MS;
+                assert_eq!(app.frame(now_ms), 1);
+                fizz_ep2::step(&mut reference, InputFrame::from_transition(prev, held));
+                puffs.observe(&reference);
+                prev = held;
+                let t = reference.tick.0 as u32;
+                if puffs.live(t).next().is_none() {
+                    continue;
+                }
+                app.render();
+                let mut want = vec![0; w * h];
+                draw_slice_puffs(&mut want, w, h, &reference, t, &options, &puffs);
+                assert_eq!(app.indexed, want, "tick {t}");
+                let mut bare = vec![0; w * h];
+                draw_slice_puffs(&mut bare, w, h, &reference, t, &options, &Puffs::new());
+                if [110, 118, 122, 290].contains(&t) {
+                    assert_ne!(want, bare, "tick {t} shows a puff");
+                    puffed += 1;
+                }
+            }
+        }
+        assert_eq!(puffed, 4);
     }
 
     #[test]
@@ -624,8 +714,9 @@ mod tests {
                 InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
             );
             for e in w.events() {
-                let fizz_ep2::Event::Cluck { variant, .. } = *e;
-                out.push((w.tick.0, variant));
+                if let fizz_ep2::Event::Cluck { variant, .. } = *e {
+                    out.push((w.tick.0, variant));
+                }
             }
         }
         out

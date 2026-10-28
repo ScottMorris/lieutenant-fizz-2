@@ -21,15 +21,17 @@
 //! 4. The red door's sprite on each closed door tile. An open door shows the interior wall behind it.
 //! 5. The chicken (the Cluckzarg placeholder art).
 //! 6. The Fizz Blaster shots (the `bubble` sprite).
-//! 7. Ben (Fizz 1's sprites).
-//! 8. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//! 7. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
+//! 8. Ben (Fizz 1's sprites).
+//! 9. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
 //!
 //! # Choices that are ours
 //!
 //! - **Chicken.** The art faces right, so a chicken walking left is flipped. It walks with both legs stepping (`walk`,
 //!   `idle`, `walk2`, `idle` as the distance it has travelled grows, four pixels to a step) and shows the `alert` frame while it touches Ben. A stunned chicken is
 //!   shown as the `alert` frame sunk two pixels, so it reads as knocked flat, and it flashes (disappears every other four
-//!   ticks) for its last second of stun to warn that it is about to wake.
+//!   ticks) for its last second of stun to warn that it is about to wake. Fizz 1's two-frame stun stars (`stars0`, `stars1`)
+//!   also float 0.3 tiles above its head, swapping every [`STAR_FRAME_TICKS`] ticks (Fizz 1's 6 Hz), and flash away with the body.
 //! - **Cluck beak.** While a chicken's `cluck_age` (ticks since its last cluck, kept by the rules and not hashed) is inside
 //!   the open pattern for its variant, the `cluckzarg_beak` overlay is drawn over its idle, walk or walk2 body, so the beak
 //!   moves mid-stride. The `alert` frame already has an open mouth and takes no overlay. See [`BEAK_OPEN`].
@@ -41,6 +43,13 @@
 //!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption follows its chicken's
 //!   position exactly and is cut off by the frame's edge as the chicken leaves it, never moved inside; it is dropped once the
 //!   chicken is more than one tile ([`CAPTION_REACH`]) outside the frame. The captions option gates only the text; the beak always moves.
+//! - **Shot-end puff.** Where a shot ends (the rules' `Event::ShotEnd`) Fizz 1 pushes a 16 by 16 puff that grows from 0.5x by
+//!   1.5 a second and fades out over 0.3 s. DOS has no alpha or scaling, so the view plays [`PUFF_TICKS`] (18) ticks of
+//!   four baked frames: `puff0` (8 pixels, 0.5x) for ticks 0 to 5, `puff1` (12 pixels, 0.75x) for 6 to 11, `puff2` (15
+//!   pixels, 0.95x, Fizz 1's size at the end of its life) for 12 to 14, and `puff3`, `puff2` thinned to a sparse dither, for 15 to
+//!   17. It is cyan, Ben's shot colour; the slice has no enemy shots, so there is no red one. A puff stays where the shot
+//!   ended in the world, so the camera moves past it. The rules keep no puff state: [`Puffs`] is the view's own fixed list,
+//!   fed by [`Puffs::observe`] after each step.
 //! - **Ben.** Ben's pose follows the choice in Fizz 1's `design/melting/engine.js` (the `const sp` in the player draw): dead
 //!   is `jump`; on the pogo stick it is the squashed `pogo2` during the squash after a bounce and `pogo` otherwise; then
 //!   `shoot` while the rules' shooting pose runs (`aimUp` or `aimDown` when the shot went straight up or down, as Fizz 1's
@@ -55,6 +64,8 @@
 //!   afterwards.
 //!
 //! # The camera
+//!
+//! After Ben dies the view shakes sideways for [`DEATH_SHAKE_TICKS`] ticks if [`DrawOptions::shake`] is on ([`death_shake_x`]).
 //!
 //! `fizz_view::follow` centres the view on the middle of Ben's body on both axes and clamps it to the map, in whole
 //! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
@@ -129,12 +140,45 @@ pub struct DrawOptions {
     /// Draw the in-world captions that float above a chicken after it clucks. Off hides only the text; the beak still
     /// moves.
     pub captions: bool,
+    /// Shake the view sideways for a moment after Ben dies (Fizz 1's death shake). Off draws the camera still. A view
+    /// effect only: the rules never see it. See [`death_shake_x`].
+    pub shake: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on.
+    /// Captions on, shake on.
     fn default() -> Self {
-        DrawOptions { captions: true }
+        DrawOptions {
+            captions: true,
+            shake: true,
+        }
+    }
+}
+
+/// How many ticks the death shake lasts: Fizz 1 sets `shake` to 0.6 and takes 2 off it every second, so it is gone in
+/// 0.3 s, which is 18 ticks.
+pub const DEATH_SHAKE_TICKS: usize = 18;
+
+/// The camera's horizontal offset in whole pixels, per tick since Ben died (tick 0 is the tick of the death). Fizz 1 offsets
+/// the camera by `sin(t * 70) * shake * 0.15` tiles with `shake = 0.6 - 2t` for `t` seconds since the death; at 16 pixels
+/// to the tile that is `sin(n / 60 * 70) * (1.44 - 0.08 n)` pixels for tick `n`, rounded to the nearest pixel and baked
+/// here so the Web and DOS builds cannot differ in a float sine. It never passes 1 pixel either way (Fizz 1's peak is 1.44).
+const DEATH_SHAKE_X: [i32; DEATH_SHAKE_TICKS] =
+    [0, 1, 1, 0, -1, 0, 1, 1, 0, -1, -1, 0, 0, 0, 0, 0, 0, 0];
+
+/// The horizontal camera offset for the death shake, in pixels: zero unless Ben is dead and within [`DEATH_SHAKE_TICKS`]
+/// of dying. Derived from `Ben::dead`, which the rules already keep and hash (0.001 at the death, then a tick longer each
+/// tick), so it adds no state.
+pub fn death_shake_x(world: &World) -> i32 {
+    let dead = world.ben.dead;
+    // `dead` is 0.001 plus whole ticks of 1/60 s; scaling to ticks and flooring recovers the count despite the float sum.
+    if dead > 0.0 && dead < 1.0 {
+        DEATH_SHAKE_X
+            .get((dead * f64::from(TICKS_PER_SECOND)) as usize)
+            .copied()
+            .unwrap_or(0)
+    } else {
+        0
     }
 }
 
@@ -183,7 +227,96 @@ pub fn draw_slice(frame: &mut [u8], w: usize, h: usize, world: &World, tick: u32
     draw_slice_with(frame, w, h, world, tick, &DrawOptions::default());
 }
 
-/// Draws `world` as [`draw_slice`] does, with `options`.
+/// How long a shot-end puff lives: 0.3 s at 60 ticks a second, Fizz 1's `life: 0.3`.
+pub const PUFF_TICKS: u32 = TICKS_PER_SECOND * 3 / 10;
+/// The most puffs the list holds. Ben has five shots and a puff lasts 18 ticks, so a full list takes shots to end faster than
+/// the slice's fire rate allows; if one ever does, the oldest puff is replaced.
+pub const MAX_PUFFS: usize = 8;
+
+/// The baked frame of a puff `age` ticks after its shot ended, or `None` once it is over: `puff0` for ticks 0 to 5, `puff1` for
+/// 6 to 11, `puff2` for 12 to 14 and `puff3` (the dither) for 15 to 17.
+pub const fn puff_frame(age: u32) -> Option<usize> {
+    match age {
+        0..=5 => Some(0),
+        6..=11 => Some(1),
+        12..=14 => Some(2),
+        15..=17 => Some(3),
+        _ => None,
+    }
+}
+
+const PUFF_NAMES: [&str; 4] = ["puff0", "puff1", "puff2", "puff3"];
+
+/// One live puff: where its shot ended (sixteenths of a tile, y up) and the tick the rules emitted the event on.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct Puff {
+    x: i32,
+    y: i32,
+    born: u32,
+}
+
+/// The shot-end puffs a presenter is showing: a fixed list of [`MAX_PUFFS`], no allocation. It is view state, not rules
+/// state; the Web and DOS presenters each keep one, call [`Puffs::observe`] after every `fizz_ep2::step` (the events last
+/// for one step only) and hand it to [`draw_slice_puffs`], so both draw the same puffs on the same ticks.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Puffs {
+    list: [Puff; MAX_PUFFS],
+    /// How many entries of `list` have ever been written, up to `MAX_PUFFS`.
+    len: usize,
+    /// Where the next puff goes: the oldest, once the list is full.
+    next: usize,
+}
+
+impl Default for Puffs {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Puffs {
+    /// An empty list.
+    pub const fn new() -> Self {
+        Puffs {
+            list: [Puff {
+                x: 0,
+                y: 0,
+                born: 0,
+            }; MAX_PUFFS],
+            len: 0,
+            next: 0,
+        }
+    }
+
+    /// Takes the `ShotEnd` events of the step that just ran (at `world.tick`).
+    pub fn observe(&mut self, world: &World) {
+        for e in world.events() {
+            if let fizz_ep2::Event::ShotEnd { x, y } = *e {
+                self.list[self.next] = Puff {
+                    x,
+                    y,
+                    born: world.tick.0 as u32,
+                };
+                self.next = (self.next + 1) % MAX_PUFFS;
+                self.len = (self.len + 1).min(MAX_PUFFS);
+            }
+        }
+    }
+
+    /// Forgets every puff (a presenter restarting the level).
+    pub fn clear(&mut self) {
+        *self = Puffs::new();
+    }
+
+    /// The puffs still showing at `tick`, as `(x, y, frame)`: sixteenths of a tile, y up, and the index into the four baked frames.
+    pub fn live(&self, tick: u32) -> impl Iterator<Item = (i32, i32, usize)> + '_ {
+        self.list[..self.len].iter().filter_map(move |p| {
+            let frame = puff_frame(tick.wrapping_sub(p.born))?;
+            Some((p.x, p.y, frame))
+        })
+    }
+}
+
+/// Draws `world` as [`draw_slice`] does, with `options` and no puffs.
 pub fn draw_slice_with(
     frame: &mut [u8],
     w: usize,
@@ -192,12 +325,25 @@ pub fn draw_slice_with(
     tick: u32,
     options: &DrawOptions,
 ) {
+    draw_slice_puffs(frame, w, h, world, tick, options, &Puffs::new());
+}
+
+/// Draws `world` as [`draw_slice_with`] does, with the shot-end puffs `puffs` holds, aged by `world.tick`.
+pub fn draw_slice_puffs(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
     // The camera centres on the middle of Ben's body, raised or lowered by the look offset the rules keep (zero unless Ben is
     // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
-    let (cam_x, cam_y) = camera(world, w, h);
+    let (cam_x, cam_y) = camera_shaken(world, w, h, options);
 
     let door_closed = map.switch(DOOR_RED_CHANNEL);
     // The tile pass meets every visible tile, so it notes the closed doors for the sprites drawn after it; a view with more
@@ -272,6 +418,15 @@ pub fn draw_slice_with(
         }
     }
 
+    // Fizz 1 draws its effects after the shots and before Ben.
+    for (px, py, which) in puffs.live(world.tick.0 as u32) {
+        if let Some(puff) = sprite(PUFF_NAMES[which]) {
+            let (sx, sy) = (px - cam_x, map_h.saturating_mul(TILE_PX) - py - cam_y);
+            // The puff is anchored at its centre, as the shot's position is the centre of the bubble.
+            blit_sprite(frame, w, h, puff, sx, sy, false);
+        }
+    }
+
     draw_ben(frame, w, h, world, phase, &at);
 
     if options.captions {
@@ -279,6 +434,24 @@ pub fn draw_slice_with(
             draw_caption(frame, w, h, c, &at);
         }
     }
+}
+
+/// [`camera`] with the death shake added to the target when `options.shake` is on; `follow` then clamps it to the map as
+/// ever, so the shake never shows beyond the map's edge.
+fn camera_shaken(world: &World, w: usize, h: usize, options: &DrawOptions) -> (i32, i32) {
+    let shake = if options.shake {
+        death_shake_x(world)
+    } else {
+        0
+    };
+    let (map_w, map_h) = (world.map.w, world.map.h);
+    let ben = &world.ben;
+    let target_x = tile_px(ben.b.x + ben.b.w * 0.5).saturating_add(shake);
+    let target_y = screen_y(ben.b.y + ben.b.h * 0.5 + ben.look_offset, map_h);
+    (
+        follow(target_x, map_w.saturating_mul(TILE_PX), w as i32),
+        follow(target_y, map_h.saturating_mul(TILE_PX), h as i32),
+    )
 }
 
 /// The top left of the view in map pixels: Ben's centre plus the look offset, followed and clamped by `fizz_view::follow`.
@@ -291,6 +464,17 @@ fn camera(world: &World, w: usize, h: usize) -> (i32, i32) {
         follow(target_x, map_w.saturating_mul(TILE_PX), w as i32),
         follow(target_y, map_h.saturating_mul(TILE_PX), h as i32),
     )
+}
+
+/// How many ticks each stun-star frame shows. Fizz 1 swaps frames when `floor(t * 6)` changes: six swaps a second, a
+/// 1/6 s frame, so 60 Hz / 6 Hz = 10 ticks a frame and a full two-frame cycle of 20 ticks (3 Hz). Dividing by the two
+/// states as well would give 5 ticks, which is twelve swaps a second, twice Fizz 1's rate.
+pub const STAR_FRAME_TICKS: usize = 10;
+
+/// Which stun-star frame (0 or 1) shows at animation tick `phase`. Fizz 1 keys it to the enemy's own clock; the view has
+/// only the tick, so every stunned chicken shows the same frame.
+pub const fn star_frame(phase: usize) -> usize {
+    phase / STAR_FRAME_TICKS % 2
 }
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
@@ -321,6 +505,25 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
     let flip = c.dir < 0.0;
     blit_sprite(frame, w, h, s, sx, sy + sink, flip);
+    if stunned
+        && let Some(stars) = sprite(if star_frame(phase) == 0 {
+            "stars0"
+        } else {
+            "stars1"
+        })
+    {
+        // Fizz 1 centres the stars 0.3 tiles above the enemy's head; the 8-row sprite then ends 0.3 * 16 - 4 = 0.8, about one
+        // pixel, above it. The head is the top of the sprite drawn, so the stars follow the sink. They are not flipped.
+        blit_sprite(
+            frame,
+            w,
+            h,
+            stars,
+            sx,
+            sy + sink - i32::from(s.h) - 1,
+            false,
+        );
+    }
     // The overlay shares the body's anchor and flip, so it lands on the beak whichever way the chicken faces and whichever
     // body frame shows. The alert frame has its own open mouth.
     if name != "cluckzarg_alert"
@@ -553,6 +756,11 @@ mod tests {
     fn frames_at_chosen_ticks_are_pinned() {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
+        // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
+        // 0xe88d2a8a227b4cfb before the shake; the other ticks are not death frames and kept theirs.
+        //
+        // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
+        //
         // Tick 865 is 12 ticks after the cluck at 853. Its chicken is off screen below the frame, so no caption is drawn and the
         // digest is the old one again (it was pinned to a clamped caption once). `without_clucks` draws the world as it was drawn before, and its
         // digests are the old ones at every tick, which shows the change is the cluck's pixels and nothing else.
@@ -570,9 +778,9 @@ mod tests {
                 (0, 0x5b84b8874be44ba4),
                 (150, 0x7abd20c31ae39a54),
                 (270, 0x9bf387153127ec74),
-                (400, 0xe88d2a8a227b4cfb),
+                (400, 0x2f5e4ba6e0a6569b),
                 (602, 0xfea72a408c6a4ab1),
-                (700, 0xdda9c10396315bd2),
+                (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
@@ -585,9 +793,9 @@ mod tests {
                 (150, 0x7abd20c31ae39a54),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
                 (270, 0x9bf387153127ec74),
-                (400, 0xe88d2a8a227b4cfb),
+                (400, 0x2f5e4ba6e0a6569b),
                 (602, 0xfea72a408c6a4ab1),
-                (700, 0xdda9c10396315bd2),
+                (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
@@ -596,6 +804,146 @@ mod tests {
     }
 
     /// The world as it looked before chickens had a cluck to show: every chicken has never clucked.
+    /// Plays the slice script as a presenter does, with a puff list fed after every step, and calls `each` with the world and the list.
+    fn play_puffs(mut each: impl FnMut(&World, &Puffs)) {
+        let mut w = level::world();
+        let mut puffs = Puffs::new();
+        let mut prev = Buttons::NONE;
+        for &(frames, now) in SLICE_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                puffs.observe(&w);
+                each(&w, &puffs);
+            }
+        }
+    }
+
+    fn puff_picture(world: &World, puffs: &Puffs) -> Vec<u8> {
+        let mut f = vec![0xEE; VIEW_W * VIEW_H];
+        draw_slice_puffs(
+            &mut f,
+            VIEW_W,
+            VIEW_H,
+            world,
+            world.tick.0 as u32,
+            &DrawOptions::default(),
+            puffs,
+        );
+        f
+    }
+
+    #[test]
+    fn puff_frames_cover_eighteen_ticks_in_four_steps() {
+        assert_eq!(PUFF_TICKS, 18);
+        let frames: Vec<Option<usize>> = (0..20).map(puff_frame).collect();
+        assert_eq!(&frames[..6], &[Some(0); 6]);
+        assert_eq!(&frames[6..12], &[Some(1); 6]);
+        assert_eq!(&frames[12..15], &[Some(2); 3]);
+        assert_eq!(&frames[15..18], &[Some(3); 3]);
+        assert_eq!(&frames[18..], &[None, None]);
+        for name in PUFF_NAMES {
+            assert!(sprite(name).is_some(), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
+        // Each of the script's three shot ends gives a puff for ticks e..e+17 and no other tick.
+        let ends = [96u32, 106, 281];
+        let mut seen = [0u32; 3];
+        let mut blank = Vec::new();
+        play_puffs(|w, puffs| {
+            let t = w.tick.0 as u32;
+            let n = puffs.live(t).count();
+            let expect = ends
+                .iter()
+                .filter(|&&e| (e..e + PUFF_TICKS).contains(&t))
+                .count();
+            assert_eq!(n, expect, "tick {t}");
+            for (i, &e) in ends.iter().enumerate() {
+                if (e..e + PUFF_TICKS).contains(&t) {
+                    seen[i] += 1;
+                }
+            }
+            if n > 0 {
+                let with = puff_picture(w, puffs);
+                let without = picture(w, t);
+                let diff = with.iter().zip(&without).filter(|(a, b)| a != b).count();
+                // A puff is at most 15 by 15 and only the cyan and light cyan of the puff may differ.
+                assert!(diff <= 15 * 15 * n, "tick {t}: {diff} pixels differ");
+                assert!(
+                    with.iter()
+                        .zip(&without)
+                        .all(|(a, b)| a == b || *a == CYAN || *a == LIGHT_CYAN),
+                    "tick {t}"
+                );
+                if diff == 0 {
+                    blank.push(t);
+                }
+            }
+        });
+        assert_eq!(seen, [PUFF_TICKS; 3]);
+        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
+        // ends in the stunned chicken, whose body is the same cyan for three ticks of the puff's smallest frames.
+        let off_screen = 96..106;
+        let on_chicken = 285..288;
+        let expect: Vec<u32> = off_screen.chain(on_chicken).collect();
+        assert_eq!(blank, expect);
+    }
+
+    #[test]
+    fn the_puff_list_is_fixed_and_replaces_the_oldest() {
+        let mut w = level::world();
+        let mut puffs = Puffs::new();
+        for i in 0..(MAX_PUFFS as i32 + 3) {
+            w.tick = fizz_sim::Tick(100 + i as u64);
+            w.shots.clear();
+            w.shots.push(fizz_ep2::Shot {
+                x: 10.0 + f64::from(i),
+                y: 11.0,
+                vx: 0.0,
+                vy: 0.0,
+                life: 0.0,
+            });
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            puffs.observe(&w);
+        }
+        let now = w.tick.0 as u32;
+        let xs: Vec<i32> = puffs.live(now).map(|(x, _, _)| x).collect();
+        assert_eq!(xs.len(), MAX_PUFFS);
+        assert!(!xs.contains(&160) && xs.contains(&(160 + 16 * (MAX_PUFFS as i32 + 2))));
+        puffs.clear();
+        assert_eq!(puffs.live(now).count(), 0);
+    }
+
+    #[test]
+    fn frames_with_puffs_are_pinned() {
+        // Re-pinned for the shot-end puff: the ticks the DOS bench samples with a puff on screen, one for each baked frame. The
+        // second shot ends at 106, so 110 is its `puff0` (age 4), 118 its `puff2` (age 12) and 122 its dither `puff3` (age 16); the
+        // third ends at 281, so 290 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
+        // pictures at the other pinned ticks (and tick 100) are unchanged, because no visible puff is alive there.
+        let mut seen = Vec::new();
+        play_puffs(|w, puffs| {
+            if [100, 110, 118, 122, 290].contains(&w.tick.0) {
+                seen.push((w.tick.0, fnv(&puff_picture(w, puffs))));
+            }
+        });
+        assert_eq!(
+            seen,
+            [
+                (100, 0xa6fe3df278ade580),
+                (110, 0xb5a13cb31b085f37),
+                (118, 0xac81d6427c2e2454),
+                (122, 0x3ab92795c87062b3),
+                (290, 0xc9b88498e1a8db55)
+            ]
+        );
+    }
+
     fn without_clucks(world: &World) -> World {
         let mut w = world.clone();
         for c in &mut w.chickens {
@@ -613,7 +961,10 @@ mod tests {
             VIEW_H,
             world,
             tick,
-            &DrawOptions { captions },
+            &DrawOptions {
+                captions,
+                ..DrawOptions::default()
+            },
         );
         f
     }
@@ -687,7 +1038,10 @@ mod tests {
         let mut with = vec![0u8; VIEW_W * VIEW_H];
         draw_slice(&mut with, VIEW_W, VIEW_H, &w, 0);
         let mut bare = vec![0u8; VIEW_W * VIEW_H];
-        let off = DrawOptions { captions: false };
+        let off = DrawOptions {
+            captions: false,
+            ..DrawOptions::default()
+        };
         draw_slice_with(&mut bare, VIEW_W, VIEW_H, &w, 0, &off);
         let changed: Vec<usize> = (0..with.len())
             .filter(|&i| with[i] != bare[i])
@@ -1284,6 +1638,98 @@ mod tests {
         assert_ne!(picture(&w, 0), picture(&w, 4));
     }
 
+    /// Frame with the first chicken in view and stunned for `stun` seconds (0 means not stunned), at animation tick `tick`.
+    fn stun_picture(stun: f64, tick: u32) -> Vec<u8> {
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].stun = stun;
+        picture_with(&w, tick, false)
+    }
+
+    #[test]
+    fn stun_stars_are_one_sprite_above_the_head_and_swap_every_ten_ticks() {
+        assert_eq!(STAR_FRAME_TICKS, 10);
+        // The stars are the only difference between a stunned chicken and the same chicken with the stars sprite blanked.
+        let stars = |f| sprite(f).unwrap();
+        let (a, b) = (stars("stars0"), stars("stars1"));
+        assert_eq!((a.w, a.h, b.w, b.h), (16, 8, 16, 8));
+        assert_ne!(a.pixels, b.pixels);
+        // Compare only the stars' box: the key's bob changes the rest of the picture at tick 16.
+        let f0 = stun_picture(3.0, 0);
+        let f1 = stun_picture(3.0, STAR_FRAME_TICKS as u32);
+        let (x0, y0, x1, y1) = changed_box(&f0, &f1).expect("the frame changes after ten ticks");
+        assert!(
+            x1 - x0 < 16 && y1 - y0 < 8,
+            "differ only inside a 16 by 8 box"
+        );
+        let crop = |f: &[u8]| -> Vec<u8> {
+            (y0..=y1)
+                .flat_map(|y| f[y * VIEW_W + x0..=y * VIEW_W + x1].to_vec())
+                .collect()
+        };
+        let (c0, c1) = (crop(&f0), crop(&f1));
+        // Ticks 0 to 9 show frame 0, 10 to 19 frame 1, 20 to 29 frame 0 again; stun 3.0 never flashes.
+        for t in 0..10 {
+            assert_eq!(crop(&stun_picture(3.0, t)), c0, "tick {t}");
+        }
+        for t in 10..20 {
+            assert_eq!(crop(&stun_picture(3.0, t)), c1, "tick {t}");
+        }
+        assert_eq!(crop(&stun_picture(3.0, 20)), c0);
+        // Not stunned: no stars, so the frame does not depend on the tick at the swap.
+        assert_eq!(stun_picture(0.0, 0), stun_picture(0.0, 10));
+    }
+
+    #[test]
+    fn stun_stars_sit_above_the_sunk_head_and_follow_the_chicken() {
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].stun = 3.0;
+        let stunned = picture_with(&w, 0, false);
+        // Frames 0 and 10 differ in the stars alone, so their changed box is the stars.
+        let other = picture_with(&w, STAR_FRAME_TICKS as u32, false);
+        let (x0, y0, x1, y1) = changed_box(&stunned, &other).unwrap();
+        assert!(y1 < y0 + 8 && x1 < x0 + 16);
+        // The stars end one pixel above the sprite's top, which is 24 rows above the feet less the 2 pixel sink.
+        let c = &w.chickens[0];
+        let cam = camera(&w, VIEW_W, VIEW_H);
+        let feet_y = screen_y(c.b.y, w.map.h) - cam.1;
+        let head = feet_y + 2 - 24;
+        assert!(
+            (y1 as i32) < head,
+            "stars end above the head ({y1} vs {head})"
+        );
+        assert!((y1 as i32) >= head - 8 - 2, "and not far above it");
+        // Moving the chicken a tile right moves the stars a tile right.
+        let mut w2 = w.clone();
+        w2.chickens[0].b.x += 1.0;
+        let a = changed_box(
+            &picture_with(&w2, 0, false),
+            &picture_with(&w2, STAR_FRAME_TICKS as u32, false),
+        )
+        .unwrap();
+        assert_eq!((a.0 as i32 - x0 as i32, a.1, a.3), (16, y0, y1));
+    }
+
+    #[test]
+    fn stun_stars_flash_away_with_the_body_in_the_last_second() {
+        // stun 0.5: hidden on the ticks where the body is hidden (phase / 4 odd), stars and all.
+        let shown = stun_picture(0.5, 0);
+        let hidden = stun_picture(0.5, 4);
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens.clear();
+        assert_eq!(
+            hidden,
+            picture_with(&w, 4, false),
+            "no chicken, no stars while flashed away"
+        );
+        assert_ne!(shown, hidden);
+    }
+
     #[test]
     fn ben_runs_with_fizz_1s_frame_rule() {
         // Fizz 1: a run frame above 0.5 tiles a second, `run2` when `floor(distance * 1.4)` is odd, pogo before shoot.
@@ -1370,5 +1816,85 @@ mod tests {
             }
         }
         assert_eq!(a.hash().finish(), b.hash().finish());
+    }
+
+    /// A world with Ben dead for `n` ticks, by the rules' own bookkeeping: `kill`, then `n` ticks of the dead branch.
+    fn dead_for(world: &World, n: usize) -> World {
+        let mut w = world.clone();
+        w.ben.kill();
+        let (mut ammo, mut shots) = (0, Vec::new());
+        for _ in 0..n {
+            w.ben
+                .tick(&w.map, &[], InputFrame::default(), &mut ammo, &mut shots);
+        }
+        w
+    }
+
+    fn shaken(w: &World, shake: bool) -> Vec<u8> {
+        let mut f = vec![0xEE; VIEW_W * VIEW_H];
+        let o = DrawOptions {
+            captions: true,
+            shake,
+        };
+        draw_slice_with(&mut f, VIEW_W, VIEW_H, w, 0, &o);
+        f
+    }
+
+    #[test]
+    fn the_death_shake_is_zero_when_alive_and_dies_away_in_18_ticks() {
+        let w = level::world();
+        assert_eq!(death_shake_x(&w), 0);
+        let mut moved = 0;
+        for n in 0..40 {
+            let x = death_shake_x(&dead_for(&w, n));
+            assert!(x.abs() <= 2, "tick {n}: {x}");
+            if n >= DEATH_SHAKE_TICKS {
+                assert_eq!(x, 0, "tick {n}");
+            }
+            moved += i32::from(x != 0);
+        }
+        assert!(moved >= 5, "it does shake: {moved} ticks");
+        // After the respawn Ben is alive again and the view is still.
+        let mut back = dead_for(&w, 10);
+        back.ben.dead = 0.0;
+        assert_eq!(death_shake_x(&back), 0);
+    }
+
+    #[test]
+    fn shake_off_is_the_still_picture_and_alive_frames_never_differ() {
+        let mut w = level::world();
+        w.ben.b.x = 14.0;
+        w.ben.b.y = 3.0;
+        assert!(DrawOptions::default().shake);
+        assert_eq!(shaken(&w, true), shaken(&w, false), "alive");
+        for n in 0..30 {
+            let d = dead_for(&w, n);
+            if death_shake_x(&d) == 0 {
+                assert_eq!(shaken(&d, true), shaken(&d, false), "tick {n}");
+            }
+        }
+        // A tick with an offset does move the picture.
+        let d = dead_for(&w, 1);
+        assert_ne!(death_shake_x(&d), 0);
+        assert_ne!(shaken(&d, true), shaken(&d, false));
+    }
+
+    #[test]
+    fn the_shaken_camera_still_clamps_to_the_map() {
+        let w = level::world();
+        let map_px = w.map.w * TILE_PX;
+        for (x, y) in [(0.0, 3.0), (w.map.w as f64 - 2.0, 3.0), (10.0, 3.0)] {
+            for n in 0..DEATH_SHAKE_TICKS {
+                let mut d = dead_for(&w, n);
+                d.ben.b.x = x;
+                d.ben.b.y = y;
+                let (cx, _) = camera_shaken(&d, VIEW_W, VIEW_H, &DrawOptions::default());
+                assert!(
+                    (0..=map_px - VIEW_W as i32).contains(&cx),
+                    "{x} tick {n}: {cx}"
+                );
+                assert!((cx - camera(&d, VIEW_W, VIEW_H).0).abs() <= 2);
+            }
+        }
     }
 }

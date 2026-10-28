@@ -57,6 +57,7 @@ const LAYOUTS = {
 const OTHER = { keen: "modern", modern: "keen" };
 const STORAGE_KEY = "fizz2-layout";
 const CAPTIONS_KEY = "fizz2-captions";
+const MOTION_KEY = "fizz2-motion";
 
 // Every key either layout uses, for the Keyboard Lock request. Escape is left out so the browser's way out of fullscreen still works.
 const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.keys(l.keys)))];
@@ -71,6 +72,7 @@ const toast = document.getElementById("toast");
 const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
 const captionsButton = document.getElementById("captions");
+const motionButton = document.getElementById("motion");
 const fullscreenButton = document.getElementById("fullscreen");
 const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
@@ -210,6 +212,26 @@ function saveCaptions(on) {
   }
 }
 
+// Motion is Full unless the player chose Reduced, or has not chosen and the system asks for reduced motion
+// (prefers-reduced-motion: reduce). An explicit choice, remembered as "full" or "reduced", wins over the system.
+function loadMotion() {
+  try {
+    const saved = localStorage.getItem(MOTION_KEY);
+    if (saved === "full" || saved === "reduced") return saved;
+  } catch {
+    // Storage can be blocked or missing; the system preference applies.
+  }
+  return matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduced" : "full";
+}
+
+function saveMotion(motion) {
+  try {
+    localStorage.setItem(MOTION_KEY, motion);
+  } catch {
+    // The choice just is not remembered.
+  }
+}
+
 // Copies the frame the module just drew onto the canvas. The view is made again each frame because the module's memory can move
 // when it grows, which would leave an older view pointing at nothing.
 function draw(app, memory) {
@@ -330,6 +352,20 @@ async function main() {
   captionsButton.addEventListener("click", () => {
     setCaptions(!app.captions());
     captionsButton.blur();
+  });
+
+  // Reduced motion turns off the screen shake when Ben dies; the rules and the sound are the same either way.
+  const showMotion = () => {
+    motionButton.textContent = `Motion: ${app.shake() ? "full" : "reduced"}`;
+    motionButton.title = "Full shakes the screen when Ben dies; Reduced keeps it still";
+  };
+  app.set_shake(loadMotion() === "full");
+  showMotion();
+  motionButton.addEventListener("click", () => {
+    app.set_shake(!app.shake());
+    saveMotion(app.shake() ? "full" : "reduced");
+    showMotion();
+    motionButton.blur();
   });
 
   resetButton.addEventListener("click", () => {

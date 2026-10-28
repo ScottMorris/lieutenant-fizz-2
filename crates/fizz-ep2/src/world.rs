@@ -32,6 +32,11 @@ pub enum Event {
     /// A chicken clucked. `variant` is below [`CLUCK_VARIANTS`](crate::chicken::CLUCK_VARIANTS) and `chicken` is the
     /// chicken's index in [`World::chickens`].
     Cluck { variant: u8, chicken: u8 },
+    /// One of Ben's shots ended: it hit a wall or the map's top, ran out of life, or stunned a chicken (Fizz 1's `gone` in
+    /// `tick_shots`, where it pushes the puff). `x` and `y` are where the shot was, in sixteenths of a tile (the slice's
+    /// logical pixels, y up from the map's bottom), rounded down. A respawn that clears the shots emits nothing. The slice
+    /// has no enemy shots, so the event carries no owner.
+    ShotEnd { x: i32, y: i32 },
 }
 
 /// What a presenter needs to draw a chicken and its cluck: where it is, which way it faces, and how far into its last
@@ -88,7 +93,7 @@ pub struct World {
     pub deaths: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
-    /// What the last [`step`](World::step) emitted, in chicken order.
+    /// What the last [`step`](World::step) emitted: clucks in chicken order, then shot ends from the last shot to the first.
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
@@ -323,6 +328,10 @@ impl World {
                 }
             }
             if gone {
+                self.events.push(Event::ShotEnd {
+                    x: (b.x * 16.0).floor() as i32,
+                    y: (b.y * 16.0).floor() as i32,
+                });
                 self.shots.swap_remove(i);
             } else {
                 self.shots[i] = b;
@@ -580,8 +589,9 @@ mod tests {
         for _ in 0..ticks {
             w.step(idle());
             for e in w.events() {
-                let Event::Cluck { variant, .. } = *e;
-                out.push((w.tick.0, variant));
+                if let Event::Cluck { variant, .. } = *e {
+                    out.push((w.tick.0, variant));
+                }
             }
         }
         out
@@ -665,7 +675,9 @@ mod tests {
             assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
         }
         w.step(idle());
-        let Event::Cluck { variant, chicken } = w.events()[0];
+        let Event::Cluck { variant, chicken } = w.events()[0] else {
+            panic!("a cluck")
+        };
         assert_eq!(chicken, 0);
         assert_eq!(w.chickens[0].cluck_age, 0);
         assert_eq!(w.chickens[0].cluck_variant, variant);
@@ -715,12 +727,143 @@ mod tests {
         w.chickens[0].cluck_timer = 500;
         w.chickens[1].cluck_timer = 1;
         w.step(idle());
-        let Event::Cluck { chicken, variant } = w.events()[0];
+        let Event::Cluck { chicken, variant } = w.events()[0] else {
+            panic!("a cluck")
+        };
         assert_eq!(w.events().len(), 1);
         assert_eq!(chicken, 1);
         assert_eq!(w.chickens[1].cluck_age, 0);
         assert_eq!(w.chickens[1].cluck_variant, variant);
         assert_eq!(w.chickens[0].cluck_age, crate::chicken::CLUCK_NEVER);
+    }
+
+    /// The `ShotEnd` events of the last step.
+    fn shot_ends(w: &World) -> Vec<(i32, i32)> {
+        w.events()
+            .iter()
+            .filter_map(|e| match *e {
+                Event::ShotEnd { x, y } => Some((x, y)),
+                Event::Cluck { .. } => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_shot_end_is_emitted_once_for_each_way_a_shot_ends() {
+        // Out of life: one event at the shot's last position, in sixteenths of a tile, and the next step has none.
+        let mut w = quiet();
+        w.chickens[0].cluck_timer = 100_000;
+        w.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.0,
+        });
+        w.step(idle());
+        assert_eq!(shot_ends(&w), [(160, 176)]);
+        assert!(w.shots.is_empty());
+        w.step(idle());
+        assert!(shot_ends(&w).is_empty());
+        // A shot in flight emits nothing until it ends.
+        w.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.5,
+        });
+        let mut steps = 0;
+        while w.events().is_empty() || !w.shots.is_empty() {
+            w.step(idle());
+            steps += 1;
+            assert!(steps <= 32, "a half-second shot ends within 32 ticks");
+            if !w.shots.is_empty() {
+                assert!(shot_ends(&w).is_empty());
+            }
+        }
+        assert!(steps >= 29);
+        assert_eq!(shot_ends(&w).len(), 1);
+        // Off the bottom of the map.
+        w.shots.push(Shot {
+            x: 10.0,
+            y: 0.1,
+            vx: 0.0,
+            vy: -16.0,
+            life: 5.0,
+        });
+        w.step(idle());
+        assert_eq!(shot_ends(&w).len(), 1);
+        // Two shots ending on one tick give two events.
+        w.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.0,
+        });
+        w.shots.push(Shot {
+            x: 12.5,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.0,
+        });
+        w.step(idle());
+        assert_eq!(shot_ends(&w), [(200, 176), (160, 176)]);
+    }
+
+    #[test]
+    fn a_shot_that_stuns_a_chicken_ends_once_and_a_stunned_chicken_does_not_stop_it() {
+        let mut w = quiet();
+        w.chickens[0].cluck_timer = 100_000;
+        let (cx, cy) = (w.chickens[0].b.x + 0.5, w.chickens[0].b.y + 0.5);
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 5.0,
+        });
+        w.step(idle());
+        assert_eq!(shot_ends(&w).len(), 1);
+        assert!(w.chickens[0].stun > 0.0);
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.05,
+        });
+        for _ in 0..6 {
+            w.step(idle());
+        }
+        assert!(w.shots.is_empty());
+    }
+
+    #[test]
+    fn shot_ends_do_not_touch_the_hash() {
+        // Two worlds that differ in nothing but history hash alike: the event list is output only.
+        let mut a = quiet();
+        let mut b = quiet();
+        a.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.0,
+        });
+        b.shots.push(Shot {
+            x: 10.0,
+            y: 11.0,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.0,
+        });
+        a.step(idle());
+        b.step(idle());
+        b.events.clear();
+        assert_eq!(a.hash(), b.hash());
     }
 
     #[test]

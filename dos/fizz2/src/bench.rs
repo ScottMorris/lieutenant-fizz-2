@@ -12,7 +12,7 @@
 // up in the maxima (a few microseconds on real hardware).
 use fizz_dos_rt::timer;
 use fizz_ep2::{SLICE_SCRIPT, World};
-use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, frame_digest, present, render_slice_with};
+use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, Puffs, frame_digest, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame};
 
 use crate::hal::DosDisplay;
@@ -136,6 +136,7 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions) -> (Worl
     let mut world = fizz_ep2::level::world();
     let mut frame = Frame::new();
     let (mut step, mut draw, mut copy, mut total) = (Stat::default(), Stat::default(), Stat::default(), Stat::default());
+    let mut puffs = Puffs::new();
     let mut prev = Buttons::NONE;
     let mut digests = [(0, 0); DIGEST_TICKS.len()];
     let mut frame_count = 0;
@@ -146,8 +147,9 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions) -> (Worl
             }
             let t0 = sw.now();
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
+            puffs.observe(&world);
             let t1 = sw.now();
-            render_slice_with(&world, &mut frame, options);
+            render_slice_with(&world, &mut frame, options, &puffs);
             let t2 = sw.now();
             let _ = present(display, &frame);
             let t3 = sw.now();
