@@ -319,6 +319,54 @@ musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch14'
 musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
 musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
+# 3d0b. /REPLANTEST: the audio service runs and `audio::replan` changes its music and effects devices live through eight plans (the
+# Options screen's job), printing a `REPLAN` line for each (see dos/fizz2/src/replan.rs). Under every card the walk must end cleanly with
+# the vectors restored, and each line must show: the handler kept ticking (TICKS rises) and so did what the plan plays (writes and music
+# ticks for a chip, speaker steps for the speaker); OPL3 mode on exactly when the new plan has OPL3 music or the OPL3 pair, so it is off
+# after the switch to AdLib; the speaker gate closed after any change, including those that leave a speaker cluck still sounding; and the
+# music starting again from its prelude (MUSIC0 0) when its device changed. At least one line must leave the speaker mid-cluck.
+replantest_case() {
+  local name="$1" conf="$2" out status=0 lines=0 left=0
+  local from to g0 opl gate changed m0 writes steps ticks music tmusic tfx fmusic want
+  out="$(DOS_CONF="$conf" DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /REPLANTEST)" || status=$?
+  [ "$status" = 0 ] || fail "/REPLANTEST ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qx 'REPLAN DONE 8' || fail "/REPLANTEST ($name) did not finish its eight plans"
+  printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/REPLANTEST ($name): FPU control word is not 027F"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLANTEST ($name) did not restore the vectors"
+  while read -r _ from _ to _ g0 _ opl _ gate _ changed _ m0 _ writes _ steps _ ticks _ music; do
+    lines=$((lines + 1))
+    tmusic="${to%%/*}" tfx="${to##*/}" fmusic="${from%%/*}" want=off
+    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch14 ]; then want=on; fi
+    [ "$opl" = "$want" ] || fail "/REPLANTEST ($name): OPL3 is $opl after $from -> $to (expected $want)"
+    [ "$ticks" -gt 0 ] || fail "/REPLANTEST ($name): the service stopped ticking after $from -> $to"
+    if [ "$changed" = yes ]; then
+      [ "$gate" = closed ] || fail "/REPLANTEST ($name): the speaker gate is $gate after $from -> $to"
+      if [ "$g0" = open ]; then left=$((left + 1)); fi
+      if [ "$from" != start ] && [ "$fmusic" != "$tmusic" ] && [ "$tmusic" != off ]; then
+        [ "$m0" = 0 ] || fail "/REPLANTEST ($name): the music did not start again after $from -> $to (MUSIC0 $m0)"
+      fi
+    fi
+    if [ "$tmusic" != off ]; then
+      { [ "$music" -gt 0 ] && [ "$writes" -gt 0 ]; } || fail "/REPLANTEST ($name): no music after $from -> $to"
+    else
+      [ "$music" = 0 ] || fail "/REPLANTEST ($name): music ticks $music after $from -> $to with the music off"
+    fi
+    if [ "$tfx" = speaker ]; then
+      [ "$steps" -gt 0 ] || fail "/REPLANTEST ($name): no speaker steps after $from -> $to"
+    else
+      [ "$steps" = 0 ] || fail "/REPLANTEST ($name): speaker steps $steps after $from -> $to"
+    fi
+  done < <(printf '%s\n' "$out" | grep '^REPLAN [^D]')
+  [ "$lines" = 8 ] || fail "/REPLANTEST ($name) printed $lines REPLAN lines, not 8"
+  [ "$left" -gt 0 ] || fail "/REPLANTEST ($name) never left a sounding speaker cluck"
+  echo "REPLANTEST case $name ok ($left changes left the speaker)"
+}
+replantest_case 'SB16' "$(sb sb16)"
+replantest_case 'SBPro2' "$(sb sbpro2)"
+replantest_case 'AdLib only' "$(sb none 'oplmode = opl2')"
+replantest_case 'no sound card' ''
+
 # 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
 # plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
 # file, the file over Auto, per field; flags never write the file; and a missing file is Auto with no message.

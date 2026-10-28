@@ -28,6 +28,8 @@
 //   FIZZ2.EXE /MUSICTEST  a test mode: steps two loops of the music the sound plan names as fast as possible through the real chip
 //                       writes (no timer) and prints the `MUSIC` line; `/MUSIC:OFF` prints `ARR off` and zeros
 //   FIZZ2.EXE /BENCH /AUDIO  the bench with the 560 Hz audio service, first without and then with music, and what the service costs
+//   FIZZ2.EXE /REPLANTEST  a test mode: runs the audio service, changes its music and effects devices live through a list of plans
+//                       (`audio::replan`) and prints a `REPLAN` line for each (replan.rs)
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
 // /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
@@ -48,6 +50,7 @@ mod check;
 mod frames;
 mod hal;
 mod machine;
+mod replan;
 mod sound;
 
 use alloc::string::String;
@@ -274,6 +277,7 @@ fn main() -> i32 {
         Mode::Bench if run.bench_audio => bench_audio(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::MusicTest => music_test(),
+        Mode::ReplanTest => replan::replan_mode(),
         Mode::Panic => {
             // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
             let plan = sound::Plan::new(&machine::probe_machine());

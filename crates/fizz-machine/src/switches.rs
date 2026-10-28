@@ -23,6 +23,7 @@ pub enum Mode {
     Panic,
     CfgTest,
     MusicTest,
+    ReplanTest,
 }
 
 /// What a switch does.
@@ -273,6 +274,13 @@ pub const SWITCHES: &[Switch] = &[
         Group::Developer,
         Kind::Mode(Mode::MusicTest),
         "Step two loops of the music as fast as possible and hash",
+    ),
+    sw(
+        "/REPLANTEST",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::ReplanTest),
+        "Run the audio service and change its devices live",
     ),
     sw(
         "/AUDIO",
@@ -657,6 +665,13 @@ mod tests {
             run(&["/musictest", "/ADLIB"]),
             Parsed::Run(Invocation {
                 mode: Mode::MusicTest,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/replantest"]),
+            Parsed::Run(Invocation {
+                mode: Mode::ReplanTest,
                 ..live
             })
         );
