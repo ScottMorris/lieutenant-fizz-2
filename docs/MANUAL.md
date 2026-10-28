@@ -26,15 +26,14 @@ There are two sets of keys, and you use one at a time. Keen is the default on th
 | Jump | Ctrl | `Z` |
 | Pogo stick | Alt | `X` |
 | Fizz (fire) | Space | `C` or Space |
-| Quit | Esc (DOS only) | Esc (DOS only) |
-| Pause, and the Options screen | Esc or the Pause key (Web only) | Esc or the Pause key (Web only) |
+| Pause menu (Resume, Options, Quit to DOS or Restart) | Esc, and the Pause key on the Web | Esc, and the Pause key on the Web |
 | Fullscreen | `F` (Web only) | `F` (Web only) |
 | Sound on or off | `M` (Web only) | `M` (Web only) |
 | Captions on or off | `V` (Web only) | `V` (Web only) |
 
 In the slice every key in the table does something; [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice) say what, and the two versions use the same keys for the same actions. Keys from the other set do nothing, so `W` does not move you under the Keen keys.
 
-On the Web there is no quit key; close the tab.
+On DOS, Esc opens the pause menu, and its last row, Quit to DOS, leaves the game; see [Options on DOS](#options-on-dos). On the Web there is no quit key; close the tab.
 
 ### Choosing your keys
 
@@ -75,7 +74,7 @@ On the Web, press `F` or use the Fullscreen row of the Options screen to fill th
 
 Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
 
-- `/LIVE` — you play the slice. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether Ben moved from where he started.
+- `/LIVE` — you play the slice. Esc opens the pause menu (Resume, Options, Quit to DOS). The run ends when you choose Quit to DOS, or by itself after 30 seconds of real time (time spent in the menu counts), and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
 - `/BENCH` — times your computer. It plays the same built-in run as fast as it can, with no waiting, and then prints how many microseconds each picture took for the game's rules, the drawing and the copy to the screen, next to the 16,667 microseconds that one tick at 60 a second allows. If the drawing figure is much larger than that, the game will run slower than 60 pictures a second on your machine. It also prints a line that times a short fixed loop of simple steps, which shows how fast your computer ran the test. It does not wait between pictures, so it is usually over sooner than `/REPLAY`, and it ends with `EXIT yes` when Ben got out. Add a number, as in `/BENCH 120`, to time only that many pictures from the start of the run; it is quicker, and it does not reach the exit.
 - `/PROBE` — looks at your computer and tells you what it found, without playing or drawing anything and without waiting for a key. It prints one line each for your screen (`vga`, `ega`, `cga` or a monochrome adapter), whether a mouse and a joystick are connected, what kind of music chip you have (`none`, `opl2`, `dualopl2` or `opl3`), your Sound Blaster (`none`, or its version and port), the `BLASTER` setting, whether you have a maths chip, your processor (`386`, `486` or `586` for a Pentium or later) and how much memory is free. It also prints a code for the start-up screen the game will show for your computer and how much memory the program holds, and ends with `EXIT yes`. Use it to see how the game sees your computer; the sound uses these results, and `/CHECK` shows them on a start-up screen.
@@ -96,7 +95,7 @@ The help screen, as `FIZZ2.EXE /?` prints it:
 ```
 Lieutenant Fizz 2 for DOS. Usage: FIZZ2.EXE [mode] [switches]; case is ignored.
 Modes (the first one given is used; /LIVE is the default)
-  /LIVE         Play the slice from the keyboard; Esc ends it
+  /LIVE         Play the slice from the keyboard; Esc pauses
   /REPLAY       Run the built-in script and print its transcript
   /BENCH [n]    Time the script (first n ticks) and print the costs
   /CHECK        Show the machine check; Esc leaves, Enter plays
@@ -121,7 +120,7 @@ Sound (for this run only; FIZZ2.CFG keeps your saved choice)
 Exit status: 0 after help, 2 for a switch FIZZ2.EXE does not know.
 ```
 
-If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a sound switch with a value it does not know, such as `/MUSIC:FOO`. Two testing switches, `/PANIC` and `/CFGTEST`, work but are left out of the list because they are not for playing.
+If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a sound switch with a value it does not know, such as `/MUSIC:FOO`. Three testing switches, `/PANIC`, `/CFGTEST` and `/OPTIONS` (which opens the Options screen at once, over the first picture of the level, and leaves when you press Esc), work but are left out of the list because they are not for playing.
 
 ### Choosing your sound on DOS
 
@@ -135,7 +134,7 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins.
 
-To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)), whether the screen shakes and spins when Ben dies (Motion: Full or Reduced), how sound effects are placed (Enhanced, or Classic with every effect centred at full volume), the captions (On or Off) and the key layout (Keen or Modern). When you ask for none of these on the command line, the file's choice is used, and a choice you give on the command line wins over the file for that run only. `/KEEN`, `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS` are the switches for the last two. A screen to change the file will come later, and until then the game does not write the file itself. A value in the file that the game does not understand resets only that one choice to its usual setting. Older files, from earlier builds, are still read.
+To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)), whether the screen shakes and spins when Ben dies (Motion: Full or Reduced), how sound effects are placed (Enhanced, or Classic with every effect centred at full volume), the captions (On or Off) and the key layout (Keen or Modern). When you ask for none of these on the command line, the file's choice is used, and a choice you give on the command line wins over the file for that run only. `/KEEN`, `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS` are the switches for the last two. The game writes the file itself when you leave the Options screen after changing something; see [Options on DOS](#options-on-dos). A value in the file that the game does not understand resets only that one choice to its usual setting. Older files, from earlier builds, are still read.
 
 ### Frame rate on DOS
 
@@ -158,6 +157,43 @@ What you need depends on the `FX` word of the `SOUND` line. With `ch5` you need 
 The music starts when the game starts and loops until it ends. The cluck keeps its two voices to itself, so the music never takes them. The music never changes the game: the same moves give the same `TICK` and `HASH` with the music on or off.
 
 The run prints one more line when it ends, such as `AUDIO WRITES 425 SPEAKER STEPS 0`. It counts what the game sent to the chip for the cluck and to the speaker, which is how a run with no ears can tell which of them played: a chip shows a number of writes (the stereo pair on a Sound Blaster Pro 2 or later shows about twice as many as channel 5 alone, because it plays the cluck on two channels), the speaker shows steps, and a silent run shows zero for both. A second line, such as `MUSIC SONG crater ARR opl3 TICKS 11833 WRITES 1530 LOOPS 0 HASH 32fd5cf1`, says which version of the song played (`opl2`, `opl3` or `off`) and counts what it sent to the chip, so a run with no ears can tell that the music played; `off` means it did not, and the counts are zero. Nobody has listened to the DOS music yet, on a real computer or in DOSBox. The sound does not change the game: the same moves give the same `TICK` and `HASH` with the sound on, off or on the speaker. The game's timer now runs at about 560 times a second, which the sound needs, and it still advances the DOS clock at its usual rate. Nobody has heard the cluck on a real computer yet. If you have no file, every choice is "Auto", which means the best the computer has. An option on the command line always wins over the file, and never changes it. If the file is damaged or from something else, the game uses Auto and the `SOUND` line says so (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects` or `cfg-framerate`). The file's layout is in [`DOS-CHECK.md`](DOS-CHECK.md#settings-file-and-flags).
+
+### Options on DOS
+
+Press Esc while you play to open the pause menu: Resume, Options and Quit to DOS. The picture stops and darkens behind it, and the music keeps playing. Up and Down choose a row (they wrap round), Enter or your Jump or Fire key chooses it, and Esc or your Pogo key goes back, which from the pause menu means Resume. Choosing Options opens the Options screen over the same darkened picture.
+
+![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it, a star after the Frame rate value, and the note that the star means the value was set by a switch.](img/dos-options.png)
+*The Options screen as the portable code draws it over the first picture of the level, shown at twice size. The DOS build is checked to draw exactly these pixels (`FIZZ2.EXE /MENUSHOT`); it is not a capture of a running emulator.*
+
+On the Options screen Up and Down choose a row, Left goes back one choice and Right, Enter, Jump and Fire go forward one (past the last choice it wraps to the first), and Esc or Pogo goes back to the pause menu. The Modern keys work the same way, with `W` and `S` for Up and Down and `A` and `D` for Left and Right. The rows are:
+
+- **Music** and **Effects** — Auto, the Sound Blaster, the AdLib, the PC speaker (Effects only) or Off. Auto shows what it would use on your computer, such as `Auto (Sound Blaster)`. A device your computer lacks is skipped, and the sound changes at once, so you can hear the result before you leave the screen.
+- **Sound placement** — Enhanced or Classic (see [Where a cluck comes from](#where-a-cluck-comes-from)).
+- **Frame rate** — Auto, 60 or 30 (see [Frame rate on DOS](#frame-rate-on-dos)). Auto shows the rate it is drawing at, as `Auto (60 Hz)`.
+- **Motion** — Full or Reduced: whether the screen shakes and Ben spins when he dies.
+- **Captions** — On or Off: the words above a chicken when it clucks.
+- **Keys** — Keen or Modern. The new keys work from the next key you press.
+- **Back** — returns to the pause menu.
+
+Every change takes effect as you make it. When you leave the Options screen after changing something, the game saves your choices in `FIZZ2.CFG`, the file described under [Choosing your sound on DOS](#choosing-your-sound-on-dos). A screen you visit without changing anything writes nothing. If the file cannot be written (the disk is full or write-protected, or the file is read-only), the pause menu shows `Could not write FIZZ2.CFG` in light red, your changes still hold for the rest of this run, and the game carries on.
+
+A row with a star after its value, as in `Auto (60 Hz) *`, was set by a command-line switch for this run (`/FPS30`, `/MUSIC:ADLIB`, `/MODERN` and the others), and a line at the bottom says so. You can still change that row, and the change applies to this run, but the game never saves a switch: the file keeps the value it had for that row. Once you change a starred row, its star goes.
+
+While the pause menu or the Options screen is up, the game itself is held: no time passes for Ben, the chicken or the clock, and when you resume the game carries on from the same moment. The 30-second limit of `/LIVE` is wall-clock time, so a game left on a menu still ends by itself.
+
+The switches that stand for each row are in this table; for each row the file's choice is used when no switch is given.
+
+| Row | Switches that set it for one run |
+| --- | --- |
+| Music | `/MUSIC:ADLIB`, `/MUSIC:SB`, `/MUSIC:OFF`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND` |
+| Effects | `/FX:ADLIB`, `/FX:SB`, `/FX:SPEAKER`, `/FX:OFF`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND` |
+| Sound placement | none |
+| Frame rate | `/FPS30`, `/FPS60`, `/FPSAUTO` |
+| Motion | none |
+| Captions | `/CAPTIONS`, `/NOCAPTIONS` |
+| Keys | `/KEEN`, `/MODERN` |
+
+It has not been tried on a real computer: how long the save takes on a floppy disk, and how the keys repeat when you hold one down in the menu, are untested.
 
 ## The slice on DOS
 
@@ -313,7 +349,7 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
-- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second limit in `/LIVE`; the Web version has Paused and Options screens (Esc), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 

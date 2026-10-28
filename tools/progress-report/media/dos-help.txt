@@ -1,6 +1,6 @@
 Lieutenant Fizz 2 for DOS. Usage: FIZZ2.EXE [mode] [switches]; case is ignored.
 Modes (the first one given is used; /LIVE is the default)
-  /LIVE         Play the slice from the keyboard; Esc ends it
+  /LIVE         Play the slice from the keyboard; Esc pauses
   /REPLAY       Run the built-in script and print its transcript
   /BENCH [n]    Time the script (first n ticks) and print the costs
   /CHECK        Show the machine check; Esc leaves, Enter plays

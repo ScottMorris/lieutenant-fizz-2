@@ -23,9 +23,13 @@ use fizz_view::pfont::{draw_text, draw_text_scaled, text_width, text_width_scale
 use fizz_view::sprites_data::sprite;
 use fizz_view::theme::FIZZ_INDEX;
 
+use fizz_hal::KeyCode;
+use fizz_menu::MenuKey;
+use fizz_sim::Buttons;
+
 use crate::frame::Frame;
-use crate::palette::{BLACK, DIM_BASE, LIGHT_GREY, WHITE};
-use crate::{HEIGHT, WIDTH};
+use crate::palette::{BLACK, DIM_BASE, LIGHT_GREY, LIGHT_RED, WHITE};
+use crate::{HEIGHT, Layout, WIDTH, key_to_buttons};
 
 /// The heading's top edge, and the scale it is drawn at.
 pub const TITLE_Y: i32 = 22;
@@ -56,12 +60,41 @@ pub const OPTIONS_FOOTER: &str = "Up/Down choose, Left/Right change, Esc back";
 /// The Paused footer.
 pub const PAUSED_FOOTER: &str = "Up and Down choose, Enter selects, Esc resumes";
 
-/// What a menu screen shows: its heading, its rows, whether the override note shows, and its footer.
+/// The menu key a pressed key means in `layout`, if any. Up and Down wrap, Left steps a value back and Right, Enter, the layout's
+/// Jump and its Fire step it forward (or choose a row); Esc and the layout's Pogo go back. The movement keys are the game's own, so
+/// the WASD keys work in Modern and not in Keen, as in play.
+pub fn menu_key(code: KeyCode, layout: Layout) -> Option<MenuKey> {
+    match code {
+        KeyCode::Escape => return Some(MenuKey::Back),
+        KeyCode::Enter => return Some(MenuKey::Confirm),
+        _ => {}
+    }
+    let b = key_to_buttons(code, layout)?;
+    if b == Buttons::UP {
+        Some(MenuKey::Up)
+    } else if b == Buttons::DOWN {
+        Some(MenuKey::Down)
+    } else if b == Buttons::LEFT {
+        Some(MenuKey::Left)
+    } else if b == Buttons::RIGHT {
+        Some(MenuKey::Right)
+    } else if b == Buttons::JUMP || b == Buttons::FIRE {
+        Some(MenuKey::Confirm)
+    } else if b == Buttons::POGO {
+        Some(MenuKey::Back)
+    } else {
+        None
+    }
+}
+
+/// What a menu screen shows: its heading, its rows, whether the override note shows, a message and its footer. A message takes
+/// the note's line, in light red (Fizz 1's slot message), and an empty one shows nothing.
 #[derive(Clone, Copy)]
 pub struct Screen<'a> {
     pub title: &'a str,
     pub rows: &'a [RowView],
     pub note: bool,
+    pub message: &'a str,
     pub footer: &'a str,
 }
 
@@ -70,6 +103,7 @@ pub struct MenuView {
     background: Frame,
     shown: Option<u64>,
     draws: u32,
+    message: &'static str,
 }
 
 impl MenuView {
@@ -78,7 +112,14 @@ impl MenuView {
             background: Frame::new(),
             shown: None,
             draws: 0,
+            message: "",
         }
+    }
+
+    /// Sets the message the next draws show in light red below the rows (`""` clears it). It changes what is drawn, so the next
+    /// draw happens.
+    pub fn set_message(&mut self, message: &'static str) {
+        self.message = message;
     }
 
     /// Freezes `picture` as the background: a dimmed copy of it, the whole frame. Call it once as the screen opens, and again
@@ -127,6 +168,7 @@ impl MenuView {
                 title: "Options",
                 rows: rows.as_slice(),
                 note: screen.show_note(),
+                message: self.message,
                 footer: OPTIONS_FOOTER,
             },
             tick,
@@ -142,6 +184,7 @@ impl MenuView {
                 title: "Paused",
                 rows: rows.as_slice(),
                 note: false,
+                message: self.message,
                 footer: PAUSED_FOOTER,
             },
             tick,
@@ -189,6 +232,7 @@ fn signature(screen: &Screen, bob: i32) -> u64 {
     };
     feed(screen.title.as_bytes());
     feed(screen.footer.as_bytes());
+    feed(screen.message.as_bytes());
     feed(&[u8::from(screen.note), bob as u8]);
     for row in screen.rows {
         feed(row.label.as_bytes());
@@ -272,7 +316,9 @@ fn render(screen: &Screen, bob: i32, out: &mut Frame) {
             shadowed(out, value_x, y + TEXT_DY, value, FIZZ_INDEX);
         }
     }
-    if screen.note {
+    if !screen.message.is_empty() {
+        centred(out, NOTE_Y, screen.message, LIGHT_RED);
+    } else if screen.note {
         centred(out, NOTE_Y, OVERRIDE_NOTE, LIGHT_GREY);
     }
     centred(out, FOOTER_Y, screen.footer, LIGHT_GREY);
@@ -396,6 +442,62 @@ mod tests {
 
     fn digest_options(cursor: usize, values: Values, over: Overrides, caps: &Caps) -> u64 {
         frame_digest(&options(cursor, values, over, caps))
+    }
+
+    #[test]
+    fn menu_keys_follow_the_layout() {
+        for layout in [Layout::Keen, Layout::Modern] {
+            assert_eq!(menu_key(KeyCode::Up, layout), Some(MenuKey::Up));
+            assert_eq!(menu_key(KeyCode::Down, layout), Some(MenuKey::Down));
+            assert_eq!(menu_key(KeyCode::Left, layout), Some(MenuKey::Left));
+            assert_eq!(menu_key(KeyCode::Right, layout), Some(MenuKey::Right));
+            assert_eq!(menu_key(KeyCode::Enter, layout), Some(MenuKey::Confirm));
+            assert_eq!(menu_key(KeyCode::Space, layout), Some(MenuKey::Confirm));
+            assert_eq!(menu_key(KeyCode::Escape, layout), Some(MenuKey::Back));
+        }
+        // Keen: Ctrl jumps (confirm) and Alt pogos (back); the Modern letters mean nothing.
+        assert_eq!(
+            menu_key(KeyCode::Ctrl, Layout::Keen),
+            Some(MenuKey::Confirm)
+        );
+        assert_eq!(menu_key(KeyCode::Alt, Layout::Keen), Some(MenuKey::Back));
+        for k in [KeyCode::W, KeyCode::Z, KeyCode::X, KeyCode::C] {
+            assert_eq!(menu_key(k, Layout::Keen), None);
+        }
+        // Modern: WASD move, Z jumps, X pogos, C fires; Ctrl and Alt mean nothing.
+        assert_eq!(menu_key(KeyCode::W, Layout::Modern), Some(MenuKey::Up));
+        assert_eq!(menu_key(KeyCode::S, Layout::Modern), Some(MenuKey::Down));
+        assert_eq!(menu_key(KeyCode::A, Layout::Modern), Some(MenuKey::Left));
+        assert_eq!(menu_key(KeyCode::D, Layout::Modern), Some(MenuKey::Right));
+        assert_eq!(menu_key(KeyCode::Z, Layout::Modern), Some(MenuKey::Confirm));
+        assert_eq!(menu_key(KeyCode::C, Layout::Modern), Some(MenuKey::Confirm));
+        assert_eq!(menu_key(KeyCode::X, Layout::Modern), Some(MenuKey::Back));
+        assert_eq!(menu_key(KeyCode::Ctrl, Layout::Modern), None);
+        assert_eq!(menu_key(KeyCode::Alt, Layout::Modern), None);
+    }
+
+    #[test]
+    fn a_message_takes_the_notes_line_in_light_red() {
+        let screen = OptionsScreen::new(Values::default(), Overrides::NONE.with(RowId::FRAME_RATE));
+        let mut view = MenuView::new();
+        view.open(&picture());
+        let mut plain = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut plain));
+        let red = |f: &Frame| f.pixels().iter().filter(|&&p| p == LIGHT_RED).count();
+        // The soda can has a little light red of its own, so the message is judged by how much it adds.
+        let base = red(&plain);
+        // Setting a message changes the next draw, and the note's words are replaced.
+        view.set_message("Could not write FIZZ2.CFG");
+        let mut with = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut with));
+        assert!(red(&with) > base + 40, "{} over {}", red(&with), base);
+        assert_ne!(frame_digest(&plain), frame_digest(&with));
+        // Drawn again unchanged, it is not drawn.
+        assert!(!view.draw_options(&screen, &sb16(), 0, &mut with));
+        view.set_message("");
+        let mut cleared = Frame::new();
+        assert!(view.draw_options(&screen, &sb16(), 0, &mut cleared));
+        assert_eq!(frame_digest(&plain), frame_digest(&cleared));
     }
 
     #[test]

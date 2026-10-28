@@ -94,6 +94,12 @@
    "gaps": "how any of it sounds: nobody has listened on DOSBox or anywhere else, and a real OPL2, OPL3, Sound Blaster or PC speaker has not been tried (the register write timings are Fizz 1's, unmeasured here); that the chip really leaves OPL3 mode and goes quiet on exit and panic, which a headless run cannot hear; and the cost of the 560 Hz interrupt on a 486, which `/BENCH` (still at 60 Hz) does not include."
   },
   {
+   "section": "Options on DOS",
+   "shelf": "catalogued",
+   "evidence": "`fizz-menu` tests cover the rows, the wrapping keys, the star and the note. `fizz-present-dos` tests cover the key map for both layouts, the drawing, the dimming and the light-red message, and `tools/check-dos.sh` proves the DOS build draws the same pixels as the portable code (`/MENUSHOT`). In DOSBox the check types keys into `/LIVE` and `/OPTIONS`: Esc, Up and Enter quit through Paused; Classic placement and 30 Hz are saved to the exact `FIZZ2.CFG` bytes; a visit with no change writes nothing; a switch is not saved; a read-only file prints `OPTIONS SAVED no` and exits cleanly; and a run left in a menu ends at the 30-second wall-clock cap with the world held.",
+   "gaps": "how it looks and feels on a real screen (the screenshot is the portable code's picture, equal by hash to the DOS build's, not an emulator capture); that the light-red message is shown (no check reads the screen); that a change to Music or Effects is heard (a headless run cannot listen, and `/REPLANTEST` covers the device switch only by register counts); how long a save takes on a floppy; and the keyboard repeat in a menu on real hardware."
+  },
+  {
    "section": "The slice on DOS",
    "shelf": "catalogued",
    "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD strip is tested in `fizz-present-dos` (`the_slice_hud_shows_ammo_key_deaths_and_tick`). The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server.",
