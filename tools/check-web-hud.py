@@ -11,7 +11,7 @@
 # 540x1140 it checks:
 #   1. the HUD is there on load, inside the picture, hidden from assistive technology, with Fizz 5, Deaths 0 and the dim key;
 #   2. it has no animation or transition, and it sits below the H panel and the toast in the stacking order;
-#   3. firing takes the Fizz from 5 to 4 and the number stays cyan; firing on to zero turns it red;
+#   3. firing takes the Fizz from 5 to 4 and the number stays light magenta; firing on to zero turns it red;
 #   4. through the whole golden replay, on every tick, it agrees with the H panel's AMMO, KEY and DEATHS lines, the key chip shows
 #      the key only when it is carried, and the HUD's box never touches Ben's sprite;
 #   5. the live region says "Out of Fizz" and "Red key picked up" once each, and nothing else (no per-tick chatter);
@@ -137,8 +137,8 @@ def run_size(p, w, h, per_tick, shots):
         p.step("F")
     p.step("")
     s = probe(p)
-    check(s["fizz"] == "4" and not s["out"] and "AMMO 4" in s["pre"], "%s: after Fire the HUD shows 4, cyan" % tag)
-    check(s["fizzColour"] == "rgb(85, 255, 255)", "%s: the number is light cyan" % tag)
+    check(s["fizz"] == "4" and not s["out"] and "AMMO 4" in s["pre"], "%s: after Fire the HUD shows 4, light magenta" % tag)
+    check(s["fizzColour"] == "rgb(255, 85, 255)", "%s: the number is light magenta (the Fizz accent, var(--fizz))" % tag)
     for _ in range(12):
         for _ in range(2):
             p.step("F")

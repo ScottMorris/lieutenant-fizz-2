@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// The HUD is Fizz 1's desktop HUD in its look: a dark glass panel, small dim labels over big Fizz pixel digits, the number cyan and
+// The HUD is Fizz 1's desktop HUD in its look: a dark glass panel, small dim labels over big Fizz pixel digits, the number in the Fizz accent colour and
 // turning red at zero (Fizz 1's `pillItems`, episodes/episode-1/src/hud.ts). Fizz 2 shows the ammunition (Fizz), the deaths and
 // whether the red key is carried. TICK and HASH are not here: they stay in the H panel for inspection. This file touches no DOM, so
 // `hud.test.ts` runs it under Bun; web/main.js applies the result to the page.
@@ -18,8 +18,7 @@ export interface HudValues {
 /** The most a count shows. Fizz 1's number cells hold two digits here, and the panel must not grow. */
 export const COUNT_CAP = 99;
 
-// Fizz 1's colours (EGA light cyan and light red) and its dim label colour.
-export const CYAN = '#55ffff';
+// The Fizz number is light magenta (var(--fizz) in style.css, FIZZ_CSS in fizz-view's theme.rs; Fizz 1 uses cyan), red at zero as in Fizz 1, and the dim label colour is Fizz 1's.
 export const RED = '#ff5555';
 export const DIM = '#7c8796';
 
