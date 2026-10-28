@@ -36,15 +36,15 @@ The cluck is visible as well as audible. For 12 ticks, and twice for the double 
 
 Three effects come from Fizz 1 and change only what is drawn. The rules, the hash and the events are untouched, and each is a pinned frame in `fizz-slice-view`'s tests.
 
-- **Stun stars (#65).** Fizz 1's `stars0` and `stars1` sprites, 16 by 8, are exported into `fizz1-slice.json`. They sit 0.3 tiles above a stunned chicken's head and swap every 10 ticks (Fizz 1's 6 Hz), with the alert frame and the flash in the last second of the stun.
+- **Stun stars (#59).** Fizz 1's `stars0` and `stars1` sprites, 16 by 8, are exported into `fizz1-slice.json`. They sit 0.3 tiles above a stunned chicken's head and swap every 10 ticks (Fizz 1's 6 Hz), with the alert frame and the flash in the last second of the stun.
 - **Shot puff (#65).** The rules emit `Event::ShotEnd { x, y }` for each shot that hits a wall, runs out of life or stuns the chicken, and the transcript prints `EVENT <tick> shotend <x> <y>`. A fixed list of puffs, `fizz_slice_view::Puffs`, fed from those events by both presenters, plays Fizz 1's four 16 by 16 puff frames in cyan for 18 ticks.
-- **Death shake (#65).** When Ben dies the camera's x moves by a baked table of at most one pixel for 18 ticks, derived from his `dead` timer. The Web page's Motion button (Full or Reduced, defaulting to the system's reduced-motion setting) turns it off; DOS always shakes until the Options screen exists.
+- **Death shake (#63).** When Ben dies the camera's x moves by a baked table of at most one pixel for 18 ticks, derived from his `dead` timer. The Web page's Motion button (Full or Reduced, defaulting to the system's reduced-motion setting) turns it off; DOS always shakes until the Options screen exists.
 
 <!-- figure shots web-stars.png dos-stars.png dos-puff.png web-puff.png -->
 
 A still cannot show the shake, which is a shift of at most one pixel, so no shake picture is kept.
 
-## The Web screen (#32, #54, #60)
+## The Web screen (#32, #54, #58, #60)
 
 The Web page fills the window. The canvas is 13 tiles (208 pixels) tall and as wide as the window's shape gives, from 96 to 1,280 pixels, rebuilt through `App::set_view` after a debounced resize or turn of the device, and scaled by the window's height over 208 with no letterbox. A phone held upright shows about six tiles across, and an ultra-wide window shows more of the level beside the shaft. The rules never read the view's size, so the hash is the same at every window size. The controls, the notes and the seven lines of text (`TICK`, `HASH`, `AMMO`, `KEY`, `DOOR`, `DEATHS`, `EXIT`) sit in a panel opened with `H` or the corner `?` button.
 
@@ -64,7 +64,7 @@ The DOS keys are typed into DOSBox through the X server, as a person would press
 
 <!-- figure shots dos-look-up.png dos-aim-up.png dos-aim-down.png -->
 
-## DOS sound (#67)
+## DOS sound (#62)
 
 The cluck plays on three DOS paths. A new audio service in the runtime moves the timer to 560 Hz (PIT divisor 2131), keeps the BIOS clock at 18.2 Hz with the same accumulator, and paces the simulation to 60 steps a second with the integer `Pacer`. From the interrupt it steps the cluck as OPL2 channel 5 on an AdLib or a Sound Blaster, as OPL3 channel 14 in the second register bank, centred, with the OPL3 switched on through register `0x105`, or as PC speaker steps every fourth tick. With no device or with sound off it does nothing. `FIZZ2.EXE` hands each `Event::Cluck` to the service, and on exit and on panic it silences the chip and the speaker and puts register `0x105` back to 0. `/REPLAY` and `/LIVE` print `SOUND MUSIC <x> FX <y>` and, at the end, `AUDIO WRITES <n> SPEAKER STEPS <m>`, which is how a run with no ears tells which path played. The sound settings (`FIZZ2.CFG` version 2 and the `/MUSIC:`, `/FX:`, `/ADLIB`, `/SB`, `/SPEAKER` and `/NOSOUND` switches, #55) choose the path from the probe and the player's choices, with a fallback word when a device is missing. `tools/check-dos.sh` runs `/REPLAY` under a ladder of sound configurations (an OPL3 Sound Blaster, a Sound Blaster Pro 2, an OPL2 Sound Blaster, an AdLib-only machine, the speaker, no card and `/NOSOUND`) and requires the golden `TICK`, `FINAL` and `EVENT` lines, the BIOS tick bound and `VECTORS RESTORED yes` in each, so the sound cannot change the game.
 
