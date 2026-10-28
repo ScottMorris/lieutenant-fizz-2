@@ -5,14 +5,18 @@
 //
 // The page pushes `performance.now()` into `App::frame`. A millisecond `WebClock` and the shared integer `Pacer` turn that into
 // whole 60 Hz ticks, so the Web build paces exactly as the DOS build does from its PIT. Rules never see the browser clock.
+mod menus;
+
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
+use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
     CAPTION_TICKS, CaptionView, DrawOptions, Puffs, ben_view_box, caption_view, cluck_placement,
     draw_slice_puffs,
 };
+use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
 
 /// The height of the Web view in pixels: 13 tiles of 16, the number of tiles Fizz 1 shows from top to bottom in a level. The DOS
@@ -134,6 +138,8 @@ pub struct App {
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
     puffs: Puffs,
+    /// The Paused and Options screens. While one is up `frame` does not step.
+    menus: Menus,
 }
 
 impl Default for App {
@@ -163,6 +169,7 @@ impl App {
             shake: true,
             live_captions: Vec::new(),
             puffs: Puffs::new(),
+            menus: Menus::new(),
         }
     }
 
@@ -176,6 +183,12 @@ impl App {
     /// The first tick of a call takes the latch's edges, so a press that began and ended between two calls still counts once;
     /// the others see only the held buttons.
     pub fn frame(&mut self, now_ms: f64) -> u32 {
+        // A screen being up holds the game. The pacer is dropped, so the first frame after it starts it again from that moment and
+        // the time spent in the menu is never caught up.
+        if self.menus.screen != Screen::Closed {
+            self.hold();
+            return 0;
+        }
         self.clock.set_ms(now_ms);
         let Some(pacer) = self.pacer.as_mut() else {
             self.pacer = Some(Pacer::new(&self.clock, TICK_HZ, MAX_CATCH_UP));
@@ -462,6 +475,161 @@ fn queue_cluck(clucks: &mut Vec<(u8, Placement)>, variant: u8, place: Placement)
     }
 }
 
+/// The Paused and Options screens, for the page's overlay (`web/options.ts`). Screen codes: 0 none, 1 Paused, 2 Options. Row ids are
+/// `fizz_menu::RowId` numbers (Music 0, Placement 2, Motion 4, Captions 5, Keys 6, Back 7, Sound 8, Fullscreen 9; Resume 10,
+/// Options 11, Restart 13). None of this reaches the rules or the state hash.
+#[wasm_bindgen]
+impl App {
+    /// Drops the pacer, so the next [`App::frame`] starts it afresh and no time spent away is caught up. [`App::frame`] does this
+    /// itself while a screen is up; the page also calls it when it holds the game for another reason.
+    pub fn hold(&mut self) {
+        self.pacer = None;
+    }
+
+    /// Which screen is up: 0 none, 1 Paused, 2 Options.
+    pub fn menu_screen(&self) -> u8 {
+        self.menus.screen.code()
+    }
+
+    /// Opens Paused (Resume, Options, Restart) with the cursor on Resume.
+    pub fn menu_open_paused(&mut self) {
+        self.menus.open_paused();
+        self.hold();
+    }
+
+    /// Opens Options directly; Back then resumes play.
+    pub fn menu_open_options(&mut self) {
+        self.menus.open_options(false);
+        self.hold();
+    }
+
+    /// Closes whichever screen is up and resumes play.
+    pub fn menu_close(&mut self) {
+        self.menus.close();
+    }
+
+    /// Handles a key: 0 Up, 1 Down, 2 Left, 3 Right, 4 Confirm, 5 Back. Returns 0 nothing, 1 the cursor moved, 2 a value changed
+    /// (see [`App::menu_last_row`]), 3 an action row was chosen, 4 the screen changed or closed. Choosing Restart starts the level
+    /// again, as [`App::reset`] does.
+    pub fn menu_key(&mut self, key: u8) -> u8 {
+        let key = match key {
+            0 => MenuKey::Up,
+            1 => MenuKey::Down,
+            2 => MenuKey::Left,
+            3 => MenuKey::Right,
+            4 => MenuKey::Confirm,
+            5 => MenuKey::Back,
+            _ => return menus::KEY_NOTHING,
+        };
+        let out = self.menus.key(key);
+        if self.menus.take_restart() {
+            self.reset();
+        }
+        out
+    }
+
+    /// The row id the last key changed or chose.
+    pub fn menu_last_row(&self) -> u8 {
+        self.menus.last_row()
+    }
+
+    /// Puts the cursor on row `i` (a mouse pointer coming over it).
+    pub fn menu_select(&mut self, i: usize) {
+        self.menus.select(i);
+    }
+
+    /// A click on row `i`: selects it and presses Confirm, which steps a choice row and chooses an action row. Same return as
+    /// [`App::menu_key`].
+    pub fn menu_click(&mut self, i: usize) -> u8 {
+        self.menus.select(i);
+        self.menu_key(4)
+    }
+
+    /// A click on a stepper arrow of row `i`: selects it and steps its value by `d` (negative is back).
+    pub fn menu_step(&mut self, i: usize, d: i32) -> u8 {
+        self.menus.select(i);
+        self.menu_key(if d < 0 { 2 } else { 3 })
+    }
+
+    /// The number of rows on the screen that is up.
+    pub fn menu_row_count(&self) -> usize {
+        self.menus.rows().len()
+    }
+
+    /// The id of row `i`.
+    pub fn menu_row_id(&self, i: usize) -> u8 {
+        self.menus.rows().as_slice().get(i).map_or(0, |r| r.id.0)
+    }
+
+    pub fn menu_row_label(&self, i: usize) -> String {
+        self.menus
+            .rows()
+            .as_slice()
+            .get(i)
+            .map_or_else(String::new, |r| r.label.into())
+    }
+
+    /// The value word of row `i`, with ` *` already on it when a switch of the address set it. Empty for an action row.
+    pub fn menu_row_value(&self, i: usize) -> String {
+        self.menus
+            .rows()
+            .as_slice()
+            .get(i)
+            .map_or_else(String::new, |r| r.value.as_str().into())
+    }
+
+    pub fn menu_row_selected(&self, i: usize) -> bool {
+        self.menus
+            .rows()
+            .as_slice()
+            .get(i)
+            .is_some_and(|r| r.selected)
+    }
+
+    pub fn menu_row_overridden(&self, i: usize) -> bool {
+        self.menus
+            .rows()
+            .as_slice()
+            .get(i)
+            .is_some_and(|r| r.overridden)
+    }
+
+    /// The note to show under the rows, empty when none applies.
+    pub fn menu_note(&self) -> String {
+        self.menus.note().into()
+    }
+
+    /// The index of row `row`'s current choice, in the order the row cycles: Sound, Music and Captions 0 On, 1 Off; Placement 0
+    /// Enhanced, 1 Classic; Motion 0 System, 1 Reduced, 2 Full; Keys 0 Keen, 1 Modern; Fullscreen 0 Off, 1 On.
+    pub fn menu_value(&self, row: u8) -> u32 {
+        self.menus.value(row)
+    }
+
+    /// Loads a remembered choice into row `row`, in the order of [`App::menu_value`].
+    pub fn set_value(&mut self, row: u8, index: u32) {
+        self.menus.set_value(row, index);
+    }
+
+    /// Marks row `row` as set by the address for this visit; it shows `*` until the player changes it.
+    pub fn set_override(&mut self, row: u8) {
+        self.menus.set_override(row);
+    }
+
+    pub fn menu_overridden(&self, row: u8) -> bool {
+        self.menus.overridden(row)
+    }
+
+    /// Whether the browser can go fullscreen, which decides whether the Fullscreen row exists.
+    pub fn set_fullscreen_available(&mut self, yes: bool) {
+        self.menus.set_fullscreen_available(yes);
+    }
+
+    /// Tells the Fullscreen row whether the page is fullscreen now.
+    pub fn set_fullscreen(&mut self, on: bool) {
+        self.menus.set_fullscreen(on);
+    }
+}
+
 /// The slice replay transcript, byte for byte what `fizz_ep2::replay` writes and `crates/fizz-ep2/slice-replay.txt` holds.
 #[wasm_bindgen]
 pub fn slice_replay_transcript() -> String {
@@ -526,6 +694,45 @@ mod tests {
         app.set_shake(true);
         app.render();
         assert_eq!(still, app.rgba);
+    }
+
+    #[test]
+    fn a_screen_holds_the_game_and_resuming_does_not_catch_up() {
+        let mut app = App::new();
+        app.frame(0.0);
+        assert_eq!(app.frame(100.0), MAX_CATCH_UP);
+        let tick = app.tick();
+        app.menu_open_paused();
+        assert_eq!(app.menu_screen(), 1);
+        assert_eq!(app.frame(60_000.0), 0);
+        assert_eq!(app.tick(), tick);
+        app.menu_key(5);
+        assert_eq!(app.menu_screen(), 0);
+        // The first frame after resuming only restarts the pacer; the minute away is not run.
+        assert_eq!(app.frame(61_000.0), 0);
+        assert_eq!(app.frame(61_017.0), 1);
+        assert_eq!(app.tick(), tick + 1.0);
+    }
+
+    #[test]
+    fn restart_from_paused_starts_the_level_again() {
+        let mut app = App::new();
+        app.frame(0.0);
+        app.frame(50.0);
+        assert!(app.tick() > 0.0);
+        app.menu_open_paused();
+        assert_eq!(app.menu_click(2), 4);
+        assert_eq!(app.menu_screen(), 0);
+        assert_eq!(app.tick(), 0.0);
+    }
+
+    #[test]
+    fn opening_the_menus_leaves_the_replay_hash_alone() {
+        let mut app = App::new();
+        app.menu_open_options();
+        app.menu_click(1);
+        app.menu_close();
+        assert_eq!(app.hash_hex(), App::new().hash_hex());
     }
 
     #[test]

@@ -15,4 +15,6 @@ fizz-ep2 = { path = "../fizz-ep2" }
 fizz-slice-view = { path = "../fizz-slice-view" }
 fizz-sfx = { path = "../fizz-sfx" }
 fizz-hal = { path = "../fizz-hal" }
+fizz-machine = { path = "../fizz-machine" }
+fizz-menu = { path = "../fizz-menu" }
 wasm-bindgen = "=0.2.125"
