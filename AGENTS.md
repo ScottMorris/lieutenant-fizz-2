@@ -35,7 +35,7 @@ PR titles start with a capital letter, use the imperative mood, remain near 70 c
 
 Rust is pinned in `rust-toolchain.toml`; DOS builds use `RUSTC_BOOTSTRAP=1` only for the documented `-Zbuild-std` and target-specification steps. The scripts are the source of truth for exact commands. Do not install system packages to get a build working without asking. Use `$TMPDIR`-style scratch paths when jobs share a machine. The CI image for DOS work is the `ci-dos` tier of `ghcr.io/liminal-hq/ci-dos`, pinned by digest; tool-version changes belong in the shared image repository.
 
-Releases add their version section to `CHANGELOG.md` in the release PR. Tags are pushed only when explicitly requested, after the release PR merges. Release notes group merged PRs by their labels, so labels stay accurate; `skip-changelog` and `internal` deliberately omit work from those notes.
+Every PR adds its line to `WORKLOG.md`, in landing order. A release adds its version section to `CHANGELOG.md` by hand in the release PR; that file is the player-facing history. Tags are pushed only when explicitly requested, after the release PR merges. Release notes group merged PRs by their labels, so labels stay accurate. Housekeeping that players never see (work log and changelog edits, roadmap and archive refreshes, agent tooling) takes the `skip-changelog` or `internal` label, which `.github/release.yml` uses to leave a PR out of GitHub's generated release list.
 
 ## Web and DOS Parity
 
