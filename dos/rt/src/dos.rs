@@ -277,6 +277,82 @@ pub fn remove(path: &str) -> Result<(), DosError> {
     rm21(&mut r)
 }
 
+/// AH=56h: rename (or move) a file. Fails if `to` already exists.
+pub fn rename(from: &str, to: &str) -> Result<(), DosError> {
+    // Both names go in the transfer buffer: `from` at offset 0, `to` after it; DS:DX and ES:DI name them.
+    if from.len() + to.len() + 2 > TB_SIZE {
+        return Err(DosError(3));
+    }
+    // SAFETY: bounds checked above.
+    unsafe {
+        core::ptr::copy_nonoverlapping(from.as_ptr(), tb_ptr(), from.len());
+        tb_ptr().add(from.len()).write(0);
+        core::ptr::copy_nonoverlapping(to.as_ptr(), tb_ptr().add(from.len() + 1), to.len());
+        tb_ptr().add(from.len() + 1 + to.len()).write(0);
+    }
+    let mut r = RealRegs {
+        eax: 0x5600,
+        ds: tb_segment(),
+        edx: 0,
+        es: tb_segment(),
+        edi: (from.len() + 1) as u32,
+        ..RealRegs::default()
+    };
+    rm21(&mut r)
+}
+
+/// The real-mode INT 24h vector as it was before `FailCritical::install`, as segment << 16 | offset, and the stub's DOS-memory
+/// selector; zero selector means nothing is installed.
+static OLD_INT24: AtomicU32 = AtomicU32::new(0);
+static STUB_SELECTOR: AtomicU32 = AtomicU32::new(0);
+
+/// While alive, a DOS critical error (a write-protected disk, a drive that is not ready) is answered "Fail" without a word on the
+/// screen, so the call that hit it returns an error code instead of printing "Abort, Retry, Fail?" over a graphics mode. The handler
+/// is three real-mode bytes (`mov al,3; iret`) in conventional memory. Dropping restores the old vector and frees the stub; the
+/// clean-up list does the same if the program exits or panics first.
+pub struct FailCritical(());
+
+impl FailCritical {
+    /// Installs the handler; `None` if DPMI refused (the save then runs without protection, as before).
+    pub fn install() -> Option<FailCritical> {
+        if STUB_SELECTOR.load(Ordering::Relaxed) != 0 {
+            return None;
+        }
+        let (segment, selector) = dpmi::alloc_dos_memory(1).ok()?;
+        let old = dpmi::get_rm_vector(0x24).ok();
+        // SAFETY: the block is one paragraph (16 bytes) of conventional memory just allocated, mapped at linear segment << 4.
+        unsafe { dpmi::linear_to_ptr::<[u8; 3]>((segment as u32) << 4).write([0xB0, 0x03, 0xCF]) };
+        match old {
+            Some((s, o)) if dpmi::set_rm_vector(0x24, segment, 0).is_ok() => {
+                OLD_INT24.store(((s as u32) << 16) | o as u32, Ordering::Relaxed);
+                STUB_SELECTOR.store(selector as u32, Ordering::Relaxed);
+                crate::cleanup::register(FailCritical::restore);
+                Some(FailCritical(()))
+            }
+            _ => {
+                let _ = dpmi::free_dos_memory(selector);
+                None
+            }
+        }
+    }
+
+    fn restore() {
+        let selector = STUB_SELECTOR.swap(0, Ordering::Relaxed);
+        if selector != 0 {
+            let old = OLD_INT24.load(Ordering::Relaxed);
+            let _ = dpmi::set_rm_vector(0x24, (old >> 16) as u16, old as u16);
+            let _ = dpmi::free_dos_memory(selector as u16);
+        }
+    }
+}
+
+impl Drop for FailCritical {
+    fn drop(&mut self) {
+        crate::cleanup::forget(FailCritical::restore);
+        FailCritical::restore();
+    }
+}
+
 /// What a protected-mode INT 21h does with a pointer: AH=40h with DS:EDX naming `buf`, no transfer buffer. Returns the count DOS
 /// reports. The data DOS actually wrote is whatever sat at the real-mode DS:DX, not `buf`; this exists to demonstrate that.
 pub fn write_direct_unsafe(handle: u16, buf: &[u8]) -> Result<usize, DosError> {

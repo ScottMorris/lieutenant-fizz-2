@@ -425,6 +425,37 @@ cfgtest_case 'replaces a version 1 file' 465A3243030202020001010000 /ADLIB
 cfg_put "$V2"
 cfgtest_case 'replaces a version 2 file' 465A3243030000020001010000
 cfgtest_case 'no flags is Auto' 465A3243030000020001010000
+# The save is crash-safe: it writes FIZZ2.NEW, verifies it, deletes FIZZ2.CFG and renames. No FIZZ2.NEW is left behind, and the INT 24h
+# vector (the critical-error handler the save installs) is back where it was.
+cfgtest_case 'save leaves no FIZZ2.NEW' 465A3243030202020001010000 /ADLIB
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left FIZZ2.NEW behind"
+out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB | tr -d '\r')"
+printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "/CFGTEST did not restore INT 24h"
+# A read-only FIZZ2.CFG cannot be replaced: the save reports failure, the program exits cleanly with its vectors back, the file is
+# byte for byte what it was and no FIZZ2.NEW remains.
+cfg_put 'FZ2C\x02\x03\x03\x01\x00'
+chmod 444 "$cfgdir/FIZZ2.CFG"
+status=0
+out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB)" || status=$?
+chmod 644 "$cfgdir/FIZZ2.CFG"
+out="$(printf '%s\n' "$out" | tr -d '\r')"
+[ "$status" = 0 ] || fail "/CFGTEST on a read-only file exited $status"
+printf '%s\n' "$out" | grep -qx 'CFG SAVED no' || fail "a save over a read-only FIZZ2.CFG did not report failure"
+printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "a failed save did not restore the vectors"
+printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "a failed save did not restore INT 24h"
+[ "$(cfg_hex)" = '465a32430203030100' ] || fail "a failed save changed FIZZ2.CFG to $(cfg_hex)"
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a failed save left FIZZ2.NEW behind"
+echo "CFGTEST case read-only file ok"
+# A FIZZ2.NEW left by an interrupted save (the old file already deleted) is used when FIZZ2.CFG is missing, and a damaged one is not.
+cfg_none
+printf "$V2" > "$cfgdir/FIZZ2.NEW"
+sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
+printf 'junk' > "$cfgdir/FIZZ2.NEW"
+sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
+cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
 

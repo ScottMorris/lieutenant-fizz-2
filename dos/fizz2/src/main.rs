@@ -43,6 +43,7 @@
 extern crate alloc;
 
 mod bench;
+mod cfgfile;
 mod check;
 mod frames;
 mod hal;
