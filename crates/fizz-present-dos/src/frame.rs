@@ -3,18 +3,32 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
+use crate::hud::{Hud, HudValues};
 use crate::{FRAME_BYTES, HEIGHT, WIDTH};
 
 /// An indexed-colour back buffer in row-major order with a pitch of `WIDTH`.
 pub struct Frame {
     pixels: [u8; FRAME_BYTES],
+    /// The rendered HUD strip. It lives with the frame it is copied into, so the presenter's callers keep one object.
+    hud: Hud,
 }
 
 impl Frame {
     pub const fn new() -> Self {
         Self {
             pixels: [0; FRAME_BYTES],
+            hud: Hud::new(),
         }
+    }
+
+    /// Copies the HUD box over the picture, rendering it first only if `values` differ from the last call's.
+    pub fn draw_hud(&mut self, values: HudValues) {
+        self.hud.draw(values, &mut self.pixels, WIDTH);
+    }
+
+    /// How many times the HUD strip has been rendered (as opposed to copied) by this frame.
+    pub fn hud_renders(&self) -> u32 {
+        self.hud.renders()
     }
 
     pub fn clear(&mut self, colour: u8) {
