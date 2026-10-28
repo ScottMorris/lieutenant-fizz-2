@@ -10,6 +10,9 @@
 // slice has three things to show: `Fizz` (the ammunition, which Fizz 1 calls Fizz) in light cyan and light red
 // at zero, `Deaths`, and a chip for the red key: the key sprite when Ben carries it, its dim outline when he does not.
 //
+// The box is a pill like the Web HUD's: its corners are rounded by [`RADIUS`] pixels, the edge follows the curve, and the pixels
+// beyond the curve are [`OUTSIDE`], which leaves the picture as it is.
+//
 // The strip is an overlay: the edges, text and chip in their own colours and [`TRANSPARENT`] everywhere else. It is rendered only
 // when one of the three values differs from the ones it was rendered for; every frame composites its rows over the picture,
 // which is redrawn from scratch each frame (a strip pixel replaces the picture's, a transparent one dims it). Nothing is drawn
@@ -31,6 +34,10 @@ pub const H: usize = 27;
 
 /// The strip value that means "the picture, dimmed". It is no palette index the strip draws with.
 pub const TRANSPARENT: u8 = 0xFF;
+/// The strip value for a pixel beyond a rounded corner: the picture shows there undimmed.
+pub const OUTSIDE: u8 = 0xFE;
+/// The corner radius of the box's outer edge, in pixels; the dark inner edge is one pixel inside it with a radius one smaller.
+pub const RADIUS: usize = 5;
 
 /// The largest number shown; a larger value reads as this one.
 pub const MAX_SHOWN: u32 = 99;
@@ -92,10 +99,10 @@ impl Hud {
         for (row, src) in self.strip.as_chunks::<W>().0.iter().enumerate() {
             let at = (Y + row) * pitch + X;
             for (dst, &p) in pixels[at..at + W].iter_mut().zip(src) {
-                *dst = if p == TRANSPARENT {
-                    DIM_BASE | (*dst & 15)
-                } else {
-                    p
+                *dst = match p {
+                    TRANSPARENT => DIM_BASE | (*dst & 15),
+                    OUTSIDE => *dst,
+                    _ => p,
                 };
             }
         }
@@ -126,24 +133,42 @@ fn digits(n: u32, buf: &mut [u8; 2]) -> &str {
     core::str::from_utf8(&buf[..len]).unwrap_or("")
 }
 
+/// Whether pixel (`x`, `y`) of the strip is inside the box's rounded outline shrunk by `inset` pixels on every side (the corner
+/// radius shrinks with it, so the outlines are concentric).
+fn in_pill(x: usize, y: usize, inset: usize) -> bool {
+    if x < inset || y < inset || x >= W - inset || y >= H - inset {
+        return false;
+    }
+    let r = RADIUS.saturating_sub(inset);
+    // Distance from the pixel's centre to the centre of the nearest corner's circle, in half pixels.
+    let near = |v: usize, len: usize| {
+        let (lo, hi) = (inset + r, len - inset - r);
+        if v < lo {
+            (2 * lo - 2 * v - 1) as i32
+        } else if v >= hi {
+            (2 * v + 1 - 2 * hi) as i32
+        } else {
+            0
+        }
+    };
+    let (dx, dy) = (near(x, W), near(y, H));
+    dx * dx + dy * dy <= (2 * r * 2 * r) as i32
+}
+
 fn render(strip: &mut [u8; W * H], v: HudValues) {
-    strip.fill(TRANSPARENT);
-    // The light grey outer edge and the dark grey inner edge inside it, as in Fizz 1.
-    for x in 0..W {
-        strip[x] = LIGHT_GREY;
-        strip[(H - 1) * W + x] = LIGHT_GREY;
-    }
+    // The light grey outer edge, the dark grey inner edge inside it, and the open middle, as in Fizz 1, on a rounded outline.
     for y in 0..H {
-        strip[y * W] = LIGHT_GREY;
-        strip[y * W + W - 1] = LIGHT_GREY;
-    }
-    for x in 1..W - 1 {
-        strip[W + x] = DARK_GREY;
-        strip[(H - 2) * W + x] = DARK_GREY;
-    }
-    for y in 1..H - 1 {
-        strip[y * W + 1] = DARK_GREY;
-        strip[y * W + W - 2] = DARK_GREY;
+        for x in 0..W {
+            strip[y * W + x] = if !in_pill(x, y, 0) {
+                OUTSIDE
+            } else if !in_pill(x, y, 1) {
+                LIGHT_GREY
+            } else if !in_pill(x, y, 2) {
+                DARK_GREY
+            } else {
+                TRANSPARENT
+            };
+        }
     }
     let mut buf = [0u8; 2];
     let x = shadowed(strip, TEXT_X, ROW1_Y, "Fizz ", LIGHT_GREY);
@@ -338,8 +363,14 @@ mod tests {
                     let (x, y) = (i % pitch, i / pitch);
                     let inside = (X..X + W).contains(&x) && (Y..Y + H).contains(&y);
                     assert!(inside || p == 3, "({x},{y}) in {pitch}x{rows}");
-                    // Every pixel of the box changes: it is dimmed (19) or overlay.
-                    assert!(!inside || p != 3, "({x},{y}) in {pitch}x{rows}");
+                    // Every pixel of the pill changes (dimmed or overlay); only the corners' outside is left alone.
+                    if inside {
+                        assert_eq!(
+                            p == 3,
+                            !in_pill(x - X, y - Y, 0),
+                            "({x},{y}) in {pitch}x{rows}"
+                        );
+                    }
                 }
             }
         }
@@ -356,12 +387,15 @@ mod tests {
             }
             let before = pic.clone();
             Hud::new().draw(v, &mut pic, WIDTH);
-            let (mut dimmed_px, mut overlay_px) = (0, 0);
+            let (mut dimmed_px, mut overlay_px, mut outside_px) = (0, 0, 0);
             for row in 0..H {
                 for col in 0..W {
                     let at = (Y + row) * WIDTH + X + col;
                     let o = strip[row * W + col];
-                    if o == TRANSPARENT {
+                    if o == OUTSIDE {
+                        assert_eq!(pic[at], before[at], "({col},{row})");
+                        outside_px += 1;
+                    } else if o == TRANSPARENT {
                         assert_eq!(pic[at], DIM_BASE + before[at], "({col},{row})");
                         dimmed_px += 1;
                     } else {
@@ -372,15 +406,43 @@ mod tests {
                 }
             }
             assert!(dimmed_px > W * H / 2 && overlay_px > 200);
-            // The double edge: light grey outside, dark grey inside it, all the way round.
-            for col in 0..W {
+            // Four rounded corners, and nothing else is outside the pill.
+            assert!((4 * 3..4 * 14).contains(&outside_px), "{outside_px}");
+            for (x, y) in [(0, 0), (W - 1, 0), (0, H - 1), (W - 1, H - 1)] {
+                assert_eq!(strip[y * W + x], OUTSIDE);
+            }
+            // The double edge: light grey outside, dark grey inside it, along the straight sides.
+            for col in RADIUS..W - RADIUS {
                 assert_eq!(strip[col], LIGHT_GREY);
                 assert_eq!(strip[(H - 1) * W + col], LIGHT_GREY);
-                assert_eq!(strip[W + col] == DARK_GREY, (1..W - 1).contains(&col));
+                assert_eq!(strip[W + col], DARK_GREY);
             }
-            for row in 0..H {
+            for row in RADIUS..H - RADIUS {
                 assert_eq!(strip[row * W], LIGHT_GREY);
                 assert_eq!(strip[row * W + W - 1], LIGHT_GREY);
+                assert_eq!(strip[row * W + 1], DARK_GREY);
+            }
+            // Round the curve too: every pill pixel that touches the outside is the light grey edge, and no open pixel
+            // touches the outside (the edge follows the curve, with the dark edge inside it).
+            for y in 0..H {
+                for x in 0..W {
+                    let nb = |dx: i32, dy: i32| {
+                        let (nx, ny) = (x as i32 + dx, y as i32 + dy);
+                        if nx < 0 || ny < 0 || nx >= W as i32 || ny >= H as i32 {
+                            OUTSIDE
+                        } else {
+                            strip[ny as usize * W + nx as usize]
+                        }
+                    };
+                    let touches = |what: u8| {
+                        [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                            .iter()
+                            .any(|&(dx, dy)| nb(dx, dy) == what)
+                    };
+                    if strip[y * W + x] != OUTSIDE && touches(OUTSIDE) {
+                        assert_eq!(strip[y * W + x], LIGHT_GREY, "({x},{y})");
+                    }
+                }
             }
         }
     }
