@@ -56,7 +56,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/PLATFORM.md` | The platform skeleton: transcript format, DOS runtime, Web build, checks, toolchain and provenance |
 | `docs/DOS-CHECK.md` | The DOS start-up check: the screen, the three sound states, settings, flags and the probe plan |
 | `docs/SPRITES.md` | The sprite grid format, the sets and the tools that lower them to Rust |
-| `docs/SFX.md` | The cluck: the Undertone source, the OPL2 and PC speaker downmixes and what each loses |
+| `docs/SFX.md` | Sound: what plays where, the cluck and its downmixes, how a sound is placed, DOS playback, the Web path and how music fits in |
 | `docs/LORE.md` | Episode 2's setting and the proposed lore of its levels |
 | `docs/MANUAL.md` | How to play and run the slice |
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |

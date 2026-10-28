@@ -13,6 +13,7 @@ tools/check-headers.sh
 python3 -I tools/check-docs.py
 python3 -I tools/progress-report/tests/test_report.py
 python3 -I tools/progress-report/gather.py --dry-run
+python3 -I tools/docs/positional-sound.py --check
 # The song source needs Bun and the pinned Undertone (`bun install --frozen-lockfile`); CI always runs these.
 if command -v bun > /dev/null 2>&1 && [ -d node_modules/@liminal-hq/undertone ]; then
   bun test assets/music
