@@ -9,7 +9,8 @@
 // enough for the sections measured here (tens of microseconds to milliseconds), and each reading costs a few microseconds of port
 // I/O. That cost is measured first and taken off every section, so it does not inflate the small ones. The run is not paced:
 // ticks follow each other as fast as the machine can go, which is what a budget needs. The 60 Hz interrupt still fires and shows
-// up in the maxima (a few microseconds on real hardware).
+// up in the maxima (a few microseconds on real hardware). With `/AUDIO` the 560 Hz service runs instead (see `main`), and the stopwatch
+// counts periods of the timer as it is, not of the 60 Hz one.
 use fizz_dos_rt::timer;
 use fizz_ep2::{SLICE_SCRIPT, World};
 use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, Puffs, frame_digest, present, render_slice_with};
@@ -37,7 +38,8 @@ impl Stopwatch {
     fn now(&mut self) -> u64 {
         let mut t = timer::clocks();
         if t < self.last {
-            t += u64::from(timer::PIT_DIVISOR_60HZ);
+            // One period of the timer as it is now: 60 Hz for /BENCH, 560 Hz when the audio service runs (/BENCH /AUDIO).
+            t += u64::from(timer::divisor());
         }
         self.last = t;
         t
@@ -130,7 +132,9 @@ fn overhead(sw: &mut Stopwatch) -> u64 {
 
 /// Plays the slice script once from a fresh level, timing each tick's step, drawing (the picture and the HUD text into the
 /// buffer) and copy to the screen, stopping after `limit` ticks (the whole script when it is `SLICE_TICKS` or more). The caller has hooked the timer and set mode 13h. Returns the final world with the report.
-pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions) -> (World, Report) {
+///
+/// With `audio`, each tick's clucks go to the audio service afterwards (outside the timed sections), as `/REPLAY` does.
+pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: bool) -> (World, Report) {
     let mut sw = Stopwatch::new();
     let cost = overhead(&mut sw);
     let mut world = fizz_ep2::level::world();
@@ -154,6 +158,9 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions) -> (Worl
             let _ = present(display, &frame);
             let t3 = sw.now();
             prev = now;
+            if audio {
+                crate::play_events(&world, options);
+            }
             // Outside the timed sections: the digest only proves what was drawn.
             if DIGEST_TICKS.contains(&world.tick.0) {
                 digests[frame_count] = (world.tick.0, frame_digest(&frame));
