@@ -13,6 +13,7 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod governor;
 pub mod probe;
 pub mod report;
 pub mod resolve;
@@ -21,6 +22,7 @@ pub mod screen;
 pub mod settings;
 pub mod switches;
 
+pub use governor::FrameGovernor;
 pub use probe::{Blaster, CpuClass, FmKind, Probe, SoundBlaster, VideoClass, parse_blaster};
 pub use report::{
     cells_hash, parse_cells_hex, parse_probe, write_cells_hex, write_probe, write_sound,
