@@ -61,6 +61,10 @@ pub struct HudValues {
 /// The cached HUD strip and the values it shows.
 pub struct Hud {
     strip: [u8; W * H],
+    /// The strip as a mask, four pixels to a word: a picture word becomes `(word & keep) | set`. An overlay pixel keeps nothing
+    /// and sets its colour, a transparent one keeps the colour's low nibble and sets the dimmed half's bit, an outside one keeps all.
+    keep: [u32; W / 4 * H],
+    set: [u32; W / 4 * H],
     shown: Option<HudValues>,
     renders: u32,
 }
@@ -69,6 +73,8 @@ impl Hud {
     pub const fn new() -> Self {
         Self {
             strip: [TRANSPARENT; W * H],
+            keep: [0; W / 4 * H],
+            set: [0; W / 4 * H],
             shown: None,
             renders: 0,
         }
@@ -83,6 +89,18 @@ impl Hud {
     pub fn update(&mut self, values: HudValues) {
         if self.shown != Some(values) {
             render(&mut self.strip, values);
+            for (i, px) in self.strip.as_chunks::<4>().0.iter().enumerate() {
+                let (mut keep, mut set) = ([0u8; 4], [0u8; 4]);
+                for (k, &p) in px.iter().enumerate() {
+                    (keep[k], set[k]) = match p {
+                        TRANSPARENT => (0x0F, DIM_BASE),
+                        OUTSIDE => (0xFF, 0),
+                        _ => (0, p),
+                    };
+                }
+                self.keep[i] = u32::from_le_bytes(keep);
+                self.set[i] = u32::from_le_bytes(set);
+            }
             self.shown = Some(values);
             self.renders += 1;
         }
@@ -96,14 +114,20 @@ impl Hud {
             return;
         }
         self.update(values);
-        for (row, src) in self.strip.as_chunks::<W>().0.iter().enumerate() {
+        const WORDS: usize = W / 4;
+        for row in 0..H {
             let at = (Y + row) * pitch + X;
-            for (dst, &p) in pixels[at..at + W].iter_mut().zip(src) {
-                *dst = match p {
-                    TRANSPARENT => DIM_BASE | (*dst & 15),
-                    OUTSIDE => *dst,
-                    _ => p,
-                };
+            let masks = self.keep[row * WORDS..][..WORDS]
+                .iter()
+                .zip(&self.set[row * WORDS..][..WORDS]);
+            for (dst, (&keep, &set)) in pixels[at..at + W]
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(masks)
+            {
+                let word = u32::from_le_bytes([dst[0], dst[1], dst[2], dst[3]]);
+                dst.copy_from_slice(&((word & keep) | set).to_le_bytes());
             }
         }
     }
@@ -155,18 +179,25 @@ fn in_pill(x: usize, y: usize, inset: usize) -> bool {
     dx * dx + dy * dy <= (2 * r * 2 * r) as i32
 }
 
+/// How deep pixel (`x`, `y`) of the strip is in the pill: 0 outside it, 1 on the outer edge, 2 on the inner edge, 3 open. Only the
+/// four corner squares need the curve; everywhere else the depth is the distance to the nearest side.
+fn depth(x: usize, y: usize) -> u8 {
+    let (cx, cy) = (x.min(W - 1 - x), y.min(H - 1 - y));
+    if cx >= RADIUS || cy >= RADIUS {
+        return (cx.min(cy) + 1).min(3) as u8;
+    }
+    (0..3).find(|&d| !in_pill(x, y, d)).unwrap_or(3) as u8
+}
+
 fn render(strip: &mut [u8; W * H], v: HudValues) {
     // The light grey outer edge, the dark grey inner edge inside it, and the open middle, as in Fizz 1, on a rounded outline.
     for y in 0..H {
         for x in 0..W {
-            strip[y * W + x] = if !in_pill(x, y, 0) {
-                OUTSIDE
-            } else if !in_pill(x, y, 1) {
-                LIGHT_GREY
-            } else if !in_pill(x, y, 2) {
-                DARK_GREY
-            } else {
-                TRANSPARENT
+            strip[y * W + x] = match depth(x, y) {
+                0 => OUTSIDE,
+                1 => LIGHT_GREY,
+                2 => DARK_GREY,
+                _ => TRANSPARENT,
             };
         }
     }
