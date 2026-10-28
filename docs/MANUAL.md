@@ -72,7 +72,7 @@ On the Web, press `F` or use the Fullscreen button to fill the screen, and press
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions).
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
 
 - `/LIVE` — you play the slice. It ends when you press Esc, or by itself after 30 seconds, and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
@@ -88,9 +88,9 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 
 ### Command-line switches
 
-Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), keys (`/MODERN`), captions (`/CAPTIONS`, `/NOCAPTIONS`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), options (`/MODERN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
 
-The help screen, as `FIZZ2.EXE /?` printed it at commit b238803:
+The help screen, as `FIZZ2.EXE /?` prints it:
 
 ```
 Lieutenant Fizz 2 for DOS
@@ -103,11 +103,13 @@ Modes (the first one given is used; /LIVE is the default)
   /CHECKCELLS   Draw the check screen and print its cells; no key
   /PROBE        Print what the machine has: video, sound, processor
   /?            Show this help (also /HELP and -?); nothing else runs
-Keys
+Options (for this run; where one has an opposite, the last one given wins)
   /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
-Captions (on by default; the last one given wins)
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
+  /FPS30        Draw 30 frames a second (the game itself still runs at 60)
+  /FPS60        Draw 60 frames a second
+  /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF
@@ -132,7 +134,21 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins.
 
-To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. A screen to change it will come later, and until then the game does not write the file itself.
+To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)). A screen to change it will come later, and until then the game does not write the file itself.
+
+### Frame rate on DOS
+
+The game always works out the world 60 times a second, so Ben jumps the same way, the chicken clucks at the same moment and the sound plays the same on every computer. What changes is how often the screen is redrawn. At 60 the picture is redrawn after every step. At 30 it is redrawn after every second step, so each picture stays on the screen for two steps: movement looks a little steppier, as in an older game on a slower machine, but nothing about the play changes, and keys are still read every step. A slow computer that cannot finish a picture in a sixtieth of a second looks smoother at a steady 30 than at an uneven 40 or 50.
+
+You can choose for one run with these options, which combine with the other options and with any mode (`FIZZ2.EXE /FPS30 /MODERN`):
+
+- `/FPS60` — draw after every step.
+- `/FPS30` — draw after every second step.
+- `/FPSAUTO` — the default. The game times the pictures it draws, 32 at a time. If they take longer than a sixtieth of a second each, but not more than about one and seven-tenths times as long, it moves to 30; if they take much longer than that (more than about one and eight-tenths times) or less than two-thirds as long, it moves to 60. In between it keeps the rate it has. It starts at 60, so a computer that keeps up never changes. A computer too slow even for 30 stays at 60 and draws as often as it can.
+
+When two options disagree, the last one wins. A choice saved in `FIZZ2.CFG` (the file the sound choices use) is used when no option is given, and an option wins over the file. An option never changes the file.
+
+`/LIVE` and `/REPLAY` end with a line such as `FRAMES 635 TICKS 1268 RATE 30 MODE 30`: how many pictures were drawn, how many steps were taken, the rate in use at the end and the mode (`auto`, `30` or `60`). At 30 the first number is about half the second. `/BENCH` does not use the frame rate: it draws every step and times it.
 
 ### Hearing the cluck on DOS
 
@@ -272,8 +288,8 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck, the only sound on DOS so far. The cluck is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)); only the Web version plays the placeholder song so far.
-- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Motion, Restart, Fullscreen, Sound and Music buttons, a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
+- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Motion, Restart, Fullscreen, Sound and Music buttons, a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
