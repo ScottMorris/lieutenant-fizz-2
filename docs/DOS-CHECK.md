@@ -19,7 +19,7 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 
 ## Status
 
-The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. The `/CHECK` screen itself, the settings file reader and the sound flags in the program arrive in later changes, so nothing here is visible to a player beyond `/PROBE`, which the manual describes.
+The pure model and the probes exist. The model (the probe data, settings, the resolver, the OPL write router and the screen builder) is tested on the host. The probes are in the DOS runtime and `FIZZ2.EXE /PROBE` runs them, prints what they found and the hash of the screen those values make, and `tools/check-dos.sh` runs it under 21 DOSBox configurations. `FIZZ2.EXE` also reads `FIZZ2.CFG` and the sound flags, resolves them against the probe and prints the `SOUND` line in `/LIVE`, `/REPLAY` and `/PROBE` (see [Settings file and flags](#settings-file-and-flags)); nothing plays yet. The `/CHECK` screen itself arrives in a later change, so nothing here is visible to a player beyond `/PROBE` and that line, which the manual describes.
 
 ## What the screen shows
 
@@ -80,7 +80,7 @@ A monochrome adapter in mode 7 renders only normal (`0x07`), bright (`0x0F`) and
 | Effects Speaker | the speaker |
 | Effects Off | off |
 
-Music never uses the speaker. Music and effects are independent choices. When a request cannot be met, the plan records one of six reason codes: `music-sb-to-adlib`, `music-sb-to-off`, `music-adlib-to-off`, `fx-sb-to-adlib`, `fx-sb-to-speaker` and `fx-adlib-to-speaker`. The screen shows a fallback only through the states and the footer phrase; the reason codes are for the `SOUND` line a later change prints.
+Music never uses the speaker. Music and effects are independent choices. When a request cannot be met, the plan records one of six reason codes: `music-sb-to-adlib`, `music-sb-to-off`, `music-adlib-to-off`, `fx-sb-to-adlib`, `fx-sb-to-speaker` and `fx-adlib-to-speaker`. The screen shows a fallback only through the states and the footer phrase; the reason codes are for the `SOUND` line (see below).
 
 Channels: OPL2 music uses 0 to 4 and 6 to 8, OPL3 music uses 0 to 4, 9 to 13 and 15 to 17 (6 to 8 are drums), and channels 5 and 14 stay reserved for effects whatever is chosen.
 
@@ -90,17 +90,20 @@ The chip is global. `Resolved::opl` is `Opl3` exactly when an OPL3 is present an
 
 ## Settings file and flags
 
-`FIZZ2.CFG` lives in the current directory and is 8 bytes:
+`FIZZ2.CFG` lives in the current directory. Version 2, the version written, is 9 bytes:
 
 | Byte | Value |
 | --- | --- |
 | 0 to 3 | `FZ2C` |
-| 4 | version, 1 |
+| 4 | version, 2 |
 | 5 | music: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster |
 | 6 | effects: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker |
-| 7 | reserved, written as 0 and ignored on reading |
+| 7 | frame rate: 0 Auto, 1 30 Hz, 2 60 Hz (nothing reads it yet) |
+| 8 | detail level, reserved: written as 0 and ignored on reading |
 
-`Config::parse` of a missing or empty file is Auto with no issue. A wrong length, magic or version makes both fields Auto and returns a `ConfigIssue`; an unknown value makes only its own field Auto and returns an issue. `Config::encode` writes the file's bytes. The file is saved whenever the player changes a setting (the Options screen that does this does not exist yet), and the check screen reads it back to set the states.
+Version 1, which an earlier build wrote, is 8 bytes: `FZ2C`, version 1, music, effects, one reserved byte. It is still read, as music and effects with the frame rate Auto, and saving writes version 2. The length must match the version (8 for 1, 9 for 2).
+
+`Config::parse` (sound only) and `Config::parse_prefs` (sound and frame rate) of a missing or empty file are Auto with no issue. A length that does not fit the version, a wrong magic or an unknown version makes every field Auto and returns a `ConfigIssue`; an unknown value makes only its own field Auto and returns an issue (the first one found when there are several). `Config::encode_prefs` writes the file's bytes; `Config::encode` writes sound settings with the frame rate Auto and is for callers that hold no frame rate. The file is saved whenever the player changes a setting (the Options screen that does this does not exist yet), and the check screen reads it back to set the states.
 
 Flags are one-run overrides that win over the file, field by field, and never write it. Matching is case-insensitive and a later flag wins over an earlier one:
 
@@ -114,6 +117,14 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 | `/NOSOUND` | music off, effects off |
 
 `apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself.
+
+### On DOS
+
+`dos/fizz2/src/sound.rs` does the reading. `load_file` opens `FIZZ2.CFG` through the runtime's `dos::File` (a missing or unreadable file is Auto with no message; it reads at most 32 bytes, so a longer file fails the length check), `Plan::new` applies the flags to the file's settings (file over Auto, flag over file, per field) and resolves them against the probe, and the plan's line is printed once the screen is back in text mode. The probe runs first because its waits need the timer at the BIOS rate, so `/LIVE` and `/REPLAY` probe before they hook the timer. `sound::is_flag` lets the mode search skip the sound flags, so `FIZZ2.EXE /NOSOUND` is still `/LIVE`. The plan is kept in `Plan::resolved` for the audio service to use; nothing plays.
+
+The `SOUND` line is `SOUND MUSIC <x> FX <y>` and then, each after a space, the reasons the result is not what was asked for, in this order: a file problem (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects`, `cfg-framerate`), the music reason, the effects reason. `<x>` is `off`, `opl2` or `opl3`; `<y>` is `off`, `ch5`, `ch14` or `speaker`. `fizz_machine::write_sound` writes it.
+
+`sound::save` writes the file (create or truncate, one write). Nothing in the program calls it yet except `/CFGTEST`, a test mode and not a player's switch: it saves the settings the flags give, with the frame rate 60 Hz, reads the file back and prints `CFG SAVED`, `CFG BYTES <18 hexadecimal digits>` (what was read back, re-encoded), `CFG ROUNDTRIP yes|no` and the platform lines. It overwrites `FIZZ2.CFG` in the current directory, so `tools/check-dos.sh` runs it in a scratch copy of `dist/dos`. That script also runs `/PROBE` under sb16, sb1 and no card with each flag, with a version 2 file, a version 1 file and each kind of damaged file, checks the exact `SOUND` line, checks that a run with flags leaves the file byte for byte as it was (or absent), and runs `/REPLAY` under eight combinations of file and flags, each of which must print the golden `TICK`, `FINAL` and `EVENT` lines.
 
 ## The probes
 

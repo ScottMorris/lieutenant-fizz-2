@@ -69,6 +69,7 @@ pub fn probe_mode() -> i32 {
     let mut text = String::new();
     let _ = write_probe(&machine, &mut text);
     let _ = writeln!(text, "CELLS {:016x}", cells_hash(&screen));
+    let _ = writeln!(text, "{}", crate::sound::Plan::new(&machine).line());
     let _ = writeln!(text, "HEAP {}", HEAP.total_bytes());
     match dpmi::free_memory_info().ok().and_then(|m| m.free_pages) {
         Some(pages) => {

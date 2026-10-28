@@ -67,6 +67,20 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 - `/PROBE` — looks at your computer and tells you what it found, without playing or drawing anything and without waiting for a key. It prints one line each for your screen (`vga`, `ega`, `cga` or a monochrome adapter), whether a mouse and a joystick are connected, what kind of music chip you have (`none`, `opl2`, `dualopl2` or `opl3`), your Sound Blaster (`none`, or its version and port), the `BLASTER` setting, whether you have a maths chip, your processor (`386`, `486` or `586` for a Pentium or later) and how much memory is free. It also prints a code for the start-up screen the game will show for your computer and how much memory the program holds, and ends with `EXIT yes`. Use it to see how the game sees your computer; the start-up screen and the sound that use these results come later.
 - `/PANIC` — makes the program stop on purpose, to show that it puts the keyboard, timer and screen mode back as it found them. It is a test, and it exits with status 3.
 
+### Choosing your sound on DOS
+
+The DOS version has no sound yet, but it already works out how it will play it, and `/LIVE`, `/REPLAY` and `/PROBE` print the answer as one line, such as `SOUND MUSIC opl3 FX ch14`. `MUSIC` is `off`, `opl2` (an AdLib or the music chip of an older Sound Blaster) or `opl3` (a Sound Blaster Pro 2, 16 or later). `FX`, the sound effects, is `off`, `ch5` (the AdLib chip), `ch14` (the Sound Blaster's second bank) or `speaker` (the PC speaker, which cannot play music). Music and effects are chosen separately. If you ask for something your computer does not have, the game falls back to the nearest thing it does have and adds a word saying why, such as `music-sb-to-adlib`; it never stops.
+
+You can choose for one run with these options, which combine with the other options (`FIZZ2.EXE /MODERN /NOSOUND`) and work in any letter case:
+
+- `/MUSIC:ADLIB`, `/MUSIC:SB` or `/MUSIC:OFF` — the music device. `SB` means the Sound Blaster's stereo chip.
+- `/FX:ADLIB`, `/FX:SB`, `/FX:SPEAKER` or `/FX:OFF` — the sound effects device.
+- `/ADLIB` — AdLib for both. `/SB` — Sound Blaster for both. `/SPEAKER` — effects on the PC speaker and no music. `/NOSOUND` — no sound at all.
+
+When two options disagree, the last one wins.
+
+To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. A screen to change it will come later, and until then the game does not write the file itself. If you have no file, every choice is "Auto", which means the best the computer has. An option on the command line always wins over the file, and never changes it. If the file is damaged or from something else, the game uses Auto and the `SOUND` line says so (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects` or `cfg-framerate`). The file's layout is in [`DOS-CHECK.md`](DOS-CHECK.md#settings-file-and-flags).
+
 ## The slice on DOS
 
 ![The DOS build in DOSBox, a few seconds into the built-in run: Ben on a ledge of the shaft facing the chicken, with the HUD along the top.](img/dos-slice.png)
