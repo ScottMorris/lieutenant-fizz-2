@@ -135,6 +135,8 @@ fn play_events(world: &World) {
     for event in world.events() {
         match *event {
             Event::Cluck { variant, .. } => audio::cluck(variant),
+            // The puff is drawn, not heard; the shot sound comes with the other effects in a later milestone.
+            Event::ShotEnd { .. } => {}
         }
     }
 }
