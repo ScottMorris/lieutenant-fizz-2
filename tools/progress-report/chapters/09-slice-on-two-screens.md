@@ -4,7 +4,7 @@ n: 9
 title: The slice on two screens
 date: 2026-10-27
 summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck and captions, the view-only effects, DOS sound, and the start-up check, probe and help screens.
-prs: [24, 28, 31, 32, 34, 38, 39, 42, 44]
+prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74]
 ---
 The first slice is a cut-down lighthouse: a tall room split into two shafts, Ben, one chicken, a red key, a red door and an exit. It plays on the Web and on DOS from the same rules and the same drawing routine, `fizz_slice_view::draw_slice`. This chapter follows the slice from the level to the two screens and the DOS start-up screens. Chapter 8 covers the rules underneath it.
 
