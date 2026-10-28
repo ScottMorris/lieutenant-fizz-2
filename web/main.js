@@ -314,6 +314,19 @@ async function main() {
   });
   document.addEventListener("visibilitychange", () => sfx.sync());
 
+  // Classic plays every sound centred at full level; Enhanced places it by where the chicken is on screen (the default). Remembered by Sfx.
+  const audioModeButton = document.getElementById("audio-mode");
+  const showAudioMode = () => {
+    audioModeButton.textContent = `Sound placement: ${sfx.mode}`;
+    audioModeButton.title = "Enhanced pans a sound toward the side it comes from and softens it outside the view; Classic plays it centred";
+  };
+  showAudioMode();
+  audioModeButton.addEventListener("click", () => {
+    sfx.setMode(sfx.mode === "enhanced" ? "classic" : "enhanced");
+    showAudioMode();
+    audioModeButton.blur();
+  });
+
   let layout = loadLayout();
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
   const held = new Map();
@@ -427,7 +440,8 @@ async function main() {
   const loop = () => {
     app.frame(performance.now());
     // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
-    for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v);
+    // Each cluck carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
+    for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v, app.cluck_pan(), app.cluck_gain());
     draw(app, wasm.memory);
     showCaptions(app);
     showHud(app);

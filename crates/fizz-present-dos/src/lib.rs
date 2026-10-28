@@ -17,7 +17,8 @@ use core::fmt::{self, Write};
 use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
 
-pub use fizz_slice_view::{DrawOptions, Puffs};
+pub use fizz_sfx::place::Placement;
+pub use fizz_slice_view::{DrawOptions, Puffs, VIEW_H, VIEW_W, cluck_placement};
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
 pub use palette::*;

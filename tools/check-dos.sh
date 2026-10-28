@@ -367,6 +367,18 @@ replay_case() {
   [ -n "$writes" ] && [ -n "$steps" ] || fail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
   case "${AUDIO:-}" in
     opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
+    # The three OPL paths, by how many writes the script's clucks cause. The attenuation of a distant source changes a value in a write the
+    # effect makes anyway, never the count, so a path's count is a function of the path alone.
+    #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the clucks' records.
+    #   opl_or: channel 5 on an OPL3 in its own mode: the same plus 21 (OPL3 mode on, 0x104, and the second bank keyed off, and back).
+    #   opl_pair: channels 5 and 14: the OPL3's 41 start and stop writes and the clucks' records twice, less the chip-wide waveform-select
+    #     enable the right channel leaves to the left (one per cluck; the script has three). Also checked against the golden transcript.
+    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes" ;;
+    opl_or) [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
+    opl_pair)
+      clucks="$(grep -c '^EVENT [0-9]* cluck ' "$golden")"
+      expected=$((41 + 2 * (CH5_WRITES - 20) - clucks))
+      { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
     speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
     # Effects on the speaker while music holds the chip: the chip is only keyed off at start and stop (no cluck reaches it).
     speaker_chip) { { [ "$writes" -gt 0 ] && [ "$writes" -le 40 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and only the chip's start and stop writes)"; } ;;
@@ -377,18 +389,18 @@ replay_case() {
 cfg_none
 AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
 AUDIO=silent replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
-AUDIO=opl replay_case '/SB, sb16 (OPL3, channel 14)' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
-AUDIO=opl replay_case 'auto, sbpro2 (OPL3, channel 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch14'
-AUDIO=opl replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
+AUDIO=opl2 replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
+AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
+AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch14'
 AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
-AUDIO=opl replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
+AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
 cfg_put "$V2"
 AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
-AUDIO=opl replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
+AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
 cfg_put 'junk'
-AUDIO=opl replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
+AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
 cfg_none
 
 # 4. Size.

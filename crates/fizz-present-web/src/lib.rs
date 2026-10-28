@@ -7,9 +7,10 @@
 // whole 60 Hz ticks, so the Web build paces exactly as the DOS build does from its PIT. Rules never see the browser clock.
 use core::cell::Cell;
 use fizz_hal::{Clock, Pacer, Ticks};
+use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, caption_view, draw_slice_puffs,
+    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, caption_view, cluck_placement, draw_slice_puffs,
 };
 use wasm_bindgen::prelude::*;
 
@@ -118,9 +119,12 @@ pub struct App {
     view_h: usize,
     indexed: Vec<u8>,
     rgba: Vec<u8>,
-    /// The cluck variants emitted since the page last drained them, oldest first. `cluck_head` is the next one to hand out.
-    clucks: Vec<u8>,
+    /// The cluck variants emitted since the page last drained them, oldest first, each with where its chicken was in the view at the
+    /// step that emitted it. `cluck_head` is the next one to hand out.
+    clucks: Vec<(u8, Placement)>,
     cluck_head: usize,
+    /// The placement of the cluck `take_cluck` handed out last, which `cluck_pan` and `cluck_gain` read.
+    taken: Placement,
     /// Whether the cluck captions are shown. The picture never carries them on the Web: the page draws them as text.
     captions: bool,
     /// Whether the view shakes when Ben dies. The page turns it off for Reduced Motion.
@@ -153,6 +157,7 @@ impl App {
             rgba: vec![0; WEB_VIEW_W * WEB_VIEW_H * 4],
             clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
             cluck_head: 0,
+            taken: Placement::CENTRE,
             captions: true,
             shake: true,
             live_captions: Vec::new(),
@@ -197,16 +202,33 @@ impl App {
     /// are none left. Call it until it returns -1 after each [`App::frame`]. Each cluck is handed out once and none is lost when
     /// a frame runs several ticks: the events are read after every step, because the rules clear them on the next one. It
     /// allocates nothing. The page decides what a cluck sounds like; the rules and the replay transcript never see this.
+    ///
+    /// A cluck that is returned has a place: read [`App::cluck_pan`] and [`App::cluck_gain`] straight after, before the next call.
     pub fn take_cluck(&mut self) -> i32 {
-        let Some(&variant) = self.clucks.get(self.cluck_head) else {
+        let Some(&(variant, placement)) = self.clucks.get(self.cluck_head) else {
             return -1;
         };
+        self.taken = placement;
         self.cluck_head += 1;
         if self.cluck_head == self.clucks.len() {
             self.clucks.clear();
             self.cluck_head = 0;
         }
         i32::from(variant)
+    }
+
+    /// The stereo position, from -1 (left) to 1 (right), of the cluck [`App::take_cluck`] returned last: where the chicken was in the
+    /// view when it clucked, with Fizz 1's pan width (0.6, so within +-0.6). The page hands it to an equal-power stereo panner. Classic
+    /// sound ignores it and the page plays at 0.
+    pub fn cluck_pan(&self) -> f32 {
+        f32::from(self.taken.pan) / 4096.0
+    }
+
+    /// The distance loudness, 1 down to 0.4, of the cluck [`App::take_cluck`] returned last: 1 inside the view, falling by half a unit
+    /// per view-half beyond it. The pan and this are the pure `fizz_sfx::place` function's, the same one DOS uses, so a sound is placed
+    /// the same way on both. They depend on the view size the page reported, and the rules never see them.
+    pub fn cluck_gain(&self) -> f32 {
+        f32::from(self.taken.distance) / 4096.0
     }
 
     /// Starts the level again from its first tick. The pacer keeps running, so no time is lost or repeated. Every held key is
@@ -217,14 +239,22 @@ impl App {
         self.held = Buttons::NONE;
         self.clucks.clear();
         self.cluck_head = 0;
+        self.taken = Placement::CENTRE;
         self.puffs.clear();
     }
 
     /// Queues the cluck variants the step that just ran emitted, and takes its shot ends for the puffs.
     fn collect_events(&mut self) {
+        let options = DrawOptions {
+            captions: false,
+            shake: self.shake,
+        };
         for event in self.world.events() {
-            if let fizz_ep2::Event::Cluck { variant, .. } = *event {
-                queue_cluck(&mut self.clucks, variant);
+            if let fizz_ep2::Event::Cluck { variant, chicken } = *event {
+                // The chicken's position after this step and the camera the picture is drawn with, in the view the page last set.
+                let place =
+                    cluck_placement(&self.world, chicken, self.view_w, self.view_h, &options);
+                queue_cluck(&mut self.clucks, variant, place);
             }
         }
         self.puffs.observe(&self.world);
@@ -414,9 +444,9 @@ impl App {
 }
 
 /// Keeps `variant` for the page unless the queue is full.
-fn queue_cluck(clucks: &mut Vec<u8>, variant: u8) {
+fn queue_cluck(clucks: &mut Vec<(u8, Placement)>, variant: u8, place: Placement) {
     if clucks.len() < MAX_PENDING_CLUCKS {
-        clucks.push(variant);
+        clucks.push((variant, place));
     }
 }
 
@@ -802,10 +832,49 @@ mod tests {
     }
 
     #[test]
+    fn a_cluck_has_a_place_in_the_view_and_the_view_never_reaches_the_rules() {
+        // The same idle run at three window widths: the same clucks and the same state hash, but a cluck is placed in the view it is
+        // heard in, so the pan and gain follow the width.
+        let run = |w: u32| {
+            let mut app = App::new();
+            app.set_view(w, WEB_VIEW_H as u32);
+            app.frame(0.0);
+            let (mut now_ms, mut got) = (0.0, Vec::new());
+            while app.tick() < 1500.0 {
+                now_ms += FRAME_MS;
+                app.frame(now_ms);
+                loop {
+                    let v = app.take_cluck();
+                    if v < 0 {
+                        break;
+                    }
+                    got.push((v, app.cluck_pan(), app.cluck_gain()));
+                }
+            }
+            (got, app.hash_hex())
+        };
+        let (narrow, narrow_hash) = run(96);
+        let (wide, wide_hash) = run(1280);
+        assert_eq!(narrow_hash, wide_hash, "the view is not in the rules");
+        assert!(narrow.len() >= 3);
+        for (v, pan, gain) in narrow.iter().chain(&wide) {
+            assert!(
+                (0..4).contains(v) && pan.abs() <= 0.6 + 1e-3 && (0.4 - 1e-3..=1.0).contains(gain)
+            );
+        }
+        let variants = |l: &[(i32, f32, f32)]| l.iter().map(|c| c.0).collect::<Vec<_>>();
+        assert_eq!(variants(&narrow), variants(&wide));
+        assert!(
+            narrow != wide,
+            "the same clucks are placed differently in a different view"
+        );
+    }
+
+    #[test]
     fn the_queue_is_bounded_and_every_variant_is_in_range() {
         let mut app = App::new();
         for i in 0..(MAX_PENDING_CLUCKS as u8 * 2) {
-            queue_cluck(&mut app.clucks, i % 4);
+            queue_cluck(&mut app.clucks, i % 4, Placement::CENTRE);
         }
         let kept = drain(&mut app);
         assert_eq!(kept.len(), MAX_PENDING_CLUCKS);

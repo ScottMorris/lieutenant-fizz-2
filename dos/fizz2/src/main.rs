@@ -48,7 +48,10 @@ use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
-use fizz_present_dos::{DrawOptions, Frame, Layout, Puffs, ega_palette, key_to_buttons, present, render_slice_with};
+use fizz_present_dos::{
+    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, ega_palette, key_to_buttons, present,
+    render_slice_with,
+};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
 
@@ -134,11 +137,16 @@ fn end_session(display: &mut DosDisplay) {
     timer::unhook();
 }
 
-/// Hands the clucks the last step emitted to the audio service. It has no effect on the rules.
-fn play_events(world: &World) {
+/// Hands the clucks the last step emitted to the audio service, each with where its chicken is in the view the frame is drawn in (the
+/// DOS sound is always Enhanced; the Options screen will own a Classic choice). Positions are read after the step, with the camera
+/// the picture uses; the view and the placement are for sound only and have no effect on the rules.
+fn play_events(world: &World, options: &DrawOptions) {
     for event in world.events() {
         match *event {
-            Event::Cluck { variant, .. } => audio::cluck(variant),
+            Event::Cluck { variant, chicken } => {
+                let place = cluck_placement(world, chicken, VIEW_W, VIEW_H, options);
+                audio::cluck(variant, &place);
+            }
             // The puff is drawn, not heard; the shot sound comes with the other effects in a later milestone.
             Event::ShotEnd { .. } => {}
         }
@@ -218,7 +226,7 @@ fn main() -> i32 {
                 println!("HOOK FAILED {:?}", e);
                 return 1;
             }
-            audio::cluck(0);
+            audio::cluck(0, &Placement::CENTRE);
             println!("HOOKED, PANICKING");
             panic!("requested by /PANIC");
         }
@@ -280,7 +288,7 @@ fn replay(options: &DrawOptions) -> i32 {
             let now = SLICE_SCRIPT[run].1;
             left = left.saturating_sub(1);
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
-            play_events(&world);
+            play_events(&world, options);
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
             puffs.observe(&world);
@@ -402,7 +410,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
             }
             fizz_ep2::step(&mut world, latch.frame());
             puffs.observe(&world);
-            play_events(&world);
+            play_events(&world, options);
         }
         if due > 0 {
             draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);

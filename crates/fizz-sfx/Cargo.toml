@@ -11,3 +11,4 @@ authors.workspace = true
 [dev-dependencies]
 # Host tests only: proves the generated variant count matches the rules' `Event::Cluck` variants.
 fizz-ep2 = { path = "../fizz-ep2" }
+fizz-sim = { path = "../fizz-sim" }

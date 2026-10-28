@@ -11,4 +11,5 @@ fizz-sim = { path = "../fizz-sim" }
 fizz-hal = { path = "../fizz-hal" }
 fizz-ep2 = { path = "../fizz-ep2" }
 fizz-slice-view = { path = "../fizz-slice-view" }
+fizz-sfx = { path = "../fizz-sfx" }
 fizz-view = { path = "../fizz-view" }

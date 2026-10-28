@@ -50,9 +50,9 @@ The rows are defined this way:
 
 - **PC speaker** is assumed present. It is in use when effects resolved to the speaker.
 - **AdLib (OPL2)** is present when any FM chip answered. It is in use when music resolved to OPL2 voices or effects to channel 5.
-- **Sound Blaster** is present when a DSP answered or an OPL3 is present. It is in use when music resolved to OPL3 voices or effects to channel 14.
+- **Sound Blaster** is present when a DSP answered or an OPL3 is present. It is in use when music resolved to OPL3 voices or effects to the OPL3 pair (channels 5 and 14).
 
-So an SB16 whose player chose AdLib for both music and effects shows AdLib in use and the Sound Blaster available. On a Sound Blaster Pro 1 or 2.0 the Sound Blaster row is available and the AdLib row is in use, because the game uses their single OPL2. When music runs on the AdLib role and effects on channel 14 of an OPL3, both rows are in use, because one chip serves both.
+So an SB16 whose player chose AdLib for both music and effects shows AdLib in use and the Sound Blaster available. On a Sound Blaster Pro 1 or 2.0 the Sound Blaster row is available and the AdLib row is in use, because the game uses their single OPL2. When music runs on the AdLib role and effects on the OPL3 pair, both rows are in use, because one chip serves both.
 
 ## Attributes and monochrome adapters
 
@@ -76,9 +76,9 @@ A monochrome adapter in mode 7 renders only normal (`0x07`), bright (`0x0F`) and
 | Music AdLib | OPL2 voices, else off |
 | Music Sound Blaster | OPL3 voices on an OPL3, else OPL2 voices, else off |
 | Music Off | off |
-| Effects Auto | channel 14 on an OPL3, else channel 5 on any FM chip, else the speaker |
+| Effects Auto | the OPL3 pair (channel 5 left, channel 14 right) on an OPL3, else channel 5 on any FM chip, else the speaker |
 | Effects AdLib | channel 5, else the speaker |
-| Effects Sound Blaster | channel 14 on an OPL3, else channel 5, else the speaker |
+| Effects Sound Blaster | the OPL3 pair on an OPL3, else channel 5, else the speaker |
 | Effects Speaker | the speaker |
 | Effects Off | off |
 
@@ -124,7 +124,7 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 
 `dos/fizz2/src/sound.rs` does the reading. `load_file` opens `FIZZ2.CFG` through the runtime's `dos::File` (a missing or unreadable file is Auto with no message; it reads at most 32 bytes, so a longer file fails the length check), `Plan::new` applies the flags to the file's settings (file over Auto, flag over file, per field) and resolves them against the probe, and the plan's line is printed once the screen is back in text mode. The probe runs first because its waits need the timer at the BIOS rate, so `/LIVE` and `/REPLAY` probe before they hook the timer. `sound::is_flag` lets the mode search skip the sound flags, so `FIZZ2.EXE /NOSOUND` is still `/LIVE`. The plan is kept in `Plan::resolved` for the audio service to use; nothing plays.
 
-The `SOUND` line is `SOUND MUSIC <x> FX <y>` and then, each after a space, the reasons the result is not what was asked for, in this order: a file problem (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects`, `cfg-framerate`), the music reason, the effects reason. `<x>` is `off`, `opl2` or `opl3`; `<y>` is `off`, `ch5`, `ch14` or `speaker`. `fizz_machine::write_sound` writes it.
+The `SOUND` line is `SOUND MUSIC <x> FX <y>` and then, each after a space, the reasons the result is not what was asked for, in this order: a file problem (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects`, `cfg-framerate`), the music reason, the effects reason. `<x>` is `off`, `opl2` or `opl3`; `<y>` is `off`, `ch5`, `ch14` (the OPL3 pair: the word keeps the name of its second channel, which is the one that makes channel 5 stereo) or `speaker`. `fizz_machine::write_sound` writes it.
 
 `sound::save` writes the file (create or truncate, one write). Nothing in the program calls it yet except `/CFGTEST`, a test mode and not a player's switch: it saves the settings the flags give, with the frame rate 60 Hz, reads the file back and prints `CFG SAVED`, `CFG BYTES <18 hexadecimal digits>` (what was read back, re-encoded), `CFG ROUNDTRIP yes|no` and the platform lines. It overwrites `FIZZ2.CFG` in the current directory, so `tools/check-dos.sh` runs it in a scratch copy of `dist/dos`. That script also runs `/PROBE` under sb16, sb1 and no card with each flag, with a version 2 file, a version 1 file and each kind of damaged file, checks the exact `SOUND` line, checks that a run with flags leaves the file byte for byte as it was (or absent), and runs `/REPLAY` under eight combinations of file and flags, each of which must print the golden `TICK`, `FINAL` and `EVENT` lines.
 

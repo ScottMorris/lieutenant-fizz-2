@@ -10,13 +10,17 @@
 //
 // What it does. `start` hooks IRQ 0 at 560 Hz (`timer::hook_560hz`, so the BIOS clock keeps its 18.2 Hz through the same accumulator),
 // puts the FM chip in the state the plan names and installs `service` as the timer's tick hook. The game calls `cluck` for each
-// `Event::Cluck`; that stores the variant in one atomic, and the next tick takes it up:
+// `Event::Cluck` together with the `Placement` of the chicken on screen (`fizz_sfx::place`, worked out by the program, not here); that
+// stores the variant and the three attenuations in one atomic, and the next tick takes it up:
 //
-// - effects on channel 5 (`FxPlan::Ch5`): an `OplPlayer` plays the variant's records, one `tick` per interrupt. On an OPL3 in its own
-//   mode (the plan has music on the Sound Blaster) each bank-0 write goes through `fizz_machine::route`, which sets the C0-C8 output
-//   bits so the mono voice sounds in both speakers.
-// - effects on channel 14 (`FxPlan::Ch14`, an OPL3 with the Sound Blaster chosen): `OplPlayer::new_panned` with `Pan::Centre`, which
-//   moves the writes to the second register bank and sets both output bits. The pan arrives with the chicken's position later.
+// - effects on channel 5 (`FxPlan::Ch5`): an `OplPlayer::mono` plays the variant's records, one `tick` per interrupt, with the carrier's
+//   total level raised by the distance attenuation (no pan, no extra writes). On an OPL3 in its own mode (the plan has music on the
+//   Sound Blaster) each bank-0 write goes through `fizz_machine::route`, which sets the C0-C8 output bits so the mono voice sounds in
+//   both speakers.
+// - effects on the OPL3 pair (`FxPlan::Ch14`, an OPL3 with the Sound Blaster chosen): an `OplPair` plays the same records on channel 5
+//   (bank 0, output bit 0x10, the left) and channel 14 (bank 1, 0x20, the right), each at the carrier level the placement gives that
+//   side. The pair's writes do not go through `route`: each channel has exactly its own output bit. The OPL3 mode was switched on
+//   by `start`, so the effect adds no enable write. Two channels double the effect's register writes.
 // - the PC speaker (`FxPlan::Speaker`): a `SpeakerPlayer` steps every fourth tick (140 Hz) and sets PIT channel 2's divisor or closes the gate.
 // - `FxPlan::Off`, or no card and no speaker choice: the service runs and does nothing, so the clock and the simulation are the same.
 //
@@ -33,7 +37,8 @@ use crate::{cleanup, irq, port, timer};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
 use fizz_machine::{FxPlan, OplMode, Resolved, route};
-use fizz_sfx::{EFFECT_CHANNEL, OplPlayer, Pan, SpeakerPlayer, SpeakerStep};
+use fizz_sfx::place::Placement;
+use fizz_sfx::{EFFECT_CHANNEL, OplPair, OplPlayer, SpeakerPlayer, SpeakerStep};
 
 /// Register and data ports of the first register bank, and of the second (OPL3 only).
 const ADDR_BANK0: u16 = 0x388;
@@ -48,7 +53,8 @@ const SPEAKER_PORT: u16 = 0x61;
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 /// The chip's mode for `stop`, which must not read the interrupt's state: 0 unused, 1 OPL2, 2 OPL3.
 static CHIP: AtomicU8 = AtomicU8::new(0);
-/// The cluck the program wants played, as `variant + 1`; 0 for none. Taken (swapped to 0) by the handler.
+/// The cluck the program wants played; 0 for none. Taken (swapped to 0) by the handler. Bits 0 to 7 are `variant + 1`, then three
+/// 6-bit attenuations (0.75 dB steps): bits 8 to 13 the left channel, 14 to 19 the right and 20 to 25 the single channel.
 static PENDING: AtomicU32 = AtomicU32::new(0);
 /// OPL register writes made since `start`, the enable and key-off writes included. Written by the handler (and `start`/`stop`) only.
 static WRITES: AtomicU32 = AtomicU32::new(0);
@@ -60,6 +66,7 @@ struct Service {
     opl: OplMode,
     fx: FxPlan,
     opl_player: Option<OplPlayer>,
+    pair: Option<OplPair>,
     speaker: Option<SpeakerPlayer>,
     ticks: u32,
 }
@@ -74,6 +81,7 @@ static SERVICE: IrqCell = IrqCell(UnsafeCell::new(Service {
     opl: OplMode::None,
     fx: FxPlan::Off,
     opl_player: None,
+    pair: None,
     speaker: None,
     ticks: 0,
 }));
@@ -120,20 +128,21 @@ fn speaker_set(divisor: u16) {
 
 impl Service {
     /// Starts the cluck `variant` on the plan's device, replacing one still playing.
-    fn begin(&mut self, variant: usize) {
+    fn begin(&mut self, variant: usize, left: u8, right: u8, mono: u8) {
         match self.fx {
             FxPlan::Off => {}
             FxPlan::Ch5 => {
                 if self.opl_player.is_some() {
                     opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                 }
-                self.opl_player = Some(OplPlayer::new(variant));
+                self.opl_player = Some(OplPlayer::mono(variant, mono));
             }
             FxPlan::Ch14 => {
-                if self.opl_player.is_some() {
+                if self.pair.is_some() {
+                    opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                     opl_write(1, 0xB0 + EFFECT_CHANNEL, 0);
                 }
-                self.opl_player = Some(OplPlayer::new_panned(variant, Pan::Centre));
+                self.pair = Some(OplPair::same(variant, left, right));
             }
             FxPlan::Speaker => self.speaker = Some(SpeakerPlayer::new(variant)),
         }
@@ -142,7 +151,12 @@ impl Service {
     fn tick(&mut self) {
         let pending = PENDING.swap(0, Ordering::Relaxed);
         if pending != 0 {
-            self.begin((pending - 1) as usize);
+            self.begin(
+                ((pending & 0xff) - 1) as usize,
+                ((pending >> 8) & 0x3f) as u8,
+                ((pending >> 14) & 0x3f) as u8,
+                ((pending >> 20) & 0x3f) as u8,
+            );
         }
         let opl = self.opl;
         if let Some(player) = self.opl_player.as_mut() {
@@ -150,6 +164,11 @@ impl Service {
             if !more {
                 self.opl_player = None;
             }
+        }
+        if let Some(pair) = self.pair.as_mut()
+            && !pair.tick(&mut |bank, reg, val| opl_write(bank, reg, val))
+        {
+            self.pair = None;
         }
         self.ticks = self.ticks.wrapping_add(1);
         if self.ticks & 3 == 0
@@ -188,6 +207,7 @@ pub fn start(plan: &Resolved) -> Result<(), irq::Error> {
             opl: plan.opl,
             fx: plan.fx,
             opl_player: None,
+            pair: None,
             speaker: None,
             ticks: 0,
         }
@@ -223,11 +243,16 @@ pub fn start(plan: &Resolved) -> Result<(), irq::Error> {
     Ok(())
 }
 
-/// Plays cluck variant `variant` (an `Event::Cluck`'s) on the plan's device at the next tick, replacing one still playing. Several
-/// calls before a tick play the last. A no-op when the service is not running or the plan has no device.
-pub fn cluck(variant: u8) {
+/// Plays cluck variant `variant` (an `Event::Cluck`'s) from where `placement` puts its chicken, on the plan's device at the next tick,
+/// replacing one still playing. Several calls before a tick play the last. A no-op when the service is not running or the plan has no
+/// device. The OPL3 pair uses the placement's two sides, a single OPL channel its distance, and the speaker neither (it has no volume).
+pub fn cluck(variant: u8, placement: &Placement) {
     if ACTIVE.load(Ordering::Relaxed) {
-        PENDING.store(u32::from(variant) + 1, Ordering::Relaxed);
+        let packed = (u32::from(variant) + 1)
+            | (u32::from(placement.left_attenuation()) << 8)
+            | (u32::from(placement.right_attenuation()) << 14)
+            | (u32::from(placement.mono_attenuation()) << 20);
+        PENDING.store(packed, Ordering::Relaxed);
     }
 }
 

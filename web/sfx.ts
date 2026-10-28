@@ -24,6 +24,21 @@ const TAIL = 0.05;
 /** The `localStorage` key holding the mute choice, `off` or `on`. */
 export const MUTE_KEY = 'fizz2-sound';
 
+/** The `localStorage` key holding the placement choice, `classic` or `enhanced`. */
+export const AUDIO_KEY = 'fizz2-audio';
+
+/**
+ * How effects are placed. Classic plays every sound centred at full level, as the original game did. Enhanced places a sound by
+ * where its source is on screen (Fizz 1's `placeSound`, worked out by `fizz-present-web` with the same function DOS uses): an
+ * equal-power pan, and a quieter sound when the source is outside the view. Enhanced is the default.
+ */
+export type AudioMode = 'classic' | 'enhanced';
+
+/** The mode a stored or queried word names; anything else is the default, Enhanced. */
+export function parseAudioMode(word: string | null | undefined): AudioMode {
+  return word === 'classic' ? 'classic' : 'enhanced';
+}
+
 /** The voices of cluck `variant`. A variant out of range wraps, as on DOS, so a bad value is a different cluck and never a failure. */
 export function cluckVoices(variant: number): readonly SfxVoice[] {
   const n = CLUCK.length;
@@ -37,19 +52,21 @@ type Voice = ReturnType<typeof Undertone.stack>;
 
 /**
  * One Undertone voice for an `SfxVoice`: Fizz 1's mapping with a sustain of 0, so the voice is gone after its attack and decay.
- * `pan` runs from -1 (left) to 1 (right); 0 adds no panner node.
+ * `pan` runs from -1 (left) to 1 (right); 0 adds no panner node, and Undertone's panner is an equal-power `StereoPannerNode`.
+ * `gain` scales the voice's level (the distance, 1 for none), so the placed cluck is the authored one with a pan and a gain
+ * applied to each of its voices.
  *
  * `lpenv` differs from Fizz 1 on purpose. `SfxVoice` says the filter opens *to* `lpenv` Hz, as the WAV previews and the downmix
  * read it, but Undertone 0.2 adds its amount to `lpf`, so the amount handed over is `lpenv - lpf`.
  */
-export function buildVoice(U: UndertoneLike, v: SfxVoice, pan = 0): Voice {
+export function buildVoice(U: UndertoneLike, v: SfxVoice, pan = 0, gain = 1): Voice {
   let p = isNoise(v.n) ? U.sound(v.n) : U.note(v.hz ?? v.n).sound(v.w ?? 'triangle');
   p = p
     .attack(v.a ?? 0.001)
     .decay(v.d ?? 0.1)
     .sustain(0)
     .release(v.r ?? 0.05)
-    .gain(v.g);
+    .gain(v.g * gain);
   if (pan !== 0) p = p.pan(pan);
   if (v.lpf) p = p.lpf(v.lpf);
   if (v.lpf && v.lpenv && v.lpenv > v.lpf) {
@@ -84,6 +101,8 @@ export interface SfxOptions {
   isHidden?: () => boolean;
   /** Where the mute choice is kept. The default is `localStorage`, when the browser allows it. */
   storage?: StorageLike | null;
+  /** The page's query string, for `?audio=classic`. The default is `location.search`. */
+  search?: string;
 }
 
 function defaultContext(): ContextLike {
@@ -91,6 +110,14 @@ function defaultContext(): ContextLike {
   const Ctor = w.AudioContext ?? w.webkitAudioContext;
   if (!Ctor) throw new Error('no AudioContext in this browser');
   return new Ctor();
+}
+
+function defaultSearch(): string {
+  try {
+    return globalThis.location?.search ?? '';
+  } catch {
+    return '';
+  }
 }
 
 function defaultStorage(): StorageLike | null {
@@ -109,6 +136,7 @@ export class Sfx {
   private ctx: ContextLike | null = null;
   private failed = false;
   private _muted: boolean;
+  private _mode: AudioMode;
   private readonly cache = new Map<number, Voice>();
   /** When each effect still sounding ends, on the context's clock. */
   private ends: number[] = [];
@@ -119,6 +147,25 @@ export class Sfx {
     this.isHidden = options.isHidden ?? (() => typeof document !== 'undefined' && document.hidden);
     this.storage = options.storage === undefined ? defaultStorage() : options.storage;
     this._muted = this.readMuted();
+    const queried = new URLSearchParams(options.search ?? defaultSearch()).get('audio');
+    // A `?audio=` query chooses the mode for this visit and wins over the remembered choice, which it does not overwrite.
+    this._mode = queried === 'classic' || queried === 'enhanced' ? parseAudioMode(queried) : this.readMode();
+  }
+
+  /** Classic or Enhanced. */
+  get mode(): AudioMode {
+    return this._mode;
+  }
+
+  /** Chooses the mode and remembers it. */
+  setMode(mode: AudioMode): AudioMode {
+    this._mode = mode;
+    try {
+      this.storage?.setItem(AUDIO_KEY, mode);
+    } catch {
+      // The choice just is not remembered.
+    }
+    return mode;
   }
 
   get muted(): boolean {
@@ -180,21 +227,29 @@ export class Sfx {
    * Plays cluck `variant` now, if it can be heard: sound has been unlocked, is not muted, the tab is visible, the context is
    * running and fewer than `MAX_SIMULTANEOUS` clucks are still sounding. Returns whether it was scheduled.
    *
-   * `pan` is the stereo position from -1 (left) to 1 (right). The rules do not say which chicken clucked yet, so the page always
-   * passes 0; a later rules change that names the chicken lets the page work a pan out from its position.
+   * `pan` is the stereo position from -1 (left) to 1 (right) and `gain` the distance loudness from 0 to 1, both from the presenter
+   * (`App.cluck_pan()` and `App.cluck_gain()`). In Classic mode both are ignored and the cluck plays centred at full level. Each
+   * voice of the cluck gets an equal-power panner and the gain; a centred full-level cluck is cached, a placed one is built each time.
    */
-  playCluck(variant: number, pan = 0): boolean {
+  playCluck(variant: number, pan = 0, gain = 1): boolean {
     const ctx = this.ctx;
     if (!ctx || this._muted || this.isHidden() || ctx.state !== 'running') return false;
     const now = ctx.currentTime;
     this.ends = this.ends.filter((end) => end > now);
     if (this.ends.length >= MAX_SIMULTANEOUS) return false;
     const voices = cluckVoices(variant);
+    if (this._mode === 'classic' || !Number.isFinite(pan) || !Number.isFinite(gain)) {
+      pan = 0;
+      gain = 1;
+    }
+    pan = Math.max(-1, Math.min(1, pan));
+    gain = Math.max(0, Math.min(1, gain));
     try {
-      let fx = pan === 0 ? this.cache.get(Math.trunc(variant)) : undefined;
+      const centred = pan === 0 && gain === 1;
+      let fx = centred ? this.cache.get(Math.trunc(variant)) : undefined;
       if (!fx) {
-        fx = this.U.stack(...voices.map((v) => buildVoice(this.U, v, pan)));
-        if (pan === 0) this.cache.set(Math.trunc(variant), fx);
+        fx = this.U.stack(...voices.map((v) => buildVoice(this.U, v, pan, gain)));
+        if (centred) this.cache.set(Math.trunc(variant), fx);
       }
       fx.play({ ctx });
     } catch (err) {
@@ -203,6 +258,14 @@ export class Sfx {
     }
     this.ends.push(now + effectSeconds(voices) + TAIL);
     return true;
+  }
+
+  private readMode(): AudioMode {
+    try {
+      return parseAudioMode(this.storage?.getItem(AUDIO_KEY));
+    } catch {
+      return 'enhanced';
+    }
   }
 
   private readMuted(): boolean {
