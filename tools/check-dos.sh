@@ -77,6 +77,12 @@ status=0
 DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
 [ "$status" = 3 ] || fail "/PANIC status $status (expected 3)"
 echo "PANIC exit $status"
+# 3a. The same with an OPL3 in its own mode and a cluck sounding when the panic comes (the audio service is up): the clean-up list
+# silences the chip and puts the timer back, and the exit is still a status 3, not a hang.
+status=0
+DOS_CONF=$'[sblaster]\nsbtype = sb16' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
+[ "$status" = 3 ] || fail "/PANIC with the audio service on an OPL3: status $status (expected 3)"
+echo "PANIC (OPL3) exit $status"
 
 # 3b. The bench: /BENCH plays the script once without pacing and times the step, the drawing and the copy to the screen with
 # the PIT. DOSBox runs a fixed 26,800 cycles per millisecond (about a 486DX2-66) on its normal core; the setting is the plain
@@ -319,19 +325,38 @@ replay_case() {
   printf '%s\n' "$out" | grep -qxF "$expect" || fail "/REPLAY ($name) printed no '$expect' line"
   printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY ($name) did not reach the exit"
   printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLAY ($name) did not restore the vectors"
-  echo "REPLAY case $name ok ($expect)"
+  # The AUDIO line proves which path ran, since the sound itself cannot be heard here: OPL register writes with a chip (opl), speaker steps
+  # on the speaker (speaker), neither when silent (silent). The clucks the script causes are the same in every run, so the counts are not
+  # compared with each other, only with zero.
+  local audio writes steps
+  audio="$(printf '%s\n' "$out" | grep '^AUDIO ' || true)"
+  writes="$(printf '%s\n' "$audio" | sed -n 's/^AUDIO WRITES \([0-9]*\) SPEAKER STEPS [0-9]*$/\1/p')"
+  steps="$(printf '%s\n' "$audio" | sed -n 's/^AUDIO WRITES [0-9]* SPEAKER STEPS \([0-9]*\)$/\1/p')"
+  [ -n "$writes" ] && [ -n "$steps" ] || fail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
+  case "${AUDIO:-}" in
+    opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
+    speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
+    # Effects on the speaker while music holds the chip: the chip is only keyed off at start and stop (no cluck reaches it).
+    speaker_chip) { { [ "$writes" -gt 0 ] && [ "$writes" -le 40 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and only the chip's start and stop writes)"; } ;;
+    silent) { [ "$writes" -eq 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected no writes and no steps)" ;;
+  esac
+  echo "REPLAY case $name ok ($expect; $audio)"
 }
 cfg_none
-replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
-replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
-replay_case '/SB, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
-replay_case '/ADLIB /MODERN, opl2' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
-replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
+AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
+AUDIO=silent replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
+AUDIO=opl replay_case '/SB, sb16 (OPL3, channel 14)' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
+AUDIO=opl replay_case 'auto, sbpro2 (OPL3, channel 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch14'
+AUDIO=opl replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
+AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
+AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
+AUDIO=opl replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
+AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
 cfg_put "$V2"
-replay_case 'file v2, sb16' "$SB16" 'SOUND MUSIC opl2 FX speaker'
-replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
+AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
+AUDIO=opl replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
 cfg_put 'junk'
-replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
+AUDIO=opl replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
 cfg_none
 
 # 4. Size.
