@@ -10,11 +10,11 @@ Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play
 
 ### Web
 
-Build the page with `tools/build-web.sh`, then serve the `dist/web` folder with any static file server and open it in a browser. The build needs the Rust toolchain from the repository and a matching `wasm-bindgen` command-line tool; [`PLATFORM.md`](PLATFORM.md) has the exact version.
+Build the page with `tools/build-web.sh`, then serve the `dist/web` folder with any static file server and open it in a browser. Click the page or press a key once before you expect sound; browsers do not allow sound before that. The build needs the Rust toolchain from the repository and a matching `wasm-bindgen` command-line tool; [`PLATFORM.md`](PLATFORM.md) has the exact version.
 
 ### DOS
 
-Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos`. Keep the two files together and run `FIZZ2.EXE` in DOSBox or js-dos. It needs a VGA display, and it targets a 486-class PC. The build needs the DOS toolchain described in [`PLATFORM.md`](PLATFORM.md); you do not need a C compiler.
+Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos`. Keep the two files together and run `FIZZ2.EXE` in DOSBox or js-dos. It needs a VGA display, and it targets a 486-class PC (the slowest machine in mind is about a 486DX2-66, which has not been tried on real hardware; so far it has run only in DOSBox). There is no sound on DOS yet. The build needs the DOS toolchain described in [`PLATFORM.md`](PLATFORM.md); you do not need a C compiler.
 
 ## Controls
 
@@ -104,10 +104,18 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 ### Moves
 
 - **Walk and run:** the left and right arrows. Ben speeds up and slows down rather than stopping at once.
-- **Look:** stand still on the ground and hold Up or Down by itself. After a fifth of a second Ben looks up or down, and over about a third of a second more the screen slides to show 3.6 tiles higher or lower than usual. Let go and the view slides back in a third of a second. It works with the arrow keys in both layouts, and with `W` and `S` in the Modern layout; it does nothing while you are walking, in the air, on the pogo stick or holding Up and Down together. It is the same on DOS and on the Web.
+- **Look:** stand still on the ground and hold Up or Down by itself. After a fifth of a second Ben looks up or down, and over about a third of a second more the screen slides to show 3.6 tiles higher or lower than usual (if the level's edge is already at the edge of the picture, as on the floor of the first shaft, the view cannot slide that way and only Ben's pose changes). Let go and the view slides back in a third of a second. It works with the arrow keys in both layouts, and with `W` and `S` in the Modern layout; it does nothing while you are walking, in the air, on the pogo stick or holding Up and Down together. It is the same on DOS and on the Web.
 - **Jump:** press Jump. A full jump rises a little over three tiles, enough to climb from one ledge to the next. Let go of Jump early to cut the jump short.
 - **Pogo stick:** press Pogo to get on the stick and press it again to get off. On the stick Ben bounces by himself and you steer him in the air with the arrows; he cannot walk. Hold Jump as he lands for a much higher bounce. He squashes for a moment at the bottom of each bounce.
 - **Fizz:** press Fizz to fire a bubble of fizz from the Fizz Blaster in the way Ben faces. Hold Up while you press it to fire straight up (even standing still), or Down while Ben is in the air to fire straight down; Down on the ground fires ahead. Ben shows a matching pose for a moment after each shot. You have five shots, and a shot that hits a wall or flies about a second just pops. You get all five back after you die.
+
+![The DOS build, Ben on the first ledge with the view lifted: the chicken is on its ledge higher up and its words BWUK, BWUK float above it.](img/dos-look-up-caption.png)
+
+*DOS build (`FIZZ2.EXE /LIVE`, DOSBox Staging, headless under a virtual display): Ben has stood still on the first ledge holding Up for a second and a half, so the view has risen to show the chicken, which has just clucked "bwuk, bwuk". Tick 377.*
+
+![The DOS build, Ben standing at the foot of the shaft with his blaster raised and a shot rising above him.](img/dos-aim-up.png)  ![The DOS build, Ben in the air holding his blaster down with a shot falling beneath him.](img/dos-aim-down.png)
+
+*DOS build, same set-up. Left: Up and Fizz together fire straight up (tick 632, `AMMO` 4). Right: Down and Fizz together in mid-jump fire straight down (tick 319, `AMMO` 4).*
 
 ### The red key and the door
 
@@ -115,11 +123,11 @@ Walk onto the red key to pick it up; the `KEY` in the HUD turns red. Carry it to
 
 ### The chicken
 
-The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes. It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy. Every few seconds it clucks: its beak opens and a word floats above it (see [Captions](#captions)).
+The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes. It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy. Every one and a half to six seconds, chosen at random, it clucks: its beak opens and a word floats above it (see [Captions](#captions)).
 
 ### Death and respawn on DOS
 
-Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air for a moment, then you start again at the beginning of the level, a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open.
+Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air for a moment, then you start again at the beginning of the level, about a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open.
 
 ## The Web slice
 
@@ -142,10 +150,18 @@ The level is a tall room split into a left shaft and a right shaft by a wall. Yo
 ### Moving, jumping, the pogo stick and the blaster
 
 - **Walking:** left and right. You turn to face the way you last pressed.
-- **Looking:** stand still on the ground and hold Up or Down by itself to look up or down; the view slides 3.6 tiles that way after a short pause, and slides back when you let go. The arrows do it in both layouts, and `W` and `S` do it in the Modern layout. It does nothing while you walk, jump or ride the pogo stick.
+- **Looking:** stand still on the ground and hold Up or Down by itself to look up or down; the view slides 3.6 tiles that way after a short pause, and slides back when you let go, unless the level's edge stops it. The arrows do it in both layouts, and `W` and `S` do it in the Modern layout. It does nothing while you walk, jump or ride the pogo stick.
 - **Jumping:** press Jump to leave the ground. Let go early for a shorter hop; hold it for the full height.
 - **The pogo stick:** the Pogo key switches it on and off. While it is on, you bounce by yourself instead of standing, and Jump stops making a leap: hold it instead to make each bounce much higher. Switch the stick off before you climb with ordinary jumps.
 - **The Fizz Blaster:** Fire shoots straight ahead. Hold Up while you fire to shoot straight up, or hold Down in the air to shoot straight down (Down on the ground still fires ahead). Ben shows a matching pose for a moment after each shot. You start with five shots, `AMMO` counts the rest, and shots fly about a second and stop on walls. You get your five back after a death.
+
+![The Web slice with Ben on the first ledge, looking up: the view has risen to show the chicken and its caption BWUK, BWUK above it. The text under the screen reads tick 368, ammo 4.](images/web-look-up.png)
+
+*The Web build, captured in headless Chromium in the Keen layout: Ben has stood still on the first ledge holding Up, and the chicken has just clucked.*
+
+![The Web slice with Ben in mid-jump holding his blaster down and a shot falling below him. The text under the screen reads tick 471, ammo 3.](images/web-aim-down.png)
+
+*The Web build, same set-up: Down and Fire together in the air fire straight down.*
 
 The keys for each action are in the table under Controls, in both the Keen and the Modern layouts. Switching layouts lets go of every key you are holding.
 
@@ -159,7 +175,7 @@ Under the screen, seven lines of text show how the run is going: `TICK` (60 a se
 
 ### Sound on the Web
 
-The chicken clucks every couple of seconds or so (the gap is random) while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. There is no other sound yet, and no music.
+The chicken clucks at random, between one and a half and six seconds apart, while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. There is no other sound yet, and no music.
 
 A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or click the Sound button under the screen, to turn the sound off and on. The button shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. The sound is centred; it does not yet come from the side the chicken is on.
 
@@ -176,8 +192,8 @@ Both versions draw the same picture, a 320 by 200 window that follows Ben as he 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Only the Web version makes sound for now.
-- **Different:** the DOS version has an Esc key, four modes (`/LIVE`, `/MODERN`, `/REPLAY` and `/BENCH`), the `/NOCAPTIONS` switch and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
-Episode 2 is planned to bring more sound: the cluck on DOS, then other effects and music; an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and menus. None of this is in the builds yet.
+Episode 2 is planned to bring more sound: the cluck on DOS, then other effects and music (the sound for DOS will want an AdLib or compatible card, and the machine will be checked at start-up); a settings screen that remembers your choices; an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and menus. None of this is in the builds yet.
