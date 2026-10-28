@@ -32,6 +32,17 @@ impl Drawing {
         }
     }
 
+    /// Switches to `rate` while running, as the Options screen does. A fixed rate takes effect at once; Auto starts again at 60 Hz
+    /// with an empty measuring window. The draw cadence only: the simulation is not told.
+    pub fn set_mode(&mut self, rate: FrameRate) {
+        self.governor = FrameGovernor::new(rate);
+    }
+
+    /// The rate the governor is drawing at now: 60 or 30.
+    pub fn rate(&self) -> u32 {
+        self.governor.rate()
+    }
+
     /// Draws the first frame, which is counted but not measured.
     pub fn first(&mut self, draw: impl FnOnce()) {
         draw();

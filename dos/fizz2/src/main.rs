@@ -5,7 +5,7 @@
 //
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
-//   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc ends it. The default when no mode is given
+//   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc opens the Paused screen (Resume, Options, Quit to DOS). The default when no mode is given
 //   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
@@ -30,6 +30,7 @@
 //   FIZZ2.EXE /BENCH /AUDIO  the bench with the 560 Hz audio service, first without and then with music, and what the service costs
 //   FIZZ2.EXE /REPLANTEST  a test mode: runs the audio service, changes its music and effects devices live through a list of plans
 //                       (`audio::replan`) and prints a `REPLAN` line for each (replan.rs)
+//   FIZZ2.EXE /OPTIONS  a test mode: opens the Options screen at once over the slice's first frame; Esc leaves (menu.rs)
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
 // /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
@@ -50,6 +51,7 @@ mod check;
 mod frames;
 mod hal;
 mod machine;
+mod menu;
 mod replan;
 mod sound;
 
@@ -61,21 +63,23 @@ use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
-use fizz_machine::{Captions, Keys, Motion, PlacementMode};
+use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, frame_digest, key_to_buttons,
-    menu, present, render_slice_with,
+    DrawOptions, Frame, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, frame_digest, key_to_buttons,
+    menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
+use menu::{Applied, Menus, Step};
 
 entry!(main);
 
 /// Steps per `Pacer::due` call at most; a stall longer than this drops time instead of bursting.
 const MAX_CATCH_UP: u32 = 5;
-/// `/LIVE` ends by itself after this many ticks (30 s) so an emulator run cannot hang.
-const LIVE_TICK_CAP: u64 = 1800;
+/// `/LIVE` and `/OPTIONS` end by themselves after this many ticks of the 560 Hz service clock (30 s of the wall clock) so an
+/// emulator run cannot hang. It is wall time, not world ticks, so a run left in a menu (where the world is held) ends too.
+const LIVE_SERVICE_CAP: u32 = 30 * 560;
 
 /// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 872 bytes (about 33 bytes for each
 /// 60 ticks, 20 for each cluck and 24 for each shot end), so 8,192 leaves ample room for the lines later milestones add to it.
@@ -110,6 +114,12 @@ impl Write for Transcript {
         self.len = end;
         Ok(())
     }
+}
+
+/// What a `/LIVE` run starts from: `FIZZ2.CFG`'s own prefs, and the prefs the switches make of them.
+struct Start {
+    file: Prefs,
+    prefs: Prefs,
 }
 
 type Vector = Option<(u16, u32)>;
@@ -253,11 +263,12 @@ fn main() -> i32 {
     };
     // Per field, a switch beats `FIZZ2.CFG`, which beats the default; the switches are never saved (`sound::save` takes the file's own
     // `Prefs`).
-    let prefs = run.over(&sound::load_file().0);
-    let layout = match prefs.keys {
-        Keys::Keen => Layout::Keen,
-        Keys::Modern => Layout::Modern,
-    };
+    let file_prefs = sound::load_file().0;
+    let mut prefs = run.over(&file_prefs);
+    // The sound flags are over the file's sound choices too (`prefs.sound`); the Options screen starts from this, stars the rows the
+    // switches changed and saves the file's own values for those.
+    apply_flags(&mut prefs.sound, args.iter().map(|a| a.as_str()));
+    let start = Start { file: file_prefs, prefs };
     CLASSIC_PLACEMENT.store(prefs.placement == PlacementMode::Classic, Ordering::Relaxed);
     let options = DrawOptions {
         captions: prefs.captions == Captions::On,
@@ -265,12 +276,12 @@ fn main() -> i32 {
         shake: prefs.motion == Motion::Full,
     };
     match run.mode {
-        Mode::Live => live(layout, &options),
+        Mode::Live => live(&start, false),
         Mode::Replay => replay(&options),
         Mode::Probe => machine::probe_mode(),
         Mode::Check => match check::check_mode() {
             check::Choice::Quit => 0,
-            check::Choice::Play => live(layout, &options),
+            check::Choice::Play => live(&start, false),
         },
         Mode::CheckCells => check::cells_mode(),
         Mode::CfgTest => sound::cfgtest_mode(),
@@ -280,6 +291,7 @@ fn main() -> i32 {
         Mode::MusicTest => music_test(),
         Mode::ReplanTest => replan::replan_mode(),
         Mode::MenuShot => menushot(),
+        Mode::Options => live(&start, true),
         Mode::Panic => {
             // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
             let plan = sound::Plan::new(&machine::probe_machine());
@@ -311,6 +323,7 @@ fn help() -> i32 {
 
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
 /// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
+#[inline(never)]
 fn replay(options: &DrawOptions) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
     let sound = sound::Plan::new(&machine::probe_machine());
@@ -391,6 +404,7 @@ fn replay(options: &DrawOptions) -> i32 {
 }
 
 /// Times the slice (see `bench`): the figures, then the platform lines, printed once the screen is back in text mode.
+#[inline(never)]
 fn bench(limit: u64, options: &DrawOptions) -> i32 {
     let session = match start_session(false, None) {
         Ok(s) => s,
@@ -445,6 +459,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
 /// `/MENUSHOT`: draws the Options and Paused screens over the slice's first frame, presents each for an instant and prints the
 /// hash of each finished frame (`MENUSHOT options <hex>`, `MENUSHOT paused <hex>`). The host's `menushot` example prints the same
 /// lines, and `tools/check-dos.sh` compares them. It starts no hooks: no timer, keyboard or audio.
+#[inline(never)]
 fn menushot() -> i32 {
     let mut display = DosDisplay;
     if open_display(&mut display).is_err() {
@@ -456,7 +471,7 @@ fn menushot() -> i32 {
     let mut view = MenuView::new();
     let mut frame = Frame::new();
     let mut hashes = [0u64; 2];
-    for (i, show) in [menu::shot_options, menu::shot_paused].into_iter().enumerate() {
+    for (i, show) in [view_menu::shot_options, view_menu::shot_paused].into_iter().enumerate() {
         render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &Puffs::new());
         show(&mut view, &mut frame);
         let _ = present(&mut display, &frame);
@@ -468,8 +483,15 @@ fn menushot() -> i32 {
     0
 }
 
-fn live(layout: Layout, options: &DrawOptions) -> i32 {
-    let sound = sound::Plan::new(&machine::probe_machine());
+/// `/LIVE`, and `/OPTIONS` when `options_only`: the keyboard game loop with the Paused and Options screens (`menu.rs`). While a screen
+/// is up the world is not stepped, the key latch is cleared on opening and on closing, and a fresh `Pacer` on resuming means the time
+/// spent in a menu is not played back as a burst of steps. The run ends on Quit to DOS, or at `LIVE_SERVICE_CAP` of wall time.
+#[inline(never)]
+fn live(start: &Start, options_only: bool) -> i32 {
+    // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate. The same probe resolves the plans the
+    // Options screen switches to.
+    let probe = machine::probe_machine();
+    let sound = sound::Plan::new(&probe);
     let session = match start_session(true, Some(&sound.resolved)) {
         Ok(s) => s,
         Err(e) => {
@@ -493,29 +515,65 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut puffs = Puffs::new();
+    let mut applied = Applied::from_prefs(&start.prefs);
+    let mut menus = Menus::new(start.file, start.prefs, probe, options_only);
     let mut quit = false;
+    let began = timer::ticks();
 
-    drawing.first(|| draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs));
-    while !quit && world.tick.0 < LIVE_TICK_CAP {
+    drawing.first(|| draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs));
+    if options_only {
+        menus.open_options(&frame);
+    }
+    while !quit && timer::ticks().wrapping_sub(began) < LIVE_SERVICE_CAP {
+        if menus.is_open() {
+            // The world is held: only keys are read, and the screen is drawn when something on it changed.
+            while let Some(event) = input.poll_key() {
+                if !event.pressed {
+                    continue;
+                }
+                match menus.key(event.code, &mut applied, &mut drawing) {
+                    Step::Stay => {}
+                    Step::Quit => quit = true,
+                    Step::Resume => {
+                        latch = InputLatch::new();
+                        pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
+                        draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs);
+                    }
+                }
+                if quit || !menus.is_open() {
+                    break;
+                }
+            }
+            if menus.is_open() && menus.draw(&mut frame, drawing.rate()) {
+                let _ = display.wait_vretrace();
+                let _ = present(&mut display, &frame);
+            }
+            continue;
+        }
         let due = pacer.due(&clock);
+        let mut opened = false;
         for _ in 0..due {
             while let Some(event) = input.poll_key() {
                 if event.code == KeyCode::Escape && event.pressed {
-                    quit = true;
-                } else if let Some(b) = key_to_buttons(event.code, layout) {
+                    opened = true;
+                    break;
+                } else if let Some(b) = key_to_buttons(event.code, applied.layout) {
                     latch.set(b, event.pressed);
                 }
             }
-            if quit || world.tick.0 >= LIVE_TICK_CAP {
+            if opened {
                 break;
             }
             fizz_ep2::step(&mut world, latch.frame());
             puffs.observe(&world);
-            play_events(&world, options);
+            play_events(&world, &applied.draw);
         }
-        if due > 0 {
+        if opened {
+            latch = InputLatch::new();
+            menus.open_paused(&frame);
+        } else if due > 0 {
             drawing.maybe(world.tick.0, || {
-                draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs)
+                draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs)
             });
         }
     }
@@ -528,6 +586,9 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     sound.print();
     print_audio();
     print_music();
+    if let Some(ok) = menus.saved() {
+        println!("OPTIONS SAVED {}", if ok { "yes" } else { "no" });
+    }
     println!("MOVED {}", if moved { "yes" } else { "no" });
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     drawing.print(world.tick.0);
@@ -536,6 +597,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
 
 /// `/MUSICTEST`: the music's two loops through the real chip writes and no timer. The `MUSIC` line it prints is compared by the check with
 /// `fizz_music::writes_for` for the same arrangement and ticks.
+#[inline(never)]
 fn music_test() -> i32 {
     // Probed first: the probes' waits need the PIT at the BIOS rate (nothing here hooks the timer).
     let sound = sound::Plan::new(&machine::probe_machine());
@@ -575,6 +637,7 @@ fn print_pass(name: &str, r: &bench::Report) {
 /// with its clucks played. It reports the step, draw and copy averages of both passes, what the interrupt costs (PIT counts latched at
 /// entry and exit), the most writes in one tick and the OPL status reads. DOSBox charges no time for ISA port I/O, so the microseconds
 /// here are the emulator's; the exact counts are the evidence, and the time on a real 486 is unmeasured.
+#[inline(never)]
 fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
     let sound = sound::Plan::new(&machine::probe_machine());
     let session = match start_session(false, Some(&sound.resolved)) {
