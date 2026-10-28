@@ -64,6 +64,10 @@ const LOCKED_KEYS = [...new Set(Object.values(LAYOUTS).flatMap((l) => Object.key
 const canvas = document.getElementById("screen");
 const hud = document.getElementById("hud");
 const hint = document.getElementById("hint");
+const stage = document.getElementById("stage");
+const panel = document.getElementById("panel");
+const panelToggle = document.getElementById("panel-toggle");
+const toast = document.getElementById("toast");
 const resetButton = document.getElementById("reset");
 const layoutButton =document.getElementById("layout");
 const captionsButton = document.getElementById("captions");
@@ -85,13 +89,24 @@ const easeOut = (t) => 1 - (1 - t) * (1 - t);
 const lerp = (a, b, t) => a + (b - a) * t;
 const captionEls = [];
 
+// Fits the canvas to the window at 8:5: the largest whole-number multiple of the picture that fits or, in a window smaller than one
+// picture, the largest fit. The browser scales with nearest-neighbour either way; the rest of the window is letterbox.
+function fitStage() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const whole = Math.floor(Math.min(w / 320, h / 200));
+  const width = whole >= 1 ? 320 * whole : Math.min(w, (h * 8) / 5);
+  stage.style.width = `${Math.floor(width)}px`;
+  stage.style.height = `${Math.floor((width * 5) / 8)}px`;
+}
+
 // Shows the module's live captions as text over the canvas. Position comes in picture pixels and follows the canvas's displayed
 // size; the type size follows it too, but only modestly, so it stays readable on a narrow page and does not balloon in fullscreen.
 function showCaptions(app) {
   const shownWidth = captionLayer.clientWidth;
   const shownHeight = captionLayer.clientHeight;
   const scale = shownWidth / app.width();
-  const fontPx = Math.min(24, Math.max(11, (CAPTION_FONT_PX * shownWidth) / CAPTION_REFERENCE_WIDTH));
+  const fontPx = Math.min(40, Math.max(11, (CAPTION_FONT_PX * shownWidth) / CAPTION_REFERENCE_WIDTH));
   const count = shownWidth > 0 ? app.caption_count() : 0;
   while (captionEls.length < count) {
     const el = document.createElement("div");
@@ -210,7 +225,21 @@ async function toggleFullscreen() {
   }
 }
 
+// The overlay panel holds the controls, notes and HUD. H or the corner button toggles it; it starts hidden.
+function setPanel(open) {
+  panel.hidden = !open;
+  panelToggle.setAttribute("aria-expanded", String(open));
+  if (open) toast.classList.add("gone");
+}
+
 async function main() {
+  fitStage();
+  addEventListener("resize", fitStage);
+  panelToggle.addEventListener("click", () => {
+    setPanel(panel.hidden);
+    panelToggle.blur();
+  });
+  setTimeout(() => toast.classList.add("gone"), 6000);
   const wasm = await init();
   const app = new App();
 
@@ -242,6 +271,7 @@ async function main() {
     layoutButton.textContent = `Keys: ${LAYOUTS[layout].label}`;
     layoutButton.title = `Switch to the ${LAYOUTS[OTHER[layout]].label} keys`;
     hint.textContent = LAYOUTS[layout].hint;
+    toast.textContent = `${LAYOUTS[layout].hint} H shows the panel.`;
   };
   showLayout();
 
@@ -296,6 +326,12 @@ async function main() {
     if (event.code === "KeyF" && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (down && !event.repeat && document.fullscreenEnabled) toggleFullscreen();
+      return;
+    }
+    // H shows and hides the panel in both layouts; neither layout uses it.
+    if (event.code === "KeyH" && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (down && !event.repeat) setPanel(panel.hidden);
       return;
     }
     // V toggles the captions in both layouts; neither layout uses it.

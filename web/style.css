@@ -1,22 +1,27 @@
 html,
 body {
   margin: 0;
+  height: 100%;
+  overflow: hidden;
   background: #0b0b14;
   color: #cfe8ff;
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
+/* The page is the game: the picture is centred in the window with a dark letterbox and nothing scrolls. */
 main {
+  position: fixed;
+  inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  justify-content: center;
 }
 
+/* main.js sets the size (a whole-number multiple of 320x200 when one fits). Until it runs, fit 8:5 into the window. */
 #stage {
   position: relative;
-  width: min(100%, 960px);
+  width: min(100vw, 160vh);
+  width: min(100vw, 160dvh);
   aspect-ratio: 8 / 5;
 }
 
@@ -26,7 +31,6 @@ canvas {
   height: 100%;
   image-rendering: pixelated;
   background: #0000aa;
-  outline: 1px solid #335;
 }
 
 /* Cluck captions: Fizz 1's look (bold italic Space Grotesk, a hairline black stroke and a hard black shadow), placed and sized
@@ -54,27 +58,28 @@ canvas {
 
 #hud {
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .help {
   margin: 0;
   color: #8aa;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .controls {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 button {
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   color: #cfe8ff;
   background: #1a1a33;
   border: 1px solid #335;
-  padding: 4px 12px;
+  padding: 4px 10px;
   cursor: pointer;
 }
 
@@ -85,8 +90,67 @@ button:focus-visible {
 
 .note {
   margin: 0;
-  max-width: 640px;
   color: #6c7f8f;
   font-size: 12px;
+}
+
+#panel-toggle {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  opacity: 0.45;
+}
+
+#panel-toggle:hover,
+#panel-toggle:focus-visible,
+#panel-toggle[aria-expanded="true"] {
+  opacity: 1;
+}
+
+#panel {
+  position: fixed;
+  right: 8px;
+  bottom: 44px;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 16px));
+  max-height: calc(100vh - 56px);
+  max-height: calc(100dvh - 56px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(11, 11, 20, 0.92);
+  border: 1px solid #335;
+}
+
+#panel[hidden] {
+  display: none;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  z-index: 1;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 80px);
+  margin: 0;
+  padding: 6px 12px;
+  background: rgba(11, 11, 20, 0.85);
+  color: #cfe8ff;
+  font-size: 13px;
   text-align: center;
+  pointer-events: none;
+  transition: opacity 0.6s;
+}
+
+.toast.gone {
+  opacity: 0;
 }
