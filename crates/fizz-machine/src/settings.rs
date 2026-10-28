@@ -38,19 +38,39 @@ pub struct Settings {
     pub fx: FxChoice,
 }
 
+/// The frame rate the player asked for. Nothing reads it yet; the file keeps it so the Options screen can save it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum FrameRate {
+    #[default]
+    Auto,
+    /// 30 Hz.
+    Hz30,
+    /// 60 Hz.
+    Hz60,
+}
+
+/// Everything `FIZZ2.CFG` holds: the sound choices and the frame rate.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Prefs {
+    pub sound: Settings,
+    pub frame_rate: FrameRate,
+}
+
 /// Why part of `FIZZ2.CFG` was not used. The field or fields concerned fall back to Auto.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConfigIssue {
-    /// The file is not 8 bytes long.
+    /// The file's length does not match its version (8 bytes for version 1, 9 for version 2).
     BadLength,
     /// The first four bytes are not `FZ2C`.
     BadMagic,
-    /// The version byte is not 1.
+    /// The version byte is not 1 or 2.
     BadVersion,
     /// The music byte is not 0 to 3.
     BadMusic,
     /// The effects byte is not 0 to 4.
     BadEffects,
+    /// The frame-rate byte is not 0 to 2.
+    BadFrameRate,
 }
 
 impl ConfigIssue {
@@ -62,72 +82,101 @@ impl ConfigIssue {
             ConfigIssue::BadVersion => "cfg-version",
             ConfigIssue::BadMusic => "cfg-music",
             ConfigIssue::BadEffects => "cfg-effects",
+            ConfigIssue::BadFrameRate => "cfg-framerate",
         }
     }
 }
 
-/// The `FIZZ2.CFG` file: 8 bytes. Bytes 0 to 3 are `FZ2C`, byte 4 the version (1), byte 5 the music choice (0 Auto, 1 Off, 2
-/// AdLib, 3 Sound Blaster), byte 6 the effects choice (0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker), byte 7 reserved (0).
+/// The `FIZZ2.CFG` file. Version 2 is 9 bytes: bytes 0 to 3 are `FZ2C`, byte 4 the version (2), byte 5 the music choice (0 Auto,
+/// 1 Off, 2 AdLib, 3 Sound Blaster), byte 6 the effects choice (0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker), byte 7 the frame
+/// rate (0 Auto, 1 30 Hz, 2 60 Hz) and byte 8 the detail level (reserved, written as 0, ignored on reading). Version 1, which an
+/// earlier build wrote, is 8 bytes (version 1, music, effects, one reserved byte); it is still read, with the frame rate Auto.
 pub struct Config;
 
 impl Config {
     /// The file's name, in the current directory.
     pub const FILE_NAME: &'static str = "FIZZ2.CFG";
-    /// The file's length in bytes.
-    pub const LEN: usize = 8;
+    /// The length of a version 2 file in bytes: the length `encode` writes.
+    pub const LEN: usize = 9;
+    /// The length of a version 1 file in bytes.
+    pub const LEN_V1: usize = 8;
     const MAGIC: [u8; 4] = *b"FZ2C";
-    const VERSION: u8 = 1;
+    const VERSION: u8 = 2;
+
+    /// Reads a file's bytes as sound `Settings` only; see `parse_prefs`.
+    pub fn parse(bytes: &[u8]) -> (Settings, Option<ConfigIssue>) {
+        let (prefs, issue) = Self::parse_prefs(bytes);
+        (prefs.sound, issue)
+    }
 
     /// Reads a file's bytes. An empty slice (no file, or an empty one) is Auto with no issue. A wrong length, magic or version
-    /// makes both fields Auto; an unknown value makes only its own field Auto. The first issue found is returned. The reserved
-    /// byte is ignored so a later version can use it.
-    pub fn parse(bytes: &[u8]) -> (Settings, Option<ConfigIssue>) {
+    /// makes every field Auto; an unknown value makes only its own field Auto. The first issue found is returned. A version 1 file
+    /// gives its music and effects and leaves the frame rate Auto. The reserved bytes are ignored so a later version can use them.
+    pub fn parse_prefs(bytes: &[u8]) -> (Prefs, Option<ConfigIssue>) {
         if bytes.is_empty() {
-            return (Settings::default(), None);
+            return (Prefs::default(), None);
         }
-        if bytes.len() != Self::LEN {
-            return (Settings::default(), Some(ConfigIssue::BadLength));
+        if bytes.len() < 5 {
+            return (Prefs::default(), Some(ConfigIssue::BadLength));
         }
         if bytes[..4] != Self::MAGIC {
-            return (Settings::default(), Some(ConfigIssue::BadMagic));
+            return (Prefs::default(), Some(ConfigIssue::BadMagic));
         }
-        if bytes[4] != Self::VERSION {
-            return (Settings::default(), Some(ConfigIssue::BadVersion));
+        let want = match bytes[4] {
+            1 => Self::LEN_V1,
+            2 => Self::LEN,
+            _ => return (Prefs::default(), Some(ConfigIssue::BadVersion)),
+        };
+        if bytes.len() != want {
+            return (Prefs::default(), Some(ConfigIssue::BadLength));
         }
-        let mut settings = Settings::default();
+        let mut prefs = Prefs::default();
         let mut issue = None;
         match bytes[5] {
             0 => {}
-            1 => settings.music = MusicChoice::Off,
-            2 => settings.music = MusicChoice::AdLib,
-            3 => settings.music = MusicChoice::Sb,
+            1 => prefs.sound.music = MusicChoice::Off,
+            2 => prefs.sound.music = MusicChoice::AdLib,
+            3 => prefs.sound.music = MusicChoice::Sb,
             _ => issue = Some(ConfigIssue::BadMusic),
         }
         match bytes[6] {
             0 => {}
-            1 => settings.fx = FxChoice::Off,
-            2 => settings.fx = FxChoice::AdLib,
-            3 => settings.fx = FxChoice::Sb,
-            4 => settings.fx = FxChoice::Speaker,
+            1 => prefs.sound.fx = FxChoice::Off,
+            2 => prefs.sound.fx = FxChoice::AdLib,
+            3 => prefs.sound.fx = FxChoice::Sb,
+            4 => prefs.sound.fx = FxChoice::Speaker,
             _ => issue = issue.or(Some(ConfigIssue::BadEffects)),
         }
-        (settings, issue)
+        if bytes[4] == 2 {
+            match bytes[7] {
+                0 => {}
+                1 => prefs.frame_rate = FrameRate::Hz30,
+                2 => prefs.frame_rate = FrameRate::Hz60,
+                _ => issue = issue.or(Some(ConfigIssue::BadFrameRate)),
+            }
+        }
+        (prefs, issue)
     }
 
-    /// The bytes to save for `settings`.
-    pub fn encode(settings: &Settings) -> [u8; 8] {
-        let music = match settings.music {
+    /// The bytes to save for `prefs`: always a version 2 file.
+    pub fn encode_prefs(prefs: &Prefs) -> [u8; Self::LEN] {
+        let music = match prefs.sound.music {
             MusicChoice::Auto => 0,
             MusicChoice::Off => 1,
             MusicChoice::AdLib => 2,
             MusicChoice::Sb => 3,
         };
-        let fx = match settings.fx {
+        let fx = match prefs.sound.fx {
             FxChoice::Auto => 0,
             FxChoice::Off => 1,
             FxChoice::AdLib => 2,
             FxChoice::Sb => 3,
             FxChoice::Speaker => 4,
+        };
+        let frame_rate = match prefs.frame_rate {
+            FrameRate::Auto => 0,
+            FrameRate::Hz30 => 1,
+            FrameRate::Hz60 => 2,
         };
         [
             Self::MAGIC[0],
@@ -137,8 +186,18 @@ impl Config {
             Self::VERSION,
             music,
             fx,
+            frame_rate,
             0,
         ]
+    }
+
+    /// The bytes to save for sound `settings` with the frame rate Auto. A caller that holds a frame rate uses `encode_prefs`, or the
+    /// save would reset it.
+    pub fn encode(settings: &Settings) -> [u8; Self::LEN] {
+        Self::encode_prefs(&Prefs {
+            sound: *settings,
+            frame_rate: FrameRate::Auto,
+        })
     }
 }
 
@@ -251,134 +310,186 @@ mod tests {
         FxChoice::Speaker,
     ];
 
+    const RATES: [FrameRate; 3] = [FrameRate::Auto, FrameRate::Hz30, FrameRate::Hz60];
+
+    fn sample() -> Prefs {
+        Prefs {
+            sound: Settings {
+                music: MusicChoice::Sb,
+                fx: FxChoice::Speaker,
+            },
+            frame_rate: FrameRate::Hz60,
+        }
+    }
+
     #[test]
-    fn round_trip_every_pair() {
+    fn round_trip_every_combination() {
         for music in MUSIC {
             for fx in FX {
-                let s = Settings { music, fx };
-                let bytes = Config::encode(&s);
-                assert_eq!(&bytes[..4], b"FZ2C");
-                assert_eq!(bytes[4], 1);
-                assert_eq!(bytes[7], 0);
-                assert_eq!(Config::parse(&bytes), (s, None));
+                for frame_rate in RATES {
+                    let p = Prefs {
+                        sound: Settings { music, fx },
+                        frame_rate,
+                    };
+                    let bytes = Config::encode_prefs(&p);
+                    assert_eq!(bytes.len(), 9);
+                    assert_eq!(&bytes[..4], b"FZ2C");
+                    assert_eq!(bytes[4], 2);
+                    assert_eq!(bytes[8], 0);
+                    assert_eq!(Config::parse_prefs(&bytes), (p, None));
+                    assert_eq!(Config::parse(&bytes), (p.sound, None));
+                }
             }
         }
     }
 
     #[test]
     fn layout_is_exact() {
-        let s = Settings {
-            music: MusicChoice::Sb,
-            fx: FxChoice::Speaker,
-        };
-        assert_eq!(Config::encode(&s), [b'F', b'Z', b'2', b'C', 1, 3, 4, 0]);
+        assert_eq!(
+            Config::encode_prefs(&sample()),
+            [b'F', b'Z', b'2', b'C', 2, 3, 4, 2, 0]
+        );
         assert_eq!(
             Config::encode(&Settings::default()),
-            [b'F', b'Z', b'2', b'C', 1, 0, 0, 0]
+            [b'F', b'Z', b'2', b'C', 2, 0, 0, 0, 0]
         );
+        assert_eq!(Config::encode(&sample().sound)[7], 0);
+    }
+
+    #[test]
+    fn a_version_1_file_still_reads_with_the_new_fields_auto() {
+        for music in MUSIC {
+            for fx in FX {
+                let v2 = Config::encode(&Settings { music, fx });
+                let mut v1 = [0u8; 8];
+                v1.copy_from_slice(&v2[..8]);
+                v1[4] = 1;
+                v1[7] = 0;
+                assert_eq!(
+                    Config::parse_prefs(&v1),
+                    (
+                        Prefs {
+                            sound: Settings { music, fx },
+                            frame_rate: FrameRate::Auto
+                        },
+                        None
+                    )
+                );
+            }
+        }
+        // The old layout exactly, as the first build wrote it.
+        let old = [b'F', b'Z', b'2', b'C', 1, 3, 4, 0];
+        assert_eq!(Config::parse(&old).0, sample().sound);
+        // Saving it again upgrades it to version 2.
+        assert_eq!(Config::encode(&Config::parse(&old).0)[4], 2);
     }
 
     #[test]
     fn a_missing_or_empty_file_is_auto_without_a_reason() {
+        assert_eq!(Config::parse_prefs(&[]), (Prefs::default(), None));
         assert_eq!(Config::parse(&[]), (Settings::default(), None));
     }
 
     #[test]
     fn wrong_length_is_auto_with_a_reason() {
-        let good = Config::encode(&Settings {
-            music: MusicChoice::Sb,
-            fx: FxChoice::Sb,
-        });
-        for len in [1, 4, 7] {
+        let good = Config::encode_prefs(&sample());
+        // Too short, and a version 2 header on a version 1 body.
+        for len in [1, 4, 5, 7, 8] {
             assert_eq!(
-                Config::parse(&good[..len]),
-                (Settings::default(), Some(ConfigIssue::BadLength))
+                Config::parse_prefs(&good[..len]),
+                (Prefs::default(), Some(ConfigIssue::BadLength)),
+                "{len}"
             );
         }
-        let mut long = [0u8; 9];
-        long[..8].copy_from_slice(&good);
+        let mut long = [2u8; 10];
+        long[..9].copy_from_slice(&good);
         assert_eq!(
-            Config::parse(&long),
-            (Settings::default(), Some(ConfigIssue::BadLength))
+            Config::parse_prefs(&long),
+            (Prefs::default(), Some(ConfigIssue::BadLength))
+        );
+        // A version 1 header on a 9-byte body.
+        let mut v1_long = good;
+        v1_long[4] = 1;
+        assert_eq!(
+            Config::parse_prefs(&v1_long),
+            (Prefs::default(), Some(ConfigIssue::BadLength))
+        );
+        // A 7-byte version 1 file.
+        let mut v1_short = [0u8; 7];
+        v1_short.copy_from_slice(&good[..7]);
+        v1_short[4] = 1;
+        assert_eq!(
+            Config::parse_prefs(&v1_short),
+            (Prefs::default(), Some(ConfigIssue::BadLength))
         );
     }
 
     #[test]
     fn wrong_magic_and_version_are_auto_with_a_reason() {
-        let mut bytes = Config::encode(&Settings {
-            music: MusicChoice::Sb,
-            fx: FxChoice::Sb,
-        });
+        let mut bytes = Config::encode_prefs(&sample());
         bytes[0] = b'X';
         assert_eq!(
-            Config::parse(&bytes),
-            (Settings::default(), Some(ConfigIssue::BadMagic))
+            Config::parse_prefs(&bytes),
+            (Prefs::default(), Some(ConfigIssue::BadMagic))
         );
-        let mut bytes = Config::encode(&Settings {
-            music: MusicChoice::Sb,
-            fx: FxChoice::Sb,
-        });
-        bytes[4] = 2;
-        assert_eq!(
-            Config::parse(&bytes),
-            (Settings::default(), Some(ConfigIssue::BadVersion))
-        );
-        bytes[4] = 0;
-        assert_eq!(
-            Config::parse(&bytes),
-            (Settings::default(), Some(ConfigIssue::BadVersion))
-        );
+        for version in [0u8, 3, 255] {
+            let mut bytes = Config::encode_prefs(&sample());
+            bytes[4] = version;
+            assert_eq!(
+                Config::parse_prefs(&bytes),
+                (Prefs::default(), Some(ConfigIssue::BadVersion)),
+                "{version}"
+            );
+        }
     }
 
     #[test]
     fn an_unknown_value_resets_only_its_field() {
-        let mut bytes = Config::encode(&Settings {
-            music: MusicChoice::AdLib,
-            fx: FxChoice::Speaker,
-        });
+        let base = Prefs {
+            sound: Settings {
+                music: MusicChoice::AdLib,
+                fx: FxChoice::Speaker,
+            },
+            frame_rate: FrameRate::Hz30,
+        };
+        let mut bytes = Config::encode_prefs(&base);
         bytes[5] = 4;
-        assert_eq!(
-            Config::parse(&bytes),
-            (
-                Settings {
-                    music: MusicChoice::Auto,
-                    fx: FxChoice::Speaker
-                },
-                Some(ConfigIssue::BadMusic)
-            )
-        );
-        let mut bytes = Config::encode(&Settings {
-            music: MusicChoice::AdLib,
-            fx: FxChoice::Speaker,
-        });
+        let (p, issue) = Config::parse_prefs(&bytes);
+        assert_eq!(issue, Some(ConfigIssue::BadMusic));
+        assert_eq!(p.sound.music, MusicChoice::Auto);
+        assert_eq!((p.sound.fx, p.frame_rate), (FxChoice::Speaker, FrameRate::Hz30));
+
+        let mut bytes = Config::encode_prefs(&base);
         bytes[6] = 5;
-        assert_eq!(
-            Config::parse(&bytes),
-            (
-                Settings {
-                    music: MusicChoice::AdLib,
-                    fx: FxChoice::Auto
-                },
-                Some(ConfigIssue::BadEffects)
-            )
-        );
+        let (p, issue) = Config::parse_prefs(&bytes);
+        assert_eq!(issue, Some(ConfigIssue::BadEffects));
+        assert_eq!(p.sound.fx, FxChoice::Auto);
+        assert_eq!((p.sound.music, p.frame_rate), (MusicChoice::AdLib, FrameRate::Hz30));
+
+        let mut bytes = Config::encode_prefs(&base);
+        bytes[7] = 3;
+        let (p, issue) = Config::parse_prefs(&bytes);
+        assert_eq!(issue, Some(ConfigIssue::BadFrameRate));
+        assert_eq!(p.frame_rate, FrameRate::Auto);
+        assert_eq!(p.sound, base.sound);
+
+        // Several bad bytes: the first issue is reported and every bad field is Auto.
         bytes[5] = 200;
         bytes[6] = 255;
         assert_eq!(
-            Config::parse(&bytes),
-            (Settings::default(), Some(ConfigIssue::BadMusic))
+            Config::parse_prefs(&bytes),
+            (Prefs::default(), Some(ConfigIssue::BadMusic))
         );
     }
 
     #[test]
     fn the_reserved_byte_is_ignored() {
-        let mut bytes = Config::encode(&Settings {
-            music: MusicChoice::Off,
-            fx: FxChoice::Off,
-        });
-        bytes[7] = 9;
+        let mut bytes = Config::encode_prefs(&sample());
+        bytes[8] = 9;
+        assert_eq!(Config::parse_prefs(&bytes), (sample(), None));
+        let v1 = [b'F', b'Z', b'2', b'C', 1, 1, 1, 9];
         assert_eq!(
-            Config::parse(&bytes),
+            Config::parse(&v1),
             (
                 Settings {
                     music: MusicChoice::Off,
@@ -397,12 +508,38 @@ mod tests {
             ConfigIssue::BadVersion,
             ConfigIssue::BadMusic,
             ConfigIssue::BadEffects,
+            ConfigIssue::BadFrameRate,
         ];
         for (i, a) in all.iter().enumerate() {
             for b in &all[i + 1..] {
                 assert_ne!(a.code(), b.code());
             }
         }
+    }
+
+    #[test]
+    fn file_then_flags_precedence_and_flags_are_not_saved() {
+        // Per field: a flag beats the file, the file beats Auto; sound flags leave the frame rate alone.
+        let file = Prefs {
+            sound: Settings {
+                music: MusicChoice::Sb,
+                fx: FxChoice::Auto,
+            },
+            frame_rate: FrameRate::Hz30,
+        };
+        let (read, _) = Config::parse_prefs(&Config::encode_prefs(&file));
+        let mut effective = read.sound;
+        apply_flags(&mut effective, ["/FX:SPEAKER"]);
+        assert_eq!(
+            effective,
+            Settings {
+                music: MusicChoice::Sb,
+                fx: FxChoice::Speaker
+            }
+        );
+        // What a later save writes is the file's own prefs: effects stay Auto, the frame rate stays.
+        let saved = Config::encode_prefs(&read);
+        assert_eq!((saved[5], saved[6], saved[7]), (3, 0, 1));
     }
 
     fn flags(base: Settings, args: &[&str]) -> (Settings, FlagReport) {

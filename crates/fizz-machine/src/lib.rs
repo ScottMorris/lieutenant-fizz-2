@@ -21,8 +21,10 @@ pub mod screen;
 pub mod settings;
 
 pub use probe::{Blaster, CpuClass, FmKind, Probe, SoundBlaster, VideoClass, parse_blaster};
-pub use report::{cells_hash, parse_probe, write_probe};
+pub use report::{cells_hash, parse_probe, write_probe, write_sound};
 pub use resolve::{FxPlan, MusicPlan, Reason, Resolved, SoundState, SoundStates, resolve};
 pub use route::{OplMode, route};
 pub use screen::{CELLS, COLS, MEMORY_FLOOR_KB, ROWS, cells, ready};
-pub use settings::{Config, ConfigIssue, FlagReport, FxChoice, MusicChoice, Settings, apply_flags};
+pub use settings::{
+    Config, ConfigIssue, FlagReport, FrameRate, FxChoice, MusicChoice, Prefs, Settings, apply_flags,
+};

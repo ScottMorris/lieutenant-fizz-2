@@ -9,7 +9,9 @@
 // ignored when parsing, so a whole program transcript can be passed in.
 
 use crate::probe::{Blaster, CpuClass, FmKind, Probe, SoundBlaster, VideoClass, parse_blaster};
+use crate::resolve::{FxPlan, MusicPlan, Resolved};
 use crate::screen::CELLS;
+use crate::settings::ConfigIssue;
 use core::fmt::{self, Write};
 
 /// The FNV-1a 64-bit hash of a screen's bytes in video-memory order: for each cell the character, then the attribute.
@@ -192,10 +194,78 @@ pub fn parse_probe(text: &str) -> Result<Probe, &'static str> {
     })
 }
 
+/// Writes the `SOUND MUSIC <x> FX <y>` line (no newline): the resolved plan, then, each after a space, the reasons it is not what was
+/// asked for. `file_issue` (the settings file was unusable) comes first, then the music reason, then the effects reason.
+pub fn write_sound(
+    resolved: &Resolved,
+    file_issue: Option<ConfigIssue>,
+    out: &mut impl Write,
+) -> fmt::Result {
+    let music = match resolved.music {
+        MusicPlan::Off => "off",
+        MusicPlan::Opl2 => "opl2",
+        MusicPlan::Opl3 => "opl3",
+    };
+    let fx = match resolved.fx {
+        FxPlan::Off => "off",
+        FxPlan::Ch5 => "ch5",
+        FxPlan::Ch14 => "ch14",
+        FxPlan::Speaker => "speaker",
+    };
+    write!(out, "SOUND MUSIC {music} FX {fx}")?;
+    if let Some(issue) = file_issue {
+        write!(out, " {}", issue.code())?;
+    }
+    if let Some(r) = resolved.music_reason {
+        write!(out, " {}", r.code())?;
+    }
+    if let Some(r) = resolved.fx_reason {
+        write!(out, " {}", r.code())?;
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::resolve::resolve;
+    use crate::settings::{FxChoice, MusicChoice, Settings};
     use std::string::String;
+
+    fn sound(settings: Settings, probe: &Probe, issue: Option<ConfigIssue>) -> String {
+        let mut s = String::new();
+        write_sound(&resolve(&settings, probe), issue, &mut s).unwrap();
+        s
+    }
+
+    #[test]
+    fn the_sound_line() {
+        let mut sb16 = Probe::BARE;
+        sb16.fm = FmKind::Opl3;
+        let mut opl2 = Probe::BARE;
+        opl2.fm = FmKind::Opl2;
+        let auto = Settings::default();
+        assert_eq!(sound(auto, &sb16, None), "SOUND MUSIC opl3 FX ch14");
+        assert_eq!(sound(auto, &opl2, None), "SOUND MUSIC opl2 FX ch5");
+        assert_eq!(sound(auto, &Probe::BARE, None), "SOUND MUSIC off FX speaker");
+        let sb = Settings {
+            music: MusicChoice::Sb,
+            fx: FxChoice::Sb,
+        };
+        assert_eq!(
+            sound(sb, &opl2, None),
+            "SOUND MUSIC opl2 FX ch5 music-sb-to-adlib fx-sb-to-adlib"
+        );
+        assert_eq!(
+            sound(sb, &Probe::BARE, Some(ConfigIssue::BadMagic)),
+            "SOUND MUSIC off FX speaker cfg-magic music-sb-to-off fx-sb-to-speaker"
+        );
+        let nosound = Settings {
+            music: MusicChoice::Off,
+            fx: FxChoice::Off,
+        };
+        assert_eq!(sound(nosound, &sb16, None), "SOUND MUSIC off FX off");
+    }
 
     fn text(p: &Probe) -> String {
         let mut s = String::new();
