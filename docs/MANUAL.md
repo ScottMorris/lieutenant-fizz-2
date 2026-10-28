@@ -37,7 +37,7 @@ On the Web there is no quit key; close the tab.
 
 ### Choosing your keys
 
-- **Web:** the Keys button under the screen switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
+- **Web:** the Keys button in the panel (`H`) switches between Keen and Modern, and the line above it lists the keys in use. The page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /MODERN` for the Modern keys. Without it you get the Keen keys.
 
 ### Captions
@@ -171,7 +171,7 @@ You die on spikes, on a chicken that is not stunned, and by falling out of the b
 
 ### The Web heads-up text
 
-Under the screen, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. Below that, a goal line says what to do, the keys line shows the keys of the layout in use, and the Keys, Captions, Restart, Fullscreen and Sound buttons sit beneath it. Restart starts the level again from the first tick; it does not reload the page.
+The page is the game: the picture fills the window at the largest size that keeps its 8 by 5 shape, in whole-number multiples of 320 by 200 when one fits (so the pixels stay even) and otherwise as large as fits, centred on a dark background, and nothing scrolls. A hint shows for a few seconds after the page loads. Everything else is in a panel that you show and hide with `H` or the small `?` button in the bottom right corner (not Esc, which leaves fullscreen). In the panel, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. The panel also has a goal line that says what to do, the keys line for the layout in use, and the Keys, Captions, Restart, Fullscreen and Sound buttons. Restart starts the level again from the first tick; it does not reload the page.
 
 ### Sound on the Web
 
@@ -192,7 +192,7 @@ Both versions draw the same picture, a 320 by 200 window that follows Ben as he 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace and the `TICK` and `HASH` values. Only the Web version makes sound for now.
-- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version runs in a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Restart, Fullscreen and Sound buttons, the chicken's cluck (the DOS version is silent for now), a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 

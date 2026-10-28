@@ -71,7 +71,7 @@ Fizz 1 embeds `sprites.bin` (102,252 bytes), `sound.bin` (279,348 bytes) and `ti
 
 ## Web view and pixel-locking
 
-This is the plan for Milestone 3; the view itself is not built. The Web page today plays the slice in a fixed 320 by 200 canvas, drawn by the same routine as the DOS frame, and scales it with `image-rendering: pixelated` to whatever the window allows, which is not a whole-number scale, so its pixels are uneven.
+This is the plan for Milestone 3; the view itself is not built. The Web page today plays the slice in a fixed 320 by 200 canvas, drawn by the same routine as the DOS frame, and scales it with `image-rendering: pixelated` to fill the window, in the largest whole-number multiple of 320 by 200 that fits (the largest fit of any size in a window smaller than one picture), centred in a dark letterbox. The controls, notes and HUD text sit in an overlay panel that `H` toggles.
 
 - **The Web view is not a projection of a fixed frame.** It fills the window and shows more of the level on larger screens, as Fizz 1's does. DOS keeps its fixed 320 by 200 mode 13h frame.
 - **Pixels are square.** The Web view does not stretch to the 4:3 shape of a CRT.
