@@ -29,6 +29,13 @@ name = "fizz-machine"
 version = "0.1.0"
 
 [[package]]
+name = "fizz-menu"
+version = "0.1.0"
+dependencies = [
+ "fizz-machine",
+]
+
+[[package]]
 name = "fizz-music"
 version = "0.1.0"
 
@@ -80,6 +87,7 @@ dependencies = [
  "fizz-ep2",
  "fizz-hal",
  "fizz-machine",
+ "fizz-menu",
  "fizz-music",
  "fizz-present-dos",
  "fizz-sim",
