@@ -43,7 +43,6 @@ mod sound;
 
 use alloc::string::String;
 use core::fmt::{self, Write};
-use alloc::string::String;
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
