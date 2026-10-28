@@ -1054,23 +1054,42 @@ mod tests {
                         w.ben.look_offset = off;
                         let (cx, cy) = camera(&w, vw, vh);
                         if map_px_w > vw as i32 {
-                            assert!((0..=map_px_w - vw as i32).contains(&cx), "{vw}x{vh} ben {x},{y} look {off}");
+                            assert!(
+                                (0..=map_px_w - vw as i32).contains(&cx),
+                                "{vw}x{vh} ben {x},{y} look {off}"
+                            );
                         } else {
-                            assert_eq!(cx, (map_px_w - vw as i32).div_euclid(2), "{vw}x{vh} ben {x},{y} look {off}");
+                            assert_eq!(
+                                cx,
+                                (map_px_w - vw as i32).div_euclid(2),
+                                "{vw}x{vh} ben {x},{y} look {off}"
+                            );
                         }
-                        assert!((0..=map_px_h - vh as i32).contains(&cy), "{vw}x{vh} ben {x},{y} look {off}");
+                        assert!(
+                            (0..=map_px_h - vh as i32).contains(&cy),
+                            "{vw}x{vh} ben {x},{y} look {off}"
+                        );
                         // Ben's body, in map pixels from the top and left, lies inside the view (the look offset only
                         // moves the camera as far as the map allows, and 3.6 tiles of look leaves him in a 208 view).
                         let left = tile_px(w.ben.b.x);
                         let right = tile_px(w.ben.b.x + w.ben.b.w);
                         let top = screen_y(w.ben.b.y + w.ben.b.h, w.map.h);
                         let bottom = screen_y(w.ben.b.y, w.map.h);
-                        assert!(left >= cx && right <= cx + vw as i32, "{vw}x{vh} ben {x},{y} look {off}");
-                        assert!(top >= cy && bottom <= cy + vh as i32, "{vw}x{vh} ben {x},{y} look {off}");
+                        assert!(
+                            left >= cx && right <= cx + vw as i32,
+                            "{vw}x{vh} ben {x},{y} look {off}"
+                        );
+                        assert!(
+                            top >= cy && bottom <= cy + vh as i32,
+                            "{vw}x{vh} ben {x},{y} look {off}"
+                        );
                         // Drawing at this size neither panics nor leaves the buffer unwritten.
                         let mut f = vec![0xEE; vw * vh];
                         draw_slice(&mut f, vw, vh, &w, 0);
-                        assert!(f.iter().all(|&p| p != 0xEE), "{vw}x{vh} ben {x},{y} look {off}");
+                        assert!(
+                            f.iter().all(|&p| p != 0xEE),
+                            "{vw}x{vh} ben {x},{y} look {off}"
+                        );
                     }
                 }
             }
