@@ -23,9 +23,13 @@ use fizz_view::pfont::{draw_text, draw_text_scaled, text_width, text_width_scale
 use fizz_view::sprites_data::sprite;
 use fizz_view::theme::FIZZ_INDEX;
 
+use fizz_hal::KeyCode;
+use fizz_menu::MenuKey;
+use fizz_sim::Buttons;
+
 use crate::frame::Frame;
 use crate::palette::{BLACK, DIM_BASE, LIGHT_GREY, LIGHT_RED, WHITE};
-use crate::{HEIGHT, WIDTH};
+use crate::{HEIGHT, Layout, WIDTH, key_to_buttons};
 
 /// The heading's top edge, and the scale it is drawn at.
 pub const TITLE_Y: i32 = 22;
@@ -55,6 +59,33 @@ pub const BOB_TICKS: u32 = 20;
 pub const OPTIONS_FOOTER: &str = "Up/Down choose, Left/Right change, Esc back";
 /// The Paused footer.
 pub const PAUSED_FOOTER: &str = "Up and Down choose, Enter selects, Esc resumes";
+
+/// The menu key a pressed key means in `layout`, if any. Up and Down wrap, Left steps a value back and Right, Enter, the layout's
+/// Jump and its Fire step it forward (or choose a row); Esc and the layout's Pogo go back. The movement keys are the game's own, so
+/// the WASD keys work in Modern and not in Keen, as in play.
+pub fn menu_key(code: KeyCode, layout: Layout) -> Option<MenuKey> {
+    match code {
+        KeyCode::Escape => return Some(MenuKey::Back),
+        KeyCode::Enter => return Some(MenuKey::Confirm),
+        _ => {}
+    }
+    let b = key_to_buttons(code, layout)?;
+    if b == Buttons::UP {
+        Some(MenuKey::Up)
+    } else if b == Buttons::DOWN {
+        Some(MenuKey::Down)
+    } else if b == Buttons::LEFT {
+        Some(MenuKey::Left)
+    } else if b == Buttons::RIGHT {
+        Some(MenuKey::Right)
+    } else if b == Buttons::JUMP || b == Buttons::FIRE {
+        Some(MenuKey::Confirm)
+    } else if b == Buttons::POGO {
+        Some(MenuKey::Back)
+    } else {
+        None
+    }
+}
 
 /// What a menu screen shows: its heading, its rows, whether the override note shows, a message and its footer. A message takes
 /// the note's line, in light red (Fizz 1's slot message), and an empty one shows nothing.
@@ -411,6 +442,38 @@ mod tests {
 
     fn digest_options(cursor: usize, values: Values, over: Overrides, caps: &Caps) -> u64 {
         frame_digest(&options(cursor, values, over, caps))
+    }
+
+    #[test]
+    fn menu_keys_follow_the_layout() {
+        for layout in [Layout::Keen, Layout::Modern] {
+            assert_eq!(menu_key(KeyCode::Up, layout), Some(MenuKey::Up));
+            assert_eq!(menu_key(KeyCode::Down, layout), Some(MenuKey::Down));
+            assert_eq!(menu_key(KeyCode::Left, layout), Some(MenuKey::Left));
+            assert_eq!(menu_key(KeyCode::Right, layout), Some(MenuKey::Right));
+            assert_eq!(menu_key(KeyCode::Enter, layout), Some(MenuKey::Confirm));
+            assert_eq!(menu_key(KeyCode::Space, layout), Some(MenuKey::Confirm));
+            assert_eq!(menu_key(KeyCode::Escape, layout), Some(MenuKey::Back));
+        }
+        // Keen: Ctrl jumps (confirm) and Alt pogos (back); the Modern letters mean nothing.
+        assert_eq!(
+            menu_key(KeyCode::Ctrl, Layout::Keen),
+            Some(MenuKey::Confirm)
+        );
+        assert_eq!(menu_key(KeyCode::Alt, Layout::Keen), Some(MenuKey::Back));
+        for k in [KeyCode::W, KeyCode::Z, KeyCode::X, KeyCode::C] {
+            assert_eq!(menu_key(k, Layout::Keen), None);
+        }
+        // Modern: WASD move, Z jumps, X pogos, C fires; Ctrl and Alt mean nothing.
+        assert_eq!(menu_key(KeyCode::W, Layout::Modern), Some(MenuKey::Up));
+        assert_eq!(menu_key(KeyCode::S, Layout::Modern), Some(MenuKey::Down));
+        assert_eq!(menu_key(KeyCode::A, Layout::Modern), Some(MenuKey::Left));
+        assert_eq!(menu_key(KeyCode::D, Layout::Modern), Some(MenuKey::Right));
+        assert_eq!(menu_key(KeyCode::Z, Layout::Modern), Some(MenuKey::Confirm));
+        assert_eq!(menu_key(KeyCode::C, Layout::Modern), Some(MenuKey::Confirm));
+        assert_eq!(menu_key(KeyCode::X, Layout::Modern), Some(MenuKey::Back));
+        assert_eq!(menu_key(KeyCode::Ctrl, Layout::Modern), None);
+        assert_eq!(menu_key(KeyCode::Alt, Layout::Modern), None);
     }
 
     #[test]
