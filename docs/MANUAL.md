@@ -14,7 +14,7 @@ Build the page with `tools/build-web.sh`, then serve the `dist/web` folder with 
 
 ### DOS
 
-Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos`. Keep the two files together and run `FIZZ2.EXE` in DOSBox or js-dos. It needs a VGA display, and it targets a 486-class PC (the slowest machine in mind is about a 486DX2-66, which has not been tried on real hardware; so far it has run only in DOSBox). There is no sound on DOS yet. The build needs the DOS toolchain described in [`PLATFORM.md`](PLATFORM.md); you do not need a C compiler.
+Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos`. Keep the two files together and run `FIZZ2.EXE` in DOSBox or js-dos. It needs a VGA display, and it targets a 486-class PC (the slowest machine in mind is about a 486DX2-66, which has not been tried on real hardware; so far it has run only in DOSBox). Sound on DOS is described under [Choosing your sound on DOS](#choosing-your-sound-on-dos); the program also shows a machine check first if you ask for it with `/CHECK`. The build needs the DOS toolchain described in [`PLATFORM.md`](PLATFORM.md); you do not need a C compiler.
 
 ## Controls
 
@@ -44,11 +44,11 @@ On the Web there is no quit key; close the tab.
 
 When the chicken clucks, its beak opens and its words float above its head for about a second, rising a little and fading, as the sound words do in Lieutenant Fizz 1. The words depend on the cluck: `buh-gawk!`, `bwuk`, `bwuk-bwuk` or `bwuk, bwuk` (on the Web they are lower-case text over the picture, as in Lieutenant Fizz 1; the DOS screen font has only capital letters, so there they show as capitals), each in its own colour. The double clucks open the beak twice. The words stay with the chicken, so as it walks off the edge of the picture its words are cut off by the edge with it, and they are left out once it is more than a tile outside the picture. On a DOS machine with no sound at all, or with the sound turned off, these words are the only sign that the chicken has clucked.
 
-![The Web slice just after the chicken clucks: its beak is open and BWUK-BWUK floats above it, drawn at the top of the picture because the chicken stands near it. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-cluck.png)
+![The Web slice just after the chicken clucks: its beak is open and the small orange word bwuk-BWUK floats just above its head, drawn as text over the picture. Ben is in mid-air below it. Captured from the Web build in headless Chromium at 1280 by 720, in the Keen layout.](images/web-cluck.png)
 
-*The Web build, captured in headless Chromium at tick 202, five ticks after the chicken's first cluck.*
+*The Web build (commit b238803) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
 
-- **Web:** the Captions button under the screen turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
+- **Web:** the Captions button in the panel (`H`) turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. A choice kept between runs comes with the settings screen, later.
 
 Turning captions off hides only the words; the beak still opens.
@@ -67,11 +67,43 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 - `/PROBE` — looks at your computer and tells you what it found, without playing or drawing anything and without waiting for a key. It prints one line each for your screen (`vga`, `ega`, `cga` or a monochrome adapter), whether a mouse and a joystick are connected, what kind of music chip you have (`none`, `opl2`, `dualopl2` or `opl3`), your Sound Blaster (`none`, or its version and port), the `BLASTER` setting, whether you have a maths chip, your processor (`386`, `486` or `586` for a Pentium or later) and how much memory is free. It also prints a code for the start-up screen the game will show for your computer and how much memory the program holds, and ends with `EXIT yes`. Use it to see how the game sees your computer; the sound uses these results, and `/CHECK` shows them on a start-up screen.
 - `/CHECK` — shows a start-up check screen in text mode: what your computer has (screen, keyboard, mouse, joystick, sound, processor, maths chip, memory) and which sound the game would use. It only shows; there is nothing to change on it. Press Enter to go on and play (it then runs as `/LIVE`), or Esc to quit. Enter does nothing while the screen says something the game needs is missing (a VGA display or a maths chip). Each sound line is in one of three states: dim when that device is not on your computer, normal when it is there but not used, and bright (a white-on-blue bar in colour, an inverse bar on a monochrome screen) when the game will use it. It waits for a key, so use `/PROBE` or `/CHECKCELLS` in scripts.
 - `/CHECKCELLS` — draws the same check screen, reads it back from the screen memory, restores the text mode and prints it as hexadecimal, 25 lines of 80 cells (`CELLROW 00 ...`), after the `PROBE` lines. It needs no key. It is for testing that what the screen holds is what the game meant to draw.
+
+![The /CHECK start-up screen in text mode: a title bar, then boxes for Video, Input, Sound and Machine with ticks for what was found, and the line "Music: off  Effects: PC speaker" above "Press Enter to play, Esc to quit".](img/dos-check.png)
+
+*The check screen, drawn by `FIZZ2.EXE /CHECKCELLS` in DOSBox Staging (a 486 with VGA, mouse, no joystick and no sound card, so the PC speaker is the one sound line in use) and redrawn from its screen memory with `tools/render-cells.py` at commit b238803.*
 - `/PANIC` — makes the program stop on purpose, to show that it puts the keyboard, timer and screen mode back as it found them. It is a test, and it exits with status 3.
 
 ### Command-line switches
 
 Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), keys (`/MODERN`), captions (`/CAPTIONS`, `/NOCAPTIONS`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+
+The help screen, as `FIZZ2.EXE /?` printed it at commit b238803:
+
+```
+Lieutenant Fizz 2 for DOS
+Usage: FIZZ2.EXE [mode] [switches]. Letter case does not matter.
+Modes (the first one given is used; /LIVE is the default)
+  /LIVE         Play the slice from the keyboard; Esc ends it
+  /REPLAY       Run the built-in script and print its transcript
+  /BENCH [n]    Time the script (first n ticks) and print the costs
+  /CHECK        Show the machine check; Esc leaves, Enter plays
+  /CHECKCELLS   Draw the check screen and print its cells; no key
+  /PROBE        Print what the machine has: video, sound, processor
+  /?            Show this help (also /HELP and -?); nothing else runs
+Keys
+  /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
+Captions (on by default; the last one given wins)
+  /CAPTIONS     Show the chicken's captions
+  /NOCAPTIONS   Hide the captions
+Sound (for this run only; FIZZ2.CFG keeps your saved choice)
+  /MUSIC:x      Music device: ADLIB, SB or OFF
+  /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF
+  /ADLIB        Music and effects on the AdLib chip
+  /SB           Music and effects on the Sound Blaster
+  /SPEAKER      Effects on the PC speaker, no music
+  /NOSOUND      No music and no effects
+Exit status: 0 after help, 2 for a switch FIZZ2.EXE does not know.
+```
 
 If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a sound switch with a value it does not know, such as `/MUSIC:FOO`. Two testing switches, `/PANIC` and `/CFGTEST`, work but are left out of the list because they are not for playing.
 
@@ -135,7 +167,11 @@ Walk onto the red key to pick it up; the `KEY` in the HUD turns red. Carry it to
 
 ### The chicken
 
-The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes; two little yellow-and-white stars (Fizz 1's) twinkle above its head while it is stunned ([screenshot](img/web-stun.png)). It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy. Every one and a half to six seconds, chosen at random, it clucks: its beak opens and a word floats above it (see [Captions](#captions)).
+The chicken walks to and fro along its ledge and turns round at walls and edges. Touching it from the side or below kills you. You can deal with it two ways. Land on it from above, with or without the pogo stick, and it is stunned for three seconds and you bounce off it, higher on the stick. Or hit it with a Fizz shot and it is stunned for six seconds. A stunned chicken lies flattened and harmless and flashes for its last second before it wakes; two little yellow-and-white stars (Fizz 1's) twinkle above its head while it is stunned (the screenshot below is from the Web build). It looks like a brown chicken with a crest; the artwork is a stand-in for the real enemy. Every one and a half to six seconds, chosen at random, it clucks: its beak opens and a word floats above it (see [Captions](#captions)).
+
+![A stunned chicken lying beside Ben on the chicken's ledge, two small yellow-and-white stars twinkling above its head. Web build, 1280 by 720.](images/web-stun.png)
+
+*The Web build (commit b238803), 1280 by 720, tick 300 of the replay: the chicken was hit by a Fizz shot and is stunned; its stars twinkle above it. DOS draws the stars too.*
 
 ### Death and respawn on DOS
 
@@ -145,9 +181,9 @@ Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben 
 
 The Web page plays the first slice of Episode 2. You are Ben, climbing the inside of a lighthouse. Fetch the red key, open the red door with it, climb the second shaft and walk into the exit. The chicken clucks now and then (see [Sound on the Web](#sound-on-the-web)), and the page shows the level in a window that scrolls with you. The window is always 13 tiles tall, and a wider browser window shows more of the level to the sides, as in Fizz 1 (the DOS version keeps its fixed 320 by 200 picture).
 
-![The Web slice at the start of the level, with Ben in the lower left, the chicken and the red key high above, a Fizz Blaster shot in flight and the heads-up text under the screen. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
+![The Web slice at the start of the level, 1280 by 720: Ben in the lower left with a Fizz Blaster shot in flight, the chicken and the red key high above, the level a column in the middle of the window with grey bars either side and nothing else on the page except a small round help button in the corner. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
 
-*The Web build, captured in headless Chromium: Ben has just fired a shot, so `AMMO` reads 4.*
+*The Web build (commit b238803), headless Chromium at 1280 by 720: Ben has just fired a shot at tick 40, so `AMMO` reads 4. The heads-up text is not on the screen; it is in the panel shown below.*
 
 ### The level on the Web
 
@@ -167,33 +203,49 @@ The level is a tall room split into a left shaft and a right shaft by a wall. Yo
 - **The pogo stick:** the Pogo key switches it on and off. While it is on, you bounce by yourself instead of standing, and Jump stops making a leap: hold it instead to make each bounce much higher. Switch the stick off before you climb with ordinary jumps.
 - **The Fizz Blaster:** Fire shoots straight ahead. Hold Up while you fire to shoot straight up, or hold Down in the air to shoot straight down (Down on the ground still fires ahead). Ben shows a matching pose for a moment after each shot. You start with five shots, `AMMO` counts the rest, and shots fly about a second and stop on walls. You get your five back after a death.
 
-![The Web slice with Ben on the first ledge, looking up: the view has risen to show the chicken and its caption BWUK, BWUK above it. The text under the screen reads tick 368, ammo 4.](images/web-look-up.png)
+![The Web slice with Ben on the first ledge, looking up: the view has risen to show the chicken on its ledge and its caption bwuk-BWUK above it.](images/web-look-up.png)
 
-*The Web build, captured in headless Chromium in the Keen layout: Ben has stood still on the first ledge holding Up, and the chicken has just clucked.*
+*The Web build (commit b238803), 1280 by 720, tick 210: after the first 150 ticks of the replay Ben stands on the first ledge and holds Up for 60 ticks; the chicken clucked at tick 197.*
 
-![The Web slice with Ben in mid-jump holding his blaster down and a shot falling below him. The text under the screen reads tick 471, ammo 3.](images/web-aim-down.png)
+![The Web slice with Ben on the chicken's ledge, looking down: the view has dropped so that Ben is near the top of the picture and the ledges and spikes below him are in view.](images/web-look-down.png)
 
-*The Web build, same set-up: Down and Fire together in the air fire straight down.*
+*The Web build (commit b238803), 1280 by 720, tick 326: after the first 236 ticks of the replay Ben stands on the chicken's ledge (the third) and holds Down for 90 ticks. The view slides down as far as the foot of the level allows, which is about half a tile past the spikes, so the picture ends in a thin grey strip. On the first ledge the view cannot slide down because the level ends just below it.*
+
+![The Web slice with Ben in mid-jump holding his blaster down and a shot falling below him.](images/web-aim-down.png)
+
+*The Web build (commit b238803), same window, tick 50: Down and Fire together in a jump fire straight down, so `AMMO` reads 4.*
+
+![The Web slice a moment after a shot hit the wall: a small cyan puff at the right-hand wall.](images/web-puff.png)
+
+*The Web build (commit b238803), same window, tick 108: the second shot of the replay has just hit the wall, two ticks earlier, and pops as a small cyan puff that swells and thins out for a third of a second. DOS draws the same puff.*
 
 The keys for each action are in the table under Controls, in both the Keen and the Modern layouts. Switching layouts lets go of every key you are holding.
 
 ### Death and respawn on the Web
 
-You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies. The Motion button under the screen switches between Full and Reduced; Reduced keeps the screen still. Until you choose, the page follows your system's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake changes only the picture, never what happens in the game.
+You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies. The Motion button in the panel switches between Full and Reduced; Reduced keeps the screen still. Until you choose, the page follows your system's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake changes only the picture, never what happens in the game.
 
 ### The Web heads-up text
 
 The page is the game: the picture fills the whole window and nothing scrolls. It is always 13 tiles tall and as wide as the window's shape allows, so a phone held upright shows about six tiles across and an ultra-wide monitor shows the whole width of the level with sky at the sides. The picture is scaled to the window's height, in a whole-number multiple when the height is one of 208, 416, 624 and so on, and by a fraction otherwise (the pixels are then slightly uneven). Past about 80 tiles wide the picture stops growing and dark bars fill the rest. Resizing or turning the device resizes the picture after a moment; the game itself is not affected, and the fingerprint is the same at every window size. A hint shows for a few seconds after the page loads. Everything else is in a panel that you show and hide with `H` or the small `?` button in the bottom right corner (not Esc, which leaves fullscreen). In the panel, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. The panel also has a goal line that says what to do, the keys line for the layout in use, and the Keys, Captions, Motion, Restart, Fullscreen and Sound buttons. Restart starts the level again from the first tick; it does not reload the page.
 
+![The Web slice with the panel open over the right-hand side of the window: the goal line, the keys line, six buttons (Keys, Captions, Motion, Restart, Fullscreen, Sound) and the seven lines of heads-up text, TICK 40 and HASH shown first.](images/web-panel.png)
+
+*The Web build (commit b238803), 1280 by 720, tick 40, after pressing `H`. Press `H` again, or the round button in the corner, to hide the panel.*
+
+![A phone-shaped window, 540 by 1140: the view is narrow and tall, about six tiles across and 13 tiles high, with Ben and a stunned chicken on a ledge.](images/web-portrait.png)
+
+*The Web build (commit b238803), headless Chromium with a 540 by 1140 window, tick 300 of the replay. The picture is 13 tiles tall as always and only about six tiles wide, centred on Ben.*
+
 ### Sound on the Web
 
 The chicken clucks at random, between one and a half and six seconds apart, while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. There is no other sound yet, and no music.
 
-A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or click the Sound button under the screen, to turn the sound off and on. The button shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. The sound is centred; it does not yet come from the side the chicken is on.
+A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or click the Sound button in the panel, to turn the sound off and on. The button shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. The sound is centred; it does not yet come from the side the chicken is on.
 
 ## The screen
 
-Both versions draw the same level with the same camera that follows Ben as he moves through it; the DOS version in a fixed 320 by 200 window, the Web version in a window as wide as the browser's. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text under the picture.
+Both versions draw the same level with the same camera that follows Ben as he moves through it; the DOS version in a fixed 320 by 200 window, the Web version in a window as wide as the browser's. The DOS version draws its strip of `AMMO`, `KEY`, `DEATHS` and `TICK` along the top of the picture and prints the final `TICK` and `HASH` when a run ends; the Web version shows them as lines of text in the panel (`H`).
 
 - `TICK` counts game steps. There are 60 a second.
 - `HASH` is a 16-digit fingerprint of everything that has happened so far. Two copies that were given the same moves show the same fingerprint, on any platform.
