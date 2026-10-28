@@ -10,9 +10,8 @@
 #![deny(clippy::float_arithmetic)]
 
 mod frame;
+mod hud;
 mod palette;
-
-use core::fmt::{self, Write};
 
 use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
@@ -21,64 +20,31 @@ pub use fizz_sfx::place::Placement;
 pub use fizz_slice_view::{DrawOptions, Puffs, VIEW_H, VIEW_W, cluck_placement};
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
+pub use hud::{Hud, HudValues};
 pub use palette::*;
 
 pub const WIDTH: usize = 320;
 pub const HEIGHT: usize = 200;
 pub const FRAME_BYTES: usize = WIDTH * HEIGHT;
 
-/// A fixed-capacity text buffer, so the HUD needs no heap and no `format!`.
-struct TextBuf {
-    bytes: [u8; 32],
-    len: usize,
-}
-
-impl TextBuf {
-    const fn new() -> Self {
-        Self {
-            bytes: [0; 32],
-            len: 0,
-        }
-    }
-
-    fn as_str(&self) -> &str {
-        core::str::from_utf8(&self.bytes[..self.len]).unwrap_or("")
-    }
-}
-
-impl Write for TextBuf {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        let end = self.len + s.len();
-        if end > self.bytes.len() {
-            return Err(fmt::Error);
-        }
-        self.bytes[self.len..end].copy_from_slice(s.as_bytes());
-        self.len = end;
-        Ok(())
-    }
-}
-
-/// Height of the black strip that carries the slice's HUD text.
-const SLICE_HUD_H: i32 = 10;
-
 /// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
-/// banner, which would add text below the HUD strip. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
+/// banner, which would add text over the picture. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
 pub const DIGEST_TICKS: [u64; 11] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000];
 
-/// An FNV-1a digest of the picture below the HUD strip, the part that `fizz_slice_view::draw_slice` alone draws. The DOS
-/// bench and the host `frames` example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any
-/// faster routine) is proved to draw the pixels the portable code does.
+/// An FNV-1a digest of the whole frame: the shared picture and the HUD box over it. The DOS bench and the host `frames`
+/// example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any faster routine) is proved to
+/// draw the pixels the portable code does, HUD included.
 pub fn frame_digest(frame: &Frame) -> u64 {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-    for &b in &frame.pixels()[SLICE_HUD_H as usize * WIDTH..] {
+    for &b in frame.pixels() {
         h ^= u64::from(b);
         h = h.wrapping_mul(0x0000_0100_0000_01b3);
     }
     h
 }
 
-/// Draws the slice: the shared picture from `fizz_slice_view`, then the text HUD over a black strip along the top (ammo,
-/// whether Ben carries the key, deaths and the tick), and a banner once Ben has reached the exit. The text is this
+/// Draws the slice: the shared picture from `fizz_slice_view`, then the HUD box in the top-left corner (Fizz, deaths and the
+/// key chip; see [`hud`]; it is rendered again only when one of those changes), and a banner once Ben has reached the exit. The text is this
 /// presenter's own; the picture beneath it is the one the Web draws too. Captions are on and no puffs show; see
 /// [`render_slice_with`].
 pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
@@ -107,29 +73,11 @@ pub fn render_slice_with(
         options,
         puffs,
     );
-    frame.fill_rect(0, 0, WIDTH as i32, SLICE_HUD_H, BLACK);
-    let key = world.flags.contains(fizz_ep2::WorldFlags::KEY_RED);
-    let mut line = TextBuf::new();
-    if write!(line, "AMMO {}", world.ammo).is_ok() {
-        frame.draw_text(4, 1, line.as_str(), WHITE);
-    }
-    let mut line = TextBuf::new();
-    if write!(line, "KEY {}", if key { "RED" } else { "-" }).is_ok() {
-        frame.draw_text(
-            76,
-            1,
-            line.as_str(),
-            if key { LIGHT_RED } else { LIGHT_GREY },
-        );
-    }
-    let mut line = TextBuf::new();
-    if write!(line, "DEATHS {}", world.deaths).is_ok() {
-        frame.draw_text(148, 1, line.as_str(), WHITE);
-    }
-    let mut line = TextBuf::new();
-    if write!(line, "TICK {}", world.tick.0).is_ok() {
-        frame.draw_text(244, 1, line.as_str(), LIGHT_GREY);
-    }
+    frame.draw_hud(HudValues {
+        ammo: world.ammo,
+        key: world.flags.contains(fizz_ep2::WorldFlags::KEY_RED),
+        deaths: world.deaths,
+    });
     if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
         let text = "LEVEL CLEAR";
         let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
@@ -264,33 +212,59 @@ mod tests {
     }
 
     #[test]
-    fn the_slice_hud_shows_ammo_key_deaths_and_tick() {
+    fn the_slice_hud_is_a_box_over_the_whole_picture_with_no_tick() {
         let mut world = fizz_ep2::level::world();
         let mut frame = Frame::new();
         render_slice(&world, &mut frame);
-        let expect = |text: &str, x: i32, colour: u8, frame: &Frame| {
-            let mut e = Frame::new();
-            e.draw_text(x, 1, text, colour);
-            for y in 0..8usize {
-                for px in 0..WIDTH {
-                    if e.pixels()[(y + 1) * WIDTH + px] == colour {
-                        assert_eq!(frame.pixels()[(y + 1) * WIDTH + px], colour, "{text}");
-                    }
+        // Outside the box the picture is the shared one, from the very first row (there is no bar along the top any more).
+        let mut bare = Frame::new();
+        fizz_slice_view::draw_slice(bare.pixels_mut(), WIDTH, HEIGHT, &world, 0);
+        let same_outside = |a: &Frame, b: &Frame| {
+            for y in 0..HEIGHT {
+                for x in 0..WIDTH {
+                    let inside = (hud::X..hud::X + hud::W).contains(&x)
+                        && (hud::Y..hud::Y + hud::H).contains(&y);
+                    assert!(inside || a.pixels()[y * WIDTH + x] == b.pixels()[y * WIDTH + x]);
                 }
             }
         };
-        expect("AMMO 5", 4, WHITE, &frame);
-        expect("KEY -", 76, LIGHT_GREY, &frame);
-        expect("DEATHS 0", 148, WHITE, &frame);
-        expect("TICK 0", 244, LIGHT_GREY, &frame);
+        same_outside(&frame, &bare);
+        // The box shows light cyan Fizz, no red, and the key as an outline; with the key it shows light red and no TICK anywhere.
+        let in_box = |f: &Frame, colour: u8| {
+            (hud::Y..hud::Y + hud::H)
+                .flat_map(|y| (hud::X..hud::X + hud::W).map(move |x| (x, y)))
+                .filter(|&(x, y)| f.pixels()[y * WIDTH + x] == colour)
+                .count()
+        };
+        assert!(in_box(&frame, LIGHT_CYAN) > 0);
+        assert_eq!(in_box(&frame, LIGHT_RED), 0);
         world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
         render_slice(&world, &mut frame);
-        expect("KEY RED", 76, LIGHT_RED, &frame);
-        // Below the strip the picture is the shared one.
-        let mut bare = Frame::new();
-        fizz_slice_view::draw_slice(bare.pixels_mut(), WIDTH, HEIGHT, &world, 0);
-        let below = SLICE_HUD_H as usize * WIDTH..;
-        assert_eq!(frame.pixels()[below.clone()], bare.pixels()[below]);
+        assert!(in_box(&frame, LIGHT_RED) > 0);
+        world.ammo = 0;
+        render_slice(&world, &mut frame);
+        assert_eq!(in_box(&frame, LIGHT_CYAN), 0);
+        // The right-hand end of the old bar, where TICK was, is now picture.
+        same_outside(&frame, &bare);
+    }
+
+    #[test]
+    fn the_hud_is_rendered_only_when_its_values_change() {
+        let mut world = fizz_ep2::level::world();
+        let mut frame = Frame::new();
+        for _ in 0..5 {
+            render_slice(&world, &mut frame);
+        }
+        assert_eq!(frame.hud_renders(), 1);
+        world.tick.0 += 100;
+        render_slice(&world, &mut frame);
+        assert_eq!(frame.hud_renders(), 1, "the tick is not on the HUD");
+        world.deaths += 1;
+        render_slice(&world, &mut frame);
+        assert_eq!(frame.hud_renders(), 2);
+        world.deaths -= 1;
+        render_slice(&world, &mut frame);
+        assert_eq!(frame.hud_renders(), 3);
     }
 
     #[test]
@@ -303,14 +277,5 @@ mod tests {
         render_slice(&world, &mut frame);
         assert_ne!(before, frame.pixels());
         assert!(frame.pixels().contains(&YELLOW));
-    }
-
-    #[test]
-    fn text_buf_rejects_overflow() {
-        let mut t = TextBuf::new();
-        assert!(write!(t, "{:040}", 1).is_err());
-        let mut t = TextBuf::new();
-        assert!(write!(t, "TICK {}", u64::MAX).is_ok());
-        assert_eq!(t.as_str(), "TICK 18446744073709551615");
     }
 }
