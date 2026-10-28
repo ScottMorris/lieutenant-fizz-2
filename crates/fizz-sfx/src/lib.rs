@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn the_plain_opl2_path_is_unchanged() {
         const PINNED: [(u64, usize); 4] = [
-            (0xee4ff76e489e1e4f, 160),
+            (0xbd88348588b69cd4, 178),
             (0x90045cf8eef35856, 74),
             (0xea01205b3ac03f53, 147),
             (0x6e624a38ea72199c, 150),

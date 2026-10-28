@@ -6,7 +6,7 @@
 // Intent per variant (`fizz_ep2::Event::Cluck { variant }`, `CLUCK_VARIANTS = 4`, variants 0..=3). All are short and none sustains:
 //
 //   0  "buh-GAWK": a low, quick "buh" that nudges upward, then a loud "GAWK" whose pitch falls hard, with a breath of noise
-//      at the attack of each part. About 300 ms.
+//      at the attack of each part. About 345 ms.
 //   1  The short single cluck: one quick falling note with a small noise rasp, about 150 ms.
 //   2  The double cluck: two quick falling clucks a little apart, the second a touch higher and longer, about 320 ms.
 //   3  The repeated cluck: variant 1 played twice, "cluck, cluck", with a short gap and the second a little lower and softer, about 330 ms.
@@ -23,11 +23,11 @@ import { breath, curve, repeat, type SfxVoice } from './voice.ts';
 const buhGawk: SfxVoice[] = [
   breath('white', 0, 0.015, 0.06, 1800),
   // "buh": a low square nudging up a major third.
-  ...curve({ fromHz: 190, semitones: 4, seconds: 0.05, wave: 'square', gain: 0.2, lpf: 900 }),
-  breath('white', 0.07, 0.025, 0.1, 3200),
+  ...curve({ fromHz: 190, semitones: 4, seconds: 0.085, wave: 'square', gain: 0.2, lpf: 900 }),
+  breath('white', 0.115, 0.025, 0.1, 3200),
   // "GAWK": a harsh sawtooth falling an octave and a half, with a square one octave under it for body.
-  ...curve({ fromHz: 780, semitones: -18, seconds: 0.18, wave: 'sawtooth', gain: 0.3, lpf: 2800, start: 0.085 }),
-  ...curve({ fromHz: 390, semitones: -18, seconds: 0.18, wave: 'square', gain: 0.12, lpf: 1400, start: 0.085 }),
+  ...curve({ fromHz: 780, semitones: -18, seconds: 0.18, wave: 'sawtooth', gain: 0.3, lpf: 2800, start: 0.13 }),
+  ...curve({ fromHz: 390, semitones: -18, seconds: 0.18, wave: 'square', gain: 0.12, lpf: 1400, start: 0.13 }),
 ];
 
 /** Variant 1, the short single cluck. */
