@@ -562,7 +562,10 @@ mod tests {
         let mut app = App::new();
         let mut reference = fizz_ep2::level::world();
         let mut puffs = Puffs::new();
-        let options = DrawOptions { captions: false, shake: true };
+        let options = DrawOptions {
+            captions: false,
+            shake: true,
+        };
         let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
         let mut puffed = 0;
         app.frame(now_ms);
