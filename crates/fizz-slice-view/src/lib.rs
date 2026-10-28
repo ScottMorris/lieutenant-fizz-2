@@ -59,13 +59,19 @@
 //!   skates. The rules here keep no such counter and drawing may not add one, so the view uses Ben's x in its place: `run2`
 //!   when `floor(|x| * 1.4)` is odd. The two agree in cadence, and differ only in phase after Ben turns round. The sprites face right, so facing left flips them. While Ben is
 //!   invulnerable he blinks.
-//! - **Dead Ben.** Fizz 1 has no dead pose. A dead Ben is drawn with the `jump` pose, arms up, flipped away from his
-//!   facing, and he flickers, so the toss and fall after a death read as a hurt tumble. The world respawns him
-//!   afterwards.
+//! - **Dead Ben.** Fizz 1 draws a dead Ben with the `jump` pose, and its rules toss him up and let him fall (the same
+//!   toss and fall as here), while its renderer turns his sprite: `rot += 8 * dt` every tick he is dead, about the sprite's
+//!   centre, after the flip by his facing. With [`DrawOptions::shake`] on (Full Motion) the view does the same ([`death_spin`],
+//!   `blit_sprite_turned`): the angle is 8 radians a second times the ticks since the death, read from `Ben::dead`, and
+//!   the sprite is turned by inverse mapping, one source pixel for each destination pixel (nearest neighbour, no blur), with
+//!   integers and a baked table of cosines and sines, so Web and DOS draw the same pixels and no float sine runs. He does not
+//!   flicker while he spins. With it off (Reduced Motion) he is drawn as before: the `jump` pose, arms up, flipped away from
+//!   his facing, and flickering. The world respawns him afterwards.
 //!
 //! # The camera
 //!
-//! After Ben dies the view shakes sideways for [`DEATH_SHAKE_TICKS`] ticks if [`DrawOptions::shake`] is on ([`death_shake_x`]).
+//! After Ben dies the view shakes sideways for [`DEATH_SHAKE_TICKS`] ticks if [`DrawOptions::shake`] is on ([`death_shake_x`]),
+//! and Ben's sprite spins as he falls ([`death_spin`]).
 //!
 //! `fizz_view::follow` centres the view on the middle of Ben's body on both axes and clamps it to the map, in whole
 //! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
@@ -140,13 +146,14 @@ pub struct DrawOptions {
     /// Draw the in-world captions that float above a chicken after it clucks. Off hides only the text; the beak still
     /// moves.
     pub captions: bool,
-    /// Shake the view sideways for a moment after Ben dies (Fizz 1's death shake). Off draws the camera still. A view
-    /// effect only: the rules never see it. See [`death_shake_x`].
+    /// The Motion setting: Full (on) shakes the view sideways for a moment after Ben dies and tumbles his sprite as he falls
+    /// (Fizz 1's death shake and spin); Reduced (off) draws the camera still and Ben in a flat, flickering jump pose. A
+    /// view effect only: the rules never see it. See [`death_shake_x`] and [`death_spin`].
     pub shake: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on, shake on.
+    /// Captions on, motion (shake and spin) on.
     fn default() -> Self {
         DrawOptions {
             captions: true,
@@ -180,6 +187,118 @@ pub fn death_shake_x(world: &World) -> i32 {
     } else {
         0
     }
+}
+
+/// How many ticks of spin the table below holds: Ben lies dead for 1.4 s (84 ticks, `fizz_ep2::world::RESPAWN_AFTER`), and
+/// the world respawns him on the tick after, so tick 84 is the last he can be drawn at; one more is kept in hand.
+pub const DEATH_SPIN_TICKS: usize = 85;
+
+/// Bits of fraction in [`DEATH_SPIN`].
+const SPIN_BITS: u32 = 12;
+
+/// `(cos, sin)` of Fizz 1's death angle `rot = 8 * n / 60` radians (it adds `dt * 8.0` to `rot` every tick Ben is dead), for
+/// the `n`th tick since the death, times 4096 and rounded. Baked so that no float sine is run in the view and the Web and DOS
+/// builds, whose float units differ, draw the same pixels; a test checks every entry against `f64` trigonometry.
+const DEATH_SPIN: [(i32, i32); DEATH_SPIN_TICKS + 1] = [
+    (4096, 0),
+    (4060, 545),
+    (3951, 1079),
+    (3773, 1595),
+    (3527, 2082),
+    (3219, 2533),
+    (2854, 2938),
+    (2438, 3292),
+    (1979, 3586),
+    (1484, 3818),
+    (964, 3981),
+    (426, 4074),
+    (-120, 4094),
+    (-663, 4042),
+    (-1194, 3918),
+    (-1705, 3724),
+    (-2185, 3465),
+    (-2626, 3144),
+    (-3020, 2767),
+    (-3361, 2341),
+    (-3643, 1873),
+    (-3859, 1372),
+    (-4007, 847),
+    (-4085, 307),
+    (-4089, -239),
+    (-4021, -781),
+    (-3881, -1308),
+    (-3673, -1813),
+    (-3400, -2285),
+    (-3066, -2716),
+    (-2677, -3100),
+    (-2241, -3428),
+    (-1766, -3696),
+    (-1259, -3898),
+    (-729, -4031),
+    (-187, -4092),
+    (358, -4080),
+    (898, -3996),
+    (1421, -3842),
+    (1919, -3619),
+    (2383, -3331),
+    (2805, -2985),
+    (3177, -2586),
+    (3492, -2140),
+    (3746, -1657),
+    (3933, -1144),
+    (4050, -611),
+    (4095, -68),
+    (4068, 477),
+    (3969, 1014),
+    (3798, 1533),
+    (3561, 2024),
+    (3260, 2479),
+    (2902, 2891),
+    (2492, 3251),
+    (2038, 3553),
+    (1547, 3793),
+    (1029, 3965),
+    (493, 4066),
+    (-52, 4096),
+    (-596, 4052),
+    (-1129, 3937),
+    (-1643, 3752),
+    (-2127, 3500),
+    (-2573, 3187),
+    (-2974, 2816),
+    (-3322, 2396),
+    (-3611, 1933),
+    (-3836, 1436),
+    (-3993, 913),
+    (-4079, 374),
+    (-4092, -172),
+    (-4033, -714),
+    (-3903, -1244),
+    (-3703, -1752),
+    (-3437, -2228),
+    (-3110, -2665),
+    (-2728, -3055),
+    (-2298, -3391),
+    (-1827, -3666),
+    (-1323, -3876),
+    (-796, -4018),
+    (-255, -4088),
+    (291, -4086),
+    (832, -4011),
+    (1357, -3865),
+];
+
+/// Ticks since Ben died, from `Ben::dead` (0.001 at the death, a tick longer each tick), or `None` while he is alive.
+fn ticks_dead(world: &World) -> Option<usize> {
+    let dead = world.ben.dead;
+    // The scaling and flooring recover the whole tick count despite the float sum, as in [`death_shake_x`].
+    (dead > 0.0).then(|| (dead * f64::from(TICKS_PER_SECOND)) as usize)
+}
+
+/// The `(cos, sin)` of the angle Ben's sprite is turned by, times 4096, when he is dead: 8 radians a second since the death,
+/// counter-clockwise on screen as Fizz 1's matrix turns its sprite. `None` while he is alive. Derived from `Ben::dead` alone.
+pub fn death_spin(world: &World) -> Option<(i32, i32)> {
+    ticks_dead(world).map(|n| DEATH_SPIN[n.min(DEATH_SPIN_TICKS)])
 }
 
 /// Ticks per second of the rules; the beak and caption times below are tick counts at this rate.
@@ -427,7 +546,7 @@ pub fn draw_slice_puffs(
         }
     }
 
-    draw_ben(frame, w, h, world, phase, &at);
+    draw_ben(frame, w, h, world, phase, &at, options.shake);
 
     if options.captions {
         for c in &world.chickens {
@@ -664,11 +783,12 @@ fn ben_pose(ben: &fizz_ep2::Ben) -> &'static str {
     }
 }
 
-fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At) {
+fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At, spin: bool) {
     let ben = &world.ben;
     let dead = ben.dead > 0.0;
-    // Invulnerable Ben blinks; dead Ben flickers.
-    if (ben.inv > 0.0 || dead) && phase / 3 % 2 == 1 {
+    let turn = if spin { death_spin(world) } else { None };
+    // Invulnerable Ben blinks; dead Ben flickers, unless he is spinning, which Fizz 1 does without a flicker.
+    if (ben.inv > 0.0 || (dead && turn.is_none())) && phase / 3 % 2 == 1 {
         return;
     }
     let name = ben_pose(ben);
@@ -676,9 +796,71 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
         return;
     };
     let (sx, sy) = at(ben.b.x + ben.b.w * 0.5, ben.b.y);
+    if let Some((cos, sin)) = turn {
+        // Fizz 1 flips by `face` alone, dead or alive, and turns the flipped sprite about its centre.
+        blit_sprite_turned(frame, w, h, s, sx, sy, ben.face < 0.0, cos, sin);
+        return;
+    }
     // The sprites face right; dead Ben is turned away from the way he was facing.
     let flip = if dead { ben.face > 0.0 } else { ben.face < 0.0 };
     blit_sprite(frame, w, h, s, sx, sy, flip);
+}
+
+/// Draws `sprite` as [`blit_sprite`] does, with its anchor at (`x`, `y`), mirrored if `flip_x`, then turned about the middle of
+/// its box by the angle whose cosine and sine (times 4096) are `cos` and `sin`, counter-clockwise on screen. Nearest
+/// neighbour, no blur: each destination pixel's centre is mapped back through the turn to one source pixel, in integers only
+/// (products of the doubled offsets and the table's 12-bit values, so nothing nears overflow); a source pixel outside the
+/// box, or the transparent value, draws nothing. A turn of zero is exactly [`blit_sprite`]. Clipped to the frame; any
+/// position is safe. Cost: a square of `(w + h + 3)` pixels a side (under 2,000 for Ben), a few multiplications each.
+#[allow(clippy::too_many_arguments)]
+fn blit_sprite_turned(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    sprite: &fizz_view::sprites_data::Sprite,
+    x: i32,
+    y: i32,
+    flip_x: bool,
+    cos: i32,
+    sin: i32,
+) {
+    let (sw, sh) = (i32::from(sprite.w), i32::from(sprite.h));
+    if w == 0 || h == 0 || sw == 0 || sh == 0 || sprite.pixels.len() < (sw * sh) as usize {
+        return;
+    }
+    let rows = (frame.len() / w).min(h) as i32;
+    // The sprite's box, where `blit_sprite` would draw it.
+    let left = if flip_x {
+        x + i32::from(sprite.ax) - sw
+    } else {
+        x - i32::from(sprite.ax)
+    };
+    let top = y - i32::from(sprite.ay);
+    // Twice the box's middle, so an odd size still has an exact centre.
+    let (mid_x2, mid_y2) = (2 * left + sw, 2 * top + sh);
+    let reach = (sw + sh) / 2 + 1;
+    let (cx, cy) = (mid_x2.div_euclid(2), mid_y2.div_euclid(2));
+    for py in (cy - reach).max(0)..(cy + reach + 1).min(rows) {
+        let dy = 2 * py + 1 - mid_y2;
+        for px in (cx - reach).max(0)..(cx + reach + 1).min(w as i32) {
+            let dx = 2 * px + 1 - mid_x2;
+            // The turn undone: the offset from the middle in the sprite's own pixels, doubled and times 4096.
+            let u = dx * cos - dy * sin;
+            let v = dx * sin + dy * cos;
+            let mut col = (u + (sw << SPIN_BITS)) >> (SPIN_BITS + 1);
+            let row = (v + (sh << SPIN_BITS)) >> (SPIN_BITS + 1);
+            if flip_x {
+                col = sw - 1 - col;
+            }
+            if col < 0 || col >= sw || row < 0 || row >= sh {
+                continue;
+            }
+            let p = sprite.pixels[(row * sw + col) as usize];
+            if p != fizz_view::TRANSPARENT {
+                frame[py as usize * w + px as usize] = p;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -739,6 +921,61 @@ mod tests {
         }
     }
 
+    /// Death frames, from the death at tick 394 to just before the respawn, in both Motion settings.
+    #[test]
+    fn death_frames_are_pinned_full_and_reduced() {
+        const TICKS: [u64; 10] = [394, 395, 396, 400, 410, 420, 440, 460, 470, 477];
+        let (mut full, mut reduced) = (Vec::new(), Vec::new());
+        play(|w| {
+            if TICKS.contains(&w.tick.0) {
+                let draw = |shake| {
+                    let mut f = vec![0xEEu8; VIEW_W * VIEW_H];
+                    let o = DrawOptions {
+                        captions: true,
+                        shake,
+                    };
+                    draw_slice_with(&mut f, VIEW_W, VIEW_H, w, w.tick.0 as u32, &o);
+                    fnv(&f)
+                };
+                full.push((w.tick.0, draw(true)));
+                reduced.push((w.tick.0, draw(false)));
+            }
+        });
+        // Reduced is the picture as it was drawn before the spin, with the camera still: these are the digests the same
+        // ticks had on the code before the spin (the flat flipped pose, flickering), unchanged by the spin. At 470 and 477 Ben has
+        // fallen out of the frame, so Full is the same picture.
+        assert_eq!(
+            reduced,
+            [
+                (394, 0x615ed281e842383b),
+                (395, 0x6b1c97a850b3863b),
+                (396, 0xca360c2e496e149a),
+                (400, 0xe88d2a8a227b4cfb),
+                (410, 0x38b541c3cbe84d9a),
+                (420, 0x5391f3ed0f80aa52),
+                (440, 0xe2af4a19464bd1e2),
+                (460, 0xef7685d59a2d0683),
+                (470, 0x5c83b57057b257e7),
+                (477, 0x2d540afd5307ec18),
+            ]
+        );
+        assert_eq!(
+            full,
+            [
+                (394, 0x8f2830db9603fa8c),
+                (395, 0x100cd0534a4af1d5),
+                (396, 0x41177d83a63666e9),
+                (400, 0xf77c4e3ff819c632),
+                (410, 0xcb2fa9beb221389a),
+                (420, 0x03e3aaea2f332642),
+                (440, 0xd63f0cce8bb859c2),
+                (460, 0x40e7f965a48d0f7f),
+                (470, 0x5c83b57057b257e7),
+                (477, 0x2d540afd5307ec18),
+            ]
+        );
+    }
+
     #[test]
     fn every_pixel_is_an_ega_colour_for_the_whole_replay() {
         let mut f = vec![0xEE; VIEW_W * VIEW_H];
@@ -757,7 +994,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0xe88d2a8a227b4cfb before the shake; the other ticks are not death frames and kept theirs.
+        // 0xe88d2a8a227b4cfb before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0xf77c4e3ff819c632. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -778,7 +1016,7 @@ mod tests {
                 (0, 0x5b84b8874be44ba4),
                 (150, 0x7abd20c31ae39a54),
                 (270, 0x9bf387153127ec74),
-                (400, 0x2f5e4ba6e0a6569b),
+                (400, 0xf77c4e3ff819c632),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
@@ -793,7 +1031,7 @@ mod tests {
                 (150, 0x7abd20c31ae39a54),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
                 (270, 0x9bf387153127ec74),
-                (400, 0x2f5e4ba6e0a6569b),
+                (400, 0xf77c4e3ff819c632),
                 (602, 0xfea72a408c6a4ab1),
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
@@ -1861,22 +2099,166 @@ mod tests {
     }
 
     #[test]
-    fn shake_off_is_the_still_picture_and_alive_frames_never_differ() {
+    fn motion_off_is_the_still_flat_picture_and_alive_frames_never_differ() {
         let mut w = level::world();
         w.ben.b.x = 14.0;
         w.ben.b.y = 3.0;
         assert!(DrawOptions::default().shake);
         assert_eq!(shaken(&w, true), shaken(&w, false), "alive");
-        for n in 0..30 {
+        // Dead, Full draws the spin as well as the shake, so every death frame differs from Reduced's, even where the
+        // shake is zero (tick 0 alone is the same pose, as the spin has not begun, but the shake is not zero there either).
+        for n in 1..30 {
             let d = dead_for(&w, n);
-            if death_shake_x(&d) == 0 {
-                assert_eq!(shaken(&d, true), shaken(&d, false), "tick {n}");
-            }
+            assert_ne!(shaken(&d, true), shaken(&d, false), "tick {n}");
         }
         // A tick with an offset does move the picture.
         let d = dead_for(&w, 1);
         assert_ne!(death_shake_x(&d), 0);
-        assert_ne!(shaken(&d, true), shaken(&d, false));
+    }
+
+    /// The `(cos, sin)` table is Fizz 1's `rot = 8 * n / 60`, rounded to 12 bits: every entry checked against `f64`.
+    #[test]
+    fn the_spin_table_is_eight_radians_a_second() {
+        let w = level::world();
+        assert_eq!(death_spin(&w), None, "alive Ben does not spin");
+        assert_eq!(DEATH_SPIN.len(), DEATH_SPIN_TICKS + 1);
+        let one = f64::from(1 << SPIN_BITS);
+        for (n, &(c, s)) in DEATH_SPIN.iter().enumerate() {
+            let a = 8.0 * n as f64 / f64::from(TICKS_PER_SECOND);
+            assert!((f64::from(c) - a.cos() * one).abs() <= 0.5, "cos {n}");
+            assert!((f64::from(s) - a.sin() * one).abs() <= 0.5, "sin {n}");
+        }
+        // Through the rules' own bookkeeping: n ticks dead is the nth entry, from the death to the last tick before the respawn.
+        for (n, &want) in DEATH_SPIN.iter().enumerate().take(85) {
+            let d = dead_for(&w, n);
+            assert_eq!(death_spin(&d), Some(want), "tick {n}");
+        }
+        assert_eq!(DEATH_SPIN[0], (4096, 0));
+        // A whole turn takes 2 pi / 8 = 0.785 s, about 47 ticks: the table is back near its start there.
+        let (c, s) = DEATH_SPIN[47];
+        assert!(c > 4000 && s.abs() < 300, "{c} {s}");
+        // Past the table (not reachable in play) the last entry holds.
+        let mut far = w.clone();
+        far.ben.dead = 3.0;
+        assert_eq!(death_spin(&far), Some(DEATH_SPIN[DEATH_SPIN_TICKS]));
+    }
+
+    fn jump() -> &'static fizz_view::sprites_data::Sprite {
+        sprite("ben_jump").unwrap()
+    }
+
+    #[test]
+    fn a_turn_of_zero_is_the_plain_blit_and_a_quarter_turn_is_exact() {
+        let s = jump();
+        for flip in [false, true] {
+            let (mut a, mut b) = (vec![0xEEu8; 40 * 40], vec![0xEEu8; 40 * 40]);
+            blit_sprite(&mut a, 40, 40, s, 20, 30, flip);
+            blit_sprite_turned(&mut b, 40, 40, s, 20, 30, flip, 4096, 0);
+            assert_eq!(a, b, "flip {flip}");
+        }
+        // A quarter turn counter-clockwise turns the 16 by 24 box into a 24 by 16 one about the same middle: the top of the
+        // picture becomes the left and the left edge the bottom. Box top left (12, 6), middle (20, 18), turned box x 8..32, y 10..26.
+        let mut q = vec![0xEEu8; 40 * 40];
+        blit_sprite_turned(&mut q, 40, 40, s, 20, 30, false, 0, 4096);
+        let sw = 16usize;
+        let mut ink = 0;
+        for y in 0..40usize {
+            for x in 0..40usize {
+                let want = if (8..32).contains(&x) && (10..26).contains(&y) {
+                    // Turned row r, column c comes from source row c and column sw - 1 - r.
+                    let (r, c) = (y - 10, x - 8);
+                    match s.pixels[c * sw + (sw - 1 - r)] {
+                        fizz_view::TRANSPARENT => 0xEE,
+                        p => p,
+                    }
+                } else {
+                    0xEE
+                };
+                ink += usize::from(want != 0xEE);
+                assert_eq!(q[y * 40 + x], want, "({x}, {y})");
+            }
+        }
+        assert!(ink > 50, "Ben is drawn: {ink}");
+    }
+
+    #[test]
+    fn a_turned_sprite_has_no_new_colours_and_stays_inside_the_frame() {
+        let s = jump();
+        let mut own: Vec<u8> = s
+            .pixels
+            .iter()
+            .copied()
+            .filter(|&p| p != fizz_view::TRANSPARENT)
+            .collect();
+        own.sort_unstable();
+        own.dedup();
+        // Ben at every third turn and at and past the edges of a 40 by 30 frame, which is the front of a larger buffer.
+        let (fw, fh) = (40usize, 30usize);
+        for &(cos, sin) in DEATH_SPIN.iter().step_by(3) {
+            for (x, y) in [
+                (20, 20),
+                (0, 0),
+                (-30, 15),
+                (70, 15),
+                (20, -40),
+                (20, 70),
+                (39, 29),
+                (3, 27),
+            ] {
+                for flip in [false, true] {
+                    let mut buf = vec![0xEEu8; 60 * 60];
+                    blit_sprite_turned(&mut buf[..fw * fh], fw, fh, s, x, y, flip, cos, sin);
+                    assert!(buf[fw * fh..].iter().all(|&p| p == 0xEE), "outside");
+                    assert!(
+                        buf.iter().all(|&p| p == 0xEE || own.contains(&p)),
+                        "{cos} {sin} {x} {y}"
+                    );
+                }
+            }
+        }
+        // It really is drawn when on screen, with about as many pixels as the sprite has.
+        let mut frame = vec![0xEEu8; 40 * 40];
+        let (c, sn) = DEATH_SPIN[20];
+        blit_sprite_turned(&mut frame, 40, 40, s, 20, 30, false, c, sn);
+        let ink = frame.iter().filter(|&&p| p != 0xEE).count();
+        let src = s
+            .pixels
+            .iter()
+            .filter(|&&p| p != fizz_view::TRANSPARENT)
+            .count();
+        assert!(ink.abs_diff(src) * 4 < src, "{ink} against {src}");
+    }
+
+    #[test]
+    fn full_motion_spins_ben_and_reduced_keeps_the_flat_flickering_pose() {
+        let mut w = level::world();
+        w.ben.b.x = 14.0;
+        w.ben.b.y = 3.0;
+        // Tick 30 is past the shake. Reduced is the flat, flipped pose and flickers; Full is turned and does not.
+        let d = dead_for(&w, 30);
+        let draw = |o: &DrawOptions, tick| {
+            let mut f = vec![0xEEu8; VIEW_W * VIEW_H];
+            draw_slice_with(&mut f, VIEW_W, VIEW_H, &d, tick, o);
+            f
+        };
+        let reduced = DrawOptions {
+            captions: true,
+            shake: false,
+        };
+        let full = DrawOptions::default();
+        assert_ne!(draw(&reduced, 0), draw(&reduced, 3), "reduced flickers");
+        assert_ne!(draw(&full, 0), draw(&reduced, 0), "full is turned");
+        assert_eq!(draw(&full, 0), draw(&full, 3), "the spin does not flicker");
+        // Ben moving a tile moves the turned picture: it is placed from the camera like any sprite.
+        let mut e = d.clone();
+        e.ben.b.x += 1.0;
+        let mut g = vec![0xEEu8; VIEW_W * VIEW_H];
+        draw_slice_with(&mut g, VIEW_W, VIEW_H, &e, 0, &full);
+        assert_ne!(draw(&full, 0), g);
+        // An invulnerable, living Ben still blinks and does not turn.
+        let mut alive = w.clone();
+        alive.ben.inv = 1.0;
+        assert_ne!(picture(&alive, 0), picture(&alive, 3));
     }
 
     #[test]
