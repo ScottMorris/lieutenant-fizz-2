@@ -33,7 +33,11 @@ fn main() {
                     h: n(7),
                 };
                 let p = place(n(2), n(3), view);
-                eprintln!("{p:?} attenuation {} {}", p.left_attenuation(), p.right_attenuation());
+                eprintln!(
+                    "{p:?} attenuation {} {}",
+                    p.left_attenuation(),
+                    p.right_attenuation()
+                );
                 (p.left_attenuation(), p.right_attenuation())
             };
             let mut p = OplPair::same(variant, l, r);

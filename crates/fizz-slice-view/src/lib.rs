@@ -2339,6 +2339,9 @@ mod tests {
         let wide = cluck_placement(&w, 0, VIEW_W * 2, VIEW_H, &o);
         assert!(wide.pan.abs() < narrow.pan.abs());
         // No such chicken: the centre.
-        assert_eq!(cluck_placement(&w, 200, VIEW_W, VIEW_H, &o), fizz_sfx::place::Placement::CENTRE);
+        assert_eq!(
+            cluck_placement(&w, 200, VIEW_W, VIEW_H, &o),
+            fizz_sfx::place::Placement::CENTRE
+        );
     }
 }

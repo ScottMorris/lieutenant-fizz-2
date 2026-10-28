@@ -9,7 +9,16 @@
 import { describe, expect, test } from 'bun:test';
 import { CLUCK } from '../assets/sfx/cluck.ts';
 import { noteHz, isNoise } from '../assets/sfx/voice.ts';
-import { MAX_SIMULTANEOUS, MUTE_KEY, Sfx, cluckVoices, type ContextLike, type StorageLike } from './sfx.ts';
+import {
+  AUDIO_KEY,
+  MAX_SIMULTANEOUS,
+  MUTE_KEY,
+  Sfx,
+  cluckVoices,
+  parseAudioMode,
+  type ContextLike,
+  type StorageLike,
+} from './sfx.ts';
 
 interface Param {
   value: number;
@@ -128,9 +137,14 @@ class Memory implements StorageLike {
   }
 }
 
-function setup(opts: { hidden?: () => boolean; storage?: StorageLike | null } = {}) {
+function setup(opts: { hidden?: () => boolean; storage?: StorageLike | null; search?: string } = {}) {
   const ctx = new FakeContext();
-  const sfx = new Sfx({ createContext: () => ctx, isHidden: opts.hidden ?? (() => false), storage: opts.storage ?? new Memory() });
+  const sfx = new Sfx({
+    createContext: () => ctx,
+    isHidden: opts.hidden ?? (() => false),
+    storage: opts.storage ?? new Memory(),
+    search: opts.search ?? '',
+  });
   return { ctx, sfx };
 }
 
@@ -286,5 +300,109 @@ describe('when a cluck is heard', () => {
     });
     sfx.unlock();
     expect(sfx.playCluck(0)).toBe(false);
+  });
+});
+
+/** The loudest value any gain node of the context is given, over its sets and ramps: the voice peak the cluck scheduled. */
+const peakGain = (ctx: FakeContext) =>
+  Math.max(...ctx.of('gain').flatMap((n) => [...n.gain!.sets.map((x) => x[0]), ...n.gain!.ramps.map((x) => x[0])]));
+
+describe('placed clucks (Enhanced) and Classic', () => {
+  test('Enhanced is the default and applies an equal-power panner and the gain to every voice', async () => {
+    const { ctx, sfx } = setup();
+    expect(sfx.mode).toBe('enhanced');
+    sfx.unlock();
+    await settle();
+    sfx.playCluck(1);
+    const centred = peakGain(ctx);
+    expect(ctx.of('pan').length).toBe(0);
+
+    const placed = setup();
+    placed.sfx.unlock();
+    await settle();
+    expect(placed.sfx.playCluck(1, 0.6, 0.5)).toBe(true);
+    const panners = placed.ctx.of('pan');
+    expect(panners.length).toBe(CLUCK[1].length);
+    for (const p of panners) expect(p.pan!.sets[0][0]).toBeCloseTo(0.6, 6);
+    expect(peakGain(placed.ctx)).toBeCloseTo(centred * 0.5, 6);
+  });
+
+  test('a left source pans left and a right one right, and the pan and gain are clamped', async () => {
+    for (const [pan, want] of [[-0.6, -0.6], [0.6, 0.6], [-5, -1], [5, 1]] as const) {
+      const { ctx, sfx } = setup();
+      sfx.unlock();
+      await settle();
+      sfx.playCluck(0, pan, 7);
+      expect(ctx.of('pan')[0].pan!.sets[0][0]).toBeCloseTo(want, 6);
+    }
+    const base = setup();
+    base.sfx.unlock();
+    await settle();
+    base.sfx.playCluck(0);
+    const over = setup();
+    over.sfx.unlock();
+    await settle();
+    over.sfx.playCluck(0, 0, 7);
+    expect(peakGain(over.ctx)).toBeCloseTo(peakGain(base.ctx), 6);
+    // Not a number: played centred at full level, never thrown.
+    const bad = setup();
+    bad.sfx.unlock();
+    await settle();
+    expect(bad.sfx.playCluck(0, Number.NaN, Number.NaN)).toBe(true);
+    expect(bad.ctx.of('pan').length).toBe(0);
+  });
+
+  test('Classic plays everything centred at full level whatever the position', async () => {
+    const base = setup();
+    base.sfx.unlock();
+    await settle();
+    base.sfx.playCluck(2);
+
+    const { ctx, sfx } = setup();
+    sfx.setMode('classic');
+    expect(sfx.mode).toBe('classic');
+    sfx.unlock();
+    await settle();
+    expect(sfx.playCluck(2, -0.6, 0.4)).toBe(true);
+    expect(ctx.of('pan').length).toBe(0);
+    expect(peakGain(ctx)).toBeCloseTo(peakGain(base.ctx), 6);
+  });
+
+  test('the mode is remembered, defaults to Enhanced and tolerates junk and blocked storage', () => {
+    const mem = new Memory();
+    const first = setup({ storage: mem }).sfx;
+    expect(first.mode).toBe('enhanced');
+    first.setMode('classic');
+    expect(mem.getItem(AUDIO_KEY)).toBe('classic');
+    expect(setup({ storage: mem }).sfx.mode).toBe('classic');
+    first.setMode('enhanced');
+    expect(setup({ storage: mem }).sfx.mode).toBe('enhanced');
+    mem.setItem(AUDIO_KEY, 'loud');
+    expect(setup({ storage: mem }).sfx.mode).toBe('enhanced');
+    expect(parseAudioMode(null)).toBe('enhanced');
+    expect(parseAudioMode('classic')).toBe('classic');
+    const blocked: StorageLike = {
+      getItem() {
+        throw new Error('blocked');
+      },
+      setItem() {
+        throw new Error('blocked');
+      },
+    };
+    const sfx = setup({ storage: blocked }).sfx;
+    expect(sfx.mode).toBe('enhanced');
+    expect(sfx.setMode('classic')).toBe('classic');
+    expect(sfx.mode).toBe('classic');
+    expect(setup({ storage: null }).sfx.mode).toBe('enhanced');
+  });
+
+  test('?audio=classic chooses Classic for the visit over the remembered choice, and ?audio=enhanced the reverse', () => {
+    const mem = new Memory();
+    mem.setItem(AUDIO_KEY, 'enhanced');
+    expect(setup({ storage: mem, search: '?audio=classic' }).sfx.mode).toBe('classic');
+    expect(mem.getItem(AUDIO_KEY)).toBe('enhanced');
+    mem.setItem(AUDIO_KEY, 'classic');
+    expect(setup({ storage: mem, search: '?x=1&audio=enhanced' }).sfx.mode).toBe('enhanced');
+    expect(setup({ storage: mem, search: '?audio=junk' }).sfx.mode).toBe('classic');
   });
 });
