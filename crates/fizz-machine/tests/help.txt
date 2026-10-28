@@ -8,11 +8,13 @@ Modes (the first one given is used; /LIVE is the default)
   /CHECKCELLS   Draw the check screen and print its cells; no key
   /PROBE        Print what the machine has: video, sound, processor
   /?            Show this help (also /HELP and -?); nothing else runs
-Keys
+Options (for this run; where one has an opposite, the last one given wins)
   /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
-Captions (on by default; the last one given wins)
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
+  /FPS30        Draw 30 frames a second (the game itself still runs at 60)
+  /FPS60        Draw 60 frames a second
+  /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF

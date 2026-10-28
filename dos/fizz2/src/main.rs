@@ -16,6 +16,7 @@
 //                       key, so no script or test runs it
 //   FIZZ2.EXE /CHECKCELLS draws the same screen, reads the 4,000 bytes back from video memory and prints them as hex (no key needed)
 //   FIZZ2.EXE /MUSIC:x /FX:x /ADLIB /SB /SPEAKER /NOSOUND  choose the sound for this run over FIZZ2.CFG (sound.rs) and print a `SOUND` line
+//   FIZZ2.EXE /FPS30 /FPS60 /FPSAUTO  choose how often /LIVE and /REPLAY draw (frames.rs); the game always steps at 60 Hz
 //   FIZZ2.EXE /?        prints the help (also /HELP and -?) and exits 0; an unknown switch prints one line and exits 2
 //   (every switch is listed once, in fizz_machine::switches, which also writes the help)
 //   FIZZ2.EXE /CFGTEST  a test mode: saves FIZZ2.CFG from the sound flags, reads it back and prints the result
@@ -42,6 +43,7 @@ extern crate alloc;
 
 mod bench;
 mod check;
+mod frames;
 mod hal;
 mod machine;
 mod sound;
@@ -54,7 +56,7 @@ use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_present_dos::{
-    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, ega_palette, key_to_buttons, present,
+    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, key_to_buttons, present,
     render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
@@ -198,7 +200,7 @@ fn print_audio() {
 
 fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_mode(0x13)?;
-    display.set_palette(0, &ega_palette())
+    display.set_palette(0, &dos_palette())
 }
 
 fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &Puffs) {
@@ -307,6 +309,7 @@ fn replay(options: &DrawOptions) -> i32 {
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
+    let mut drawing = frames::Drawing::new();
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
@@ -316,7 +319,7 @@ fn replay(options: &DrawOptions) -> i32 {
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
 
     let _ = fizz_ep2::replay::write_start(&mut out, &world);
-    draw_slice_frame(&mut display, &mut frame, &world, options, &puffs);
+    drawing.first(|| draw_slice_frame(&mut display, &mut frame, &world, options, &puffs));
 
     while world.tick.0 < SLICE_TICKS {
         let due = pacer.due(&clock);
@@ -337,7 +340,9 @@ fn replay(options: &DrawOptions) -> i32 {
             puffs.observe(&world);
         }
         if due > 0 {
-            draw_slice_frame(&mut display, &mut frame, &world, options, &puffs);
+            drawing.maybe(world.tick.0, || {
+                draw_slice_frame(&mut display, &mut frame, &world, options, &puffs)
+            });
         }
     }
     let _ = fizz_ep2::replay::write_final(&mut out, &world);
@@ -358,6 +363,7 @@ fn replay(options: &DrawOptions) -> i32 {
     println!("FPU CW {:04X}", cw);
     println!("BIOS TICKS {}", bios_end.wrapping_sub(session.bios_start));
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
+    drawing.print(world.tick.0);
     0
 }
 
@@ -432,6 +438,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
+    let mut drawing = frames::Drawing::new();
     let mut input = DosInput::new();
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
@@ -439,7 +446,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     let mut puffs = Puffs::new();
     let mut quit = false;
 
-    draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);
+    drawing.first(|| draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs));
     while !quit && world.tick.0 < LIVE_TICK_CAP {
         let due = pacer.due(&clock);
         for _ in 0..due {
@@ -458,7 +465,9 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
             play_events(&world, options);
         }
         if due > 0 {
-            draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs);
+            drawing.maybe(world.tick.0, || {
+                draw_slice_frame_synced(&mut display, &mut frame, &world, options, &puffs)
+            });
         }
     }
 
@@ -472,6 +481,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     print_music();
     println!("MOVED {}", if moved { "yes" } else { "no" });
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
+    drawing.print(world.tick.0);
     0
 }
 

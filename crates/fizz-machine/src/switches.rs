@@ -8,7 +8,7 @@
 // A switch is added by adding one line to `SWITCHES` (and, if it does something new, a `Kind` and the code that acts on it). The
 // help text is written from the same lines, so a switch cannot be recognised without a help line or the reverse: the tests here
 // check both ways, and `tests/help.txt` holds the exact text. Matching is case-insensitive, as DOS reads a command line.
-use crate::settings::{Settings, apply_flags};
+use crate::settings::{FrameRate, Settings, apply_flags};
 use core::fmt;
 
 /// What a mode switch asks the program to do. The first one on the command line is used; `Live` is the default.
@@ -38,6 +38,8 @@ pub enum Kind {
     Captions(bool),
     /// `/BENCH` also runs the 560 Hz audio service and the music (a developer switch).
     BenchAudio,
+    /// The frame rate for this run, over `FIZZ2.CFG`'s; the last one given wins.
+    FrameRate(FrameRate),
     /// A sound choice, applied by `settings::apply_flags` (which also checks the value).
     Sound,
 }
@@ -57,8 +59,8 @@ pub enum Arg {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
     Modes,
-    Keys,
-    Captions,
+    /// Keys, captions and frame rate: the choices that are not about sound.
+    Options,
     Sound,
     /// For tests and developers; never listed.
     Developer,
@@ -69,8 +71,9 @@ impl Group {
     pub const fn title(self) -> Option<&'static str> {
         match self {
             Group::Modes => Some("Modes (the first one given is used; /LIVE is the default)"),
-            Group::Keys => Some("Keys"),
-            Group::Captions => Some("Captions (on by default; the last one given wins)"),
+            Group::Options => {
+                Some("Options (for this run; where one has an opposite, the last one given wins)")
+            }
             Group::Sound => Some("Sound (for this run only; FIZZ2.CFG keeps your saved choice)"),
             Group::Developer => None,
         }
@@ -162,23 +165,44 @@ pub const SWITCHES: &[Switch] = &[
     sw(
         "/MODERN",
         Arg::None,
-        Group::Keys,
+        Group::Options,
         Kind::Modern,
         "Use the Modern keys (W A S D, Z X C) instead of Keen's",
     ),
     sw(
         "/CAPTIONS",
         Arg::None,
-        Group::Captions,
+        Group::Options,
         Kind::Captions(true),
         "Show the chicken's captions",
     ),
     sw(
         "/NOCAPTIONS",
         Arg::None,
-        Group::Captions,
+        Group::Options,
         Kind::Captions(false),
         "Hide the captions",
+    ),
+    sw(
+        "/FPS30",
+        Arg::None,
+        Group::Options,
+        Kind::FrameRate(FrameRate::Hz30),
+        "Draw 30 frames a second (the game itself still runs at 60)",
+    ),
+    sw(
+        "/FPS60",
+        Arg::None,
+        Group::Options,
+        Kind::FrameRate(FrameRate::Hz60),
+        "Draw 60 frames a second",
+    ),
+    sw(
+        "/FPSAUTO",
+        Arg::None,
+        Group::Options,
+        Kind::FrameRate(FrameRate::Auto),
+        "Draw 60 or 30 a second, whichever the machine keeps up with",
     ),
     sw(
         "/MUSIC",
@@ -292,6 +316,8 @@ pub struct Invocation {
     pub mode: Mode,
     pub modern: bool,
     pub captions: bool,
+    /// The frame rate a flag chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
+    pub frame_rate: Option<FrameRate>,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
     /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
@@ -322,6 +348,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         mode: Mode::Live,
         modern: false,
         captions: true,
+        frame_rate: None,
         bench_ticks: None,
         bench_audio: false,
     };
@@ -344,6 +371,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
             Kind::BenchAudio => run.bench_audio = true,
             Kind::Modern => run.modern = true,
             Kind::Captions(on) => run.captions = on,
+            Kind::FrameRate(r) => run.frame_rate = Some(r),
             Kind::Sound => {
                 if apply_flags(&mut Settings::default(), [arg]).applied != 1 {
                     return Parsed::Unknown(arg);
@@ -511,6 +539,7 @@ mod tests {
             mode: Mode::Live,
             modern: false,
             captions: true,
+            frame_rate: None,
             bench_ticks: None,
             bench_audio: false,
         };
@@ -528,6 +557,31 @@ mod tests {
             })
         );
         assert_eq!(run(&["/NOCAPTIONS", "/CAPTIONS"]), Parsed::Run(live));
+        // The frame-rate flags combine with any mode and the last one wins.
+        assert_eq!(
+            run(&["/FPS30", "/REPLAY"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Replay,
+                frame_rate: Some(FrameRate::Hz30),
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/fps30", "/FPS60", "/modern"]),
+            Parsed::Run(Invocation {
+                modern: true,
+                frame_rate: Some(FrameRate::Hz60),
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/FPS60", "/FPSAUTO"]),
+            Parsed::Run(Invocation {
+                frame_rate: Some(FrameRate::Auto),
+                ..live
+            })
+        );
+        assert_eq!(run(&["/FPS30:1"]), Parsed::Unknown("/FPS30:1"));
         assert_eq!(
             run(&["/REPLAY", "/LIVE"]),
             Parsed::Run(Invocation {

@@ -100,7 +100,7 @@ The chip is global. `Resolved::opl` is `Opl3` exactly when an OPL3 is present an
 | 4 | version, 2 |
 | 5 | music: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster |
 | 6 | effects: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker |
-| 7 | frame rate: 0 Auto, 1 30 Hz, 2 60 Hz (nothing reads it yet) |
+| 7 | frame rate: 0 Auto, 1 30 Hz, 2 60 Hz (read by `/LIVE` and `/REPLAY`, see below) |
 | 8 | detail level, reserved: written as 0 and ignored on reading |
 
 Version 1, which an earlier build wrote, is 8 bytes: `FZ2C`, version 1, music, effects, one reserved byte. It is still read, as music and effects with the frame rate Auto, and saving writes version 2. The length must match the version (8 for 1, 9 for 2).
@@ -117,6 +117,7 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 | `/SB` | music Sound Blaster, effects Sound Blaster |
 | `/SPEAKER` | music off, effects speaker |
 | `/NOSOUND` | music off, effects off |
+| `/FPS30`, `/FPS60`, `/FPSAUTO` | the frame rate (byte 7): 30 Hz, 60 Hz, or Auto; they win over the file, the last one wins, and they combine with the sound flags and any mode |
 
 `apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself. The program's switches, these among them, are listed once in `fizz_machine::switches`, which also writes the `/?` help and sends an unrecognised switch or a bad value such as `/MUSIC:FOO` to an error line and exit status 2 (see [PLATFORM.md](PLATFORM.md)).
 
@@ -127,6 +128,8 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 `/LIVE` and `/REPLAY` also print the `AUDIO WRITES <n> SPEAKER STEPS <m>` line (effects and the start and stop key-offs only) and, next to it, `MUSIC SONG crater ARR <opl2|opl3|off> TICKS <t> WRITES <w> LOOPS <k> HASH <fnv>`: the arrangement the plan named and what the music wrote, counted by the service (`TICKS` is the music player's own 560 Hz count, not wall time; `HASH` is the 32-bit FNV-1a of each write's tick, bank, register and value as the stream authored it, 8 lower-case hexadecimal digits). `MUSIC DETAIL ORDER <ok|bad|none> MAX_PER_TICK <n>` says whether the OPL3 enable preceded the first music write and the most writes the music put on one tick. `tools/check-dos.sh` requires `ARR` to match the `SOUND` line, zero everywhere for `off`, and for a chip the host's `fizz_music::writes_for` result for the same `TICKS` (the `mline` example prints the line). `/MUSICTEST` (a hidden developer switch) prints the `SOUND`, `MUSIC` and `MUSIC DETAIL` lines after stepping the prelude, two full loops and one tick through the real port writes with no timer, and the check compares it with the host for the OPL2 and OPL3 arrangements.
 
 The `SOUND` line is `SOUND MUSIC <x> FX <y>` and then, each after a space, the reasons the result is not what was asked for, in this order: a file problem (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects`, `cfg-framerate`), the music reason, the effects reason. `<x>` is `off`, `opl2` or `opl3`; `<y>` is `off`, `ch5`, `ch14` (the OPL3 pair: the word keeps the name of its second channel, which is the one that makes channel 5 stereo) or `speaker`. `fizz_machine::write_sound` writes it.
+
+`sound::frame_rate(flag)` reads the frame-rate byte with the same `load_file` and returns the flag if one was given, else the file's byte, else Auto; `frames::Drawing` builds the `FrameGovernor` from it (see [PLATFORM.md](PLATFORM.md#the-dos-runtime)). A flag never reaches `save`, so `FIZZ2.CFG` is never written by `/FPS30` and the others. `tools/check-dos.sh` plants version 2 files with the byte at 0, 1, 2 and 5 (a bad value is Auto, with `cfg-framerate` in the `SOUND` line), runs `/LIVE` with and without a flag over each and checks the `FRAMES` line's rate and mode, the half-as-many frames at 30 Hz and that the file is byte for byte as planted.
 
 `sound::save` writes the file (create or truncate, one write). Nothing in the program calls it yet except `/CFGTEST`, a test mode and not a player's switch: it saves the settings the flags give, with the frame rate 60 Hz, reads the file back and prints `CFG SAVED`, `CFG BYTES <18 hexadecimal digits>` (what was read back, re-encoded), `CFG ROUNDTRIP yes|no` and the platform lines. It overwrites `FIZZ2.CFG` in the current directory, so `tools/check-dos.sh` runs it in a scratch copy of `dist/dos`. That script also runs `/PROBE` under sb16, sb1 and no card with each flag, with a version 2 file, a version 1 file and each kind of damaged file, checks the exact `SOUND` line, checks that a run with flags leaves the file byte for byte as it was (or absent), and runs `/REPLAY` under eight combinations of file and flags, each of which must print the golden `TICK`, `FINAL` and `EVENT` lines.
 
