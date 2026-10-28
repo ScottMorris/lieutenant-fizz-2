@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-27T17:45:31-04:00",
+ "capturedAt": "2026-10-28T00:26:33-04:00",
  "data": {
   "prs": [
    {
@@ -1847,7 +1847,7 @@
     "createdAt": "2026-10-27T21:25:30Z",
     "deletions": 16,
     "headRefName": "feat/sfx-web",
-    "headRefOid": "5ac63f6076a97c291cb1c64a42135a44ab0ce3f5",
+    "headRefOid": "ba2467ba9ef591c00ee089d7340782880759c38d",
     "isDraft": false,
     "labels": [
      {
@@ -1869,10 +1869,12 @@
       "name": "sound"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "2c48ce77b4b114c5aea5a0179a88ce2d37499d28"
+    },
+    "mergedAt": "2026-10-27T21:54:04Z",
     "number": 45,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Play the chicken's cluck on the Web with Undertone",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/45"
    },
@@ -1935,9 +1937,9 @@
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/46"
    },
    {
-    "additions": 6344,
+    "additions": 6345,
     "baseRefName": "main",
-    "changedFiles": 36,
+    "changedFiles": 37,
     "checks": [
      {
       "conclusion": "SUCCESS",
@@ -1953,9 +1955,9 @@
      }
     ],
     "createdAt": "2026-10-27T21:40:53Z",
-    "deletions": 4879,
+    "deletions": 4880,
     "headRefName": "feat/look-and-aim",
-    "headRefOid": "697e34a84ecb32221c59b9103880b3f6edf8be32",
+    "headRefOid": "d1f6b3d24a3d4b44924d8044730c9bb5e41935b7",
     "isDraft": false,
     "labels": [
      {
@@ -1989,17 +1991,19 @@
       "name": "parity"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "706f4971c319c5b3499af82e4b52c0b97be117b6"
+    },
+    "mergedAt": "2026-10-27T22:09:50Z",
     "number": 47,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Add look up, look down and aim up and down, proven against Fizz 1",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/47"
    },
    {
-    "additions": 874,
+    "additions": 899,
     "baseRefName": "main",
-    "changedFiles": 28,
+    "changedFiles": 29,
     "checks": [
      {
       "conclusion": "SUCCESS",
@@ -2008,16 +2012,16 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
     "createdAt": "2026-10-27T21:44:50Z",
-    "deletions": 69,
+    "deletions": 93,
     "headRefName": "feat/chicken-cluck-visuals",
-    "headRefOid": "161161455262f0babfd8ba747181d15eb739c0d9",
+    "headRefOid": "812f98cdf997e3eceb70d8dcdf2a4cc69b77ca65",
     "isDraft": false,
     "labels": [
      {
@@ -2051,22 +2055,1518 @@
       "name": "graphics"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "f0bef2d723ac9598b565a30d891a2e265db65a53"
+    },
+    "mergedAt": "2026-10-27T22:01:04Z",
     "number": 48,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Open the chicken's beak and float a caption when it clucks",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/48"
+   },
+   {
+    "additions": 1472,
+    "baseRefName": "main",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T21:46:21Z",
+    "deletions": 28,
+    "headRefName": "docs/roadmap-m1-5",
+    "headRefOid": "ee515cef07caf1da54f5308af0a78850cb05b87e",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a66f3a217e4fc386d9215e0502fed80d54bde4db"
+    },
+    "mergedAt": "2026-10-27T21:54:12Z",
+    "number": 49,
+    "state": "MERGED",
+    "title": "Add Milestone 1.5 to the roadmap",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/49"
+   },
+   {
+    "additions": 897,
+    "baseRefName": "main",
+    "changedFiles": 21,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-27T22:06:27Z",
+    "deletions": 56,
+    "headRefName": "feat/dos-probes",
+    "headRefOid": "8e3e4345bc80d0dff56d0cb2789aaab2071cbf51",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "fbca04",
+      "description": "Tests, checks and test tooling updates",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXs5g",
+      "name": "testing"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "e52454deb40822f837c4da1f0187cd028752f588"
+    },
+    "mergedAt": "2026-10-27T22:15:54Z",
+    "number": 50,
+    "state": "MERGED",
+    "title": "Add the DOS machine probes and a non-interactive /PROBE mode",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/50"
+   },
+   {
+    "additions": 64,
+    "baseRefName": "main",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:10:16Z",
+    "deletions": 24,
+    "headRefName": "docs/m1-reference",
+    "headRefOid": "866711b9518eff6e30299a7d4f186d82b09f3d7c",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "d1e9111f8fc78df626648d792afb41828654b9d7"
+    },
+    "mergedAt": "2026-10-28T00:28:37Z",
+    "number": 51,
+    "state": "MERGED",
+    "title": "Bring the reference docs up to the first slice",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/51"
+   },
+   {
+    "additions": 638,
+    "baseRefName": "main",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:12:00Z",
+    "deletions": 8,
+    "headRefName": "feat/dos-check",
+    "headRefOid": "89ce071b1c45650631b6f788a4d16e3c85058452",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "fbca04",
+      "description": "Tests, checks and test tooling updates",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXs5g",
+      "name": "testing"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a35d08ee3eb79945a1dfc5a82820f2df7be24378"
+    },
+    "mergedAt": "2026-10-28T01:00:35Z",
+    "number": 52,
+    "state": "MERGED",
+    "title": "Add the opt-in /CHECK screen and /CHECKCELLS",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/52"
+   },
+   {
+    "additions": 26,
+    "baseRefName": "main",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:12:50Z",
+    "deletions": 9,
+    "headRefName": "docs/manual-slice",
+    "headRefOid": "b0e5e6b123ecf6ecc58600fa2bf167708bf756d9",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "35e2700edf5751c11e63608064ed0a3300b46bd9"
+    },
+    "mergedAt": "2026-10-28T01:07:52Z",
+    "number": 53,
+    "state": "MERGED",
+    "title": "Refresh the manual for the first slice",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/53"
+   },
+   {
+    "additions": 327,
+    "baseRefName": "main",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:16:19Z",
+    "deletions": 51,
+    "headRefName": "feat/web-caption-overlay",
+    "headRefOid": "3225b4a607e0018bcc712accadb624553ac7204e",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a005cbe1960e85b7e1429245c90c6526ef1a1c43"
+    },
+    "mergedAt": "2026-10-28T00:39:57Z",
+    "number": 54,
+    "state": "MERGED",
+    "title": "Show the Web cluck captions as text over the canvas",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/54"
+   },
+   {
+    "additions": 606,
+    "baseRefName": "main",
+    "changedFiles": 12,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:26:46Z",
+    "deletions": 115,
+    "headRefName": "feat/sound-settings",
+    "headRefOid": "0c0f97b2e8382d90453d40c165e91e4b843b9294",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "554a01999436093c61d5df55e457c8536a8009f1"
+    },
+    "mergedAt": "2026-10-28T00:47:26Z",
+    "number": 55,
+    "state": "MERGED",
+    "title": "Add the sound settings: FIZZ2.CFG version 2, flags and the SOUND line",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/55"
+   },
+   {
+    "additions": 51,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:32:09Z",
+    "deletions": 18,
+    "headRefName": "docs/roadmap-fizz1-gaps",
+    "headRefOid": "19b212778d323f8c333bdfd7406f8194fbb5c2a7",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "080ea576a30eebc81232863516b781a46f3d9206"
+    },
+    "mergedAt": "2026-10-28T01:14:59Z",
+    "number": 56,
+    "state": "MERGED",
+    "title": "Record the Fizz 1 gap survey in the roadmap",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/56"
+   },
+   {
+    "additions": 40,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:51:27Z",
+    "deletions": 3,
+    "headRefName": "docs/worklog-changelog-split",
+    "headRefOid": "341b35c98773912ff0059e59d443059d7f8cf4ad",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     },
+     {
+      "color": "ededed",
+      "description": "Housekeeping that players do not see",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8iA",
+      "name": "internal"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "7faa3c3653f7c7502d55a1a807fb5ba474619f51"
+    },
+    "mergedAt": "2026-10-28T01:22:14Z",
+    "number": 57,
+    "state": "MERGED",
+    "title": "Split the per-PR log into a work log and a release changelog",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/57"
+   },
+   {
+    "additions": 133,
+    "baseRefName": "main",
+    "changedFiles": 6,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T00:53:38Z",
+    "deletions": 27,
+    "headRefName": "feat/web-fill-page",
+    "headRefOid": "9e09d88753d90119a87c72589f4b988f7dc60b46",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "f5fe903a78e369e09d67ee4f6c7e34fc207cf552"
+    },
+    "mergedAt": "2026-10-28T01:34:25Z",
+    "number": 58,
+    "state": "MERGED",
+    "title": "Fill the browser window with the Web game",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/58"
+   },
+   {
+    "additions": 205,
+    "baseRefName": "main",
+    "changedFiles": 8,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:00:27Z",
+    "deletions": 6,
+    "headRefName": "feat/stun-stars",
+    "headRefOid": "37330c849cfa35b97b2acc45c8287d8427762f9c",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5bff0e9fc29d1d4e1f5cef225263a12699352599"
+    },
+    "mergedAt": "2026-10-28T01:49:51Z",
+    "number": 59,
+    "state": "MERGED",
+    "title": "Draw Fizz 1's stun stars above a stunned chicken",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/59"
+   },
+   {
+    "additions": 266,
+    "baseRefName": "feat/web-fill-page",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:05:20Z",
+    "deletions": 50,
+    "headRefName": "feat/web-view-fit",
+    "headRefOid": "c7c3f7034f7266f87c246a2ebe418e8bec9ae627",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "f5fe903a78e369e09d67ee4f6c7e34fc207cf552"
+    },
+    "mergedAt": "2026-10-28T01:34:26Z",
+    "number": 60,
+    "state": "MERGED",
+    "title": "Make the Web view follow the window's shape like Fizz 1",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/60"
+   },
+   {
+    "additions": 465,
+    "baseRefName": "main",
+    "changedFiles": 15,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:18:22Z",
+    "deletions": 57,
+    "headRefName": "feat/sfx-dos",
+    "headRefOid": "5a4d38c0c47f83d90ba7d7e783aaea98eddafcfb",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "edd3bfef78d7b576e5644b2d069171f46c6f1524"
+    },
+    "mergedAt": "2026-10-28T02:00:14Z",
+    "number": 62,
+    "state": "MERGED",
+    "title": "Play the cluck on DOS: the 560 Hz audio service",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/62"
+   },
+   {
+    "additions": 238,
+    "baseRefName": "feat/stun-stars",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:18:45Z",
+    "deletions": 15,
+    "headRefName": "feat/death-shake",
+    "headRefOid": "25a1eb35ef179a02e3a0fccc323988db7b1cf408",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5bff0e9fc29d1d4e1f5cef225263a12699352599"
+    },
+    "mergedAt": "2026-10-28T01:49:52Z",
+    "number": 63,
+    "state": "MERGED",
+    "title": "Shake the view when Ben dies, with a Motion setting",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/63"
+   },
+   {
+    "additions": 766,
+    "baseRefName": "feat/death-shake",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:26:42Z",
+    "deletions": 46,
+    "headRefName": "feat/shot-puff",
+    "headRefOid": "9f206916963f7a8ba194e1b448bbcf9bb625983f",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5bff0e9fc29d1d4e1f5cef225263a12699352599"
+    },
+    "mergedAt": "2026-10-28T01:49:52Z",
+    "number": 65,
+    "state": "MERGED",
+    "title": "Draw a puff where Ben's shot ends",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/65"
+   },
+   {
+    "additions": 3,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:31:38Z",
+    "deletions": 32,
+    "headRefName": "docs/fix-changelog-split",
+    "headRefOid": "9b12ca7637e5e10cc4476c216bb57bf97e5588b1",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     },
+     {
+      "color": "ededed",
+      "description": "Housekeeping that players do not see",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8iA",
+      "name": "internal"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "b23880321e6c6803579b18fc402f0302a4911458"
+    },
+    "mergedAt": "2026-10-28T02:12:46Z",
+    "number": 66,
+    "state": "MERGED",
+    "title": "Keep the per-PR entries out of the release changelog",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/66"
+   },
+   {
+    "additions": 694,
+    "baseRefName": "feat/sfx-dos",
+    "changedFiles": 12,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T01:31:48Z",
+    "deletions": 58,
+    "headRefName": "feat/dos-help",
+    "headRefOid": "ec4576925608d73f35a921671441008c216ebe3f",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "edd3bfef78d7b576e5644b2d069171f46c6f1524"
+    },
+    "mergedAt": "2026-10-28T02:00:16Z",
+    "number": 67,
+    "state": "MERGED",
+    "title": "Add the /? help screen from one table of switches",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/67"
+   },
+   {
+    "additions": 94,
+    "baseRefName": "main",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T02:12:39Z",
+    "deletions": 75,
+    "headRefName": "feat/cluck-buh-longer",
+    "headRefOid": "926fd169f3a343536da448644de672ad636fcf6c",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "c3279dacd04f6ba732e26a01726748122e490fad"
+    },
+    "mergedAt": "2026-10-28T02:50:34Z",
+    "number": 69,
+    "state": "MERGED",
+    "title": "Lengthen the buh in the buh-GAWK cluck",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/69"
+   },
+   {
+    "additions": 1556,
+    "baseRefName": "main",
+    "changedFiles": 54,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T02:30:25Z",
+    "deletions": 359,
+    "headRefName": "docs/archive-m1",
+    "headRefOid": "5e485bbb4d3d872131f6d1f5f95f0c0e057a04d4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     },
+     {
+      "color": "ededed",
+      "description": "Housekeeping that players do not see",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8iA",
+      "name": "internal"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4f13db65f0583a7c40f578a8d91616f50714b257"
+    },
+    "mergedAt": "2026-10-28T02:59:12Z",
+    "number": 70,
+    "state": "MERGED",
+    "title": "Add the Milestone 1 chapters, figures and captures to the archive",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/70"
+   },
+   {
+    "additions": 67,
+    "baseRefName": "main",
+    "changedFiles": 13,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T02:51:57Z",
+    "deletions": 14,
+    "headRefName": "docs/manual-screens",
+    "headRefOid": "d42fd5a96ee034396cf27ef58dc82c91953a89bc",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "0b02ea20407087f3242a0c0f7c677fee56d144a0"
+    },
+    "mergedAt": "2026-10-28T03:07:28Z",
+    "number": 71,
+    "state": "MERGED",
+    "title": "Retake the manual's Web screenshots on the current page",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/71"
+   },
+   {
+    "additions": 417,
+    "baseRefName": "main",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T03:02:28Z",
+    "deletions": 24,
+    "headRefName": "feat/death-spin",
+    "headRefOid": "1ff1a110b039c879519c4d68ea3d6de4e8f6bb04",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "8992cad5733eb932acdf71604bc893b5d2bc69eb"
+    },
+    "mergedAt": "2026-10-28T03:38:11Z",
+    "number": 72,
+    "state": "MERGED",
+    "title": "Spin Ben as he dies, as in Fizz 1, under the Motion setting",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/72"
+   },
+   {
+    "additions": 3970,
+    "baseRefName": "main",
+    "changedFiles": 15,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T03:29:38Z",
+    "deletions": 1,
+    "headRefName": "feat/music-source",
+    "headRefOid": "fa5c41c109a532f73fec51b42f7d171609225dc6",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "1a9c855dc0e3997cffdf39c2ae76bc0669d84eb9"
+    },
+    "mergedAt": "2026-10-28T03:54:37Z",
+    "number": 73,
+    "state": "MERGED",
+    "title": "Add the Crater Fields song source and builder (placeholder level music)",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/73"
+   },
+   {
+    "additions": 1414,
+    "baseRefName": "main",
+    "changedFiles": 29,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T03:35:46Z",
+    "deletions": 270,
+    "headRefName": "feat/sfx-pan",
+    "headRefOid": "dc8e1ca413d28f26fd56a340f688db8c9ebae7f4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a5b9dcaf0d8187ea1d361954dad5f0dd7f772105"
+    },
+    "mergedAt": "2026-10-28T04:09:56Z",
+    "number": 74,
+    "state": "MERGED",
+    "title": "Place sound effects by where they are: the OPL3 channel pair and a Web panner",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/74"
+   },
+   {
+    "additions": 986,
+    "baseRefName": "main",
+    "changedFiles": 12,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:11:00Z",
+    "deletions": 25,
+    "headRefName": "feat/music-web",
+    "headRefOid": "9a2d70f4838a3b351fe30515a12555bfa424fe43",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5b2d050e70fb2c3c173767fb545789d6db600f34"
+    },
+    "mergedAt": "2026-10-28T04:18:42Z",
+    "number": 75,
+    "state": "MERGED",
+    "title": "Play the placeholder level music on the Web",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/75"
+   },
+   {
+    "additions": 2287,
+    "baseRefName": "main",
+    "changedFiles": 26,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:22:36Z",
+    "deletions": 20,
+    "headRefName": "feat/music-lower",
+    "headRefOid": "7c1293cdc9f860db00e05354e5cde8f61521eb55",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 76,
+    "state": "OPEN",
+    "title": "Lower Crater Fields to OPL2 and OPL3 register streams",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/76"
+   },
+   {
+    "additions": 477,
+    "baseRefName": "main",
+    "changedFiles": 8,
+    "checks": [
+     {
+      "conclusion": "",
+      "name": "check",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:26:32Z",
+    "deletions": 65,
+    "headRefName": "docs/sound-restructure",
+    "headRefOid": "ac59c4b8cdc419b1a16d5d1bc4e92cb3b64c6b23",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 77,
+    "state": "OPEN",
+    "title": "Restructure the sound doc, with the placement explainer and its diagram",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/77"
    }
   ],
   "runs": [
    {
-    "conclusion": "",
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:18:45Z",
+    "displayTitle": "Play the placeholder level music on the Web (#75)",
+    "event": "push",
+    "headSha": "5b2d050e70fb2c3c173767fb545789d6db600f34",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40631607284",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:09:59Z",
+    "displayTitle": "Place sound effects by where they are: the OPL3 channel pair and a We\u2026",
+    "event": "push",
+    "headSha": "a5b9dcaf0d8187ea1d361954dad5f0dd7f772105",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40630770786",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T03:54:39Z",
+    "displayTitle": "Add the Crater Fields song source and builder (placeholder level musi\u2026",
+    "event": "push",
+    "headSha": "1a9c855dc0e3997cffdf39c2ae76bc0669d84eb9",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40629331461",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T03:38:14Z",
+    "displayTitle": "Spin Ben as he dies, as in Fizz 1, under the Motion setting (#72)",
+    "event": "push",
+    "headSha": "8992cad5733eb932acdf71604bc893b5d2bc69eb",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40627817849",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T03:07:30Z",
+    "displayTitle": "Retake the manual's Web screenshots on the current page (#71)",
+    "event": "push",
+    "headSha": "0b02ea20407087f3242a0c0f7c677fee56d144a0",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40624883687",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T02:59:14Z",
+    "displayTitle": "Add the Milestone 1 chapters, figures and captures to the archive (#70)",
+    "event": "push",
+    "headSha": "4f13db65f0583a7c40f578a8d91616f50714b257",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40624076473",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T02:50:36Z",
+    "displayTitle": "Lengthen the buh in the buh-GAWK cluck (#69)",
+    "event": "push",
+    "headSha": "c3279dacd04f6ba732e26a01726748122e490fad",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40623284031",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T02:12:49Z",
+    "displayTitle": "Keep the per-PR entries out of the release changelog (#66)",
+    "event": "push",
+    "headSha": "b23880321e6c6803579b18fc402f0302a4911458",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40619590403",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T02:00:20Z",
+    "displayTitle": "Add the /? help screen from one table of switches (#67)",
+    "event": "push",
+    "headSha": "edd3bfef78d7b576e5644b2d069171f46c6f1524",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40618352538",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:49:56Z",
+    "displayTitle": "Draw a puff where Ben's shot ends (#65)",
+    "event": "push",
+    "headSha": "5bff0e9fc29d1d4e1f5cef225263a12699352599",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40617362302",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:34:30Z",
+    "displayTitle": "Make the Web view follow the window's shape like Fizz 1 (#60)",
+    "event": "push",
+    "headSha": "f5fe903a78e369e09d67ee4f6c7e34fc207cf552",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40615856100",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:22:16Z",
+    "displayTitle": "Split the per-PR log into a work log and a release changelog (#57)",
+    "event": "push",
+    "headSha": "7faa3c3653f7c7502d55a1a807fb5ba474619f51",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40614631066",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:15:01Z",
+    "displayTitle": "Record the Fizz 1 gap survey in the roadmap (#56)",
+    "event": "push",
+    "headSha": "080ea576a30eebc81232863516b781a46f3d9206",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40613883167",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:07:55Z",
+    "displayTitle": "Refresh the manual for the first slice (#53)",
+    "event": "push",
+    "headSha": "35e2700edf5751c11e63608064ed0a3300b46bd9",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40613156500",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T01:00:37Z",
+    "displayTitle": "Add the opt-in /CHECK screen and /CHECKCELLS (#52)",
+    "event": "push",
+    "headSha": "a35d08ee3eb79945a1dfc5a82820f2df7be24378",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40612391849",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T00:47:28Z",
+    "displayTitle": "Add the sound settings: FIZZ2.CFG version 2, flags and the SOUND line\u2026",
+    "event": "push",
+    "headSha": "554a01999436093c61d5df55e457c8536a8009f1",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40611004345",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T00:40:00Z",
+    "displayTitle": "Show the Web cluck captions as text over the canvas (#54)",
+    "event": "push",
+    "headSha": "a005cbe1960e85b7e1429245c90c6526ef1a1c43",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40610196768",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T00:28:40Z",
+    "displayTitle": "Bring the reference docs up to the first slice (#51)",
+    "event": "push",
+    "headSha": "d1e9111f8fc78df626648d792afb41828654b9d7",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40608999164",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T22:15:57Z",
+    "displayTitle": "Add the DOS machine probes and a non-interactive /PROBE mode (#50)",
+    "event": "push",
+    "headSha": "e52454deb40822f837c4da1f0187cd028752f588",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40593465397",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T22:09:53Z",
+    "displayTitle": "Add look up, look down and aim up and down, proven against Fizz 1 (#47)",
+    "event": "push",
+    "headSha": "706f4971c319c5b3499af82e4b52c0b97be117b6",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40592648488",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T22:01:07Z",
+    "displayTitle": "Open the chicken's beak and float a caption when it clucks (#48)",
+    "event": "push",
+    "headSha": "f0bef2d723ac9598b565a30d891a2e265db65a53",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40591479420",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-27T21:54:15Z",
+    "displayTitle": "Add Milestone 1.5 to the roadmap (#49)",
+    "event": "push",
+    "headSha": "a66f3a217e4fc386d9215e0502fed80d54bde4db",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40590579269",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-27T21:54:06Z",
+    "displayTitle": "Play the chicken's cluck on the Web with Undertone (#45)",
+    "event": "push",
+    "headSha": "2c48ce77b4b114c5aea5a0179a88ce2d37499d28",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40590559798",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
     "createdAt": "2026-10-27T21:45:20Z",
     "displayTitle": "Fix the /BENCH cycle setting and correct the measured figures (#46)",
     "event": "push",
     "headSha": "cc1d7ac2644cc3d10197b22c2527f90429323e89",
-    "status": "in_progress",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40589399783",
     "workflowName": "CI"
    },

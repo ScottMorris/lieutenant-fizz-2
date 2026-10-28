@@ -6,8 +6,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /REPLAY in DOSBox around tick 114 (the HUD in the picture reads the tick): Ben stands at the foot of the left shaft, and a small cyan puff hangs where his shot hit the wall of the shaft's right side eight ticks earlier.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-cluck.png",
@@ -16,8 +16,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /REPLAY in DOSBox around tick 218: Ben stands on the second ledge and the chicken, on the ledge above, has its beak open with BWUK-BWUK floating above it, drawn as pixels in capitals.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-stars.png",
@@ -26,8 +26,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /REPLAY in DOSBox around tick 321, with KEY RED in the HUD: the chicken, stunned by Ben's shot, has two yellow and white stars above its head.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-exit.png",
@@ -36,8 +36,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /REPLAY in DOSBox near the end of the script: Ben stands at the exit on the gallery in the open air, and the screen reads LEVEL CLEAR.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-look-up.png",
@@ -46,8 +46,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /LIVE in DOSBox, keys typed through the X server: after a jump onto the first ledge Ben holds Up alone for 1.8 seconds, so he looks up and the view has risen to show the chicken, which has just clucked BWUK, BWUK.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-aim-up.png",
@@ -56,8 +56,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /LIVE in DOSBox: Up and Space pressed together, so Ben raises the blaster and a shot rises above him (AMMO 4).",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-aim-down.png",
@@ -66,8 +66,8 @@
   "source": "DOSBox Staging window, grabbed from Xvfb with ImageMagick import",
   "shows": "FIZZ2.EXE /LIVE in DOSBox: Down and Space pressed while Ben is in the air after a jump, so he holds the blaster down and a shot falls below him (AMMO 3).",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "check.png",
@@ -76,8 +76,8 @@
   "source": "FIZZ2.EXE /CHECKCELLS in DOSBox through tools/dosrun.sh, drawn by tools/render-cells.py",
   "shows": "The check screen of FIZZ2.EXE in DOSBox's default machine (VGA, a mouse, no joystick, no AdLib and no Sound Blaster, a 486 with an x87 and 14 MB free), drawn from the 80 by 25 text cells that FIZZ2.EXE /CHECKCELLS printed, by tools/render-cells.py with the machine's VGA console font: the PC speaker row is lit as the sound the game would use.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh, render-cells.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-replay.txt",
@@ -86,8 +86,8 @@
   "source": "standard output of FIZZ2.EXE /REPLAY in DOSBox, through tools/dosrun.sh",
   "shows": "The transcript FIZZ2.EXE printed during the grabbed replay run.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-help.txt",
@@ -96,8 +96,8 @@
   "source": "standard output of FIZZ2.EXE /? in DOSBox, through tools/dosrun.sh",
   "shows": "The text of FIZZ2.EXE /? in DOSBox: the modes, the keys, the captions and the sound switches on one screen of 22 lines.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "dos-probe.txt",
@@ -106,8 +106,8 @@
   "source": "standard output of FIZZ2.EXE /PROBE in DOSBox, through tools/dosrun.sh",
   "shows": "The output of FIZZ2.EXE /PROBE in DOSBox's default machine: the PROBE lines for video, mouse, joystick, FM chip, Sound Blaster, BLASTER, x87, processor and free memory, then the CELLS hash, the SOUND line and the usual platform lines.",
   "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-start.png",
@@ -117,8 +117,8 @@
   "shows": "The Web slice in headless Chromium in a 960 by 540 window, 40 ticks after load with no key pressed: Ben on the floor of the left shaft, the spikes, the first ledges and, at the top of the view, the red key and the chicken; the controls sit in a hint line and the panel is closed.",
   "hud": "TICK 40\nHASH d776eff49a6508f8\nAMMO 5\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-portrait.png",
@@ -128,8 +128,8 @@
   "shows": "The Web slice in a 390 by 780 window (a phone held upright), 40 ticks after load: the view is the same 13 tiles tall and about six tiles across, and the picture fills the window.",
   "hud": "TICK 40\nHASH d776eff49a6508f8\nAMMO 5\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-wide.png",
@@ -139,8 +139,8 @@
   "shows": "The Web slice in a 1600 by 520 window, 40 ticks after load: the view is the same 13 tiles tall and much wider, so the right wall and the sky beyond it show, and dark bars fill the rest past the view's width limit.",
   "hud": "TICK 40\nHASH d776eff49a6508f8\nAMMO 5\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-look-up.png",
@@ -150,8 +150,8 @@
   "shows": "The Web slice after the script's first 150 ticks put Ben on the first ledge, then 90 ticks of ArrowUp held alone: the view has risen to show the chicken and its caption bwuk-BWUK, fading above it.",
   "hud": "TICK 240\nHASH cd364a2e57d5cdf0\nAMMO 3\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-aim-up.png",
@@ -161,8 +161,8 @@
   "shows": "The Web slice, ArrowUp and Space pressed together at tick 30 and shown at tick 36: Ben has his blaster raised and a shot rises above him (AMMO 4).",
   "hud": "TICK 36\nHASH a440ec4af5334e4a\nAMMO 4\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-puff.png",
@@ -172,8 +172,8 @@
   "shows": "The Web slice at tick 108, two ticks after the script's second shot ended against the wall of the shaft: a small cyan puff hangs at the wall beside the spikes (AMMO 3).",
   "hud": "TICK 108\nHASH 262b9245d5e61f24\nAMMO 3\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-cluck.png",
@@ -183,8 +183,8 @@
   "shows": "The Web slice at tick 201, four ticks after the first cluck of the golden transcript: the chicken's beak is open and its caption floats above it as text over the canvas.",
   "hud": "TICK 201\nHASH 45310a3440c4fc9d\nAMMO 3\nKEY  no\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  },
  {
   "file": "web-stars.png",
@@ -194,7 +194,7 @@
   "shows": "The Web slice at tick 300, with the chicken stunned by Ben's shot: two yellow and white stars sit above its head (KEY carried, AMMO 2). The page's hash at this tick is the golden transcript's TICK 300 line.",
   "hud": "TICK 300\nHASH 177f6e86fd438b25\nAMMO 2\nKEY  carried\nDOOR shut\nDEATHS 0\nEXIT not yet",
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
-  "commit": "edd3bfe",
-  "date": "2026-10-27"
+  "commit": "5b2d050",
+  "date": "2026-10-28"
  }
 ]

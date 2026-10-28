@@ -3,8 +3,8 @@ id: slice
 n: 9
 title: The slice on two screens
 date: 2026-10-27
-summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck and captions, the view-only effects, DOS sound, and the start-up check, probe and help screens.
-prs: [24, 28, 31, 32, 34, 38, 39, 42, 44]
+summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound, and the start-up check, probe and help screens.
+prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75]
 ---
 The first slice is a cut-down lighthouse: a tall room split into two shafts, Ben, one chicken, a red key, a red door and an exit. It plays on the Web and on DOS from the same rules and the same drawing routine, `fizz_slice_view::draw_slice`. This chapter follows the slice from the level to the two screens and the DOS start-up screens. Chapter 8 covers the rules underneath it.
 
@@ -32,17 +32,18 @@ The cluck is visible as well as audible. For 12 ticks, and twice for the double 
 
 <!-- figure shots web-cluck.png dos-cluck.png -->
 
-## Stars, puff and shake
+## Stars, puff, shake and spin
 
-Three effects come from Fizz 1 and change only what is drawn. The rules, the hash and the events are untouched, and each is a pinned frame in `fizz-slice-view`'s tests.
+Four effects come from Fizz 1 and change only what is drawn. The rules, the hash and the events are untouched, and each is a pinned frame in `fizz-slice-view`'s tests.
 
 - **Stun stars (#59).** Fizz 1's `stars0` and `stars1` sprites, 16 by 8, are exported into `fizz1-slice.json`. They sit 0.3 tiles above a stunned chicken's head and swap every 10 ticks (Fizz 1's 6 Hz), with the alert frame and the flash in the last second of the stun.
 - **Shot puff (#65).** The rules emit `Event::ShotEnd { x, y }` for each shot that hits a wall, runs out of life or stuns the chicken, and the transcript prints `EVENT <tick> shotend <x> <y>`. A fixed list of puffs, `fizz_slice_view::Puffs`, fed from those events by both presenters, plays Fizz 1's four 16 by 16 puff frames in cyan for 18 ticks.
 - **Death shake (#63).** When Ben dies the camera's x moves by a baked table of at most one pixel for 18 ticks, derived from his `dead` timer. The Web page's Motion button (Full or Reduced, defaulting to the system's reduced-motion setting) turns it off; DOS always shakes until the Options screen exists.
+- **Death spin (#72).** Ben turns about his centre as he dies, at Fizz 1's `rot += 8 * dt`. The view rotates the `ben_jump` sprite by nearest-neighbour inverse mapping in integers, from a baked cosine and sine table indexed by the ticks since the death, read from `Ben::dead`. It follows the Motion setting with the shake: Reduced keeps the flat flickering pose, and DOS always spins. Ten death frames are pinned in both settings, and tick 400's pinned digest changed on purpose.
 
 <!-- figure shots web-stars.png dos-stars.png dos-puff.png web-puff.png -->
 
-A still cannot show the shake, which is a shift of at most one pixel, so no shake picture is kept.
+A still cannot show the shake, which is a shift of at most one pixel, and no spin picture is kept either: the spin is pinned as frame digests, not looked at.
 
 ## The Web screen (#32, #54, #58, #60)
 
@@ -56,7 +57,7 @@ The Web screenshots are taken with a fake clock that the capture script advances
 
 ## The DOS screen (#31, #34, #39, #42)
 
-`FIZZ2.EXE` draws the slice in mode 13h, 320 by 200, through `fizz-present-dos`, which adds the HUD strip along the top (`AMMO`, `KEY`, `DEATHS`, `TICK`) and the `LEVEL CLEAR` banner. In `/LIVE` it waits for the vertical retrace once per drawn frame, with a bounded poll so a status port that never toggles cannot hang it. The step, the drawing and the copy to video memory are timed by `/BENCH` against the 16,667 microsecond tick: at 26,800 cycles a millisecond in DOSBox the tick costs {{ms.benchTickUs}} microseconds, of which the step is {{ms.benchStepUs}}, the drawing {{ms.benchDrawUs}} and the copy {{ms.benchPresentUs}} (`snapshots/measured.json`). `FIZZ2.EXE` is {{sc.exeBytes}} bytes unstripped.
+`FIZZ2.EXE` draws the slice in mode 13h, 320 by 200, through `fizz-present-dos`, which adds the HUD strip along the top (`AMMO`, `KEY`, `DEATHS`, `TICK`) and the `LEVEL CLEAR` banner. In `/LIVE` it waits for the vertical retrace once per drawn frame, with a bounded poll so a status port that never toggles cannot hang it. The step, the drawing and the copy to video memory are timed by `/BENCH` against the 16,667 microsecond tick: at 26,800 cycles a millisecond in DOSBox the tick costs {{ms.benchTickUs}} microseconds, of which the step is {{ms.benchStepUs}}, the drawing {{ms.benchDrawUs}} and the copy {{ms.benchPresentUs}} (`snapshots/measured.json`). `FIZZ2.EXE` is {{ms.exeBytes}} bytes unstripped.
 
 <!-- figure shots dos-puff.png dos-exit.png -->
 
@@ -64,9 +65,17 @@ The DOS keys are typed into DOSBox through the X server, as a person would press
 
 <!-- figure shots dos-look-up.png dos-aim-up.png dos-aim-down.png -->
 
-## DOS sound (#62)
+## DOS sound (#62, #74)
 
-The cluck plays on three DOS paths. A new audio service in the runtime moves the timer to 560 Hz (PIT divisor 2131), keeps the BIOS clock at 18.2 Hz with the same accumulator, and paces the simulation to 60 steps a second with the integer `Pacer`. From the interrupt it steps the cluck as OPL2 channel 5 on an AdLib or a Sound Blaster, as OPL3 channel 14 in the second register bank, centred, with the OPL3 switched on through register `0x105`, or as PC speaker steps every fourth tick. With no device or with sound off it does nothing. `FIZZ2.EXE` hands each `Event::Cluck` to the service, and on exit and on panic it silences the chip and the speaker and puts register `0x105` back to 0. `/REPLAY` and `/LIVE` print `SOUND MUSIC <x> FX <y>` and, at the end, `AUDIO WRITES <n> SPEAKER STEPS <m>`, which is how a run with no ears tells which path played. The sound settings (`FIZZ2.CFG` version 2 and the `/MUSIC:`, `/FX:`, `/ADLIB`, `/SB`, `/SPEAKER` and `/NOSOUND` switches, #55) choose the path from the probe and the player's choices, with a fallback word when a device is missing. `tools/check-dos.sh` runs `/REPLAY` under a ladder of sound configurations (an OPL3 Sound Blaster, a Sound Blaster Pro 2, an OPL2 Sound Blaster, an AdLib-only machine, the speaker, no card and `/NOSOUND`) and requires the golden `TICK`, `FINAL` and `EVENT` lines, the BIOS tick bound and `VECTORS RESTORED yes` in each, so the sound cannot change the game.
+The cluck plays on four DOS paths. A new audio service in the runtime moves the timer to 560 Hz (PIT divisor 2131), keeps the BIOS clock at 18.2 Hz with the same accumulator, and paces the simulation to 60 steps a second with the integer `Pacer`. From the interrupt it steps the cluck as OPL2 channel 5 on an AdLib or a Sound Blaster, as the OPL3 pair on a Sound Blaster Pro 2 or later (below), or as PC speaker steps every fourth tick. With no device or with sound off it does nothing. `FIZZ2.EXE` hands each `Event::Cluck` to the service, and on exit and on panic it silences the chip and the speaker and puts register `0x105` back to 0. `/REPLAY` and `/LIVE` print `SOUND MUSIC <x> FX <y>` and, at the end, `AUDIO WRITES <n> SPEAKER STEPS <m>`, which is how a run with no ears tells which path played. The sound settings (`FIZZ2.CFG` version 2 and the `/MUSIC:`, `/FX:`, `/ADLIB`, `/SB`, `/SPEAKER` and `/NOSOUND` switches, #55) choose the path from the probe and the player's choices, with a fallback word when a device is missing. `tools/check-dos.sh` runs `/REPLAY` under a ladder of sound configurations (an OPL3 Sound Blaster, a Sound Blaster Pro 2, an OPL2 Sound Blaster, an AdLib-only machine, the speaker, no card and `/NOSOUND`) and requires the golden `TICK`, `FINAL` and `EVENT` lines, the BIOS tick bound and `VECTORS RESTORED yes` in each, so the sound cannot change the game.
+
+The cluck has a place (#74). `fizz_sfx::place`, a pure function of whole numbers, applies Fizz 1's formula once (`placeSound` in `sound-field.ts`): the chicken's offset from the middle of the view, as a fraction of half the view, gives a pan up to 0.6 either way and a distance factor that falls to 0.4 outside the view, and an equal-power law turns them into a level for each ear. The program works it out from the chicken and the camera as drawn, and the rules never see it. On an OPL3 with effects on the Sound Blaster (`FX ch14`), the effect is the pair: channel 5 (bank 0, output bit `0x10`) is the left ear and channel 14 (bank 1, output bit `0x20`) the right, each at its own carrier level in 0.75 dB steps. On an OPL2 or an AdLib the distance becomes the level of channel 5 and the pan is dropped, and the PC speaker ignores the placement. The Web gives each Undertone voice an equal-power `StereoPannerNode` and a gain, and the H panel's Sound placement button chooses Enhanced, the default, or Classic, which plays every cluck centred at full level as Fizz 1's Classic mode does; DOS is always Enhanced for now. `docs/SFX.md` ("Placing sounds") has the formula, the tables and the per-platform path; it is the place to read how each path loses something.
+
+The cluck itself changed in #69: the first variant's `buh` is 85 milliseconds, up from 50, and its `GAWK` starts 45 milliseconds later, so the variant runs about 345 milliseconds instead of 300. The other three variants, the events and the hashes are unchanged.
+
+## The level music (#73, #75)
+
+`assets/music/` holds the source of the slice's level music, "Crater Fields", which is Fizz 1's track used as a placeholder test song and not an official Fizz 2 track. The builder is Fizz 1's, ported and held to a saved fixture of its output, and `bun tools/music/notes.ts --check` guards the committed note list: 39 bars, 63.24 seconds. The Web page plays it (#75): `web/music.ts` loops the song with Undertone from the first key press or click, on a music bus at 0.65 that shares one `AudioContext` and a limiter with the cluck's bus, and the Music button in the H panel and `M` stop it. The rules never start, stop or read it, so no event, hash or transcript line changed. DOS does not play it yet; `docs/MUSIC.md` has the layout, the Web player and the plan, and nobody has listened to either.
 
 ## /CHECK, /PROBE and /?
 
@@ -87,26 +96,31 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 - The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, three `cluck` and three `shotend` `EVENT` lines) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
 - Both screens call `fizz_slice_view::draw_slice`; frame digests at nine ticks of the replay, and for the puff, the stars and the death frame, are pinned in its tests, and `/BENCH` compares eleven `BENCH FRAME` digests from DOS with the host's.
 - The chicken's `EVENT` lines are the evidence that a cluck happens at the same tick and with the same variant on all three platforms.
-- DOS audio paths write what they should: `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
+- DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` of 419, 440 and 836 for the golden replay's three clucks, and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
 - `/PROBE` runs under 21 DOSBox configurations, `/CHECKCELLS` under six machines with the cells equal to the host builder's, `/?` prints the text of `crates/fizz-machine/tests/help.txt`, and a host test refuses any script that runs the interactive `/CHECK`.
-- The Web cluck path is checked with a stand-in `AudioContext`: `web/sfx.test.ts` under `bun test` and `tools/check-web-sfx.py` in headless Chromium show what is scheduled, that nothing plays before a key press or while muted, and that the cluck at tick 197 schedules variant 2.
+- The Web cluck path is checked with a stand-in `AudioContext`: `web/sfx.test.ts` under `bun test` and `tools/check-web-sfx.py` in headless Chromium show what is scheduled, that nothing plays before a key press or while muted, that a pan other than the middle adds a panner to each voice, and that the cluck at tick 197 schedules variant 2 with its panners.
+- The Web music is checked with the same kind of stand-in: `bun test web/music.test.ts` matches the sources scheduled over one loop with the note list of `assets/music/notes/crater.txt` for start time, pitch and pan, and `tools/check-web-sfx.py` shows nothing sounding before a key press and the Music button and `M` working in headless Chromium. `bun tools/music/notes.ts --check` guards the note list itself.
 - The screenshots on this page are records in `media/captures.json`: headless Chromium for the Web, and DOSBox grabbed under a virtual display for DOS, each with its command, commit and date.
+- The owner's playtest of the preview build on 28 October 2026: the death spin, the stun stars and the shot puff look good, the cluck effects sound good, the panning is hard to tell on DOS because the slice's level is small, and the Web music is working. These are one person's observations, not measurements, and the notes do not say which screen showed which picture.
 
 ### Uncatalogued
-- Hearing the cluck. Nobody has listened to it on DOSBox, on a real OPL2, OPL3, Sound Blaster or PC speaker, or in a browser: the DOS evidence is register writes and speaker steps counted by the program, and the Web evidence is the voices a stand-in recorded. The register write timings are Fizz 1's, not measured here, and the cost of the 560 Hz interrupt on a 486 is not in `/BENCH`, which still runs at 60 Hz.
-- The stun stars, the puff and the death shake on a real display. The stars and the puff were grabbed from DOSBox's window under a virtual display (the DOS shots above) and read from those pictures; the shake, a shift of at most a pixel, has not been looked at on DOS, in DOSBox or anywhere else, and none of the three has been watched moving on DOS.
+- Hearing the cluck on real hardware. The owner has heard it in the preview build (see the playtest line above), but nobody has listened on a real OPL2, OPL3, Sound Blaster or PC speaker: the DOS evidence is register writes and speaker steps counted by the program, and the Web evidence is the voices a stand-in recorded. The register write timings are Fizz 1's, not measured here, and the cost of the 560 Hz interrupt on a 486 is not in `/BENCH`, which still runs at 60 Hz.
+- The stun stars, the puff, the death shake and the death spin on a real display. The owner reports that the spin, the stars and the puff look good, without saying on which screen; the stars and the puff were also grabbed from DOSBox's window under a virtual display (the DOS shots above); the shake, a shift of at most a pixel, was not mentioned and has not been pictured.
 - The Web page played by a person: the screenshots come from headless Chromium with scripted keys, and fullscreen, Keyboard Lock, the panel and the Motion button have not been driven by hand. Firefox and Safari have not loaded the page.
 - A real 486, a real VGA display and a real keyboard controller: the DOS screenshots are DOSBox's scaled window, and the `/BENCH` figures are DOSBox at a fixed cycle count, which hides what the `f64` rules cost on a 486DX.
 - The `/CHECK` screen shown on a real screen, and `/?` read on a real console; whether FreeDOS's `COMMAND.COM` passes `/?` through to the program.
+- The levels of the Web music's bus and the cluck's bus, which are a first guess: the owner says the music is working, not that the mix is right.
 - Sound on the Web: the first-key start under each browser's autoplay policy, and the silence on a hidden tab, in a real browser.
 
 ### Wish list
-- The cluck panned to the side the chicken is on (OPL3 channel 14 centred it for now), and the other Fizz 1 sound effects for the slice with their captions (Milestone 4).
+- The other Fizz 1 sound effects for the slice with their captions (Milestone 4), and effects authored in stereo, which the pair already allows with one record stream for each side.
+- A Classic or Enhanced choice on DOS, with the Options screen.
+- The level music on DOS, lowered to OPL2 and OPL3 (Milestone 4).
 - The Options screen and a Motion setting on DOS, a live HUD and the HUD extras of Fizz 1's survey (ammo in red at zero, a key chip, a toast line, a level-name banner).
 - Fizz 1's art and enemy roster in place of the placeholder chicken (Milestone 2), and the camera's pixel-locking (Milestone 3).
 - A first listen: the owner on a real AdLib, Sound Blaster and speaker, then a move of the cluck to the catalogued shelf.
 
-> **From the workbench — OPL2 and OPL3.** The AdLib card of 1987 carried Yamaha's YM3812, known as the OPL2, with nine two-operator FM channels. The Sound Blaster Pro 2 and later cards carry the OPL3 (YMF262), which adds a second register bank, 18 two-operator channels and stereo outputs once register `0x105` switches it on, which is why `fizz-sfx` addresses its panned effect as channel 14 of the second bank.
+> **From the workbench — OPL2 and OPL3.** The AdLib card of 1987 carried Yamaha's YM3812, known as the OPL2, with nine two-operator FM channels. The Sound Blaster Pro 2 and later cards carry the OPL3 (YMF262), which adds a second register bank, 18 two-operator channels and stereo outputs once register `0x105` switches it on, which is why `fizz-sfx` addresses the right ear of its panned effect as channel 14 of the second bank.
 > Source: [Yamaha YMF262, Wikipedia](https://en.wikipedia.org/wiki/Yamaha_YMF262)
 
 ```figures
@@ -123,7 +137,7 @@ id: cluck-path
 kind: diagram
 track: shared
 title: The cluck from event to speaker
-alt: Flow diagram with the shared rules at the top (World::step emitting Event::Cluck, and the EVENT line that all three platforms print), a DOS row (audio::cluck, the 560 Hz audio service, OplPlayer or SpeakerPlayer, the OPL2, OPL3 or speaker ports, a real chip nobody has listened to) and a Web row (take_cluck, the main.js loop, Sfx.playCluck, the AudioContext voices, a real browser nobody has listened to), with the evidence under each box.
+alt: Flow diagram with the shared rules at the top (World::step emitting Event::Cluck, and the EVENT line that all three platforms print), a DOS row (audio::cluck with the placement, the 560 Hz audio service, OplPair, OplPlayer or SpeakerPlayer, the OPL2 channel 5, the OPL3 pair of channels 5 and 14 or the speaker ports, a real chip nobody has listened to) and a Web row (take_cluck, the main.js loop, Sfx.playCluck with a pan and a gain, the AudioContext voices, a real browser nobody has listened to), with the evidence under each box.
 caption: Each box names its file and the check behind it; the last box of each row is uncatalogued.
 at: figure cluck-path
 thumb: svg

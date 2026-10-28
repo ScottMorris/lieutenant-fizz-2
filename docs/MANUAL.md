@@ -270,7 +270,7 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck, the only sound on DOS so far. The cluck is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and the Web version centres it just as the DOS version does.
+- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck, the only sound on DOS so far. The cluck is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)); only the Web version plays the placeholder song so far.
 - **Different:** the DOS version has an Esc key, the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN` and `/NOCAPTIONS` as switches) and a 30-second limit in `/LIVE`; the Web version has Keys, Captions, Motion, Restart, Fullscreen, Sound and Music buttons, a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
