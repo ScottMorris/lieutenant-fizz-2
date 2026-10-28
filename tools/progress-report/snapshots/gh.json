@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-28T05:30:35-04:00",
+ "capturedAt": "2026-10-28T06:44:07-04:00",
  "data": {
   "prs": [
    {
@@ -4099,9 +4099,127 @@
     "state": "MERGED",
     "title": "Open the Paused and Options screens in DOS play",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/95"
+   },
+   {
+    "additions": 1236,
+    "baseRefName": "main",
+    "changedFiles": 67,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "FAILURE",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T09:44:45Z",
+    "deletions": 179,
+    "headRefName": "docs/options-roadmap",
+    "headRefOid": "5f7938abe398bc609695b698a3b3d012f6dc7205",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "bc3c29e3a3ba50e6efb92a93eba279fb87684103"
+    },
+    "mergedAt": "2026-10-28T09:57:50Z",
+    "number": 96,
+    "state": "MERGED",
+    "title": "Record the Options work in the docs and archive, and retake the screenshots",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/96"
+   },
+   {
+    "additions": 4,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T10:12:45Z",
+    "deletions": 1,
+    "headRefName": "fix/frames-live-tolerance",
+    "headRefOid": "0b6559fb7f0520c07c6f30ab93044431d62189a2",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "fbca04",
+      "description": "Tests, checks and test tooling updates",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXs5g",
+      "name": "testing"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "7da30e96d77c4d29a8c40d6337b03114357f90a5"
+    },
+    "mergedAt": "2026-10-28T10:28:28Z",
+    "number": 97,
+    "state": "MERGED",
+    "title": "Let the live 60 Hz frame check fall a few frames short",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/97"
    }
   ],
   "runs": [
+   {
+    "conclusion": "cancelled",
+    "createdAt": "2026-10-28T10:28:31Z",
+    "displayTitle": "Let the live 60 Hz frame check fall a few frames short (#97)",
+    "event": "push",
+    "headSha": "7da30e96d77c4d29a8c40d6337b03114357f90a5",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40672406076",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T09:57:53Z",
+    "displayTitle": "Record the Options work in the docs and archive, and retake the scree\u2026",
+    "event": "push",
+    "headSha": "bc3c29e3a3ba50e6efb92a93eba279fb87684103",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40668338025",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-28T09:13:28Z",
@@ -4113,7 +4231,7 @@
     "workflowName": "CI"
    },
    {
-    "conclusion": "failure",
+    "conclusion": "success",
     "createdAt": "2026-10-28T08:36:36Z",
     "displayTitle": "Add the Web Paused and Options screens (#94)",
     "event": "push",
