@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-28T00:11:39-04:00",
+ "capturedAt": "2026-10-28T00:26:33-04:00",
  "data": {
   "prs": [
    {
@@ -3200,9 +3200,9 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
@@ -3231,22 +3231,122 @@
       "name": "sound"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "5b2d050e70fb2c3c173767fb545789d6db600f34"
+    },
+    "mergedAt": "2026-10-28T04:18:42Z",
     "number": 75,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Play the placeholder level music on the Web",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/75"
+   },
+   {
+    "additions": 2287,
+    "baseRefName": "main",
+    "changedFiles": 26,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:22:36Z",
+    "deletions": 20,
+    "headRefName": "feat/music-lower",
+    "headRefOid": "7c1293cdc9f860db00e05354e5cde8f61521eb55",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 76,
+    "state": "OPEN",
+    "title": "Lower Crater Fields to OPL2 and OPL3 register streams",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/76"
+   },
+   {
+    "additions": 477,
+    "baseRefName": "main",
+    "changedFiles": 8,
+    "checks": [
+     {
+      "conclusion": "",
+      "name": "check",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:26:32Z",
+    "deletions": 65,
+    "headRefName": "docs/sound-restructure",
+    "headRefOid": "ac59c4b8cdc419b1a16d5d1bc4e92cb3b64c6b23",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 77,
+    "state": "OPEN",
+    "title": "Restructure the sound doc, with the placement explainer and its diagram",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/77"
    }
   ],
   "runs": [
    {
-    "conclusion": "",
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:18:45Z",
+    "displayTitle": "Play the placeholder level music on the Web (#75)",
+    "event": "push",
+    "headSha": "5b2d050e70fb2c3c173767fb545789d6db600f34",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40631607284",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
     "createdAt": "2026-10-28T04:09:59Z",
     "displayTitle": "Place sound effects by where they are: the OPL3 channel pair and a We\u2026",
     "event": "push",
     "headSha": "a5b9dcaf0d8187ea1d361954dad5f0dd7f772105",
-    "status": "in_progress",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40630770786",
     "workflowName": "CI"
    },
