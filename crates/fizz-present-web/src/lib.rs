@@ -431,7 +431,6 @@ pub fn slice_replay_transcript() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fizz_slice_view::{VIEW_H, VIEW_W};
     const FRAME_MS: f64 = 1000.0 / 60.0;
 
     #[test]
@@ -566,6 +565,7 @@ mod tests {
             captions: false,
             shake: true,
         };
+        let (w, h) = (WEB_VIEW_W, WEB_VIEW_H);
         let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
         let mut puffed = 0;
         app.frame(now_ms);
@@ -582,19 +582,11 @@ mod tests {
                     continue;
                 }
                 app.render();
-                let mut want = vec![0; VIEW_W * VIEW_H];
-                draw_slice_puffs(&mut want, VIEW_W, VIEW_H, &reference, t, &options, &puffs);
+                let mut want = vec![0; w * h];
+                draw_slice_puffs(&mut want, w, h, &reference, t, &options, &puffs);
                 assert_eq!(app.indexed, want, "tick {t}");
-                let mut bare = vec![0; VIEW_W * VIEW_H];
-                draw_slice_puffs(
-                    &mut bare,
-                    VIEW_W,
-                    VIEW_H,
-                    &reference,
-                    t,
-                    &options,
-                    &Puffs::new(),
-                );
+                let mut bare = vec![0; w * h];
+                draw_slice_puffs(&mut bare, w, h, &reference, t, &options, &Puffs::new());
                 if [110, 118, 122, 290].contains(&t) {
                     assert_ne!(want, bare, "tick {t} shows a puff");
                     puffed += 1;
