@@ -809,9 +809,9 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
 /// Draws `sprite` as [`blit_sprite`] does, with its anchor at (`x`, `y`), mirrored if `flip_x`, then turned about the middle of
 /// its box by the angle whose cosine and sine (times 4096) are `cos` and `sin`, counter-clockwise on screen. Nearest
 /// neighbour, no blur: each destination pixel's centre is mapped back through the turn to one source pixel, in integers only
-/// (products of the doubled offsets and the table's 12-bit values, so nothing nears overflow); a source pixel outside the
+/// (offsets doubled and the table's 12-bit values, so nothing nears overflow; a row is walked by additions); a source pixel outside the
 /// box, or the transparent value, draws nothing. A turn of zero is exactly [`blit_sprite`]. Clipped to the frame; any
-/// position is safe. Cost: a square of `(w + h + 3)` pixels a side (under 2,000 for Ben), a few multiplications each.
+/// position is safe. Cost: a square of twice half the diagonal, plus one, pixels a side (31 by 31 for Ben's 16 by 24), a few multiplications each.
 #[allow(clippy::too_many_arguments)]
 fn blit_sprite_turned(
     frame: &mut [u8],
@@ -838,17 +838,27 @@ fn blit_sprite_turned(
     let top = y - i32::from(sprite.ay);
     // Twice the box's middle, so an odd size still has an exact centre.
     let (mid_x2, mid_y2) = (2 * left + sw, 2 * top + sh);
-    let reach = (sw + sh) / 2 + 1;
+    // Half the box's diagonal, rounded up: no pixel of the turned box is further than this from the middle, whatever the turn.
+    let mut reach = 1;
+    while 4 * reach * reach < sw * sw + sh * sh {
+        reach += 1;
+    }
     let (cx, cy) = (mid_x2.div_euclid(2), mid_y2.div_euclid(2));
+    let (x0, x1) = ((cx - reach).max(0), (cx + reach + 1).min(w as i32));
     for py in (cy - reach).max(0)..(cy + reach + 1).min(rows) {
         let dy = 2 * py + 1 - mid_y2;
-        for px in (cx - reach).max(0)..(cx + reach + 1).min(w as i32) {
-            let dx = 2 * px + 1 - mid_x2;
-            // The turn undone: the offset from the middle in the sprite's own pixels, doubled and times 4096.
-            let u = dx * cos - dy * sin;
-            let v = dx * sin + dy * cos;
-            let mut col = (u + (sw << SPIN_BITS)) >> (SPIN_BITS + 1);
-            let row = (v + (sh << SPIN_BITS)) >> (SPIN_BITS + 1);
+        // The turn undone: the offset from the middle in the sprite's own pixels, doubled and times 4096, with the sprite's
+        // half size added so that it counts from the box's top left. A step of one pixel is a step of `2 * cos` and `2 * sin`,
+        // so the row is walked by additions, not the two multiplications a 486 would pay a pixel for.
+        let dx = 2 * x0 + 1 - mid_x2;
+        let mut u = dx * cos - dy * sin + (sw << SPIN_BITS);
+        let mut v = dx * sin + dy * cos + (sh << SPIN_BITS);
+        for px in x0..x1 {
+            let (cu, cv) = (u, v);
+            u += 2 * cos;
+            v += 2 * sin;
+            let mut col = cu >> (SPIN_BITS + 1);
+            let row = cv >> (SPIN_BITS + 1);
             if flip_x {
                 col = sw - 1 - col;
             }
