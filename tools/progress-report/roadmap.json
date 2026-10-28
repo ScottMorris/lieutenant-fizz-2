@@ -1,6 +1,6 @@
 {
  "note": "Steps of the plan, by milestone. gather.py keeps a 'done' or 'done-emu' step only while every pull request it names is merged with CI passing on the commit that brought it into main; otherwise it drops the step to 'review' or 'progress' and says why. The tag of each step (merged, in review, in progress or planned) comes from gh. 'done-emu' means checked on the host, in WASM under Node and Bun, or in headless DOSBox; nothing has run on real hardware. Milestones 0 to 6 are the working plan, with Milestone 1.5 (id m1_5) between Milestones 1 and 2, Milestone 3.5 (id m3_5) after Milestone 3 and Milestone 6 (Shell) last; Milestones 3.5 and 6 are placeholders with no start date; the order of Milestones 2 to 5 follows the restart plan in docs/POC-1-FINDINGS.md.",
- "updated": "2026-10-29",
+ "updated": "2026-10-28",
  "milestones": [
   {"id": "m0", "label": "M0 · Platform skeleton", "next": "Nothing: the milestone is merged."},
   {"id": "m1", "label": "M1 · The first playable slice", "next": "The documentation phase: this archive refresh and the release changelog. The rest of the milestone is merged."},
