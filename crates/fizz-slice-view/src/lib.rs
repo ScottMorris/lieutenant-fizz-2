@@ -29,7 +29,8 @@
 //! - **Chicken.** The art faces right, so a chicken walking left is flipped. It walks with both legs stepping (`walk`,
 //!   `idle`, `walk2`, `idle` as the distance it has travelled grows, four pixels to a step) and shows the `alert` frame while it touches Ben. A stunned chicken is
 //!   shown as the `alert` frame sunk two pixels, so it reads as knocked flat, and it flashes (disappears every other four
-//!   ticks) for its last second of stun to warn that it is about to wake.
+//!   ticks) for its last second of stun to warn that it is about to wake. Fizz 1's two-frame stun stars (`stars0`, `stars1`)
+//!   also float 0.3 tiles above its head, swapping every [`STAR_FRAME_TICKS`] ticks (Fizz 1's 6 Hz), and flash away with the body.
 //! - **Cluck beak.** While a chicken's `cluck_age` (ticks since its last cluck, kept by the rules and not hashed) is inside
 //!   the open pattern for its variant, the `cluckzarg_beak` overlay is drawn over its idle, walk or walk2 body, so the beak
 //!   moves mid-stride. The `alert` frame already has an open mouth and takes no overlay. See [`BEAK_OPEN`].
@@ -293,6 +294,17 @@ fn camera(world: &World, w: usize, h: usize) -> (i32, i32) {
     )
 }
 
+/// How many ticks each stun-star frame shows. Fizz 1 swaps frames when `floor(t * 6)` changes: six swaps a second, a
+/// 1/6 s frame, so 60 Hz / 6 Hz = 10 ticks a frame and a full two-frame cycle of 20 ticks (3 Hz). Dividing by the two
+/// states as well would give 5 ticks, which is twelve swaps a second, twice Fizz 1's rate.
+pub const STAR_FRAME_TICKS: usize = 10;
+
+/// Which stun-star frame (0 or 1) shows at animation tick `phase`. Fizz 1 keys it to the enemy's own clock; the view has
+/// only the tick, so every stunned chicken shows the same frame.
+pub const fn star_frame(phase: usize) -> usize {
+    phase / STAR_FRAME_TICKS % 2
+}
+
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
 fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, phase: usize, at: At) {
@@ -321,6 +333,25 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
     let flip = c.dir < 0.0;
     blit_sprite(frame, w, h, s, sx, sy + sink, flip);
+    if stunned
+        && let Some(stars) = sprite(if star_frame(phase) == 0 {
+            "stars0"
+        } else {
+            "stars1"
+        })
+    {
+        // Fizz 1 centres the stars 0.3 tiles above the enemy's head; the 8-row sprite then ends 0.3 * 16 - 4 = 0.8, about one
+        // pixel, above it. The head is the top of the sprite drawn, so the stars follow the sink. They are not flipped.
+        blit_sprite(
+            frame,
+            w,
+            h,
+            stars,
+            sx,
+            sy + sink - i32::from(s.h) - 1,
+            false,
+        );
+    }
     // The overlay shares the body's anchor and flip, so it lands on the beak whichever way the chicken faces and whichever
     // body frame shows. The alert frame has its own open mouth.
     if name != "cluckzarg_alert"
@@ -553,6 +584,8 @@ mod tests {
     fn frames_at_chosen_ticks_are_pinned() {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
+        // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
+        //
         // Tick 865 is 12 ticks after the cluck at 853. Its chicken is off screen below the frame, so no caption is drawn and the
         // digest is the old one again (it was pinned to a clamped caption once). `without_clucks` draws the world as it was drawn before, and its
         // digests are the old ones at every tick, which shows the change is the cluck's pixels and nothing else.
@@ -572,7 +605,7 @@ mod tests {
                 (270, 0x9bf387153127ec74),
                 (400, 0xe88d2a8a227b4cfb),
                 (602, 0xfea72a408c6a4ab1),
-                (700, 0xdda9c10396315bd2),
+                (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
@@ -587,7 +620,7 @@ mod tests {
                 (270, 0x9bf387153127ec74),
                 (400, 0xe88d2a8a227b4cfb),
                 (602, 0xfea72a408c6a4ab1),
-                (700, 0xdda9c10396315bd2),
+                (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
                 (1268, 0x23afa9ef954ff4e0),
@@ -1282,6 +1315,98 @@ mod tests {
         // In its last second the chicken flashes: some ticks hide it altogether.
         w.chickens[0].stun = 0.5;
         assert_ne!(picture(&w, 0), picture(&w, 4));
+    }
+
+    /// Frame with the first chicken in view and stunned for `stun` seconds (0 means not stunned), at animation tick `tick`.
+    fn stun_picture(stun: f64, tick: u32) -> Vec<u8> {
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].stun = stun;
+        picture_with(&w, tick, false)
+    }
+
+    #[test]
+    fn stun_stars_are_one_sprite_above_the_head_and_swap_every_ten_ticks() {
+        assert_eq!(STAR_FRAME_TICKS, 10);
+        // The stars are the only difference between a stunned chicken and the same chicken with the stars sprite blanked.
+        let stars = |f| sprite(f).unwrap();
+        let (a, b) = (stars("stars0"), stars("stars1"));
+        assert_eq!((a.w, a.h, b.w, b.h), (16, 8, 16, 8));
+        assert_ne!(a.pixels, b.pixels);
+        // Compare only the stars' box: the key's bob changes the rest of the picture at tick 16.
+        let f0 = stun_picture(3.0, 0);
+        let f1 = stun_picture(3.0, STAR_FRAME_TICKS as u32);
+        let (x0, y0, x1, y1) = changed_box(&f0, &f1).expect("the frame changes after ten ticks");
+        assert!(
+            x1 - x0 < 16 && y1 - y0 < 8,
+            "differ only inside a 16 by 8 box"
+        );
+        let crop = |f: &[u8]| -> Vec<u8> {
+            (y0..=y1)
+                .flat_map(|y| f[y * VIEW_W + x0..=y * VIEW_W + x1].to_vec())
+                .collect()
+        };
+        let (c0, c1) = (crop(&f0), crop(&f1));
+        // Ticks 0 to 9 show frame 0, 10 to 19 frame 1, 20 to 29 frame 0 again; stun 3.0 never flashes.
+        for t in 0..10 {
+            assert_eq!(crop(&stun_picture(3.0, t)), c0, "tick {t}");
+        }
+        for t in 10..20 {
+            assert_eq!(crop(&stun_picture(3.0, t)), c1, "tick {t}");
+        }
+        assert_eq!(crop(&stun_picture(3.0, 20)), c0);
+        // Not stunned: no stars, so the frame does not depend on the tick at the swap.
+        assert_eq!(stun_picture(0.0, 0), stun_picture(0.0, 10));
+    }
+
+    #[test]
+    fn stun_stars_sit_above_the_sunk_head_and_follow_the_chicken() {
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].stun = 3.0;
+        let stunned = picture_with(&w, 0, false);
+        // Frames 0 and 10 differ in the stars alone, so their changed box is the stars.
+        let other = picture_with(&w, STAR_FRAME_TICKS as u32, false);
+        let (x0, y0, x1, y1) = changed_box(&stunned, &other).unwrap();
+        assert!(y1 < y0 + 8 && x1 < x0 + 16);
+        // The stars end one pixel above the sprite's top, which is 24 rows above the feet less the 2 pixel sink.
+        let c = &w.chickens[0];
+        let cam = camera(&w, VIEW_W, VIEW_H);
+        let feet_y = screen_y(c.b.y, w.map.h) - cam.1;
+        let head = feet_y + 2 - 24;
+        assert!(
+            (y1 as i32) < head,
+            "stars end above the head ({y1} vs {head})"
+        );
+        assert!((y1 as i32) >= head - 8 - 2, "and not far above it");
+        // Moving the chicken a tile right moves the stars a tile right.
+        let mut w2 = w.clone();
+        w2.chickens[0].b.x += 1.0;
+        let a = changed_box(
+            &picture_with(&w2, 0, false),
+            &picture_with(&w2, STAR_FRAME_TICKS as u32, false),
+        )
+        .unwrap();
+        assert_eq!((a.0 as i32 - x0 as i32, a.1, a.3), (16, y0, y1));
+    }
+
+    #[test]
+    fn stun_stars_flash_away_with_the_body_in_the_last_second() {
+        // stun 0.5: hidden on the ticks where the body is hidden (phase / 4 odd), stars and all.
+        let shown = stun_picture(0.5, 0);
+        let hidden = stun_picture(0.5, 4);
+        let mut w = level::world();
+        w.ben.b.x = 8.0;
+        w.ben.b.y = 11.0;
+        w.chickens.clear();
+        assert_eq!(
+            hidden,
+            picture_with(&w, 4, false),
+            "no chicken, no stars while flashed away"
+        );
+        assert_ne!(shown, hidden);
     }
 
     #[test]
