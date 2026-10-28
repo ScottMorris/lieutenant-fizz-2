@@ -14,8 +14,8 @@
 // the probe lines and the bytes as `CELLROW` lines, which the host compares with its own builder for the same probe values.
 use alloc::string::String;
 use core::fmt::Write;
-use fizz_dos_rt::{println, text};
-use fizz_machine::{CELLS, Probe, Settings, cells, cells_hash, ready, resolve, write_cells_hex, write_probe};
+use fizz_dos_rt::{env, println, text};
+use fizz_machine::{CELLS, Probe, cells, cells_hash, ready, resolve, write_cells_hex, write_probe};
 
 /// What the person chose on the check screen.
 pub enum Choice {
@@ -25,9 +25,11 @@ pub enum Choice {
     Play,
 }
 
-/// Builds the screen for `machine` and the default sound settings.
+/// Builds the screen for `machine` and this run's sound settings (`FIZZ2.CFG`, then the flags), so the sound rows show what the
+/// game would use. With no file and no flags that is the default (Auto).
 fn build(machine: &Probe) -> [u16; CELLS] {
-    let resolved = resolve(&Settings::default(), machine);
+    let (settings, _) = crate::sound::load(&env::args());
+    let resolved = resolve(&settings, machine);
     let mut screen = [0u16; CELLS];
     cells(machine, &resolved, &mut screen);
     screen
