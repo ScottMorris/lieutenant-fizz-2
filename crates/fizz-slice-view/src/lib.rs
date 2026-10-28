@@ -615,6 +615,22 @@ pub fn cluck_placement(
     )
 }
 
+/// Where Ben's 16 by 16 sprite lies in the `w` by `h` view the camera draws (the shaken camera when `options.shake` is on):
+/// `(left, top, width, height)` in view pixels, from his feet and centre as `draw_ben` places the sprite. For a presenter that
+/// lays something over the picture and must keep it off Ben, such as the Web page's HUD. Pure: nothing in the rules reads it.
+pub fn ben_view_box(
+    world: &World,
+    w: usize,
+    h: usize,
+    options: &DrawOptions,
+) -> (i32, i32, i32, i32) {
+    let (cam_x, cam_y) = camera_shaken(world, w, h, options);
+    let ben = &world.ben;
+    let x = tile_px(ben.b.x + ben.b.w * 0.5) - cam_x;
+    let y = screen_y(ben.b.y, world.map.h) - cam_y;
+    (x - 8, y - 16, 16, 16)
+}
+
 /// How many ticks each stun-star frame shows. Fizz 1 swaps frames when `floor(t * 6)` changes: six swaps a second, a
 /// 1/6 s frame, so 60 Hz / 6 Hz = 10 ticks a frame and a full two-frame cycle of 20 ticks (3 Hz). Dividing by the two
 /// states as well would give 5 ticks, which is twelve swaps a second, twice Fizz 1's rate.
@@ -2319,6 +2335,25 @@ mod tests {
                 assert!((cx - camera(&d, VIEW_W, VIEW_H).0).abs() <= 2);
             }
         }
+    }
+
+    #[test]
+    fn bens_view_box_is_his_sprite_at_his_feet_in_the_view_and_follows_the_view_size() {
+        let mut w = level::world();
+        w.ben.b.x = 20.0;
+        w.ben.b.y = 30.0;
+        let o = DrawOptions::default();
+        let (x, y, bw, bh) = ben_view_box(&w, VIEW_W, VIEW_H, &o);
+        assert_eq!((bw, bh), (16, 16));
+        // Mid-map the camera centres on his body, so the box is on the middle of the view.
+        let (cam_x, cam_y) = camera(&w, VIEW_W, VIEW_H);
+        let feet_x = tile_px(w.ben.b.x + w.ben.b.w * 0.5) - cam_x;
+        assert_eq!(x, feet_x - 8);
+        assert_eq!(y, screen_y(w.ben.b.y, w.map.h) - cam_y - 16);
+        assert!((0..VIEW_W as i32).contains(&x) && (0..VIEW_H as i32).contains(&y));
+        // A wider view moves the camera, not the sprite's size.
+        let wide = ben_view_box(&w, VIEW_W * 2, VIEW_H, &o);
+        assert_eq!((wide.2, wide.3), (16, 16));
     }
 
     #[test]

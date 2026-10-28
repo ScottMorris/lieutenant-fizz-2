@@ -9,6 +9,7 @@ import init, { App } from "./pkg/fizz_present_web.js";
 import { AudioRoot } from "./audio.ts";
 import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
+import { announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, sameHud } from "./hud.ts";
 
 // Button bits match `fizz_sim::Buttons`.
 const UP = 1;
@@ -80,6 +81,11 @@ const fullscreenButton = document.getElementById("fullscreen");
 const soundButton = document.getElementById("sound");
 const ctx = canvas.getContext("2d");
 const captionLayer = document.getElementById("caption-layer");
+const playHud = document.getElementById("play-hud");
+const hudFizz = document.getElementById("hud-fizz");
+const hudDeaths = document.getElementById("hud-deaths");
+const hudKey = document.getElementById("hud-key");
+const hudStatus = document.getElementById("hud-status");
 
 // Cluck captions follow Fizz 1's Web text (design/melting/engine.js, `cap`): 15 px bold italic, centred, rising from half a line to
 // 1.8 lines above its anchor over the caption's life, popping in at 0.8 to 1.05 times its size, and fading out. Fizz 1 draws the 15 px
@@ -121,6 +127,7 @@ function fitView() {
   if (canvas.height !== VIEW_H) canvas.height = VIEW_H;
   stage.style.width = `${viewW * scale}px`;
   stage.style.height = `${VIEW_H * scale}px`;
+  scaleHud();
 }
 
 let fitTimer = 0;
@@ -247,6 +254,57 @@ function draw(app, memory) {
   ctx.putImageData(new ImageData(pixels, app.width(), app.height()), 0, 0);
 }
 
+// The in-picture HUD (web/hud.ts has the rules; this applies them). Its type is Fizz 1's whole-number pixel scale for the stage's
+// height, so it grows with the tile on screen, as the captions do. It is written only when a reading changes, and measured only
+// when it is scaled or resized, never each frame.
+let hudShown = null;
+let hudSideNow = "left";
+let hudBox = { x: 0, y: 0, w: 0, h: 0 };
+let statusTimer = 0;
+
+function scaleHud() {
+  const n = hudScale(stage.clientHeight);
+  playHud.style.setProperty("--n", String(n));
+  playHud.style.setProperty("--key-px", `${keyPixelSize(n)}px`);
+}
+
+// The HUD's box in stage pixels, kept up to date by a ResizeObserver (it changes with the scale, a digit or the font loading).
+function measureHud() {
+  hudBox = { x: playHud.offsetLeft, y: playHud.offsetTop, w: playHud.offsetWidth, h: playHud.offsetHeight };
+}
+
+function showPlayHud(app) {
+  const now = { ammo: app.ammo(), key: app.has_key(), deaths: app.deaths() };
+  if (sameHud(hudShown, now)) return;
+  const view = hudView(now);
+  if (hudFizz.textContent !== view.fizz) hudFizz.textContent = view.fizz;
+  hudFizz.toggleAttribute("data-out", view.fizzOut);
+  if (hudDeaths.textContent !== view.deaths) hudDeaths.textContent = view.deaths;
+  hudKey.dataset.carried = String(view.key);
+  // Told once, and only for what matters (hud.ts `announcement`). The text is cleared first so the same words twice, such as two
+  // Fizz running out, are announced again.
+  const said = announcement(hudShown, now);
+  hudShown = now;
+  if (said) {
+    hudStatus.textContent = "";
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => (hudStatus.textContent = said), 60);
+  }
+}
+
+// Ben never goes under the HUD: if his sprite comes within a quarter tile of it, the HUD takes the opposite top corner and stays
+// there until he comes near that one. The module gives Ben's place in view pixels.
+function keepHudOffBen(app) {
+  const shown = canvas.clientWidth / app.width();
+  const [bx, by, bw, bh] = app.ben_box();
+  const ben = { x: bx * shown, y: by * shown, w: bw * shown, h: bh * shown };
+  const side = hudSide(hudSideNow, hudBox, stage.clientWidth, ben, 4 * shown);
+  if (side === hudSideNow) return;
+  hudSideNow = side;
+  playHud.dataset.side = side;
+  measureHud();
+}
+
 function showHud(app) {
   hud.textContent =
     `TICK ${app.tick()}\n` +
@@ -287,6 +345,10 @@ function setPanel(open) {
 }
 
 async function main() {
+  // Both drawings of the key are in the chip; CSS shows the one that matches data-carried.
+  hudKey.innerHTML = `<span class="off">${keySvg(false)}</span><span class="on">${keySvg(true)}</span>`;
+  hudKey.dataset.carried = "false";
+  new ResizeObserver(measureHud).observe(playHud);
   fitView();
   addEventListener("resize", scheduleFit);
   addEventListener("orientationchange", scheduleFit);
@@ -301,6 +363,8 @@ async function main() {
   MIN_VIEW_W = App.min_view_w();
   MAX_VIEW_W = App.max_view_w();
   fitView();
+  // Read by tools/check-web-hud.py, to prove from outside that the HUD never covers Ben. Nothing in the page uses it.
+  window.__benBox = () => app.ben_box();
 
   // Sound: made on the first key press or click (browsers insist on a gesture), muted with M. Neither layout uses M.
   // One audio context for the clucks and the music, each on its own bus (web/audio.ts). The music is a placeholder song, started
@@ -472,6 +536,8 @@ async function main() {
     for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v, app.cluck_pan(), app.cluck_gain());
     draw(app, wasm.memory);
     showCaptions(app);
+    showPlayHud(app);
+    keepHudOffBen(app);
     showHud(app);
     requestAnimationFrame(loop);
   };

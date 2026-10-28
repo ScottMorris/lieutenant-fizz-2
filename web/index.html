@@ -16,7 +16,15 @@
         <canvas id="screen" width="320" height="208" aria-label="Game screen"></canvas>
         <!-- The cluck captions are drawn here as text over the picture. They stand in for a sound, so a screen reader is not told. -->
         <div id="caption-layer" aria-hidden="true"></div>
+        <!-- The HUD, in Fizz 1's look. It repeats what the H panel lists, so a screen reader skips it; hud-status says only what changed. -->
+        <div id="play-hud" aria-hidden="true">
+          <div class="cell"><span class="lbl">Fizz</span><span id="hud-fizz" class="num">5</span></div>
+          <div class="cell"><span class="lbl">Deaths</span><span id="hud-deaths" class="num">0</span></div>
+          <div class="cell"><span class="lbl">Key</span><span id="hud-key" class="chip" data-carried="false"></span></div>
+        </div>
       </div>
+      <!-- Spoken, not seen: the Fizz running out, the key picked up and a death. Nothing else, so it stays quiet. -->
+      <p id="hud-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
       <!-- A few seconds of hint after load, then it fades. -->
       <p id="toast" class="toast">Arrow keys move, Ctrl jumps, Alt uses the pogo stick, Space fires. H shows the panel.</p>
       <button id="panel-toggle" type="button" aria-controls="panel" aria-expanded="false" title="Controls and notes (H)">?</button>
