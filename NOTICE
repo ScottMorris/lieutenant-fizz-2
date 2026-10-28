@@ -8,3 +8,4 @@ Behaviour, art and story references come from liminal-hq/lieutenant-fizz (Apache
 Hardware-abstraction ideas mirror liminal-hq/desk (Apache-2.0 OR MIT).
 
 Third-party material is listed here when it is shipped beside the game or linked into it. The `libm` crate 0.2.16 (MIT), the Rust port of musl libm, is linked through `crates/fizz-phys`.
+`web/fonts/` holds two faces of Fizz 1's pixel font (`fizz-regular.woff2`, `fizz-mono-bold.woff2`), copied unchanged from liminal-hq/lieutenant-fizz at commit 4bce036 under the SIL Open Font License 1.1 (`web/fonts/OFL.txt`; the same author).

@@ -1,3 +1,19 @@
+/* The Fizz pixel font of Fizz 1 (the regular face for labels, the bold mono face for numbers), shipped under the SIL Open Font
+   License (web/fonts/OFL.txt). Fizz is an 11-row font, so it is only crisp at 11 px times a whole number. */
+@font-face {
+  font-family: "Fizz";
+  font-weight: 400;
+  font-display: block;
+  src: url("./fonts/fizz-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Fizz Mono";
+  font-weight: 700;
+  font-display: block;
+  src: url("./fonts/fizz-mono-bold.woff2") format("woff2");
+}
+
 html,
 body {
   margin: 0;
@@ -57,6 +73,102 @@ canvas {
   -webkit-text-stroke: 0.5px #000;
   text-shadow: 2px 2px 0 #000;
   will-change: transform, opacity;
+}
+
+/* The HUD: Fizz 1's desktop HUD panel (episodes/episode-1/src/ui/hud.css): dark glass, small dim labels over big pixel digits, 16 px
+   from the corner. main.js sets --n, the whole-number pixel scale, from the stage's height (Fizz 1's rule, hud.ts `hudScale`) and
+   --key-px for the key chip. It sits above the captions and below the panel and its toast, takes no clicks, and does not move. */
+#play-hud {
+  --n: 3;
+  --key-px: 2px;
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 16px);
+  left: calc(env(safe-area-inset-left, 0px) + 16px);
+  box-sizing: border-box;
+  display: flex;
+  gap: calc(var(--n) * 6px);
+  align-items: flex-end;
+  padding: calc(var(--n) * 3px) calc(var(--n) * 5px);
+  background: rgba(12, 12, 16, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  font-family: "Fizz", ui-monospace, monospace;
+  font-size: calc(11px * var(--n));
+  line-height: calc(13px * var(--n));
+  font-synthesis: none;
+  font-kerning: none;
+  letter-spacing: 0;
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: none;
+  color: #e0e0e0;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Ben came near the corner: the HUD takes the other one (main.js). */
+#play-hud[data-side="right"] {
+  left: auto;
+  right: calc(env(safe-area-inset-right, 0px) + 16px);
+}
+
+#play-hud .cell {
+  display: flex;
+  flex-direction: column;
+}
+
+#play-hud .lbl {
+  font-size: 22px;
+  line-height: 26px;
+  color: #7c8796;
+}
+
+#play-hud .num {
+  font-family: "Fizz Mono", ui-monospace, monospace;
+  font-weight: 700;
+  color: #55ffff;
+}
+
+/* Deaths is a plain count, not the Fizz: Fizz 1's light text colour, so it is never taken for the ammunition. */
+#play-hud #hud-deaths {
+  color: #e0e0e0;
+}
+
+#play-hud .num[data-out] {
+  color: #ff5555;
+}
+
+/* The key chip is as tall as the digits' line so the three cells line up; it holds both drawings and shows one. */
+#play-hud .chip {
+  display: block;
+  box-sizing: border-box;
+  height: calc(13px * var(--n));
+  padding: calc((13px * var(--n) - 16 * var(--key-px)) / 2) 0;
+}
+
+#play-hud .chip svg {
+  display: block;
+  width: calc(16 * var(--key-px));
+  height: calc(16 * var(--key-px));
+  image-rendering: pixelated;
+}
+
+#play-hud .chip[data-carried="true"] .off,
+#play-hud .chip[data-carried="false"] .on {
+  display: none;
+}
+
+/* Spoken, not seen. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 #hud {

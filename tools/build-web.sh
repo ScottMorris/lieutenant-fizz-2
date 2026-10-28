@@ -21,6 +21,8 @@ mkdir -p dist/web
 wasm-bindgen --target web --no-typescript --out-dir dist/web/pkg \
     target/wasm32-unknown-unknown/release/fizz_present_web.wasm
 cp web/index.html web/style.css dist/web/
+mkdir -p dist/web/fonts
+cp web/fonts/*.woff2 web/fonts/OFL.txt dist/web/fonts/
 # The page's script and its one dependency, Undertone, become one file. The wasm bindings stay external and relative, so the
 # bundle works from any base path; `bun install --frozen-lockfile` is the only step that needs a network, and only on a cold cache.
 bun install --frozen-lockfile
