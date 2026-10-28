@@ -249,6 +249,30 @@ mod tests {
     }
 
     #[test]
+    fn the_box_shows_the_picture_dimmed_and_only_it_uses_the_dimmed_half_of_the_palette() {
+        let world = fizz_ep2::level::world();
+        let mut frame = Frame::new();
+        render_slice(&world, &mut frame);
+        let mut bare = Frame::new();
+        fizz_slice_view::draw_slice(bare.pixels_mut(), WIDTH, HEIGHT, &world, 0);
+        let mut dimmed_seen = 0;
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let (p, q) = (frame.pixels()[y * WIDTH + x], bare.pixels()[y * WIDTH + x]);
+                assert!(q < 16, "the shared picture uses the sixteen colours");
+                let inside = (hud::X..hud::X + hud::W).contains(&x)
+                    && (hud::Y..hud::Y + hud::H).contains(&y);
+                if p >= 16 {
+                    assert!(inside, "({x},{y})");
+                    assert_eq!(p, dimmed(q));
+                    dimmed_seen += 1;
+                }
+            }
+        }
+        assert!(dimmed_seen > hud::W * hud::H / 2);
+    }
+
+    #[test]
     fn the_hud_is_rendered_only_when_its_values_change() {
         let mut world = fizz_ep2::level::world();
         let mut frame = Frame::new();

@@ -48,6 +48,36 @@ pub const fn ega_palette() -> [Rgb6; 16] {
     ]
 }
 
+/// Where the dimmed copies start: entries 16 to 31 are entries 0 to 15 at 4/13 of their brightness.
+pub const DIM_BASE: u8 = 16;
+/// Fizz 1's DOS port draws its HUD panel over the picture lowered by nine of its fourteen brightness levels, which leaves level
+/// 5 of 14. Its palette holds a level as `(level - 1) / 13` of the colour, so the panel shows 4/13 (about 0.31) of each channel.
+pub const DIM_NUMERATOR: u16 = 4;
+
+/// The palette index of the dimmed copy of EGA colour `c` (0 to 15): the HUD box shows the picture through itself in these.
+pub const fn dimmed(c: u8) -> u8 {
+    DIM_BASE + (c & 15)
+}
+
+const fn dim(v: u8) -> u8 {
+    ((v as u16 * DIM_NUMERATOR + 6) / 13) as u8
+}
+
+/// The whole table the DOS display is given: the sixteen EGA colours (entries 0 to 15, unchanged), then the same sixteen at
+/// 4/13 of their brightness (entries 16 to 31, rounded to the nearest DAC step). The frame stays one byte per pixel, and
+/// every picture drawn so far uses only entries 0 to 15; only the HUD box puts the dimmed ones on screen.
+pub const fn dos_palette() -> [Rgb6; 32] {
+    let ega = ega_palette();
+    let mut out = [c(0, 0, 0); 32];
+    let mut i = 0;
+    while i < 16 {
+        out[i] = ega[i];
+        out[16 + i] = c(dim(ega[i].r), dim(ega[i].g), dim(ega[i].b));
+        i += 1;
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,6 +89,24 @@ mod tests {
         for e in p {
             assert!(e.r <= 63 && e.g <= 63 && e.b <= 63);
         }
+    }
+
+    #[test]
+    fn the_dos_table_keeps_the_ega_colours_and_adds_dimmed_copies() {
+        let (ega, all) = (ega_palette(), dos_palette());
+        assert_eq!(&all[..16], &ega[..]);
+        for (i, e) in ega.iter().enumerate() {
+            let d = all[usize::from(dimmed(i as u8))];
+            assert_eq!(d, all[16 + i]);
+            for (full, dim) in [(e.r, d.r), (e.g, d.g), (e.b, d.b)] {
+                assert!(dim <= 19 && dim <= full);
+                // Within half a DAC step of 4/13 of the colour.
+                assert!((i32::from(dim) * 13 - i32::from(full) * 4).abs() <= 6);
+            }
+        }
+        assert_eq!(all[16], c(0, 0, 0));
+        assert_eq!(all[31], c(19, 19, 19));
+        assert_eq!(all[usize::from(dimmed(LIGHT_GREEN))], c(6, 19, 6));
     }
 
     #[test]
