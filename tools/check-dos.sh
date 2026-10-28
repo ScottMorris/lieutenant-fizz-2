@@ -374,6 +374,19 @@ cfg_put 'FZ2C\x02\x02\x09\x00\x00'
 sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch14 cfg-effects' /PROBE
 cfg_put 'FZ2C\x02\x02\x02\x05\x00'
 sound_case 'corrupt: frame-rate byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5 cfg-framerate' /PROBE
+# Version 3 adds motion, placement, captions and keys (bytes 9 to 12); a bad value resets only its own field and has its own code.
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x01\x01\x01\x01'
+sound_case 'file v3' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x09\x00\x00\x00'
+sound_case 'corrupt: motion byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-motion' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x09\x00\x00'
+sound_case 'corrupt: placement byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-placement' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x09\x00'
+sound_case 'corrupt: captions byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-captions' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
+sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
+cfg_put 'FZ2C\x03\x02\x04\x02\x00'
+sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
 cfg_put ''
 sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
 # /LIVE prints the line too (Esc ends it).
@@ -388,7 +401,8 @@ cfg_none
 sound_case 'flags leave no file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with flags created FIZZ2.CFG"
 # The save path: /CFGTEST (a test mode, not for players) saves the settings the flags give with the 60 Hz frame rate, reads the file back
-# and prints it. The bytes are the documented version 2 layout, and a version 1 file is replaced by a version 2 one.
+# and prints it. The bytes are the documented version 3 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
+# set the keys and captions bytes), and a version 1 or 2 file is replaced by a version 3 one.
 cfgtest_case() {
   local name="$1" hex="$2" out status=0
   shift 2
@@ -403,11 +417,14 @@ cfgtest_case() {
   echo "CFGTEST case $name ok ($hex)"
 }
 cfg_none
-cfgtest_case 'sb and speaker' 465A32430203040200 /MUSIC:SB /FX:SPEAKER
-cfgtest_case 'nosound' 465A32430201010200 /NOSOUND
+cfgtest_case 'sb and speaker' 465A3243030304020001010000 /MUSIC:SB /FX:SPEAKER
+cfgtest_case 'nosound' 465A3243030101020001010000 /NOSOUND
+cfgtest_case 'modern keys, no captions' 465A3243030000020001010101 /MODERN /NOCAPTIONS
 cfg_put 'FZ2C\x01\x03\x03\x00'
-cfgtest_case 'replaces a version 1 file' 465A32430202020200 /ADLIB
-cfgtest_case 'no flags is Auto' 465A32430200000200
+cfgtest_case 'replaces a version 1 file' 465A3243030202020001010000 /ADLIB
+cfg_put "$V2"
+cfgtest_case 'replaces a version 2 file' 465A3243030000020001010000
+cfgtest_case 'no flags is Auto' 465A3243030000020001010000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
 

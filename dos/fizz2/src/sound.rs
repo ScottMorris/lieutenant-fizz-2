@@ -12,7 +12,10 @@ use alloc::string::String;
 use core::fmt::Write;
 use fizz_dos_rt::dos::{DosError, File, Mode};
 use fizz_dos_rt::{dpmi, env, fpu, irq, println};
-use fizz_machine::{Config, ConfigIssue, Prefs, Probe, Resolved, Settings, apply_flags, resolve, write_sound};
+use fizz_machine::switches::{self, Parsed};
+use fizz_machine::{
+    Config, ConfigIssue, FrameRate, Motion, PlacementMode, Prefs, Probe, Resolved, Settings, apply_flags, resolve, write_sound,
+};
 
 /// Reads `FIZZ2.CFG` from the current directory. A missing or unreadable file is Auto with no issue; a bad one is Auto with the first reason.
 pub fn load_file() -> (Prefs, Option<ConfigIssue>) {
@@ -40,7 +43,7 @@ pub fn load(args: &[String]) -> (Settings, Option<ConfigIssue>) {
 }
 
 /// The frame rate a run uses: the flag if one was given, else the file's byte (read with the same `load_file`), else Auto.
-pub fn frame_rate(flag: Option<fizz_machine::FrameRate>) -> fizz_machine::FrameRate {
+pub fn frame_rate(flag: Option<FrameRate>) -> FrameRate {
     flag.unwrap_or_else(|| load_file().0.frame_rate)
 }
 
@@ -72,15 +75,24 @@ impl Plan {
     }
 }
 
-/// `/CFGTEST`, a test mode and not a player's switch: saves the settings the flags give (with the 60 Hz frame rate, to cover the
-/// byte), reads the file back and prints the bytes and whether they came back equal. It overwrites `FIZZ2.CFG` in the current directory.
+/// `/CFGTEST`, a test mode and not a player's switch: saves the settings the flags give (with the 60 Hz frame rate, Reduced motion and Classic placement, to cover
+/// those bytes; `/MODERN` and `/NOCAPTIONS` set theirs), reads the file back and prints the bytes and whether they came back equal. It overwrites `FIZZ2.CFG` in the current directory.
 pub fn cfgtest_mode() -> i32 {
     let irq0 = dpmi::get_pm_vector(irq::vector_of(0)).ok();
     let mut settings = Settings::default();
     apply_flags(&mut settings, env::args().iter().map(|a| a.as_str()));
+    // The key layout and the captions come from the switches; the frame rate, motion and placement are fixed at non-default values so
+    // that every byte of the version 3 layout is exercised.
+    let from_switches = match switches::parse(env::args().iter().map(|a| a.as_str())) {
+        Parsed::Run(run) => run.over(&Prefs::default()),
+        _ => Prefs::default(),
+    };
     let prefs = Prefs {
         sound: settings,
-        frame_rate: fizz_machine::FrameRate::Hz60,
+        frame_rate: FrameRate::Hz60,
+        motion: Motion::Reduced,
+        placement: PlacementMode::Classic,
+        ..from_switches
     };
     let saved = save(&prefs).is_ok();
     let (back, issue) = load_file();

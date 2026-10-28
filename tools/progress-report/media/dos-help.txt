@@ -1,5 +1,4 @@
-Lieutenant Fizz 2 for DOS
-Usage: FIZZ2.EXE [mode] [switches]. Letter case does not matter.
+Lieutenant Fizz 2 for DOS. Usage: FIZZ2.EXE [mode] [switches]; case is ignored.
 Modes (the first one given is used; /LIVE is the default)
   /LIVE         Play the slice from the keyboard; Esc ends it
   /REPLAY       Run the built-in script and print its transcript
@@ -10,6 +9,7 @@ Modes (the first one given is used; /LIVE is the default)
   /?            Show this help (also /HELP and -?); nothing else runs
 Options (for this run; where one has an opposite, the last one given wins)
   /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
+  /KEEN         Use Keen's keys, even if FIZZ2.CFG saved the Modern ones
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
