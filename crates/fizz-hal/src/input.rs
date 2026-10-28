@@ -19,6 +19,8 @@ pub enum KeyCode {
     D,
     Space,
     Escape,
+    /// Either Enter key: the main key and the extended keypad Enter report the same code.
+    Enter,
     Z,
     X,
     C,

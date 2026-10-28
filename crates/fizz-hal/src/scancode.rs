@@ -95,6 +95,7 @@ fn key(extended: bool, byte: u8) -> KeyEvent {
         (true, 0x4B) => KeyCode::Left,
         (true, 0x4D) => KeyCode::Right,
         (_, 0x1D) => KeyCode::Ctrl,
+        (_, 0x1C) => KeyCode::Enter,
         (_, 0x38) => KeyCode::Alt,
         (false, 0x11) => KeyCode::W,
         (false, 0x1E) => KeyCode::A,
@@ -135,6 +136,7 @@ mod tests {
             (0x20, KeyCode::D),
             (0x39, KeyCode::Space),
             (0x01, KeyCode::Escape),
+            (0x1C, KeyCode::Enter),
             (0x2C, KeyCode::Z),
             (0x2D, KeyCode::X),
             (0x2E, KeyCode::C),
@@ -146,6 +148,25 @@ mod tests {
             assert_eq!(d.feed(make), ev(code, true));
             assert_eq!(d.feed(make | 0x80), ev(code, false));
         }
+    }
+
+    #[test]
+    fn keypad_enter_matches_the_main_enter_key() {
+        let mut d = Set1Decoder::new();
+        assert_eq!(d.feed(0x1C), ev(KeyCode::Enter, true));
+        assert_eq!(d.feed(0x9C), ev(KeyCode::Enter, false));
+        let out = feed_all(&mut d, &[0xE0, 0x1C, 0xE0, 0x9C]);
+        assert_eq!(out, [None, ev(KeyCode::Enter, true), None, ev(KeyCode::Enter, false)]);
+    }
+
+    #[test]
+    fn pause_still_swallows_its_own_bytes_with_enter_decoded() {
+        // The Pause sequence has no 1C in it, and the bytes after E1 never reach the table.
+        let mut d = Set1Decoder::new();
+        for b in [0xE1, 0x1D, 0x45, 0xE1, 0x9D, 0xC5] {
+            assert_eq!(d.feed(b), None);
+        }
+        assert_eq!(d.feed(0x1C), ev(KeyCode::Enter, true));
     }
 
     #[test]
@@ -220,11 +241,11 @@ mod tests {
     fn unknown_codes_carry_the_make_code() {
         let mut d = Set1Decoder::new();
         assert_eq!(
-            d.feed(0x9C),
+            d.feed(0x9B),
             ev(
                 KeyCode::Unknown {
                     extended: false,
-                    scancode: 0x1C
+                    scancode: 0x1B
                 },
                 false
             )
