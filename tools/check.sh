@@ -13,4 +13,11 @@ tools/check-headers.sh
 python3 -I tools/check-docs.py
 python3 -I tools/progress-report/tests/test_report.py
 python3 -I tools/progress-report/gather.py --dry-run
+# The song source needs Bun and the pinned Undertone (`bun install --frozen-lockfile`); CI always runs these.
+if command -v bun > /dev/null 2>&1 && [ -d node_modules/@liminal-hq/undertone ]; then
+  bun test assets/music
+  bun tools/music/notes.ts --check
+else
+  printf 'skipped: the music source checks (need bun and node_modules)\n'
+fi
 printf 'All checks passed.\n'
