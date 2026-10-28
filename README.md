@@ -13,7 +13,7 @@
 
 *Lieutenant Fizz 2* is the start of **Episode 2** of the Keen-style platformer series, and the simulation that Episode 3 will reuse. It is one game with two first-class presentations, **Web** and **DOS**, built in parallel from a deterministic Rust core. Fizz 1 stays where it is as the original and the reference; Fizz 2 learns from it.
 
-> **Status:** Milestone 1, the first playable slice, is done on Web and DOS. Ben runs, jumps, pogos, looks up and down and fires; a Zargified chicken patrols, clucks at random and can be stomped or stunned; a red key opens a red door in a 32 by 48 maze whose exit ends the run. Native, Web (WASM) and DOS (headless DOSBox) produce the same state-hash transcript (`PARITY ok 0edebb797e63edff`), and Ben and the chicken match Fizz 1's physics bit for bit across eighteen golden traces. The Web plays the cluck through Undertone; DOS makes no sound yet and nobody has listened to the cluck. Nothing has run on real 486 hardware. [`docs/PLATFORM.md`](docs/PLATFORM.md) describes the layers and what is not verified, [`docs/MANUAL.md`](docs/MANUAL.md) the controls and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) the plan.
+> **Status:** Milestone 1, the first playable slice, is done on Web and DOS. Ben runs, jumps, pogos, looks up and down and fires; a Zargified chicken patrols, clucks at random and can be stomped or stunned; a red key opens a red door in a 32 by 48 maze whose exit ends the run. Native, Web (WASM) and DOS (headless DOSBox) produce the same state-hash transcript (`PARITY ok 0edebb797e63edff`), and Ben and the chicken match Fizz 1's physics bit for bit across eighteen golden traces. Both versions play the cluck and a placeholder song (the Web through Undertone, DOS on an AdLib or a Sound Blaster), draw a small HUD in Fizz 1's look, and open Paused and Options screens with Esc; DOS also takes a frame-rate choice (`/FPS30`, `/FPS60`, `/FPSAUTO`) and saves its settings in `FIZZ2.CFG`. Everything Fizz is drawn in one accent colour, grape (light magenta). The owner has played the Web build and a DOS preview and heard the cluck and the music; nobody has listened on real sound hardware, and nothing has run on real 486 hardware. [`docs/PLATFORM.md`](docs/PLATFORM.md) describes the layers and what is not verified, [`docs/MANUAL.md`](docs/MANUAL.md) the controls and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) the plan.
 
 ## The story so far
 
@@ -45,7 +45,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `crates/fizz-view` | What both presenters share below the scene: the pixel rule, the follow camera, sprite and tile drawing, the font and the generated sprite data |
 | `crates/fizz-slice-view` | `draw_slice`, the one routine that draws the slice for both presenters |
 | `crates/fizz-sfx` | Generated OPL2 and PC speaker data for the cluck and the steppers that play it |
-| `crates/fizz-music` | Generated OPL2 and OPL3 register streams for the placeholder level music (no player yet) |
+| `crates/fizz-music` | Generated OPL2 and OPL3 register streams for the placeholder level music, and `MusicPlayer`, the stepper that plays them at 560 Hz |
 | `crates/fizz-hal` | Hardware abstraction traits mirrored from Desk: clock, input, display and the interrupt ring |
 | `crates/fizz-machine` | The pure model of the DOS start-up check: probe data, sound settings and resolver, and the text screen |
 | `crates/fizz-present-dos` | The DOS frame, palette, font and key mapping, with no DOS calls |
@@ -56,7 +56,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/PLATFORM.md` | The platform skeleton: transcript format, DOS runtime, Web build, checks, toolchain and provenance |
 | `docs/DOS-CHECK.md` | The DOS start-up check: the screen, the three sound states, settings, flags and the probe plan |
 | `docs/SPRITES.md` | The sprite grid format, the sets and the tools that lower them to Rust |
-| `docs/SFX.md` | Sound: what plays where, the cluck and its downmixes, how a sound is placed, DOS playback, the Web path and how music fits in |
+| `docs/SOUND.md` | Sound: what plays where, the cluck and its downmixes, how a sound is placed, DOS playback, the Web path and how music fits in |
 | `docs/LORE.md` | Episode 2's setting and the proposed lore of its levels |
 | `docs/MANUAL.md` | How to play and run the slice |
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |

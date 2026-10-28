@@ -3,7 +3,7 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// The data is downmixed by `tools/sfx/downmix.ts` from the Undertone source under `assets/sfx/` (see `docs/SFX.md`); `data.rs` is
+// The data is downmixed by `tools/sfx/downmix.ts` from the Undertone source under `assets/sfx/` (see `docs/SOUND.md`); `data.rs` is
 // generated and checked in CI. This crate owns no hardware access: the OPL player hands register writes to a callback and the
 // speaker player returns a divisor, so the DOS presenter decides how to reach ports and the host tests need no hardware.
 // Nothing here allocates, and nothing is `unsafe`.

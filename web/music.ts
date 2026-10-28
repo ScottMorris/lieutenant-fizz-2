@@ -59,7 +59,7 @@ export function partMakeup(role: PartRole | undefined): number {
  * note length (sustain defaults to 0.3), a panned role gets its pan and the make-up gain, a partner gets the mirrored pan.
  *
  * `lpenv` keeps Fizz 1's meaning on purpose: Undertone adds it to `lpf`, so the filter opens to `lpf + lpenv`. The cluck reads
- * `lpenv` as the Hz it opens to (docs/SFX.md); music is written for Undertone's reading, so it is handed over as it is.
+ * `lpenv` as the Hz it opens to (docs/SOUND.md); music is written for Undertone's reading, so it is handed over as it is.
  */
 export function buildPartVoice(U: UndertoneLike, v: MusicPart): Voice {
   let p = v.noise ? U.sound(v.notes as Parameters<UndertoneLike['sound']>[0]) : U.note(v.notes).sound(v.w ?? 'triangle');

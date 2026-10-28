@@ -11,10 +11,12 @@
 # presses keys in it, as a person at the keyboard would. The runs:
 #
 #   /REPLAY        the 1,268-tick slice script in real time, one grab every 0.4 s (replay-00.png, replay-01.png, ...). The program's
-#                  HUD prints the tick in each grab; DOSBox's pace varies a little from run to run, so capture.py picks grabs by index
-#                  and the pictures themselves say which tick they show
+#                  HUD no longer prints the tick; DOSBox's pace varies a little from run to run, so capture.py picks grabs by index
+#                  and the ticks it names are approximate
 #   /LIVE          Ctrl is held for 0.6 s (Ben jumps to the first ledge), then Up alone for 1.8 s (look-up.png), then Up and Space
-#                  together (aim-up.png) and Down and Space with Ctrl in the air (aim-down.png), then Esc
+#                  together (aim-up.png) and Down and Space with Ctrl in the air (aim-down.png), then Esc (paused.png, the Paused
+#                  screen), Down and Enter and Down (options.png, the Options screen with Effects chosen), then Esc to leave Options
+#                  (the cursor returns to Options on Paused) and Down and Enter to quit to DOS
 #   /CHECKCELLS    the check screen's 80 by 25 text cells, printed as CELLROW lines (check-cells.txt), which tools/render-cells.py draws
 #   /?             the help screen's text (help.txt)
 #   /PROBE         what the program finds in DOSBox's machine (probe.txt)
@@ -57,7 +59,13 @@ xdotool keyup space; xdotool keyup Up; sleep 1.2
 xdotool keydown Control_L; sleep 0.4; xdotool keydown Down; xdotool keydown space; sleep 0.08
 import -window "$win" "$out/aim-down.png"
 xdotool keyup space; xdotool keyup Down; xdotool keyup Control_L; sleep 0.5
-xdotool key Escape
+xdotool key Escape; sleep 0.6
+import -window "$win" "$out/paused.png"
+xdotool key Down; sleep 0.2; xdotool key Return; sleep 0.4
+xdotool key Down; sleep 0.6
+import -window "$win" "$out/options.png"
+xdotool key Escape; sleep 0.4
+xdotool key Down; sleep 0.2; xdotool key Return
 wait "$pid"
 
 # Text runs, with no display.

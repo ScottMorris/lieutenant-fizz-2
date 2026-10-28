@@ -4,7 +4,7 @@ This manual is updated with every change a player can see or do, in the same pul
 
 ## What this is
 
-Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Web's Paused and Options screens; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
+Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Paused and Options screens on the Web and on DOS; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
 
 ## Running it
 
@@ -46,7 +46,7 @@ When the chicken clucks, its beak opens and its words float above its head for a
 
 ![The Web slice just after the chicken clucks: its beak is open and the small orange word bwuk-BWUK floats just above its head, drawn as text over the picture. Ben is in mid-air below it. Captured from the Web build in headless Chromium at 1280 by 720, in the Keen layout.](images/web-cluck.png)
 
-*The Web build (commit b238803) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
+*The Web build (commit 796602d) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck, with the HUD in the top left corner. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
 
 - **Web:** the Captions row of the Options screen turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. With neither, the choice saved in `FIZZ2.CFG` is used.
@@ -162,8 +162,11 @@ The run prints one more line when it ends, such as `AUDIO WRITES 425 SPEAKER STE
 
 Press Esc while you play to open the pause menu: Resume, Options and Quit to DOS. The picture stops and darkens behind it, and the music keeps playing. Up and Down choose a row (they wrap round), Enter or your Jump or Fire key chooses it, and Esc or your Pogo key goes back, which from the pause menu means Resume. Choosing Options opens the Options screen over the same darkened picture.
 
-![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it, a star after the Frame rate value, and the note that the star means the value was set by a switch.](img/dos-options.png)
-*The Options screen as the portable code draws it over the first picture of the level, shown at twice size. The DOS build is checked to draw exactly these pixels (`FIZZ2.EXE /MENUSHOT`); it is not a capture of a running emulator.*
+![The Paused menu on DOS: the darkened level with the heading Paused in white above a light magenta rule, the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Quit to DOS, and a grey line of keys at the bottom.](img/dos-paused.png)
+*The Paused menu in the DOS build (commit 796602d), `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc was typed.*
+
+![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it and the values in light magenta on the right.](img/dos-options.png)
+*The Options screen in the DOS build (commit 796602d): `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc, Down, Enter and Down were typed, with no card and no switches, so Music is `Auto (off)` and Effects `Auto (PC speaker)`. It is a capture of the running game; a row set by a switch also shows a star and a note, described below.*
 
 On the Options screen Up and Down choose a row, Left goes back one choice and Right, Enter, Jump and Fire go forward one (past the last choice it wraps to the first), and Esc or Pogo goes back to the pause menu. The Modern keys work the same way, with `W` and `S` for Up and Down and `A` and `D` for Left and Right. The rows are:
 
@@ -199,9 +202,9 @@ It has not been tried on a real computer: how long the save takes on a floppy di
 
 ![The DOS build in DOSBox, at the start of a run: Ben at the foot of the shaft and the chicken on the top ledge, with the translucent HUD pill in the top-left corner (the picture shows darkened through it) showing `Fizz 5`, `Deaths 0` and the key chip empty.](img/dos-slice.png)
 
-*Screenshot of the DOS build with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, at tick 249 of the built-in run. The emulator scales the 320 by 200 picture up.*
+*Screenshot of the DOS build (commit 796602d) with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, a moment after the built-in run starts. The emulator scales the 320 by 200 picture up.*
 
-You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. The chicken's cluck plays (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)); there is no other sound yet.
+You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. The chicken's cluck plays (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and, with an AdLib or a Sound Blaster, so does a looping placeholder song; there is no other sound yet.
 
 When you play with `/LIVE`, the DOS version waits for the screen to finish drawing before it shows each new picture, which keeps the picture from tearing. Nothing else about how it plays changes.
 
@@ -223,11 +226,11 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 
 ![The DOS build, Ben on the first ledge with the view lifted: the chicken is on its ledge higher up and its words BWUK, BWUK float above it.](img/dos-look-up-caption.png)
 
-*DOS build (`FIZZ2.EXE /LIVE`, DOSBox Staging, headless under a virtual display): Ben has stood still on the first ledge holding Up for a second and a half, so the view has risen to show the chicken, which has just clucked "bwuk, bwuk". Tick 377.*
+*DOS build (`FIZZ2.EXE /LIVE`, DOSBox Staging, headless under a virtual display): Ben has stood still on the first ledge holding Up for a second and a half, so the view has risen to show the chicken, which has just clucked "bwuk, bwuk". Commit 796602d.*
 
 ![The DOS build, Ben standing at the foot of the shaft with his blaster raised and a shot rising above him.](img/dos-aim-up.png)  ![The DOS build, Ben in the air holding his blaster down with a shot falling beneath him.](img/dos-aim-down.png)
 
-*DOS build, same set-up. Left: Up and Fizz together fire straight up (tick 632, `AMMO` 4). Right: Down and Fizz together in mid-jump fire straight down (tick 319, `AMMO` 4).*
+*DOS build, same set-up. Left: Up and Fizz together fire straight up (`Fizz` 4 in the HUD). Right: Down and Fizz together in mid-jump fire straight down.*
 
 ### The red key and the door
 
@@ -239,19 +242,19 @@ The chicken walks to and fro along its ledge and turns round at walls and edges.
 
 ![A stunned chicken lying beside Ben on the chicken's ledge, two small yellow-and-white stars twinkling above its head. Web build, 1280 by 720.](images/web-stun.png)
 
-*The Web build (commit b238803), 1280 by 720, tick 300 of the replay: the chicken was hit by a Fizz shot and is stunned; its stars twinkle above it. DOS draws the stars too.*
+*The Web build (commit 796602d), 1280 by 720, tick 300 of the replay: the chicken was hit by a Fizz shot and is stunned; its stars twinkle above it. DOS draws the stars too.*
 
 ### Death and respawn on DOS
 
-Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air, spinning head over heels as he falls (about one and a quarter turns a second, as in Lieutenant Fizz 1), for a moment, then you start again at the beginning of the level, about a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open. The screen shakes sideways for a third of a second when you die, as in Lieutenant Fizz 1; a small shake, a pixel or so either way. The DOS version always shakes and spins for now, and the Options screen will let you turn both off.
+Spikes, the chicken, and falling out of the bottom of the map all kill you. Ben tumbles through the air, spinning head over heels as he falls (about one and a quarter turns a second, as in Lieutenant Fizz 1), for a moment, then you start again at the beginning of the level, about a second and a half later, with five shots, the chicken back at its start and the key back where it lay if you were carrying it. The `DEATHS` count goes up. An open door stays open. The screen shakes sideways for a third of a second when you die, as in Lieutenant Fizz 1; a small shake, a pixel or so either way. The Motion row of the DOS Options screen turns both off (Reduced): Ben's fall is then flat and the screen stays still.
 
 ## The Web slice
 
 The Web page plays the first slice of Episode 2. You are Ben, climbing the inside of a lighthouse. Fetch the red key, open the red door with it, climb the second shaft and walk into the exit. The chicken clucks now and then (see [Sound on the Web](#sound-on-the-web)), and the page shows the level in a window that scrolls with you. The window is always 13 tiles tall, and a wider browser window shows more of the level to the sides, as in Fizz 1 (the DOS version keeps its fixed 320 by 200 picture).
 
-![The Web slice at the start of the level, 1280 by 720: Ben in the lower left with a Fizz Blaster shot in flight, the chicken and the red key high above, the level a column in the middle of the window with grey bars either side and nothing else on the page except a small round help button in the corner. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
+![The Web slice at the start of the level, 1280 by 720: Ben in the lower left with a Fizz Blaster shot in flight, the chicken and the red key high above, the level a column in the middle of the window with grey bars either side, the small HUD panel in the top left corner, a hint line at the bottom and a small round help button in the corner. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
 
-*The Web build (commit b238803), headless Chromium at 1280 by 720: Ben has just fired a shot at tick 40, so `AMMO` reads 4. This build was taken before the HUD described under "The Web heads-up text" was added; the HUD now sits in the top left corner of the picture. The debug lines are in the panel shown below.*
+*The Web build (commit 796602d), headless Chromium at 1280 by 720: Ben has just fired a shot at tick 40, so the HUD's `Fizz` reads 4. The HUD sits in the top left corner of the picture and the debug lines are in the panel shown below.*
 
 ### The level on the Web
 
@@ -273,19 +276,19 @@ The level is a tall room split into a left shaft and a right shaft by a wall. Yo
 
 ![The Web slice with Ben on the first ledge, looking up: the view has risen to show the chicken on its ledge and its caption bwuk-BWUK above it.](images/web-look-up.png)
 
-*The Web build (commit b238803), 1280 by 720, tick 210: after the first 150 ticks of the replay Ben stands on the first ledge and holds Up for 60 ticks; the chicken clucked at tick 197.*
+*The Web build (commit 796602d), 1280 by 720, tick 210: after the first 150 ticks of the replay Ben stands on the first ledge and holds Up for 60 ticks; the chicken clucked at tick 197.*
 
 ![The Web slice with Ben on the chicken's ledge, looking down: the view has dropped so that Ben is near the top of the picture and the ledges and spikes below him are in view.](images/web-look-down.png)
 
-*The Web build (commit b238803), 1280 by 720, tick 326: after the first 236 ticks of the replay Ben stands on the chicken's ledge (the third) and holds Down for 90 ticks. The view slides down as far as the foot of the level allows, which is about half a tile past the spikes, so the picture ends in a thin grey strip. On the first ledge the view cannot slide down because the level ends just below it.*
+*The Web build (commit 796602d), 1280 by 720, tick 326: after the first 236 ticks of the replay Ben stands on the chicken's ledge (the third) and holds Down for 90 ticks. The view slides down as far as the foot of the level allows, which is about half a tile past the spikes, so the picture ends in a thin grey strip. On the first ledge the view cannot slide down because the level ends just below it.*
 
 ![The Web slice with Ben in mid-jump holding his blaster down and a shot falling below him.](images/web-aim-down.png)
 
-*The Web build (commit b238803), same window, tick 50: Down and Fire together in a jump fire straight down, so `AMMO` reads 4.*
+*The Web build (commit 796602d), same window, tick 41: Down and Fire together in a jump fire straight down, so `Fizz` in the HUD reads 4.*
 
-![The Web slice a moment after a shot hit the wall: a small cyan puff at the right-hand wall.](images/web-puff.png)
+![The Web slice a moment after a shot hit the wall: a small light magenta puff at the right-hand wall.](images/web-puff.png)
 
-*The Web build (commit b238803), same window, tick 108: the second shot of the replay has just hit the wall, two ticks earlier, and pops as a small cyan puff that swells and thins out for a third of a second (this screenshot was taken before Fizz 2 changed the puff to light magenta). DOS draws the same puff.*
+*The Web build (commit 796602d), same window, tick 108: the second shot of the replay has just hit the wall, two ticks earlier, and pops as a small light magenta puff (the Fizz colour) that swells and thins out for a third of a second. DOS draws the same puff.*
 
 The keys for each action are in the table under Controls, in both the Keen and the Modern layouts. Switching layouts lets go of every key you are holding.
 
@@ -297,13 +300,13 @@ You die on spikes, on a chicken that is not stunned, and by falling out of the b
 
 The page is the game: the picture fills the whole window and nothing scrolls. It is always 13 tiles tall and as wide as the window's shape allows, so a phone held upright shows about six tiles across and an ultra-wide monitor shows the whole width of the level with sky at the sides. The picture is scaled to the window's height, in a whole-number multiple when the height is one of 208, 416, 624 and so on, and by a fraction otherwise (the pixels are then slightly uneven). Past about 80 tiles wide the picture stops growing and dark bars fill the rest. Resizing or turning the device resizes the picture after a moment; the game itself is not affected, and the fingerprint is the same at every window size. Over the picture, in the top left corner, a small dark HUD in Fizz 1's pixel lettering shows what you need while you play: `Fizz`, how many Fizz shots you have left (the number is light magenta, the grape colour of Fizz in this game, and turns red at zero), `Deaths`, how many times you have died, and `Key`, which shows the red key when you carry it and a dim outline of it when you do not. Numbers stop at 99. The HUD grows with the window as Fizz 1's does (three sizes, by the window's height), cannot be clicked, does not move or animate, and keeps out of Ben's way: if he comes near the corner it moves to the opposite top corner. A screen reader is not read the HUD each frame; it hears one short line when the Fizz runs out ("Out of Fizz"), when you pick up the key ("Red key picked up") and when you die ("Deaths 1"), and nothing else. `TICK` and `HASH` are not in the HUD; they, and the other debug lines, stay in the panel. A hint shows for a few seconds after the page loads. Everything else is in a panel that you show and hide with `H` or the small `?` button in the bottom right corner (Esc has its own job: it pauses the game and opens the Options screen, described next). In the panel, seven lines of text show how the run is going: `TICK` (60 a second), `HASH` (a 16-digit fingerprint of everything that has happened so far; two copies given the same moves show the same one), `AMMO`, `KEY`, `DOOR`, `DEATHS` and `EXIT`. The panel also has a goal line that says what to do, the keys line for the layout in use, and an `Options (Esc)` button that opens the Options screen. The settings used to be buttons in the panel; they are rows of the Options screen now. Restart is on the Paused screen and starts the level again from the first tick; it does not reload the page.
 
-![The Web slice with the panel open over the right-hand side of the window: the goal line, the keys line, six buttons (Keys, Captions, Motion, Restart, Fullscreen, Sound) and the seven lines of heads-up text, TICK 40 and HASH shown first.](images/web-panel.png)
+![The Web slice with the panel open over the right-hand side of the window: the goal line, the keys line, one button (Options (Esc)) and the seven lines of debug text, TICK 40 and HASH shown first.](images/web-panel.png)
 
-*The Web build (commit b238803), 1280 by 720, tick 40, after pressing `H`. Press `H` again, or the round button in the corner, to hide the panel. This build was taken before the Options screen: its six buttons are now rows of that screen, and the panel has the one `Options (Esc)` button instead.*
+*The Web build (commit 796602d), 1280 by 720, tick 40, after pressing `H`. Press `H` again, or the round button in the corner, to hide the panel. The settings are rows of the Options screen; the panel's one button, `Options (Esc)`, opens it.*
 
 ![A phone-shaped window, 540 by 1140: the view is narrow and tall, about six tiles across and 13 tiles high, with Ben and a stunned chicken on a ledge.](images/web-portrait.png)
 
-*The Web build (commit b238803), headless Chromium with a 540 by 1140 window, tick 300 of the replay. The picture is 13 tiles tall as always and only about six tiles wide, centred on Ben.*
+*The Web build (commit 796602d), headless Chromium with a 540 by 1140 window, tick 300 of the replay. The picture is 13 tiles tall as always and only about six tiles wide, centred on Ben.*
 
 ### Options on the Web
 
@@ -324,17 +327,20 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 
 `Esc` goes back one screen from Options, so it takes you to Paused, and again to the game. If you start with `?audio=classic` or `?audio=enhanced` at the end of the address, the Placement row shows a `*` and a line under the rows says it was set by the address and that changing it applies to this visit; change the row and the star goes. The page keeps all of your choices on this browser, if the browser allows it to, and reads the settings saved by older versions of the page the first time. If the setting for reduced motion is on, or Motion is Reduced, the plate and the can hold still. A screen reader is told the screen's name, then each row and its value as you move, and each change as you make it. Nobody has used the screens with a screen reader or in a real browser yet.
 
+![The Web Paused screen over the slice at 1280 by 720: the picture dimmed behind a dark panel titled Paused with the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Restart, and the line Esc resumes.](images/web-paused.png)
+*The Web build (commit 796602d), headless Chromium at 1280 by 720, 40 ticks after load and Esc pressed: Paused with Resume chosen.*
+
 ![The Web Options screen over the slice at 1280 by 720: a dark panel titled Options with eight rows, Sound selected as a light magenta plate with a can of drink beside it and the value On between two arrows.](images/web-options.png)
 
-*The Web build of the Options branch (before its commit), headless Chromium at 1280 by 720, on Options with Sound selected.*
+*The Web build (commit 796602d), headless Chromium at 1280 by 720, 40 ticks after load and Esc, Down and Enter pressed: Options with Sound selected.*
 
 ### Sound on the Web
 
 The chicken clucks at random, between one and a half and six seconds apart, while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. There is one tune, described under Music below.
 
-A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or use the Sound row of the Options screen, to turn the sound off and on. The row shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` mutes everything, the music as well as the clucks, and does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. The sound is centred; it does not yet come from the side the chicken is on.
+A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or use the Sound row of the Options screen, to turn the sound off and on. The row shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` mutes everything, the music as well as the clucks, and does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. A cluck comes from the side of the screen the chicken is on, as described under [Where a cluck comes from](#where-a-cluck-comes-from), and the Placement row of the Options screen chooses Enhanced or Classic.
 
-**Music.** The Web page plays a looping song called Crater Fields, from the moment of your first key press or click. It is Lieutenant Fizz 1's level song, used here as a placeholder to test the music, and it is not an official Episode 2 track; it will be replaced. It runs about a minute, then goes straight back to the start, and keeps playing when Ben dies, comes back or reaches the exit. The Music row of the Options screen turns just the music off and on (the clucks stay); the page remembers the choice on this browser, and music is on until you turn it off. A muted page plays no music either, and turning it on again starts the song from the beginning. The song is quieter than the cluck on purpose. Music is not part of the game: it never changes what happens or the `HASH`. DOS has no music yet. Nobody has listened to the Web music in a real browser.
+**Music.** The Web page plays a looping song called Crater Fields, from the moment of your first key press or click. It is Lieutenant Fizz 1's level song, used here as a placeholder to test the music, and it is not an official Episode 2 track; it will be replaced. It runs about a minute, then goes straight back to the start, and keeps playing when Ben dies, comes back or reaches the exit. The Music row of the Options screen turns just the music off and on (the clucks stay); the page remembers the choice on this browser, and music is on until you turn it off. A muted page plays no music either, and turning it on again starts the song from the beginning. The song is quieter than the cluck on purpose. Music is not part of the game: it never changes what happens or the `HASH`. DOS plays the same song with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)). Nobody has listened to the Web music in a real browser.
 
 ## The screen
 
@@ -353,4 +359,4 @@ The two versions run the same rules engine and draw the same slice with the same
 
 ## Coming
 
-Episode 2 is planned to bring more sound: other effects and the real music (the placeholder song stands in for it); a settings screen on DOS that remembers your choices as the Web one does; an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and menus. None of this is in the builds yet.
+Episode 2 is planned to bring more sound: other effects and the real music (the placeholder song stands in for it); an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and a title screen. None of this is in the builds yet.

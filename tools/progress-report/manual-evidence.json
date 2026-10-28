@@ -4,7 +4,7 @@
   {
    "section": "What this is",
    "shelf": "none",
-   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story or menu, and the cluck's sound on both."
+   "evidence": "An overview. The status it states matches the front page: both versions play the slice, with no story, with the Paused and Options screens on both, and the cluck's sound on both."
   },
   {
    "section": "Running it",
@@ -39,7 +39,7 @@
     5,
     6
    ],
-   "evidence": "On DOS, `tools/check-dos.sh` types Ctrl, Right, Right, Down and Esc with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc ends `/LIVE` with status 0. The host tests `keen_layout_is_arrows_ctrl_alt_space` and `modern_layout_is_wasd_or_arrows_zxc` check every key of both layouts, and the decoder tests cover Z, X, C and both Ctrl and Alt keys, including that a Pause is never a Ctrl press. On the Web, headless Chromium was sent key events for both layouts over the DevTools protocol: the square moved, Ctrl and Z made it dash, and keys of the other layout did nothing.",
+   "evidence": "On DOS, `tools/check-dos.sh` types Ctrl, Right, Right, Down, Esc, Up and Enter with DOSBox's AUTOTYPE: the square moves (`MOVED yes`) and Esc, Up and Enter (Quit to DOS on the Paused menu) end `/LIVE` with status 0. The host tests `keen_layout_is_arrows_ctrl_alt_space` and `modern_layout_is_wasd_or_arrows_zxc` check every key of both layouts, and the decoder tests cover Z, X, C and both Ctrl and Alt keys, including that a Pause is never a Ctrl press. On the Web, headless Chromium was sent key events for both layouts over the DevTools protocol: the square moved, Ctrl and Z made it dash, and keys of the other layout did nothing.",
    "gaps": "a real keyboard on either version; Pogo and Fire as live key presses on DOS, which only the replay feeds (as buttons); and Alt on DOS, which the smoke does not type."
   },
   {
@@ -97,12 +97,12 @@
    "section": "Options on DOS",
    "shelf": "catalogued",
    "evidence": "`fizz-menu` tests cover the rows, the wrapping keys, the star and the note. `fizz-present-dos` tests cover the key map for both layouts, the drawing, the dimming and the light-red message, and `tools/check-dos.sh` proves the DOS build draws the same pixels as the portable code (`/MENUSHOT`). In DOSBox the check types keys into `/LIVE` and `/OPTIONS`: Esc, Up and Enter quit through Paused; Classic placement and 30 Hz are saved to the exact `FIZZ2.CFG` bytes; a visit with no change writes nothing; a switch is not saved; a read-only file prints `OPTIONS SAVED no` and exits cleanly; and a run left in a menu ends at the 30-second wall-clock cap with the world held.",
-   "gaps": "how it looks and feels on a real screen (the screenshot is the portable code's picture, equal by hash to the DOS build's, not an emulator capture); that the light-red message is shown (no check reads the screen); that a change to Music or Effects is heard (a headless run cannot listen, and `/REPLANTEST` covers the device switch only by register counts); how long a save takes on a floppy; and the keyboard repeat in a menu on real hardware."
+   "gaps": "how it looks and feels on a real screen (the screenshots are DOSBox grabs of the running game, taken by `capture.py --manual`, not a real display); that the light-red message is shown (no check reads the screen); that a change to Music or Effects is heard (a headless run cannot listen, and `/REPLANTEST` covers the device switch only by register counts); how long a save takes on a floppy; and the keyboard repeat in a menu on real hardware."
   },
   {
    "section": "The slice on DOS",
    "shelf": "catalogued",
-   "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD strip is tested in `fizz-present-dos` (`the_slice_hud_shows_ammo_key_deaths_and_tick`). The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server.",
+   "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD pill is tested in `fizz-present-dos` (`the_slice_hud_is_a_box_over_the_whole_picture_with_no_tick`, `the_hud_is_rendered_only_when_its_values_change`). The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server. The owner's playtest of 28 October 2026 found the translucent HUD pill matching Fizz 1's look: one person's look, not a check.",
    "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which no one has heard on a real machine."
   },
   {
@@ -161,7 +161,7 @@
   {
    "section": "The Web heads-up text",
    "shelf": "catalogued",
-   "evidence": "Headless Chromium read the seven lines from the page: they start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The values come from the `App` getters the host tests read. Headless Chromium took screenshots of the filled page at 960 by 540, 390 by 780 and 1600 by 520, each 13 tiles tall with the width following the window, and the page's `HASH` at tick 300 equals the golden transcript's `TICK 300` line ([chapter 9](chapter:slice)).",
+   "evidence": "`web/hud.test.ts` (under `bun test`) covers the HUD's rules and `tools/check-web-hud.py` plays the golden replay in headless Chromium against the built page and reads the in-picture HUD (the Fizz number, deaths and the key chip). The panel's seven lines start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The owner's playtest of 28 October 2026 found the Web HUD looking good: one person's look, not a check. The values come from the `App` getters the host tests read. Headless Chromium took screenshots of the filled page at 960 by 540, 390 by 780 and 1600 by 520, each 13 tiles tall with the width following the window, and the page's `HASH` at tick 300 equals the golden transcript's `TICK 300` line ([chapter 9](chapter:slice)).",
    "gaps": "`KEY`, `DOOR` and `EXIT` changing in the browser: the replay reaches all three in the host tests, but no browser run has played that far; the panel opened with `H` or the `?` button, which no run pressed, and a real window being resized or a phone being turned"
   },
   {
@@ -174,7 +174,7 @@
    "section": "Sound on the Web",
    "shelf": "catalogued",
    "evidence": "`web/sfx.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` under `bun test`: each of the four variants schedules the voices of `assets/sfx/cluck.ts`, nothing plays before unlock, while muted, on a hidden tab or past four simultaneous clucks, and blocked storage does not break mute. `tools/check-web-sfx.py` drives the built page in headless Chromium with the same kind of stand-in: no context and no sound before a key press, the cluck at tick 197 scheduling variant 2 after one, `M` muting, and the choice surviving a reload. The `App` host tests check that no cluck is lost when a frame runs several ticks. The `cluck-path` diagram in [chapter 9](chapter:slice) shows each box of the Web path with its check.",
-   "gaps": "how any cluck sounds: nobody has listened, and a stand-in cannot hear. Also the first-key start under each real browser's autoplay policy, the hidden-tab silence in a real browser, and the pile-up cap against real overlapping clucks."
+   "gaps": "how any cluck sounds beyond the owner's playtest of 28 October 2026, in which the cluck (buh-gawk) played and the music rolled (one person's ears, not a measurement); a stand-in cannot hear. Also the first-key start under each real browser's autoplay policy, the hidden-tab silence in a real browser, and the pile-up cap against real overlapping clucks."
   },
   {
    "section": "The screen",
@@ -193,7 +193,7 @@
     7
    ],
    "evidence": "Same moves, same `TICK` and `HASH`: the parity gate ([chapter 5](chapter:parity)), and the slice replay that `tools/check-dos.sh` and `tools/check-parity.sh` each compare with `crates/fizz-ep2/slice-replay.txt`.",
-   "gaps": "no check compares the two screens side by side: both call `fizz_slice_view::draw_slice`, so the picture is shared by construction, but the Web HUD is page text below the canvas while DOS draws it in the frame, and the Web build in a browser has not been played by a person."
+   "gaps": "no check compares the two screens side by side: both call `fizz_slice_view::draw_slice`, so the picture is shared by construction, but the Web HUD is page text over the canvas while DOS draws it into the frame, and the Web build in a browser has not been played by a person."
   },
   {
    "section": "Coming",

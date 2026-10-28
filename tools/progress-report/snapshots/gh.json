@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-28T00:26:33-04:00",
+ "capturedAt": "2026-10-28T05:30:35-04:00",
  "data": {
   "prs": [
    {
@@ -3252,9 +3252,9 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
@@ -3283,10 +3283,12 @@
       "name": "sound"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "3307ace62fce7266337f3a88af80a1a70bef96fe"
+    },
+    "mergedAt": "2026-10-28T04:30:23Z",
     "number": 76,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Lower Crater Fields to OPL2 and OPL3 register streams",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/76"
    },
@@ -3296,22 +3298,22 @@
     "changedFiles": 8,
     "checks": [
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "check",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
     "createdAt": "2026-10-28T04:26:32Z",
     "deletions": 65,
     "headRefName": "docs/sound-restructure",
-    "headRefOid": "ac59c4b8cdc419b1a16d5d1bc4e92cb3b64c6b23",
+    "headRefOid": "64021635930feeaab052b8ec783136a80f5fdfc8",
     "isDraft": false,
     "labels": [
      {
@@ -3321,15 +3323,905 @@
       "name": "documentation"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "27a435e277b113f42e891c5997fb0f1d85d40c33"
+    },
+    "mergedAt": "2026-10-28T04:43:25Z",
     "number": 77,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Restructure the sound doc, with the placement explainer and its diagram",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/77"
+   },
+   {
+    "additions": 1683,
+    "baseRefName": "main",
+    "changedFiles": 34,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:28:27Z",
+    "deletions": 141,
+    "headRefName": "docs/archive-refresh-m1",
+    "headRefOid": "869b0d144cc3ad0b3bad72eb2397ac58875c7547",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     },
+     {
+      "color": "ededed",
+      "description": "Housekeeping that players do not see",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8iA",
+      "name": "internal"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "c1d5dcd7b778536d670dd1236835dff8f74f63de"
+    },
+    "mergedAt": "2026-10-28T05:02:40Z",
+    "number": 78,
+    "state": "MERGED",
+    "title": "Refresh the archive after Milestone 1",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/78"
+   },
+   {
+    "additions": 644,
+    "baseRefName": "main",
+    "changedFiles": 7,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:35:05Z",
+    "deletions": 7,
+    "headRefName": "feat/music-player",
+    "headRefOid": "0d3af3eb75c6c0b3058490d57c75cbfa105fd2b3",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "986539346406e549aecb44059f33e51b1589fd11"
+    },
+    "mergedAt": "2026-10-28T05:22:51Z",
+    "number": 79,
+    "state": "MERGED",
+    "title": "Add the music stepper to fizz-music",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/79"
+   },
+   {
+    "additions": 366,
+    "baseRefName": "main",
+    "changedFiles": 10,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:44:24Z",
+    "deletions": 17,
+    "headRefName": "feat/lowercase-font",
+    "headRefOid": "b5d0a9a8208d0f0a630430b3c961ef6d2e464a78",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "c9675e276f5ca2b9737f5d0d0779d39a28fd45e9"
+    },
+    "mergedAt": "2026-10-28T04:52:41Z",
+    "number": 80,
+    "state": "MERGED",
+    "title": "Draw the DOS cluck captions as written, in Fizz 1's pixel font",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/80"
+   },
+   {
+    "additions": 881,
+    "baseRefName": "feat/music-player",
+    "changedFiles": 19,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T04:59:46Z",
+    "deletions": 75,
+    "headRefName": "feat/music-dos",
+    "headRefOid": "ab27b2710e4dd064fc9ad0a45c169d3c9367d498",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "986539346406e549aecb44059f33e51b1589fd11"
+    },
+    "mergedAt": "2026-10-28T05:22:52Z",
+    "number": 81,
+    "state": "MERGED",
+    "title": "Play the level music on DOS from the 560 Hz audio service",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/81"
+   },
+   {
+    "additions": 690,
+    "baseRefName": "main",
+    "changedFiles": 11,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T05:10:01Z",
+    "deletions": 103,
+    "headRefName": "feat/dos-hud",
+    "headRefOid": "7a40a2ac24770b866024c3bf8ffc74e8a22250d4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a90948fb4cd903fd85ca9c8eabfc3feb40a8f5ed"
+    },
+    "mergedAt": "2026-10-28T06:08:50Z",
+    "number": 83,
+    "state": "MERGED",
+    "title": "Draw the DOS HUD as a translucent pill in Fizz 1's pixel font, without TICK",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/83"
+   },
+   {
+    "additions": 533,
+    "baseRefName": "feat/dos-hud",
+    "changedFiles": 14,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "FAILURE",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T05:24:10Z",
+    "deletions": 29,
+    "headRefName": "feat/dos-frame-rate",
+    "headRefOid": "663af7679ff53f37f23dc2bfe3e2a58c9b1db224",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "fbca04",
+      "description": "Speed measurement and optimisation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtIw",
+      "name": "performance"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "a90948fb4cd903fd85ca9c8eabfc3feb40a8f5ed"
+    },
+    "mergedAt": "2026-10-28T06:08:51Z",
+    "number": 84,
+    "state": "MERGED",
+    "title": "Add the DOS frame-rate policy: /FPS30, /FPS60 and /FPSAUTO",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/84"
+   },
+   {
+    "additions": 931,
+    "baseRefName": "main",
+    "changedFiles": 18,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T05:29:10Z",
+    "deletions": 4,
+    "headRefName": "feat/web-hud",
+    "headRefOid": "59804299a98be0cf62a94bd9afe8e89b39b845b1",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5d4c9b0da287a9fc2a25432bf0b8b7751c47ccc6"
+    },
+    "mergedAt": "2026-10-28T05:40:03Z",
+    "number": 86,
+    "state": "MERGED",
+    "title": "Show a HUD over the Web picture in Fizz 1's look",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/86"
+   },
+   {
+    "additions": 229,
+    "baseRefName": "main",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:09:49Z",
+    "deletions": 122,
+    "headRefName": "feat/fizz-colour",
+    "headRefOid": "13c1bb89debd6dffb4a0b26d1be0118d6677e7a0",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "91c402431b72701073e21919907554927ae664a8"
+    },
+    "mergedAt": "2026-10-28T07:24:37Z",
+    "number": 87,
+    "state": "MERGED",
+    "title": "Draw everything Fizz in one accent colour, grape (light magenta)",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/87"
+   },
+   {
+    "additions": 505,
+    "baseRefName": "feat/fizz-colour",
+    "changedFiles": 12,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:09:50Z",
+    "deletions": 167,
+    "headRefName": "feat/cfg-v3",
+    "headRefOid": "1f08f84ed60010bdff61c5bfb959fbb905eeff00",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "91c402431b72701073e21919907554927ae664a8"
+    },
+    "mergedAt": "2026-10-28T07:24:38Z",
+    "number": 88,
+    "state": "MERGED",
+    "title": "Store motion, placement, captions and keys in FIZZ2.CFG version 3",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/88"
+   },
+   {
+    "additions": 199,
+    "baseRefName": "feat/cfg-v3",
+    "changedFiles": 8,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:09:51Z",
+    "deletions": 10,
+    "headRefName": "feat/dos-cfg-safe-write",
+    "headRefOid": "3b329e22b99234e180d922d1fd27bf9552ca5d6c",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "91c402431b72701073e21919907554927ae664a8"
+    },
+    "mergedAt": "2026-10-28T07:24:39Z",
+    "number": 89,
+    "state": "MERGED",
+    "title": "Save FIZZ2.CFG crash-safely on DOS",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/89"
+   },
+   {
+    "additions": 324,
+    "baseRefName": "feat/dos-cfg-safe-write",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:09:53Z",
+    "deletions": 11,
+    "headRefName": "feat/dos-audio-replan",
+    "headRefOid": "99dbbf76332c5e7e8f17ee9e2423f70108f0787e",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "91c402431b72701073e21919907554927ae664a8"
+    },
+    "mergedAt": "2026-10-28T07:24:40Z",
+    "number": 90,
+    "state": "MERGED",
+    "title": "Switch the DOS music and effects devices while the game runs",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/90"
+   },
+   {
+    "additions": 1442,
+    "baseRefName": "main",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:37:28Z",
+    "deletions": 5,
+    "headRefName": "feat/menu-model",
+    "headRefOid": "078831f1907c2b83deb6ea766f11e1917e43d3ec",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4146c92f3307d6edc891b23fd0478bf97225984b"
+    },
+    "mergedAt": "2026-10-28T07:59:16Z",
+    "number": 92,
+    "state": "MERGED",
+    "title": "Add fizz-menu: the shared menu and Options screen logic",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/92"
+   },
+   {
+    "additions": 980,
+    "baseRefName": "main",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T07:59:27Z",
+    "deletions": 3,
+    "headRefName": "feat/dos-options-draw",
+    "headRefOid": "5ca3eb990c1ae0c65beb074b9d8f7920203889d6",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "8a06e64eff580743ebfacae7a203eed88d3dc7cd"
+    },
+    "mergedAt": "2026-10-28T08:20:30Z",
+    "number": 93,
+    "state": "MERGED",
+    "title": "Draw the Options and Paused screens on DOS in Fizz 1's style",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/93"
+   },
+   {
+    "additions": 2179,
+    "baseRefName": "main",
+    "changedFiles": 20,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T08:05:49Z",
+    "deletions": 224,
+    "headRefName": "feat/web-options",
+    "headRefOid": "75971e7e76f559a008e9730487cdaca7c30cff79",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "1f6feb",
+      "description": "HUD, menus and on-screen interface",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvag",
+      "name": "ui"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5a6159735bb00fa93517c2bbdfc83bc4e2cb95fb"
+    },
+    "mergedAt": "2026-10-28T08:36:33Z",
+    "number": 94,
+    "state": "MERGED",
+    "title": "Add the Web Paused and Options screens",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/94"
+   },
+   {
+    "additions": 691,
+    "baseRefName": "main",
+    "changedFiles": 16,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T08:57:24Z",
+    "deletions": 51,
+    "headRefName": "feat/dos-options-live",
+    "headRefOid": "ca14b32d9c83f3f39198a4ed3c2d4ad37bbf6a04",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1f6feb",
+      "description": "HUD, menus and on-screen interface",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvag",
+      "name": "ui"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "796602dca3b1aea1473a419606623c605752e119"
+    },
+    "mergedAt": "2026-10-28T09:13:25Z",
+    "number": 95,
+    "state": "MERGED",
+    "title": "Open the Paused and Options screens in DOS play",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/95"
    }
   ],
   "runs": [
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T09:13:28Z",
+    "displayTitle": "Open the Paused and Options screens in DOS play (#95)",
+    "event": "push",
+    "headSha": "796602dca3b1aea1473a419606623c605752e119",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40662567735",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "failure",
+    "createdAt": "2026-10-28T08:36:36Z",
+    "displayTitle": "Add the Web Paused and Options screens (#94)",
+    "event": "push",
+    "headSha": "5a6159735bb00fa93517c2bbdfc83bc4e2cb95fb",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40658025965",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T08:20:32Z",
+    "displayTitle": "Draw the Options and Paused screens on DOS in Fizz 1's style (#93)",
+    "event": "push",
+    "headSha": "8a06e64eff580743ebfacae7a203eed88d3dc7cd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40656085643",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T07:59:19Z",
+    "displayTitle": "Add fizz-menu: the shared menu and Options screen logic (#92)",
+    "event": "push",
+    "headSha": "4146c92f3307d6edc891b23fd0478bf97225984b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40653618427",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T07:24:45Z",
+    "displayTitle": "Switch the DOS music and effects devices while the game runs (#90)",
+    "event": "push",
+    "headSha": "91c402431b72701073e21919907554927ae664a8",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40649899607",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T06:08:54Z",
+    "displayTitle": "Add the DOS frame-rate policy: /FPS30, /FPS60 and /FPSAUTO (#84)",
+    "event": "push",
+    "headSha": "a90948fb4cd903fd85ca9c8eabfc3feb40a8f5ed",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40642100054",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T05:40:05Z",
+    "displayTitle": "Show a HUD over the Web picture in Fizz 1's look (#86)",
+    "event": "push",
+    "headSha": "5d4c9b0da287a9fc2a25432bf0b8b7751c47ccc6",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40639324205",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T05:22:56Z",
+    "displayTitle": "Play the level music on DOS from the 560 Hz audio service (#81)",
+    "event": "push",
+    "headSha": "986539346406e549aecb44059f33e51b1589fd11",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40637663019",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T05:02:43Z",
+    "displayTitle": "Refresh the archive after Milestone 1 (#78)",
+    "event": "push",
+    "headSha": "c1d5dcd7b778536d670dd1236835dff8f74f63de",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40635690062",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:52:43Z",
+    "displayTitle": "Draw the DOS cluck captions as written, in Fizz 1's pixel font (#80)",
+    "event": "push",
+    "headSha": "c9675e276f5ca2b9737f5d0d0779d39a28fd45e9",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40634774641",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:43:27Z",
+    "displayTitle": "Restructure the sound doc, with the placement explainer and its diagr\u2026",
+    "event": "push",
+    "headSha": "27a435e277b113f42e891c5997fb0f1d85d40c33",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40633916965",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T04:30:26Z",
+    "displayTitle": "Lower Crater Fields to OPL2 and OPL3 register streams (#76)",
+    "event": "push",
+    "headSha": "3307ace62fce7266337f3a88af80a1a70bef96fe",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40632702874",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-28T04:18:45Z",
