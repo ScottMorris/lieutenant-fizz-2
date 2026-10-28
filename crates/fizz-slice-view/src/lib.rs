@@ -585,6 +585,35 @@ fn camera(world: &World, w: usize, h: usize) -> (i32, i32) {
     )
 }
 
+/// Where a chicken's cluck sounds in the view: the chicken's body centre in map pixels, placed in the `w` by `h` view the camera
+/// draws (the shaken camera when `options.shake` is on, as [`draw_slice_with`] uses). Both presenters call this, so they agree on
+/// the source and the camera; the result is for sound only. Pure: it reads the chicken and the camera, writes nothing, and the rules
+/// never see it. An unknown chicken gives the centre.
+pub fn cluck_placement(
+    world: &World,
+    chicken: u8,
+    w: usize,
+    h: usize,
+    options: &DrawOptions,
+) -> fizz_sfx::place::Placement {
+    let Some(c) = world.chickens.get(usize::from(chicken)) else {
+        return fizz_sfx::place::Placement::CENTRE;
+    };
+    let (cam_x, cam_y) = camera_shaken(world, w, h, options);
+    let x = tile_px(c.b.x + c.b.w * 0.5);
+    let y = screen_y(c.b.y + c.b.h * 0.5, world.map.h);
+    fizz_sfx::place::place(
+        x,
+        y,
+        fizz_sfx::place::View {
+            x: cam_x,
+            y: cam_y,
+            w: w as i32,
+            h: h as i32,
+        },
+    )
+}
+
 /// How many ticks each stun-star frame shows. Fizz 1 swaps frames when `floor(t * 6)` changes: six swaps a second, a
 /// 1/6 s frame, so 60 Hz / 6 Hz = 10 ticks a frame and a full two-frame cycle of 20 ticks (3 Hz). Dividing by the two
 /// states as well would give 5 ticks, which is twelve swaps a second, twice Fizz 1's rate.
@@ -2288,5 +2317,28 @@ mod tests {
                 assert!((cx - camera(&d, VIEW_W, VIEW_H).0).abs() <= 2);
             }
         }
+    }
+
+    #[test]
+    fn a_cluck_pans_toward_the_side_its_chicken_is_on_in_the_view_it_is_drawn_in() {
+        let mut w = level::world();
+        assert!(!w.chickens.is_empty());
+        w.ben.b.x = 20.0;
+        w.ben.b.y = 3.0;
+        let (cam_x, _) = camera(&w, VIEW_W, VIEW_H);
+        let tiles = |px: i32| f64::from(cam_x + px) / TILE_PX as f64;
+        let o = DrawOptions::default();
+        for (px, side) in [(20, -1), (160, 0), (300, 1)] {
+            w.chickens[0].b.x = tiles(px) - w.chickens[0].b.w * 0.5;
+            let p = cluck_placement(&w, 0, VIEW_W, VIEW_H, &o);
+            assert_eq!(p.pan.signum(), side, "{px}: {p:?}");
+            assert_eq!(side == 0, p.left == p.right, "{px}: {p:?}");
+        }
+        // A view twice as wide, centred on the same Ben, pans the same chicken less.
+        let narrow = cluck_placement(&w, 0, VIEW_W, VIEW_H, &o);
+        let wide = cluck_placement(&w, 0, VIEW_W * 2, VIEW_H, &o);
+        assert!(wide.pan.abs() < narrow.pan.abs());
+        // No such chicken: the centre.
+        assert_eq!(cluck_placement(&w, 200, VIEW_W, VIEW_H, &o), fizz_sfx::place::Placement::CENTRE);
     }
 }

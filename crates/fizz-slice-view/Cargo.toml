@@ -9,6 +9,7 @@ authors.workspace = true
 [dependencies]
 fizz-ep2 = { path = "../fizz-ep2" }
 fizz-view = { path = "../fizz-view" }
+fizz-sfx = { path = "../fizz-sfx" }
 
 [dev-dependencies]
 fizz-sim = { path = "../fizz-sim" }
