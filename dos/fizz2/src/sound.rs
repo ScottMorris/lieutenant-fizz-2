@@ -14,11 +14,6 @@ use fizz_dos_rt::dos::{DosError, File, Mode};
 use fizz_dos_rt::{dpmi, env, fpu, irq, println};
 use fizz_machine::{Config, ConfigIssue, Prefs, Probe, Resolved, Settings, apply_flags, resolve, write_sound};
 
-/// True when `arg` is one of the sound flags (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`), so the mode search skips it.
-pub fn is_flag(arg: &str) -> bool {
-    apply_flags(&mut Settings::default(), [arg]).applied == 1
-}
-
 /// Reads `FIZZ2.CFG` from the current directory. A missing or unreadable file is Auto with no issue; a bad one is Auto with the first reason.
 pub fn load_file() -> (Prefs, Option<ConfigIssue>) {
     // 32 bytes are more than any version of the file; a longer file fills the buffer and fails the length check.

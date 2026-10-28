@@ -16,6 +16,8 @@
 //                       key, so no script or test runs it
 //   FIZZ2.EXE /CHECKCELLS draws the same screen, reads the 4,000 bytes back from video memory and prints them as hex (no key needed)
 //   FIZZ2.EXE /MUSIC:x /FX:x /ADLIB /SB /SPEAKER /NOSOUND  choose the sound for this run over FIZZ2.CFG (sound.rs) and print a `SOUND` line
+//   FIZZ2.EXE /?        prints the help (also /HELP and -?) and exits 0; an unknown switch prints one line and exits 2
+//   (every switch is listed once, in fizz_machine::switches, which also writes the help)
 //   FIZZ2.EXE /CFGTEST  a test mode: saves FIZZ2.CFG from the sound flags, reads it back and prints the result
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
@@ -40,10 +42,12 @@ mod machine;
 mod sound;
 
 use core::fmt::{self, Write};
+use alloc::string::String;
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
 use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
+use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_present_dos::{DrawOptions, Frame, Layout, Puffs, ega_palette, key_to_buttons, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
@@ -178,66 +182,57 @@ fn draw_slice_frame_synced(
 fn main() -> i32 {
     fpu::set_double_precision();
     let args = env::args();
-    let layout = if args.iter().any(|a| a.eq_ignore_ascii_case("/MODERN")) {
-        Layout::Modern
-    } else {
-        Layout::Keen
+    // The switch table (`fizz_machine::switches`) is the one list of what this program accepts, and it writes the help too. Help and
+    // an unknown switch end here, before the video mode or any hook is touched.
+    let run = match switches::parse(args.iter().map(|a| a.as_str())) {
+        Parsed::Help => return help(),
+        Parsed::Unknown(arg) => {
+            println!("FIZZ2.EXE: unknown switch {arg}, try FIZZ2.EXE /?");
+            return 2;
+        }
+        Parsed::Run(run) => run,
     };
-    // Captions are on unless the last of `/CAPTIONS` and `/NOCAPTIONS` on the command line says otherwise. The settings file
-    // that will hold this choice comes with the settings package; until then it is a switch.
-    let captions = !args
-        .iter()
-        .rfind(|a| a.eq_ignore_ascii_case("/CAPTIONS") || a.eq_ignore_ascii_case("/NOCAPTIONS"))
-        .is_some_and(|a| a.eq_ignore_ascii_case("/NOCAPTIONS"));
+    let layout = if run.modern { Layout::Modern } else { Layout::Keen };
+    // The settings file that will hold the captions choice comes with the settings package; until then it is a switch.
     let options = DrawOptions {
-        captions,
+        captions: run.captions,
         // On: the Options screen (Milestone 1.5) will own this setting; FIZZ2.CFG v2's reserved detail byte is not used for it.
         shake: true,
     };
-    let mode = args
-        .iter()
-        .map(|a| a.as_str())
-        .find(|a| {
-            !["/MODERN", "/CAPTIONS", "/NOCAPTIONS"]
-                .iter()
-                .any(|flag| a.eq_ignore_ascii_case(flag))
-                && !sound::is_flag(a)
-        })
-        .unwrap_or("/LIVE");
-    // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
-    let bench_limit = args
-        .iter()
-        .filter_map(|a| a.parse::<u64>().ok())
-        .next()
-        .unwrap_or(SLICE_TICKS);
-    if mode.eq_ignore_ascii_case("/REPLAY") {
-        replay(&options)
-    } else if mode.eq_ignore_ascii_case("/PROBE") {
-        machine::probe_mode()
-    } else if mode.eq_ignore_ascii_case("/CHECK") {
-        match check::check_mode() {
+    match run.mode {
+        Mode::Live => live(layout, &options),
+        Mode::Replay => replay(&options),
+        Mode::Probe => machine::probe_mode(),
+        Mode::Check => match check::check_mode() {
             check::Choice::Quit => 0,
             check::Choice::Play => live(layout, &options),
+        },
+        Mode::CheckCells => check::cells_mode(),
+        Mode::CfgTest => sound::cfgtest_mode(),
+        // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
+        Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
+        Mode::Panic => {
+            // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
+            let plan = sound::Plan::new(&machine::probe_machine());
+            if let Err(e) = audio::start(&plan.resolved) {
+                println!("HOOK FAILED {:?}", e);
+                return 1;
+            }
+            audio::cluck(0);
+            println!("HOOKED, PANICKING");
+            panic!("requested by /PANIC");
         }
-    } else if mode.eq_ignore_ascii_case("/CHECKCELLS") {
-        check::cells_mode()
-    } else if mode.eq_ignore_ascii_case("/CFGTEST") {
-        sound::cfgtest_mode()
-    } else if mode.eq_ignore_ascii_case("/BENCH") {
-        bench(bench_limit, &options)
-    } else if mode.eq_ignore_ascii_case("/PANIC") {
-        // With the audio service running and a cluck sounding, so the panic handler's clean-up has the chip to silence.
-        let plan = sound::Plan::new(&machine::probe_machine());
-        if let Err(e) = audio::start(&plan.resolved) {
-            println!("HOOK FAILED {:?}", e);
-            return 1;
-        }
-        audio::cluck(0);
-        println!("HOOKED, PANICKING");
-        panic!("requested by /PANIC");
-    } else {
-        live(layout, &options)
     }
+}
+
+/// `/?`: the help text from the switch table, a line at a time so each ends in the console's CR LF. It touches no hardware.
+fn help() -> i32 {
+    let mut text = String::new();
+    let _ = switches::write_help(&mut text);
+    for line in text.lines() {
+        println!("{line}");
+    }
+    0
 }
 
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the

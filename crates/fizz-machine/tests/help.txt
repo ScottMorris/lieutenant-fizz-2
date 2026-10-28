@@ -1,0 +1,23 @@
+Lieutenant Fizz 2 for DOS
+Usage: FIZZ2.EXE [mode] [switches]. Letter case does not matter.
+Modes (the first one given is used; /LIVE is the default)
+  /LIVE         Play the slice from the keyboard; Esc ends it
+  /REPLAY       Run the built-in script and print its transcript
+  /BENCH [n]    Time the script (first n ticks) and print the costs
+  /CHECK        Show the machine check; Esc leaves, Enter plays
+  /CHECKCELLS   Draw the check screen and print its cells; no key
+  /PROBE        Print what the machine has: video, sound, processor
+  /?            Show this help (also /HELP and -?); nothing else runs
+Keys
+  /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
+Captions (on by default; the last one given wins)
+  /CAPTIONS     Show the chicken's captions
+  /NOCAPTIONS   Hide the captions
+Sound (for this run only; FIZZ2.CFG keeps your saved choice)
+  /MUSIC:x      Music device: ADLIB, SB or OFF
+  /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF
+  /ADLIB        Music and effects on the AdLib chip
+  /SB           Music and effects on the Sound Blaster
+  /SPEAKER      Effects on the PC speaker, no music
+  /NOSOUND      No music and no effects
+Exit status: 0 after help, 2 for a switch FIZZ2.EXE does not know.

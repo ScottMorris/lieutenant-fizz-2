@@ -84,6 +84,38 @@ DOS_CONF=$'[sblaster]\nsbtype = sb16' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FI
 [ "$status" = 3 ] || fail "/PANIC with the audio service on an OPL3: status $status (expected 3)"
 echo "PANIC (OPL3) exit $status"
 
+# 3a. The help: /?, /HELP and -? print the screen the switch table writes (crates/fizz-machine/tests/help.txt, which a host test keeps
+# equal to the table) and exit 0. It wins over every other switch, so `/? /LIVE` prints the help and does not play (the run ends at once and
+# prints none of /LIVE's lines), and it hooks nothing, so none of the platform lines appear. An unknown switch prints one line and exits 2.
+help_golden="$(tr -d '\r' < crates/fizz-machine/tests/help.txt)"
+help_case() {
+  local name="$1" out status=0
+  shift
+  out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE "$@")" || status=$?
+  [ "$status" = 0 ] || fail "help ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  [ "$out" = "$help_golden" ] || fail "help ($name) differs from crates/fizz-machine/tests/help.txt"
+  printf '%s\n' "$out" | grep -qxF '  /REPLAY       Run the built-in script and print its transcript' || fail "help ($name) lists no /REPLAY line"
+  if printf '%s\n' "$out" | grep -qE '^(LIVE TICKS|MOVED|EXIT|SOUND|FPU CW|VECTORS RESTORED) '; then fail "help ($name) ran something"; fi
+  echo "HELP case $name ok"
+}
+help_case '/?' '/?'
+help_case '/HELP' /HELP
+help_case '-?' '-?'
+help_case '/help lower case' /help
+help_case '/? /LIVE' '/?' /LIVE
+help_case '/MODERN /HELP /PANIC' /MODERN /HELP /PANIC
+help_case '/? with an unknown switch' '/?' /BOGUS
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /BOGUS)" || status=$?
+[ "$status" = 2 ] || fail "an unknown switch exited $status (expected 2)"
+[ "$(printf '%s\n' "$out" | tr -d '\r')" = 'FIZZ2.EXE: unknown switch /BOGUS, try FIZZ2.EXE /?' ] || fail "the unknown-switch line is '$out'"
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /MUSIC:FOO)" || status=$?
+[ "$status" = 2 ] || fail "a bad sound value exited $status (expected 2)"
+printf '%s\n' "$out" | grep -qF 'unknown switch /MUSIC:FOO' || fail "a bad sound value was not named"
+echo "HELP unknown switch exit 2"
+
 # 3b. The bench: /BENCH plays the script once without pacing and times the step, the drawing and the copy to the screen with
 # the PIT. DOSBox runs a fixed 26,800 cycles per millisecond (about a 486DX2-66) on its normal core; the setting is the plain
 # number, because the form `fixed 26800` is refused (see 0). The figures are DOSBox's, not a 486's: the bounds are loose sanity
