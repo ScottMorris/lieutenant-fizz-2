@@ -15,10 +15,20 @@ crates/fizz-sfx/src/data.rs    generated: OPL2 records and PC speaker divisors p
         |
         |  fizz-sfx: OplPlayer, SpeakerPlayer
         v
-DOS presenter                  steps them from its interrupt (Milestone 1, a later package)
+DOS audio service              steps them from its timer interrupt (Milestone 1.5, not built)
 ```
 
-The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant }` (see "The Web path"). The DOS audio service is a separate package.
+The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant, chicken }` (see "The Web path"). The DOS audio service is a separate package.
+
+Each arrow loses something:
+
+| Step | What it keeps | What it loses |
+| --- | --- | --- |
+| Undertone source to the OPL2 chunk | pitch contour, timing at 1/140 s, level contour | all but one voice at a time, the filter, true waveforms and noise, stereo |
+| OPL2 chunk to the speaker list | the same single voice, its pitch and level contour as on or off | loudness, timbre, and pitches below 60 Hz or above 9000 Hz |
+| OPL2 chunk to the OPL3 pan | the chunk, moved to channel 14 | nothing in the sound, but a pan has only three positions |
+
+The sections below give the detail.
 
 ## The source
 
@@ -26,7 +36,7 @@ The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Underton
 
 A pitch curve is a chain of short notes, one every 25 ms, each at the next pitch, because Undertone's `slide` only falls and only from an octave above the note. Fizz 1's `curveVoices` does the same. `curve()` builds a chain; `breath()` builds a short burst of noise.
 
-`assets/sfx/cluck.ts` exports `CLUCK`, indexed by `Event::Cluck { variant }` (`CLUCK_VARIANTS` is 4), and an `EFFECTS` table the downmix reads. The four variants are all short, none sustains, and each has a noise breath at the attack:
+`assets/sfx/cluck.ts` exports `CLUCK`, indexed by the `variant` of `Event::Cluck` (`CLUCK_VARIANTS` is 4), and an `EFFECTS` table the downmix reads. The four variants are all short, none sustains, and each has a noise breath at the attack:
 
 | Variant | Intent | Voices | Source length |
 | --- | --- | --- | --- |
@@ -61,7 +71,7 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 | 0 | 42 | 84 | 300 ms |
 | 1 | 16 | 32 | 114 ms |
 | 2 | 42 | 84 | 300 ms |
-| 3 | 46 | 92 | 328 ms |
+| 3 | 46 | 92 | 329 ms |
 
 In all, the four variants take 2,124 bytes of OPL2 records and 292 bytes of speaker divisors.
 
@@ -128,7 +138,7 @@ The converter already writes the config register with each patch, at the OPL2-sa
 
 On a plain OPL2 chip the enable write and the output bits are unused and harmless, but the panned path must only be used when an OPL3 was detected. Detection is not done here; it belongs to a later package, and the owner plans a text-mode start-up check screen. A Sound Blaster Pro 1, which has two separate OPL2 chips for stereo, is not supported. The PC speaker and a plain OPL2 stay mono.
 
-What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. `Event::Cluck` now carries the chicken's index, so a presenter can read the chicken's position from `World::chicken_views()` and derive the pan. No presenter does yet, and the Web `take_cluck` queue still returns the variant only, so a presenter plays centre today.
+What the OPL3 pan loses against a Web pan: it has three positions, not a continuous value, and the whole effect sits at one of them. The planned Web equivalent is a stereo panner node driven by the same pan value (left, centre or right, or a finer number), which the Web presenter derives from the chicken's position relative to the camera. `Event::Cluck` carries the chicken's index, so a presenter can read the chicken's position from `World::chicken_views()` and derive the pan. No presenter does yet, and the Web `take_cluck` queue still returns the variant only, so a presenter plays centre today.
 
 ## The Web path
 
@@ -140,7 +150,7 @@ How the page gets from a rules event to a sound:
 2. `Sfx.playCluck(variant, pan = 0)` takes the variant's voices from `CLUCK` (a variant out of range wraps, as on DOS), builds an Undertone stack the way Fizz 1's `buildVoice` does with a sustain of 0, caches it per variant and plays it once on the page's `AudioContext`.
 3. The context is made on the first key press or click and resumed. Nothing is made before that, and a cluck that arrives before then, while muted, while the tab is hidden, while the context is not running, or with four clucks already sounding, is dropped, never queued.
 4. `M` toggles mute and the Sound button shows it. The choice is kept in `localStorage` under `fizz2-sound` (`off` or `on`) inside try/catch, so blocked storage only means it is not remembered. A hidden tab suspends the context and a shown one resumes it.
-5. `pan` runs from -1 to 1 and adds an Undertone panner per voice when it is not 0. The page always passes 0 because `Event::Cluck` does not say which chicken clucked; when the rules do, the page can work a pan out from that chicken's position against the camera.
+5. `pan` runs from -1 to 1 and adds an Undertone panner per voice when it is not 0. The page always passes 0: `take_cluck` returns the variant only, so the page does not know which chicken clucked. `Event::Cluck` carries the chicken's index, so the page can work a pan out from that chicken's position against the camera once the queue passes it on.
 
 One mapping differs from Fizz 1. `SfxVoice.lpenv` is the cutoff the filter opens to, and the WAV preview and the downmix read it that way, but Undertone 0.2 adds the envelope amount to `lpf`. The page passes `lpenv - lpf`, so the Web filter peaks where the preview does. Fizz 1 passes `lpenv` unchanged, so its filters open further than their definitions say.
 
