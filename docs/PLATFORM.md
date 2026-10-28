@@ -13,6 +13,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 - [The Web build](#the-web-build)
 - [Running the checks](#running-the-checks)
 - [Toolchain](#toolchain)
+- [Performance](#performance)
 - [Size budget](#size-budget)
 - [Provenance](#provenance)
 - [Not verified](#not-verified)
@@ -27,9 +28,9 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
 | `crates/fizz-sfx` | Platform data | Generated OPL2 and PC speaker data for the cluck, and the `OplPlayer` (plain OPL2, or OPL3-panned on reserved channel 14) and `SpeakerPlayer` steppers the DOS audio service drives; see [`SFX.md`](SFX.md) |
 | `crates/fizz-machine` | Platform | The pure model of the DOS start-up check: probe data, sound settings and resolver, the OPL3 write router and the check screen's cells. See [`DOS-CHECK.md`](DOS-CHECK.md) |
-| `crates/fizz-view` | Presenter base | The placement rule both presenters share: a position in game units to a logical pixel, rounding down. Neither presenter depends on the other |
+| `crates/fizz-view` | Presenter base | What both presenters share below the scene: the placement rule (a position in game units to a logical pixel, rounding down), the follow camera, clipped sprite, rectangle and tile drawing, the 8x8 font and the generated sprite data. Neither presenter depends on the other |
 | `crates/fizz-slice-view` | Presenter base | `draw_slice`, the one routine that draws the Episode 2 slice into a palette-indexed buffer; both presenters call it |
-| `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, 8x8 font, HUD (the slice's ammo, key, deaths and tick strip in `render_slice`) and key mapping; no DOS calls |
+| `crates/fizz-present-dos` | Presenter | The 320x200 indexed frame, palette, HUD (the slice's ammo, key, deaths and tick strip in `render_slice`, drawn with the font in `fizz-view`) and key mapping; no DOS calls |
 | `crates/fizz-present-web` | Presenter | The `wasm-bindgen` `App` (the slice, drawn with `fizz_slice_view::draw_slice`) and `WebClock` |
 | `dos/rt` | Platform | `fizz-dos-rt`, the self-contained DOS runtime and the only DOS-aware code |
 | `dos/fizz2` | App | `FIZZ2.EXE`, with the HAL adapters `DosClock`, `DosInput` and `DosDisplay` in `src/hal.rs` |
@@ -54,7 +55,9 @@ TICK 60 HASH <hex16>
 FINAL TICK 1268 HASH <hex16>
 ```
 
-`TICK` lines appear at tick 0 and after every 60 ticks. The parity gate compares the lines that start with `TICK `, `FINAL ` or `EVENT ` (an `EVENT <tick> <name> ...` line records a semantic event the rules emitted; the transcript has none yet, and a golden without them is compared by the same rule), and requires the golden's first line, the header, from every platform. Platforms may add lines with other prefixes, and DOS prints `EXIT yes`, `FPU CW 027F`, `BIOS TICKS <n>` and `VECTORS RESTORED yes`.
+`TICK` lines appear at tick 0 and after every 60 ticks. `EVENT <tick> <name> <fields>` lines, which record the semantic events the rules emitted during a tick, come before the `TICK` or `FINAL` line of that tick (the slice has one kind, `EVENT <tick> cluck <variant> <chicken>`; see [Events and clucks](#events-and-clucks)). The parity gate compares the lines that start with `TICK `, `FINAL ` or `EVENT `, and requires the golden's first line, the header, from every platform. Platforms may add lines with other prefixes: DOS prints `EXIT yes`, `FPU CW 027F`, `BIOS TICKS <n>`, `VECTORS RESTORED yes` and `SIZE`, and the `/BENCH` and `/PROBE` modes print `BENCH ...` and `PROBE ...` lines. Those are checked by `tools/check-dos.sh`, not by the parity gate.
+
+The version in the header changes only when an existing line changes shape. Adding the cluck's `EVENT` lines and later the chicken's index to them did not bump it, because no consumer read the old form, and the golden was regenerated each time.
 
 The golden file is `crates/fizz-ep2/slice-replay.txt`. All three platforms produce it: native x86_64 (`cargo run -p fizz-ep2 --example replay`, which calls `fizz_ep2::replay`), Web (WASM through `wasm-bindgen`, run under Node or Bun by `tools/web-replay.mjs`) and DOS (`FIZZ2.EXE /REPLAY` in headless DOSBox with the x87 at 53 bits, collected in an 8,192-byte buffer). `tools/check-parity.sh` compares native, Web and DOS with it and prints `PARITY ok <hash>` with the hash read from the golden's `FINAL` line; `tools/check-dos.sh` makes the same comparison for DOS alone, and the host tests of `fizz-present-web` compare the Web transcript with it.
 
@@ -64,7 +67,7 @@ Milestone 0's replay ran 600 ticks of `fizz-hello` with the header `M0 REPLAY 1`
 
 ### The slice transcript
 
-The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`, with `EVENT <tick> cluck <variant>` lines between them (see [Events and clucks](#events-and-clucks)). It takes an `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash`. Native prints it with `cargo run -p fizz-ep2 --example replay`, DOS runs it as `FIZZ2.EXE /REPLAY`, and the Web runs it through `tools/web-replay.mjs`; `tools/check-parity.sh` and `tools/check-dos.sh` compare each with the golden file.
+The slice replay (`fizz_ep2::replay`, golden `crates/fizz-ep2/slice-replay.txt`) has the header `SLICE REPLAY 1`: a `TICK` line at tick 0 and after every 60 ticks, then `FINAL TICK 1268 HASH <hex16>`, with `EVENT <tick> cluck <variant> <chicken>` lines between them (see [Events and clucks](#events-and-clucks)). It takes an `InputFrame` stream through `fizz_ep2::step` and `fizz_ep2::hash`. Native prints it with `cargo run -p fizz-ep2 --example replay`, DOS runs it as `FIZZ2.EXE /REPLAY`, and the Web runs it through `tools/web-replay.mjs`; `tools/check-parity.sh` and `tools/check-dos.sh` compare each with the golden file.
 
 The slice hash covers, in this order, with floating-point fields as `f64` bits and counts as `u32`:
 
@@ -75,6 +78,10 @@ The slice hash covers, in this order, with floating-point fields as `f64` bits a
 5. the chicken count, then per chicken `x`, `y`, `vx`, `vy`, `dir`, `stun`, a flags byte (bit 0 on the ground, bit 1 touching Ben, bit 2 dead), the cluck timer (`u32`) and the cluck stream's draw count (`u32`);
 6. the shot count, then per shot `x`, `y`, `vx`, `vy` and `life`.
 
+The hash is a 64-bit FNV-1a (offset basis `0xcbf29ce484222325`, prime `0x100000001b3`) over the bytes of these fields, integers as little-endian bytes and each `f64` as its IEEE 754 bit pattern, so a difference of one unit in the last place changes the digest. `StateHash` in `fizz-sim` implements it and `hash` in `crates/fizz-ep2/src/world.rs` fixes the order. The transcript prints the digest as 16 lower-case hexadecimal digits.
+
+The golden hash today is `0edebb797e63edff` (`FINAL TICK 1268`), and the golden's tick 0 line is `TICK 0 HASH 2cc89c7e5036e314`. The golden changes whenever a hashed field is added. Milestone 0's marker ended `efc699079baa6a88` and is gone. The first slice script ended `d1a225bf14ab4828`, the chicken's cluck timer and draw count made it `2145503c0d3b625f`, and the look timers, look offset and aim made it `0edebb797e63edff`. A hash that changes with no field added is a bug until proven otherwise.
+
 The look timers, the look offset and the aim are hashed because earlier input shapes them and later pictures and poses depend on them. The camera position itself and the event list are not hashed: the camera is a function of Ben's state (see [Looking up and down](#looking-up-and-down)). Tests in `crates/fizz-ep2/src/world.rs` lock the order three ways: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
 
 ## Numeric model decisions
@@ -83,13 +90,15 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 
 - State is `f64` and the rules use basic IEEE operations. `fsin` and `fsqrt` are never used.
 - `libm` is pinned at `=0.2.16` with `default-features = false`. On x86 targets without SSE, its `exp`, `exp2` and `exp10` always run x87 assembly, so the exp family is banned in rules crates.
-- In Milestone 0's rules, velocities below 1/1024 snapped to zero. Without it, a decaying velocity reaches subnormal values, which x87 at 53 bits, SSE2 and WebAssembly round differently.
+- Velocities with a magnitude below 2^-1000 (about 9.3e-302) snap to zero at the end of Ben's move (`SNAP` in `crates/fizz-ep2/src/ben.rs`). Without it, an idle pogo's horizontal drag decays for ever and reaches subnormal values, where x87 at 53 bits and SSE2 round differently. Milestone 0's marker used a threshold of 1/1024 and the slice's is far smaller. A unit test runs an idle pogo for 30,000 ticks and checks that every velocity is zero or at least the threshold, and another pins the threshold. It is a departure from Fizz 1, listed under Departures below, and no golden trace changes with it.
 - The x87 control word is `0x027F` (53-bit precision, all exceptions masked). The program sets it before the first tick. The runtime's `_start` only runs `FNINIT`, which leaves `0x037F` (64-bit precision), so a program that skips the step would hash differently.
 - Interrupt handlers never touch the x87.
 
 ## Ben against Fizz 1
 
 `fizz-ep2` holds Ben's movement, ported line for line from Fizz 1's `tick_ben_move` (with the alive and dead branches of `tick_ben`, `tick_head_bump` and `fire`) on top of `fizz-phys`; the rest of Fizz 1's `World::step` for the slice lives in `crates/fizz-ep2/src/world.rs`. It is proved against golden traces that Fizz 1's own simulation wrote, committed in `crates/fizz-ep2/tests/fizz1/`: `crates/fizz-ep2/tests/fizz1_traces.rs` parses each shared `.scn` scenario, runs it and compares every tick with the `.trace` as `f64` bit patterns, with no tolerance. The traces are regenerated with `tools/fizz1-trace`, which needs Fizz 1 at its pinned commit; the test needs only the committed files.
+
+The traces are `FIZZ1 TRACE 2` files: format 2 adds `look_up`, `look_down` and `aim` columns after `switches`, and the sixteen older traces were regenerated with their old columns byte for byte unchanged. Floating-point values are written as 16 hexadecimal digits of their bit pattern. Each trace names the Fizz 1 commit it came from (`4bce036`). `tools/fizz1-trace` also checks that no scenario triggers an automatic mantle. `cd tools/fizz1-trace && cargo run --release -- --check --all` (with `FIZZ1` at that commit) fails if a committed trace differs from what Fizz 1 writes today.
 
 Proven bit for bit, all eighteen scenarios:
 
@@ -164,7 +173,7 @@ The crate is `no_std` with no dependencies, denies `clippy::float_arithmetic`, a
 `dos/rt` (`fizz-dos-rt`) is self-contained and does not depend on `fizz-hal`. The HAL adapters live in `dos/fizz2/src/hal.rs`. The runtime keeps a tiny local byte ring in `rt/src/ring.rs` for keyboard bytes, to avoid the dependency.
 
 - **Build.** Cargo links an ELF with `rust-lld` and `dos/link.ld`. `tools/elf2go32.py` packs it, with the DJGPP stub, into a go32 executable that loads under CWSDPMI. No C compiler or C library is involved.
-- **Timer.** The PIT is programmed to divisor 19886, which is 60.0011 Hz. A 16-bit accumulator adds 19886 per interrupt and, when it wraps past 65536, chains to the BIOS handler. The BIOS clock therefore keeps 18.2065 Hz and the DOS time of day stays correct. The divisor is restored to 0 on exit.
+- **Timer.** The PIT is programmed to divisor 19886, which is 60.0011 Hz. A 16-bit accumulator adds 19886 per interrupt and, when it wraps past 65536, chains to the BIOS handler. The BIOS clock therefore keeps 18.2065 Hz and the DOS time of day stays correct. The divisor is restored to 0 on exit. The timer runs at 60 Hz because the rules do; the proof of concept's runtime ran it at 560 Hz (divisor 2131) to drive IMF music. `fizz-sfx` times its OPL data in 560 Hz ticks (`OPL_TICK_HZ`), so the DOS audio service will have to return the timer to a multiple of the effect clock or step the players from a divided rate. That change is not made here, and nothing has measured its effect on the BIOS tick bound (`BIOS TICKS 383 to 387` for the replay today), on the interrupt's cost or on OPL register writes from an interrupt under CWSDPMI and DOSBox.
 - **Interrupts.** The IRQ handlers share one locked interrupt stack, so handlers never nest. Each returns `Action::Eoi` or `Action::Chain`. Handlers do bounded work, allocate nothing and never use the x87.
 - **No `hlt`.** The instruction is privileged under CWSDPMI. Pacing is a volatile spin on the tick counter.
 - **Keyboard.** The runtime owns IRQ1 and decodes Set 1 scancodes. It restores the BIOS keyboard flag lock bits at `0x417` and clears `0x418` on exit.
@@ -213,6 +222,10 @@ The page's script is bundled with Bun. `package.json` pins `@liminal-hq/underton
 | `tools/build-dos.sh` | Builds `RTSMOKE.EXE`, `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos` | The DOS toolchain |
 | `tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY` | Runs a DOS program in headless DOSBox and passes back its output and exit status | The DOS toolchain |
 | `tools/check-dos.sh` | Builds, then checks that the `/REPLAY` transcript equals the golden file and the platform lines (`EXIT yes`, `FPU CW 027F`, `VECTORS RESTORED yes`, a BIOS tick count of 383 to 387), a keyboard smoke of both layouts (`MOVED yes`), the panic exit status of 3, the `/BENCH` frame digests against the host's and 21 `/PROBE` runs under different DOSBox sound cards, machines, processors and memory sizes (each with its expected `PROBE` lines and a `CELLS` hash equal to the host's), then a `/REPLAY` at 1 MB of memory, and prints `SIZE` | The DOS toolchain |
+| `bun tools/sprites/emit-rust.ts --check` and `bun tools/sprites/roundtrip.ts` | The generated sprite data and the grid files are current and canonical | Bun |
+| `bun tools/sfx/downmix.ts --check` | The generated sound data matches the Undertone source | Bun |
+| `cd tools/fizz1-trace && cargo run --release -- --check --all` | The committed Fizz 1 traces equal what Fizz 1 writes today | A Fizz 1 checkout at `4bce036`; not in CI |
+| `tools/lf-sim-drift.sh` | Reports drift of `fizz-phys` from Fizz 1's `lf-sim` | A Fizz 1 checkout at `4bce036`; not in CI |
 | `tools/build-web.sh` | Builds `dist/web` | The `wasm32-unknown-unknown` target and the pinned CLI |
 | `node tools/web-replay.mjs` | Runs the slice replay inside the built WASM module (Node and Bun both work) and prints `slice_replay_transcript()` | `dist/web` |
 | `tools/check-parity.sh` | Compares the native, Web (Node or Bun) and DOS transcripts with `crates/fizz-ep2/slice-replay.txt` and prints `PARITY ok <hash>`, the final hash read from that file | Everything above |
@@ -301,7 +314,7 @@ The first 120 ticks end at 2,814 us and the whole script averages 2,728 us, beca
 
 Tried and not kept, because the gain was a few percent at most: a generic parameter in place of the `&mut dyn FnMut` for the tile colours (under 1%), and drawing glyphs four pixels at a time through a nibble mask (2.7%, for more code than the gain is worth).
 
-What stayed identical: the pinned frame digests in `fizz-slice-view` (ticks 0, 150, 270, 400, 602, 700, 865, 1000 and 1268), every `fizz-view` test, the replay golden, the state hash (`PARITY ok 2145503c0d3b625f`) and the seven DOS frame digests. The simulation, `fizz-phys` and `fizz-ep2` were not touched. The portable changes (the tile layer, the sprite blit, the door list) are in the code the Web build also runs; each has a test against the older definition of the picture, and the Web build was not timed.
+What stayed identical: the pinned frame digests in `fizz-slice-view` (ticks 0, 150, 270, 400, 602, 700, 865, 1000 and 1268), every `fizz-view` test, the replay golden, the state hash (`PARITY ok 2145503c0d3b625f` at the time; look and aim have since moved it to `0edebb797e63edff`) and the seven DOS frame digests. The simulation, `fizz-phys` and `fizz-ep2` were not touched. The portable changes (the tile layer, the sprite blit, the door list) are in the code the Web build also runs; each has a test against the older definition of the picture, and the Web build was not timed.
 
 How the drawing's last 2,800 us splits (first 120 ticks): the figures come from leaving pieces out, measured at 3,000 cycles before the setting was corrected and scaled to this one, so they are approximate. The sky and tile layer is about 600 us (writing the 64,000 bytes once is about 600 us on its own; the rest is the per-tile colour lookups and the run bookkeeping), the HUD text about 530 us, the sprites and the key, chicken and shots after the tiles about 575 us, and the camera and the black HUD strip the remainder.
 
@@ -318,6 +331,8 @@ The step is cheap: about 2,800 emulated cycles a tick (103 us at 26,800), 0.6% o
 Writing the 64,000-byte frame once costs about 600 us and copying it to the screen the same again, so a full-frame redraw plus the copy is about 7% of a tick before any tile, sprite or text is drawn. What remains is small pieces (glyphs 2.7%, looking sprites up once instead of by string compare, not drawing the rows under the black HUD strip, formatting the HUD numbers without `core::fmt`), each a few percent, and a change of design (keeping the scene between ticks and drawing again only what moved) that these figures do not call for.
 
 The copy figure is DOSBox's cost for 16,000 dword writes to its emulated video memory and does not stand for a real card: a real VGA's bus speed decides it, and a real ISA or PCI card takes several milliseconds for 64,000 bytes whatever the instruction. Treat it as a lower-confidence figure than the other two; a slow ISA card alone could take a large share of the budget.
+
+The figures were taken before look and aim and the machine probes were added, and have not been taken again. The cluck captions came after them and were checked at the same settings (the drawing stayed near 2,740 us a tick), but the tables were not redone. `tools/check-dos.sh` still runs `/BENCH` at 26,800 cycles and holds the loose bounds above; the tables here are the measurement of `FIZZ2.EXE` at 69,632 bytes, which is 84,480 bytes now.
 
 These numbers do not say how a real 486DX behaves. DOSBox cycles are an approximation: it does not model cache, memory or bus timing, or a slow ISA video card, and the cost of x87 instructions, which the step uses for every `f64` operation and the drawing uses for each sprite position (`tile_px` takes a floor through `f64`), is not measured. DOSBox charges them the same as other instructions, so the step and the position arithmetic are floors, not estimates. The mapping from a cycle count to a named 486 model is a guess. No i486 cycle weighting of the instruction stream (as Fizz 1's `cyc486.py` does) was run for these changes, and `valgrind` is not installed here, so there is no instruction count either. That the changes help a real 486 rests on their running fewer instructions (a `rep stosd` stores a dword in about a clock after a few clocks of start-up, against five or more instructions for the generic loop), not on a measurement. The 486 floor claim stands on the order of magnitude until the build is run on hardware or a cycle-accurate model.
 
@@ -347,7 +362,9 @@ Files mirrored or adapted from other work name their source in a header comment.
 | Adapted from fizz-dos (`lieutenant-fizz-dos`, commit `221dd6c`, the same author's code, MIT there) | `tools/sfx/convert.ts` from `m4/sound/fizz-dos/sfx.ts`, `tools/sfx/opl.ts` from `opl.ts` and `tools/sfx/patches.ts` from `patches.ts`; see [`SFX.md`](SFX.md) |
 | Ported from Fizz 1's DOS port, fizz-dos `m2/dos-rt/src/preview.rs` at commit `221dd6c` (`Cells`, `plate`, `rows`, the box drawing and the four-panel layout), with the changes listed in the file's header | `crates/fizz-machine/src/screen.rs`; the golden `tests/check-cells.txt` follows the format of fizz-dos `m5/bench/expected-startup-cells.txt` |
 | Ported from Fizz 1's DOS port, fizz-dos `m4/c/compat.c` and `m4/c/sound.c` at commit `221dd6c` (the video, mouse, joystick, x87 and free-memory probes, the OPL2 timer test and the DSP reset), with `__dpmi_int` replaced by `dpmi::simulate_int`, `delay` by `pit::delay_us`, `uname` by the EFLAGS toggles and `_go32_dpmi_remaining_physical_memory` by `dpmi::free_memory_info`; the OPL3 and two-chip tests, the DSP version and the bounded polling are new. Not verified on real hardware | `dos/rt/src/probe.rs` |
-| Written for this repository | `dos/rt/src/` `ring.rs`, `port.rs`, `kbd.rs` and `pit.rs`; `dos/fizz2/src/machine.rs`; `dos/rtsmoke`; the rest of `crates/fizz-hal`, which follows Desk's shapes for time, input and video without port traits |
+| Fizz 1 palette and sprites, read by a tool written here | `tools/sprites/export-fizz1.ts` reads Fizz 1's `defineSprites()` and palette and writes `assets/sprites/fizz1-slice.json`; the Episode 2 sprite design canvas is imported once by `tools/sprites/import-canvas.ts`, see [`SPRITES.md`](SPRITES.md) |
+| Fizz 1 simulation, read by a tool written here | `tools/fizz1-trace` runs Fizz 1's `lf-sim` and `lf-episode-1` at commit `4bce036` and writes the golden traces in `crates/fizz-ep2/tests/fizz1/` |
+| Written for this repository | `dos/rt/src/` `ring.rs`, `port.rs`, `kbd.rs`, `pit.rs` and `mem.rs`; `dos/fizz2/src/bench.rs`; `crates/fizz-view/src/font.rs` (an original 8x8 font); `assets/sfx/voice.ts` and `cluck.ts` (the voice model follows Fizz 1's `SfxVoice`); `dos/fizz2/src/machine.rs`; `dos/rtsmoke`; the rest of `crates/fizz-hal`, which follows Desk's shapes for time, input and video without port traits |
 
 ## Not verified
 
@@ -356,6 +373,7 @@ Files mirrored or adapted from other work name their source in a header comment.
 - x87 cycle cost. DOSBox with `cycles=max` hides it, and a fixed cycle count charges every simple instruction alike; the `/BENCH` figures are DOSBox's, not a 486's (see [Performance](#performance)).
 - The live Web keyboard and canvas on a real browser session. The WASM module is replayed under Node and Bun, and headless Chromium has received key events for both layouts over the DevTools protocol, but a person has not played it.
 - Browser and desktop shortcut clashes (Ctrl+W, Alt combinations, workspace shortcuts) and Keyboard Lock on real desktops. A headless browser cannot show either.
+- The `/BENCH` figures after look and aim and the probes, and the 560 Hz timer the DOS audio service needs (see [The DOS runtime](#the-dos-runtime)). Neither has been measured.
 - Audio. The cluck events are proved by the transcript, and the Web page's request for each cluck is checked against a recording stand-in for `AudioContext` (`web/sfx.test.ts`, `tools/check-web-sfx.py`). Nobody has listened to a cluck, on the Web or anywhere else, and no result here says how it sounds. DOS makes no sound yet. Autoplay behaviour, a hidden tab and overlapping clucks have not been tried in a real browser.
 - The slice replay on real platforms. Native x86_64 (debug and release builds, which agree), DOS (headless DOSBox, with the x87 at 53 bits) and the Web build (WASM under Node or Bun) each reproduce `slice-replay.txt`, compared by `tools/check-parity.sh`; no 486 and no browser session has produced it.
 - The Web slice in a browser played by a person. Headless Chromium loaded the page, moved Ben on Keen-layout key events, fired a shot and used Restart, but it did not play the level to the exit; the level's drawing is the first one and not judged.
