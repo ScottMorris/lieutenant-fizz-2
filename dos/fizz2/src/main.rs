@@ -49,7 +49,8 @@ use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_present_dos::{
-    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, ega_palette, key_to_buttons, present, render_slice_with,
+    DrawOptions, Frame, Layout, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, ega_palette, key_to_buttons, present,
+    render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
