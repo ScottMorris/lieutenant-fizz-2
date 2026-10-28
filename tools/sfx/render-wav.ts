@@ -14,8 +14,12 @@
 // - opl2: a two-operator FM emulation of channel 5 driven by the generated register records (so it plays exactly the data DOS will
 //   get), with the OPL2's feedback and level steps but a rough envelope-rate table and no key scaling, tremolo or vibrato. A real
 //   chip or DOSBox's emulator will differ.
-// - opl3-left, opl3-centre, opl3-right: the same model run through the panned OPL3 path (enable write, channel 14 in the second bank,
-//   output bits), written as stereo. The model is one channel, so it shows the pan, not the channel isolation. Approximate in the same ways.
+// - opl3-pair-left, -centre, -right, -distant: the OPL3 pair, from the register writes of the real Rust player (the `stream` example of
+//   `fizz-sfx`, which needs cargo) at a source on the view's left edge, middle, right edge and three half-views right, played through
+//   two copies of the one-channel model (channel 5 on the left output, channel 14 on the right), written as stereo. Approximate in the
+//   same ways. The left and right edges are the hardest pans Enhanced reaches (Fizz 1's width is 0.6: the far side is about -10 dB).
+// - opl2-distant: channel 5 with the distance attenuation of a source at the distance floor (11 steps, -8 dB), mono.
+// - rich-distant: the rich cluck with the Web's equal-power pan (0.6) and gain (0.4), as stereo.
 // - speaker: a square wave at the divisor's frequency, held for each 1/140 s step. A real speaker's cone and a case colour it.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -285,39 +289,75 @@ class Channel5 {
   }
 }
 
+/** One register write from the Rust player: the 560 Hz tick, the bank, the register and the value. */
+export type Write = readonly [tick: number, bank: number, reg: number, val: number];
+
+/** The writes the DOS audio service makes for variant `variant`, from the real player (the `stream` example of `fizz-sfx`). */
+export function streamWrites(variant: number, ...args: (string | number)[]): Write[] {
+  const run = Bun.spawnSync(['cargo', 'run', '-q', '-p', 'fizz-sfx', '--example', 'stream', '--', String(variant), ...args.map(String)], {
+    stderr: 'inherit',
+  });
+  if (run.exitCode !== 0) throw new Error('the stream example failed');
+  return run.stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .map((l) => l.split(' ').map(Number) as unknown as Write);
+}
+
 /**
- * The panned OPL3 path as the Rust player plays it: the enable write first, every write but 0x01 moved to bank 1 (channel 14, slot 5
- * of the second bank) and the pan's output bits ORed into the config register 0xc5. Returns interleaved stereo at the chip's rate.
+ * The OPL3 pair as the Rust player plays it: the writes of the stream, bank 0 to the left channel (5) and bank 1 to the right (14),
+ * each with its own output bit and carrier level already in the values. Two copies of the one-channel model run side by side, the
+ * left one heard only where its C0 register says left (0x10) and the right one where it says right (0x20). Returns interleaved
+ * stereo at the chip's rate. Approximate in the same ways as the OPL2 model.
  */
-export function renderOplPanned(records: readonly OplRecord[], ticks: number, pan: 'left' | 'centre' | 'right'): Float32Array {
-  const bits = pan === 'left' ? 0x10 : pan === 'right' ? 0x20 : 0x30;
-  const writes: OplRecord[] = [{ bank: 1, reg: 0x05, val: 0x01, wait: 0 }];
-  for (const r of records) {
-    writes.push({
-      bank: r.reg === 0x01 ? 0 : 1,
-      reg: r.reg,
-      val: r.reg === 0xc5 ? (r.val & 0x0f) | bits : r.val,
-      wait: r.wait,
-    });
-  }
+export function renderOplPair(writes: readonly Write[], ticks: number): Float32Array {
   const rate = OPL_CLOCK;
   const frames = Math.ceil(((ticks + 28) / IMF_RATE) * rate);
   const out = new Float32Array(frames * 2);
+  const chips = [new Channel5(), new Channel5()];
+  chips.forEach((c) => (c.opl3 = true));
+  let next = 0;
+  for (let n = 0; n < frames; n++) {
+    while (next < writes.length && (writes[next][0] / IMF_RATE) * rate <= n) {
+      const [, bank, reg, val] = writes[next++];
+      chips[bank === 0 ? 0 : 1].write(reg, val);
+    }
+    for (const c of chips) {
+      const x = c.sample(1 / rate) * 0.5;
+      const [l, r] = c.sides();
+      out[n * 2] += x * l;
+      out[n * 2 + 1] += x * r;
+    }
+  }
+  return out;
+}
+
+/** The OPL2 channel 5 with the distance attenuation: the stream of `OplPlayer::mono`, as mono at the chip's rate. */
+export function renderOplMono(writes: readonly Write[], ticks: number): Float32Array {
+  const rate = OPL_CLOCK;
+  const out = new Float32Array(Math.ceil(((ticks + 28) / IMF_RATE) * rate));
   const ch = new Channel5();
   let next = 0;
-  let waitSamples = 0;
-  for (let n = 0; n < frames; n++) {
-    while (waitSamples <= 0 && next < writes.length) {
-      const r = writes[next++];
-      ch.writeBanked(r.bank, r.reg, r.val);
-      waitSamples += (r.wait * rate) / IMF_RATE;
+  for (let n = 0; n < out.length; n++) {
+    while (next < writes.length && (writes[next][0] / IMF_RATE) * rate <= n) {
+      const [, , reg, val] = writes[next++];
+      ch.write(reg, val);
     }
-    waitSamples -= 1;
-    const x = ch.sample(1 / rate) * 0.5;
-    const [l, rt] = ch.sides();
-    out[n * 2] = x * l;
-    out[n * 2 + 1] = x * rt;
+    out[n] = ch.sample(1 / rate) * 0.5;
   }
+  return out;
+}
+
+/** The rich cluck placed as the Web places it: an equal-power pan and a gain on the whole sound, as stereo at 44.1 kHz. */
+export function renderRichPlaced(voices: readonly SfxVoice[], pan: number, gain: number): Float32Array {
+  const mono = renderRich(voices);
+  const a = ((Math.max(-1, Math.min(1, pan)) + 1) * Math.PI) / 4;
+  const out = new Float32Array(mono.length * 2);
+  mono.forEach((x, i) => {
+    out[i * 2] = x * gain * Math.cos(a);
+    out[i * 2 + 1] = x * gain * Math.sin(a);
+  });
   return out;
 }
 
@@ -362,19 +402,25 @@ if (import.meta.main) {
   }
   mkdirSync(dir, { recursive: true });
   const conv: Conversion[] = convertAll();
+  // Where the source stands in a 320 by 200 view whose top left is (0, 0): a pixel x and y for `place`. Hard left and right are the
+  // view's edges, which is as far as Enhanced pans (Fizz 1's width 0.6); the distant source is three half-views to the right,
+  // which is the floor of the distance factor (0.4) at the full pan.
+  const spots: Record<string, number> = { left: 0, centre: 160, right: 320, distant: 160 + 3 * 160 };
+  const view = [0, 0, 320, 200];
+  const write = (name: string, bytes: Uint8Array): void => {
+    writeFileSync(`${dir}/${name}`, bytes);
+    console.log(`${dir}/${name}  ${bytes.length} bytes`);
+  };
   EFFECTS.cluck.forEach((voices, i) => {
-    const files: [string, Uint8Array][] = [
-      [`cluck-${i}-rich.wav`, wav(renderRich(voices), SR)],
-      [`cluck-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, conv[i].opl.ticks), OPL_CLOCK)],
-      [`cluck-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR)],
-      ...(['left', 'centre', 'right'] as const).map((pan): [string, Uint8Array] => [
-        `cluck-${i}-opl3-${pan}.wav`,
-        wav(renderOplPanned(conv[i].opl.records, conv[i].opl.ticks, pan), OPL_CLOCK, 2),
-      ]),
-    ];
-    for (const [name, bytes] of files) {
-      writeFileSync(`${dir}/${name}`, bytes);
-      console.log(`${dir}/${name}  ${bytes.length} bytes`);
+    const ticks = conv[i].opl.ticks;
+    write(`cluck-${i}-rich.wav`, wav(renderRich(voices), SR));
+    write(`cluck-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, ticks), OPL_CLOCK));
+    write(`cluck-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR));
+    for (const [spot, x] of Object.entries(spots)) {
+      write(`cluck-${i}-opl3-pair-${spot}.wav`, wav(renderOplPair(streamWrites(i, 'at', x, 100, ...view), ticks), OPL_CLOCK, 2));
     }
+    // One distant source on the single-channel and the rich paths: the OPL2's distance attenuation, and the Web's pan and gain.
+    write(`cluck-${i}-opl2-distant.wav`, wav(renderOplMono(streamWrites(i, 'mono', 11), ticks), OPL_CLOCK));
+    write(`cluck-${i}-rich-distant.wav`, wav(renderRichPlaced(voices, 0.6, 0.4), SR, 2));
   });
 }
