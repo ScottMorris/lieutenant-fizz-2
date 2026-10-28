@@ -10,7 +10,8 @@ use fizz_hal::{Clock, Pacer, Ticks};
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, caption_view, cluck_placement, draw_slice_puffs,
+    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, ben_view_box, caption_view, cluck_placement,
+    draw_slice_puffs,
 };
 use wasm_bindgen::prelude::*;
 
@@ -426,6 +427,17 @@ impl App {
 
     pub fn deaths(&self) -> u32 {
         self.world.deaths
+    }
+
+    /// Where Ben's sprite lies in the view now: left, top, width and height in view pixels (the view is [`App::width`] by
+    /// [`App::height`]). The page uses it to keep its HUD off Ben; nothing in the rules reads it.
+    pub fn ben_box(&self) -> Vec<i32> {
+        let options = DrawOptions {
+            captions: false,
+            shake: self.shake,
+        };
+        let (x, y, w, h) = ben_view_box(&self.world, self.view_w, self.view_h, &options);
+        vec![x, y, w, h]
     }
 
     /// Whether the red door has been opened. It stays open through a death.
