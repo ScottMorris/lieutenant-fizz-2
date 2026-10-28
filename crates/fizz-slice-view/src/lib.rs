@@ -39,8 +39,8 @@
 //!   centred on it, in whole-pixel steps up to [`CAPTION_RISE`] pixels, with a one-pixel black shadow. Its colour steps
 //!   from bright to dark halfway through and blinks out over the last quarter. Fizz 1's in-world sound captions (`cap` in
 //!   `episodes/episode-1/game/src/world.rs`, a table of text and colour; 950 ms, 24 pixels of rise, linear fade, a 1-pixel
-//!   shadow) are the model; the slice is 320 pixels wide, so the rise is halved, and the 8 by 8 font has capital shapes
-//!   only, so the lower-case words in [`CAPTIONS`] draw as capitals. A caption follows its chicken's
+//!   shadow) are the model; the slice is 320 pixels wide, so the rise is halved. The words are drawn as written, mixed case, in Fizz 1's own
+//!   proportional pixel font (`fizz_view::pfont`; the HUD keeps the 8 by 8 capitals), centred by their measured width. A caption follows its chicken's
 //!   position exactly and is cut off by the frame's edge as the chicken leaves it, never moved inside; it is dropped once the
 //!   chicken is more than one tile ([`CAPTION_REACH`]) outside the frame. The captions option gates only the text; the beak always moves.
 //! - **Shot-end puff.** Where a shot ends (the rules' `Event::ShotEnd`) Fizz 1 pushes a 16 by 16 puff that grows from 0.5x by
@@ -81,7 +81,8 @@ use fizz_ep2::World;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
-    TILE_PX, blit_sprite, draw_text, draw_tilemap_on_sky, follow, screen_y, text_width, tile_px,
+    TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, pfont::draw_text, pfont::text_width,
+    screen_y, tile_px,
 };
 
 /// The width of the picture in pixels.
@@ -322,8 +323,8 @@ pub const CAPTION_TICKS: u32 = TICKS_PER_SECOND * 950 / 1000;
 pub const CAPTION_RISE: i32 = 12;
 
 /// The caption per cluck variant: its text, and its bright and dark colours (EGA indices). The text is lower-case, as in
-/// Fizz 1, but the 8 by 8 font has one set of letter shapes, so it draws as capitals. The longest, `bwuk, bwuk`, is 80
-/// pixels wide.
+/// Fizz 1, and `buh-GAWK!` keeps its capitals; it is drawn as written in `fizz_view::pfont`'s proportional face, so the width
+/// of a word is `pfont::text_width`, not a fixed width per letter.
 pub const CAPTIONS: [(&str, u8, u8); 4] = [
     ("buh-GAWK!", YELLOW, BROWN),
     ("bwuk", WHITE, LIGHT_GREY),
@@ -916,17 +917,17 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0x2d57854b7aee9077, 0x72d540e334aa0693),
-        (217, 0x03843befb7eff66f, 0x1b12c767752c9322),
+        (197, 0x17619b7882dc6dba, 0x72d540e334aa0693),
+        (217, 0x5af507e1b680861b, 0x1b12c767752c9322),
         (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
         (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
         (1094, 0xfdb0c73c8b23cb88, 0xfdb0c73c8b23cb88),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
-        0x83d3e3edf0e83f97,
-        0x89b053cb0ae96559,
-        0x53c463dce9c1f92a,
-        0x4673d86f1eba4ab5,
+        0x3b51f05130991d1b,
+        0xd09572075dacd138,
+        0xee955dcb5493bde3,
+        0x5e37e8e885a67c47,
         0x9877aaedcd8dd3d5,
         0xf2717d4dbee9a625,
     ];
@@ -1378,9 +1379,10 @@ mod tests {
                 None => {}
                 Some((x0, y0, x1, y1)) => {
                     assert!(*age < CAPTION_TICKS, "tick {t}: caption after its life");
-                    let max_w = fizz_view::text_width(CAPTIONS[usize::from(v)].0) as usize + 1;
+                    let max_w =
+                        fizz_view::pfont::text_width(CAPTIONS[usize::from(v)].0) as usize + 1;
                     assert!(
-                        x1 - x0 < max_w && y1 - y0 < 9,
+                        x1 - x0 < max_w && y1 - y0 < fizz_view::pfont::ROWS + 1,
                         "tick {t}: caption box {x0},{y0}..{x1},{y1}"
                     );
                     captions += 1;
