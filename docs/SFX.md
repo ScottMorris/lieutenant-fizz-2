@@ -40,7 +40,7 @@ A pitch curve is a chain of short notes, one every 25 ms, each at the next pitch
 
 | Variant | Intent | Voices | Source length |
 | --- | --- | --- | --- |
-| 0 | "buh-GAWK": a low square "buh" nudging up a major third, then a loud sawtooth "GAWK" falling an octave and a half, with a square an octave under it for body | 20 | 300 ms |
+| 0 | "buh-GAWK": a low square "buh" nudging up a major third, then a loud sawtooth "GAWK" falling an octave and a half, with a square an octave under it for body | 22 | 345 ms |
 | 1 | The short single cluck: one quick falling square note with a small noise rasp | 5 | 127 ms |
 | 2 | The double cluck: two quick falling clucks a little apart, the second higher and longer | 10 | 305 ms |
 | 3 | The repeated cluck: variant 1 played twice, "cluck, cluck" | 10 | 328 ms |
@@ -59,7 +59,7 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 
 | Variant | Records | Bytes (4 each) | Ticks | Length |
 | --- | --- | --- | --- | --- |
-| 0 | 160 | 640 | 184 | 329 ms |
+| 0 | 178 | 712 | 212 | 379 ms |
 | 1 | 74 | 296 | 88 | 157 ms |
 | 2 | 147 | 588 | 188 | 336 ms |
 | 3 | 150 | 600 | 200 | 357 ms |
@@ -68,12 +68,12 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 
 | Variant | Entries | Bytes (2 each) | Length |
 | --- | --- | --- | --- |
-| 0 | 42 | 84 | 300 ms |
+| 0 | 48 | 96 | 343 ms |
 | 1 | 16 | 32 | 114 ms |
 | 2 | 42 | 84 | 300 ms |
 | 3 | 46 | 92 | 329 ms |
 
-In all, the four variants take 2,124 bytes of OPL2 records and 292 bytes of speaker divisors.
+In all, the four variants take 2,196 bytes of OPL2 records and 304 bytes of speaker divisors.
 
 ### What is lost, and where
 
