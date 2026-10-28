@@ -36,7 +36,7 @@
 use crate::{cleanup, irq, port, timer};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
-use fizz_machine::{FxPlan, OplMode, Resolved, route};
+use fizz_machine::{FxPlan, OplMode, Resolved, Stream, route};
 use fizz_sfx::place::Placement;
 use fizz_sfx::{EFFECT_CHANNEL, OplPair, OplPlayer, SpeakerPlayer, SpeakerStep};
 
@@ -160,7 +160,7 @@ impl Service {
         }
         let opl = self.opl;
         if let Some(player) = self.opl_player.as_mut() {
-            let more = player.tick(&mut |bank, reg, val| opl_write(bank, reg, route(opl, bank, reg, val)));
+            let more = player.tick(&mut |bank, reg, val| opl_write(bank, reg, route(opl, Stream::Opl2, bank, reg, val)));
             if !more {
                 self.opl_player = None;
             }

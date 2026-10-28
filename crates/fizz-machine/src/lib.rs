@@ -26,7 +26,7 @@ pub use report::{
     cells_hash, parse_cells_hex, parse_probe, write_cells_hex, write_probe, write_sound,
 };
 pub use resolve::{FxPlan, MusicPlan, Reason, Resolved, SoundState, SoundStates, resolve};
-pub use route::{OplMode, route};
+pub use route::{OplMode, Stream, enable_writes, route};
 pub use screen::{CELLS, COLS, MEMORY_FLOOR_KB, ROWS, cells, ready};
 pub use settings::{
     Config, ConfigIssue, FlagReport, FrameRate, FxChoice, MusicChoice, Prefs, Settings, apply_flags,
