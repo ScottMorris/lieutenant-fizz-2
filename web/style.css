@@ -274,3 +274,192 @@ button:focus-visible {
 .toast.gone {
   opacity: 0;
 }
+
+/* The Paused and Options screens (web/options.ts), in Fizz 1's Web menu look (packages/engine/src/menu/rows.css and tokens.css): a
+   dark panel over the dimmed picture, rows with a bullet gutter and a plate, the selected row's plate in the Fizz accent with its
+   clipped corners and dark ink, a soda can bobbing beside it, values muted and `◄ value ►` on the selected choice. The plate steps
+   through three shades of the accent. main.js sets --n, the whole-number pixel scale, from the stage's height, as for the HUD. */
+#options {
+  --n: 3;
+  --plate-a: var(--fizz);
+  --plate-b: #ff77ff;
+  --plate-c: #ff99ff;
+  --plate-ink: #1a001a;
+  --text: #e0e0e0;
+  --muted: #b4bfce;
+  --dim: #7c8796;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: "Fizz", ui-monospace, monospace;
+  font-size: calc(11px * var(--n));
+  line-height: calc(13px * var(--n));
+  font-synthesis: none;
+  font-kerning: none;
+  letter-spacing: 0;
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: none;
+  color: var(--text);
+  user-select: none;
+}
+
+#options[hidden] {
+  display: none;
+}
+
+#options .opt-panel {
+  box-sizing: border-box;
+  width: min(calc(11px * var(--n) * 24), calc(100% - 16px));
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+  padding: calc(var(--n) * 6px) calc(var(--n) * 8px);
+  background: rgba(12, 12, 16, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+
+#options h2 {
+  margin: 0 0 calc(var(--n) * 4px);
+  font: inherit;
+  font-size: calc(11px * (var(--n) + 1));
+  line-height: calc(13px * (var(--n) + 1));
+  font-weight: 400;
+  color: #fff;
+  text-shadow: 0 calc(var(--n) * 1px) 0 #000;
+}
+
+#options .menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#options .row {
+  display: flex;
+  align-items: center;
+  gap: max(6px, calc(var(--n) * 2px));
+  height: calc(var(--n) * 11px);
+  cursor: pointer;
+  outline: none;
+  text-shadow: 0 calc(var(--n) * 1px) 0 #000;
+}
+
+#options .gut {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  width: calc(var(--n) * 11px);
+}
+
+#options .bullet {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  transform: translateY(-50%);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+#options .bullet svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+#options .row.sel .bullet {
+  visibility: visible;
+  animation: opt-bob 1.26s step-end infinite;
+}
+
+#options .lbl {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#options .plate {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: calc(var(--n) * 3px);
+  align-self: stretch;
+  min-width: 0;
+  padding: 0 calc(var(--n) * 4px);
+}
+
+#options .row.sel .plate {
+  background: var(--plate-a);
+  color: var(--plate-ink);
+  text-shadow: none;
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
+  animation: opt-plate 1.6s step-end infinite;
+}
+
+#options .val {
+  flex: none;
+  margin-left: auto;
+  display: flex;
+  gap: calc(var(--n) * 3px);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+#options .row.sel .val {
+  color: var(--plate-ink);
+}
+
+/* The arrows are for the mouse and mark a row you can change; they show on the selected choice only. */
+#options .arrow {
+  visibility: hidden;
+  cursor: pointer;
+}
+
+#options .row.sel[data-choice] .arrow {
+  visibility: visible;
+}
+
+#options .opt-note,
+#options .opt-foot {
+  margin: calc(var(--n) * 3px) 0 0;
+  font-size: calc(11px * max(1, var(--n) - 1));
+  line-height: calc(13px * max(1, var(--n) - 1));
+  color: var(--dim);
+  text-shadow: 0 calc(var(--n) * 1px) 0 #000;
+}
+
+#options .opt-note[hidden] {
+  display: none;
+}
+
+@keyframes opt-plate {
+  0% { background: var(--plate-a); }
+  25% { background: var(--plate-b); }
+  50% { background: var(--plate-c); }
+  75% { background: var(--plate-b); }
+}
+
+@keyframes opt-bob {
+  0%, 100% { transform: translate(0, -50%); }
+  25% { transform: translate(calc(var(--n) * 1px), -50%); }
+  75% { transform: translate(calc(var(--n) * -1px), -50%); }
+}
+
+/* Reduced motion, from the system or the Motion option (main.js adds .rm): the plate holds its first shade and the can holds still. */
+@media (prefers-reduced-motion: reduce) {
+  #options .row.sel .plate,
+  #options .row.sel .bullet {
+    animation: none;
+  }
+}
+
+#options.rm .row.sel .plate,
+#options.rm .row.sel .bullet {
+  animation: none;
+}
