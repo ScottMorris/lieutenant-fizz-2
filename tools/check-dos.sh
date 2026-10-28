@@ -511,6 +511,82 @@ audio_count 'ch5 through the OR rule on an OPL3 (440)' "$SB16" '440 SPEAKER STEP
 audio_count 'the OPL3 pair (836)' "$SB16" '836 SPEAKER STEPS 0' /SB
 audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 
+# 3g. The frame rate: the simulation always steps at 60 Hz and only the drawing changes. /REPLAY prints `FRAMES <n> TICKS <t> RATE <hz> MODE
+# <auto|30|60>` after the platform lines. At 30 Hz the screen is drawn on every second tick, so n is about t/2 (the first frame is
+# drawn before tick 1, so a 60 Hz run draws t+1); the TICK, FINAL and EVENT lines are the golden's whatever the rate. The default is Auto
+# and at 26,800 cycles (about a 486DX2-66) a frame costs a fraction of a sixtieth of a second, so it stays at 60. At FRAMES_SLOW cycles a frame
+# costs 100 to 170% of a sixtieth (calibrated with the /BENCH figures: draw plus copy is about 3.5 ms at 26,800, which scales with the
+# cycles, so 20.8 ms, 125%, at 4,500) and Auto ends at 30. The file's frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag
+# wins over it, the last flag wins, and no flag writes the file.
+FRAMES_SLOW=4500
+frames_line() { printf '%s\n' "$1" | tr -d '\r' | grep -E '^FRAMES [0-9]+ TICKS [0-9]+ RATE [0-9]+ MODE [a-z0-9]+$' || true; }
+frames_replay() {
+  local name="$1" cycles="$2" rate="$3" mode="$4" lo="$5" hi="$6" out status=0 line n t
+  shift 6
+  out="$(DOS_CYCLES="$cycles" DOS_TIMEOUT=100 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/REPLAY frames case '$name' exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  got="$(printf '%s\n' "$out" | grep -E '^(TICK|FINAL|EVENT) ' || true)"
+  [ "$got" = "$want" ] || fail "/REPLAY frames case '$name': transcript differs from $golden"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY frames case '$name' did not reach the exit"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLAY frames case '$name' did not restore the vectors"
+  line="$(frames_line "$out")"
+  n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
+  t="$(printf '%s\n' "$line" | sed -n 's/^FRAMES [0-9]* TICKS \([0-9]*\) .*/\1/p')"
+  [ "$t" = 1268 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1268)"
+  [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ] || fail "/REPLAY frames case '$name': '$line' (expected between $lo and $hi frames)"
+  printf '%s\n' "$line" | grep -qE " RATE $rate MODE $mode\$" || fail "/REPLAY frames case '$name': '$line' (expected RATE $rate MODE $mode)"
+  echo "FRAMES case $name ok ($line)"
+}
+# /LIVE has no fixed length, so a case gives the mode and rate and the ratio of frames to ticks (percent, bounds).
+frames_live() {
+  local name="$1" rate="$2" mode="$3" out status=0 line n t
+  shift 3
+  out="$(DOS_AUTOTYPE='-w 3 -p 0.2 esc' DOS_TIMEOUT=60 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/LIVE frames case '$name' exited $status"
+  line="$(frames_line "$out")"
+  n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
+  t="$(printf '%s\n' "$line" | sed -n 's/^FRAMES [0-9]* TICKS \([0-9]*\) .*/\1/p')"
+  [ -n "$n" ] && [ "$t" -gt 30 ] || fail "/LIVE frames case '$name': '$line'"
+  printf '%s\n' "$line" | grep -qE " RATE $rate MODE $mode\$" || fail "/LIVE frames case '$name': '$line' (expected RATE $rate MODE $mode)"
+  if [ "$rate" = 30 ]; then
+    { [ $(( n * 2 )) -ge $(( t - 2 )) ] && [ $(( n * 2 )) -le $(( t + 4 )) ]; } || fail "/LIVE frames case '$name': '$line' (expected about half as many frames as ticks)"
+  else
+    { [ "$n" -ge "$t" ] && [ "$n" -le $(( t + 2 )) ]; } || fail "/LIVE frames case '$name': '$line' (expected a frame for each tick)"
+  fi
+  printf '%s\n' "$out" | tr -d '\r' | grep -qx 'VECTORS RESTORED yes' || fail "/LIVE frames case '$name' did not restore the vectors"
+  echo "FRAMES live case $name ok ($line)"
+}
+cfg_none
+frames_replay '/FPS30' 26800 30 30 600 660 /FPS30
+frames_replay '/FPS60' 26800 60 60 1268 1270 /FPS60
+frames_replay 'default is Auto and stays at 60' 26800 60 auto 1268 1270
+frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 600 700
+frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 700 1270 /FPS60
+frames_replay '/FPSAUTO' 26800 60 auto 1268 1270 /FPSAUTO
+frames_replay 'last flag wins' 26800 30 30 600 660 /FPS60 /FPS30
+frames_replay 'combines with the sound flags' 26800 30 30 600 660 /NOSOUND /FPS30 /MODERN
+# The file's byte, and a flag over it. V2 has frame byte 2 (60 Hz); F30 and FAUTO are the same file with 1 and 0.
+F30='FZ2C\x02\x02\x04\x01\x00'
+FAUTO='FZ2C\x02\x02\x04\x00\x00'
+cfg_put "$V2"
+frames_live 'file says 60' 60 60
+frames_live 'file says 60, /FPS30 wins' 30 30 /FPS30
+cfg_put "$F30"
+frames_live 'file says 30' 30 30
+frames_live 'file says 30, /FPS60 wins' 60 60 /FPS60
+frames_live 'file says 30, /FPSAUTO wins' 60 auto /FPSAUTO
+cfg_put "$FAUTO"
+frames_live 'file says Auto' 60 auto
+frames_live 'file says Auto, /FPS30 wins' 30 30 /FPS30
+cfg_put 'FZ2C\x02\x02\x04\x05\x00'
+frames_live 'bad frame-rate byte is Auto' 60 auto
+cfg_put "$F30"
+[ "$(cfg_hex)" = '465a32430202040100' ] || fail "a frame-rate flag run changed FIZZ2.CFG to $(cfg_hex)"
+cfg_none
+frames_live 'no file, /FPS30' 30 30 /FPS30
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with /FPS30 created FIZZ2.CFG"
+
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
 echo "SIZE $size"
