@@ -190,7 +190,13 @@ mod tests {
         }
         assert_eq!(text_width_scaled("Op", 2), text_width("Op") * 2);
         // Off every side, with a zero or negative scale, an empty frame and a short buffer, nothing panics.
-        for (x, y) in [(i32::MAX, 0), (0, i32::MAX), (i32::MIN, i32::MIN), (-9, -9), (50, 25)] {
+        for (x, y) in [
+            (i32::MAX, 0),
+            (0, i32::MAX),
+            (i32::MIN, i32::MIN),
+            (-9, -9),
+            (50, 25),
+        ] {
             draw_text_scaled(&mut two, w, h, x, y, "Op", 1, 3);
         }
         let before = two;

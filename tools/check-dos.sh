@@ -367,6 +367,17 @@ replantest_case 'SBPro2' "$(sb sbpro2)"
 replantest_case 'AdLib only' "$(sb none 'oplmode = opl2')"
 replantest_case 'no sound card' ''
 
+# 3d0c. /MENUSHOT: draws the Options and Paused screens over the slice's first frame and prints the hash of each finished frame. The DOS
+# build's drawing must give the pixels the portable code does, so the two lines equal the ones the host's `menushot` example prints.
+status=0
+out="$(DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /MENUSHOT)" || status=$?
+[ "$status" = 0 ] || fail "/MENUSHOT exited $status"
+host_shots="$(cargo run -q --release -p fizz-present-dos --example menushot)"
+dos_shots="$(printf '%s\n' "$out" | tr -d '\r' | grep '^MENUSHOT ' || true)"
+[ -n "$host_shots" ] && [ "$(printf '%s\n' "$host_shots" | wc -l)" = 2 ] || fail "the host's menushot example printed '$host_shots'"
+[ "$dos_shots" = "$host_shots" ] || fail "/MENUSHOT hashes differ from the host's: DOS '$dos_shots', host '$host_shots'"
+echo "MENUSHOT ok ($(printf '%s' "$dos_shots" | tr '\n' ' '))"
+
 # 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
 # plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
 # file, the file over Auto, per field; flags never write the file; and a missing file is Auto with no message.
