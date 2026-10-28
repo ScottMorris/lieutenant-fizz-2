@@ -144,7 +144,7 @@ The run prints one more line when it ends, such as `AUDIO WRITES 425 SPEAKER STE
 
 ## The slice on DOS
 
-![The DOS build in DOSBox, at the start of a run: Ben at the foot of the shaft and the chicken on the top ledge, with the HUD box in the top-left corner showing `Fizz 5`, `Deaths 0` and the key chip empty.](img/dos-slice.png)
+![The DOS build in DOSBox, at the start of a run: Ben at the foot of the shaft and the chicken on the top ledge, with the translucent HUD pill in the top-left corner (the picture shows darkened through it) showing `Fizz 5`, `Deaths 0` and the key chip empty.](img/dos-slice.png)
 
 *Screenshot of the DOS build with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, at tick 249 of the built-in run. The emulator scales the 320 by 200 picture up.*
 
