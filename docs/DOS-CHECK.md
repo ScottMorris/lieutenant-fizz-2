@@ -118,7 +118,7 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 | `/SPEAKER` | music off, effects speaker |
 | `/NOSOUND` | music off, effects off |
 
-`apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself.
+`apply_flags` leaves anything else alone and counts it in its `FlagReport` (with the index of the first), so the caller can warn. The count includes the program's own mode flags, such as `/LIVE`, which the caller reads itself. The program's switches, these among them, are listed once in `fizz_machine::switches`, which also writes the `/?` help and sends an unrecognised switch or a bad value such as `/MUSIC:FOO` to an error line and exit status 2 (see [PLATFORM.md](PLATFORM.md)).
 
 ### On DOS
 

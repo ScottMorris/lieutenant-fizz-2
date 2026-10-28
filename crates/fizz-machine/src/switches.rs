@@ -104,27 +104,135 @@ const fn sw(name: &'static str, arg: Arg, group: Group, kind: Kind, help: &'stat
 
 /// Every switch FIZZ2.EXE recognises, in the order the help lists them.
 pub const SWITCHES: &[Switch] = &[
-    sw("/LIVE", Arg::None, Group::Modes, Kind::Mode(Mode::Live), "Play the slice from the keyboard; Esc ends it"),
-    sw("/REPLAY", Arg::None, Group::Modes, Kind::Mode(Mode::Replay), "Run the built-in script and print its transcript"),
-    sw("/BENCH", Arg::Count, Group::Modes, Kind::Mode(Mode::Bench), "Time the script (first n ticks) and print the costs"),
-    sw("/CHECK", Arg::None, Group::Modes, Kind::Mode(Mode::Check), "Show the machine check; Esc leaves, Enter plays"),
-    sw("/CHECKCELLS", Arg::None, Group::Modes, Kind::Mode(Mode::CheckCells), "Draw the check screen and print its cells; no key"),
-    sw("/PROBE", Arg::None, Group::Modes, Kind::Mode(Mode::Probe), "Print what the machine has: video, sound, processor"),
+    sw(
+        "/LIVE",
+        Arg::None,
+        Group::Modes,
+        Kind::Mode(Mode::Live),
+        "Play the slice from the keyboard; Esc ends it",
+    ),
+    sw(
+        "/REPLAY",
+        Arg::None,
+        Group::Modes,
+        Kind::Mode(Mode::Replay),
+        "Run the built-in script and print its transcript",
+    ),
+    sw(
+        "/BENCH",
+        Arg::Count,
+        Group::Modes,
+        Kind::Mode(Mode::Bench),
+        "Time the script (first n ticks) and print the costs",
+    ),
+    sw(
+        "/CHECK",
+        Arg::None,
+        Group::Modes,
+        Kind::Mode(Mode::Check),
+        "Show the machine check; Esc leaves, Enter plays",
+    ),
+    sw(
+        "/CHECKCELLS",
+        Arg::None,
+        Group::Modes,
+        Kind::Mode(Mode::CheckCells),
+        "Draw the check screen and print its cells; no key",
+    ),
+    sw(
+        "/PROBE",
+        Arg::None,
+        Group::Modes,
+        Kind::Mode(Mode::Probe),
+        "Print what the machine has: video, sound, processor",
+    ),
     Switch {
         aliases: &["/HELP", "-?"],
-        ..sw("/?", Arg::None, Group::Modes, Kind::Help, "Show this help (also /HELP and -?); nothing else runs")
+        ..sw(
+            "/?",
+            Arg::None,
+            Group::Modes,
+            Kind::Help,
+            "Show this help (also /HELP and -?); nothing else runs",
+        )
     },
-    sw("/MODERN", Arg::None, Group::Keys, Kind::Modern, "Use the Modern keys (W A S D, Z X C) instead of Keen's"),
-    sw("/CAPTIONS", Arg::None, Group::Captions, Kind::Captions(true), "Show the chicken's captions"),
-    sw("/NOCAPTIONS", Arg::None, Group::Captions, Kind::Captions(false), "Hide the captions"),
-    sw("/MUSIC", Arg::Value("x"), Group::Sound, Kind::Sound, "Music device: ADLIB, SB or OFF"),
-    sw("/FX", Arg::Value("x"), Group::Sound, Kind::Sound, "Effects device: ADLIB, SB, SPEAKER or OFF"),
-    sw("/ADLIB", Arg::None, Group::Sound, Kind::Sound, "Music and effects on the AdLib chip"),
-    sw("/SB", Arg::None, Group::Sound, Kind::Sound, "Music and effects on the Sound Blaster"),
-    sw("/SPEAKER", Arg::None, Group::Sound, Kind::Sound, "Effects on the PC speaker, no music"),
-    sw("/NOSOUND", Arg::None, Group::Sound, Kind::Sound, "No music and no effects"),
-    sw("/PANIC", Arg::None, Group::Developer, Kind::Mode(Mode::Panic), "Hook the timer and panic, to test the clean-up (exit 3)"),
-    sw("/CFGTEST", Arg::None, Group::Developer, Kind::Mode(Mode::CfgTest), "Save FIZZ2.CFG from the sound switches and read it back"),
+    sw(
+        "/MODERN",
+        Arg::None,
+        Group::Keys,
+        Kind::Modern,
+        "Use the Modern keys (W A S D, Z X C) instead of Keen's",
+    ),
+    sw(
+        "/CAPTIONS",
+        Arg::None,
+        Group::Captions,
+        Kind::Captions(true),
+        "Show the chicken's captions",
+    ),
+    sw(
+        "/NOCAPTIONS",
+        Arg::None,
+        Group::Captions,
+        Kind::Captions(false),
+        "Hide the captions",
+    ),
+    sw(
+        "/MUSIC",
+        Arg::Value("x"),
+        Group::Sound,
+        Kind::Sound,
+        "Music device: ADLIB, SB or OFF",
+    ),
+    sw(
+        "/FX",
+        Arg::Value("x"),
+        Group::Sound,
+        Kind::Sound,
+        "Effects device: ADLIB, SB, SPEAKER or OFF",
+    ),
+    sw(
+        "/ADLIB",
+        Arg::None,
+        Group::Sound,
+        Kind::Sound,
+        "Music and effects on the AdLib chip",
+    ),
+    sw(
+        "/SB",
+        Arg::None,
+        Group::Sound,
+        Kind::Sound,
+        "Music and effects on the Sound Blaster",
+    ),
+    sw(
+        "/SPEAKER",
+        Arg::None,
+        Group::Sound,
+        Kind::Sound,
+        "Effects on the PC speaker, no music",
+    ),
+    sw(
+        "/NOSOUND",
+        Arg::None,
+        Group::Sound,
+        Kind::Sound,
+        "No music and no effects",
+    ),
+    sw(
+        "/PANIC",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::Panic),
+        "Hook the timer and panic, to test the clean-up (exit 3)",
+    ),
+    sw(
+        "/CFGTEST",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::CfgTest),
+        "Save FIZZ2.CFG from the sound switches and read it back",
+    ),
 ];
 
 /// The width of the help's name column.
@@ -145,7 +253,8 @@ impl Switch {
     fn matches(&self, arg: &str) -> bool {
         let named = |n: &str| match self.arg {
             Arg::Value(_) => {
-                arg.get(..n.len()).is_some_and(|h| h.eq_ignore_ascii_case(n))
+                arg.get(..n.len())
+                    .is_some_and(|h| h.eq_ignore_ascii_case(n))
                     && arg.len() > n.len() + 1
                     && arg.as_bytes()[n.len()] == b':'
             }
@@ -183,7 +292,11 @@ pub enum Parsed<'a> {
 /// Reads the arguments (without the program name). Help wins over everything; otherwise the first mode switch is the mode,
 /// and a bare number is accepted only as `/BENCH`'s tick count.
 pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> {
-    if args.clone().into_iter().any(|a| lookup(a).is_some_and(|s| s.kind == Kind::Help)) {
+    if args
+        .clone()
+        .into_iter()
+        .any(|a| lookup(a).is_some_and(|s| s.kind == Kind::Help))
+    {
         return Parsed::Help;
     }
     let mut run = Invocation {
@@ -238,7 +351,10 @@ pub fn write_help(out: &mut impl fmt::Write) -> fmt::Result {
                 writeln!(out, "{t}")?;
             }
         }
-        let mut name = NameBuf { bytes: [0; NAME_COLUMN], len: 0 };
+        let mut name = NameBuf {
+            bytes: [0; NAME_COLUMN],
+            len: 0,
+        };
         s.display(&mut name)?;
         writeln!(out, "  {:<w$}{}", name.as_str(), s.help, w = NAME_COLUMN)?;
     }
@@ -260,7 +376,10 @@ impl NameBuf {
 impl fmt::Write for NameBuf {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let end = self.len + s.len();
-        self.bytes.get_mut(self.len..end).ok_or(fmt::Error)?.copy_from_slice(s.as_bytes());
+        self.bytes
+            .get_mut(self.len..end)
+            .ok_or(fmt::Error)?
+            .copy_from_slice(s.as_bytes());
         self.len = end;
         Ok(())
     }
@@ -287,7 +406,10 @@ mod tests {
         assert!(text.lines().count() <= 25, "{} lines", text.lines().count());
         for l in text.lines() {
             assert!(l.len() <= 79, "too wide: {l}");
-            assert!(l.bytes().all(|b| (0x20..0x7F).contains(&b)), "not plain ASCII: {l}");
+            assert!(
+                l.bytes().all(|b| (0x20..0x7F).contains(&b)),
+                "not plain ASCII: {l}"
+            );
         }
     }
 
@@ -336,11 +458,20 @@ mod tests {
                 Arg::Value(_) => std::format!("{}:OFF", s.name),
                 _ => s.name.to_string(),
             };
-            assert_eq!(apply_flags(&mut Settings::default(), [typed.as_str()]).applied, 1, "{typed}");
+            assert_eq!(
+                apply_flags(&mut Settings::default(), [typed.as_str()]).applied,
+                1,
+                "{typed}"
+            );
         }
         // And no other table line is a sound flag.
         for s in SWITCHES.iter().filter(|s| s.kind != Kind::Sound) {
-            assert_eq!(apply_flags(&mut Settings::default(), [s.name]).applied, 0, "{}", s.name);
+            assert_eq!(
+                apply_flags(&mut Settings::default(), [s.name]).applied,
+                0,
+                "{}",
+                s.name
+            );
         }
     }
 
@@ -361,19 +492,56 @@ mod tests {
             captions: true,
             bench_ticks: None,
         };
-        let bench = Invocation { mode: Mode::Bench, ..live };
+        let bench = Invocation {
+            mode: Mode::Bench,
+            ..live
+        };
         assert_eq!(run(&[]), Parsed::Run(live));
         assert_eq!(
             run(&["/modern", "/nocaptions"]),
-            Parsed::Run(Invocation { modern: true, captions: false, ..live })
+            Parsed::Run(Invocation {
+                modern: true,
+                captions: false,
+                ..live
+            })
         );
         assert_eq!(run(&["/NOCAPTIONS", "/CAPTIONS"]), Parsed::Run(live));
-        assert_eq!(run(&["/REPLAY", "/LIVE"]), Parsed::Run(Invocation { mode: Mode::Replay, ..live }));
-        assert_eq!(run(&["/PROBE", "/SB", "/FX:off"]), Parsed::Run(Invocation { mode: Mode::Probe, ..live }));
-        assert_eq!(run(&["/PANIC"]), Parsed::Run(Invocation { mode: Mode::Panic, ..live }));
+        assert_eq!(
+            run(&["/REPLAY", "/LIVE"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Replay,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/PROBE", "/SB", "/FX:off"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Probe,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/PANIC"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Panic,
+                ..live
+            })
+        );
         assert_eq!(run(&["/BENCH"]), Parsed::Run(bench));
-        assert_eq!(run(&["/BENCH", "120"]), Parsed::Run(Invocation { bench_ticks: Some(120), ..bench }));
-        assert_eq!(run(&["120", "/BENCH"]), Parsed::Run(Invocation { bench_ticks: Some(120), ..bench }));
+        assert_eq!(
+            run(&["/BENCH", "120"]),
+            Parsed::Run(Invocation {
+                bench_ticks: Some(120),
+                ..bench
+            })
+        );
+        assert_eq!(
+            run(&["120", "/BENCH"]),
+            Parsed::Run(Invocation {
+                bench_ticks: Some(120),
+                ..bench
+            })
+        );
     }
 
     #[test]

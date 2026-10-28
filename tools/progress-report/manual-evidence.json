@@ -70,6 +70,12 @@
    "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it; and that `/REPLAY` takes about 21 seconds, which the BIOS tick bound of 383 to 387 covers only as a count. The `/BENCH` figures are DOSBox's and say nothing certain about a real 486. The `/CHECK` screen itself (keys, Enter on to `/LIVE`) is never run by a check and was not driven by hand here. The `/PROBE` results are DOSBox's too: no real machine, and no monochrome VGA or missing maths chip, has been probed."
   },
   {
+   "section": "Command-line switches",
+   "shelf": "catalogued",
+   "evidence": "`tools/check-dos.sh` runs `FIZZ2.EXE` in headless DOSBox with `/?`, `/HELP`, `/help`, `-?`, `/? /LIVE`, `/MODERN /HELP /PANIC` and `/? /BOGUS`; each must exit 0 and print exactly the text of `crates/fizz-machine/tests/help.txt` and none of the lines a played or hooked run prints. `/BOGUS` and `/LIVE /MUSIC:FOO` must exit with status 2 and name the switch. The help and the argument parser both read one table in `fizz-machine` (`switches.rs`); host tests fail if a recognised switch has no help line or a help line names no switch, if the text is over 25 lines, 79 columns or plain ASCII, or if it differs from the golden file.",
+   "gaps": "a real DOS console: the help was read only from DOSBox's redirected output, so how the 22 lines look on a real 80 by 25 screen, and whether COMMAND.COM on FreeDOS passes `/?` through to the program rather than answering it, are unchecked."
+  },
+  {
    "section": "Choosing your sound on DOS",
    "shelf": "catalogued",
    "evidence": "`tools/check-dos.sh` runs `/PROBE` under sb16, sb1 and no sound card with each flag and with planted version 1, version 2 and damaged `FIZZ2.CFG` files, and compares the whole `SOUND` line, including the fallback and file-problem words. It checks that a run with flags leaves the file as it was, that `/CFGTEST` saves the documented 9 bytes and reads them back, and that `/LIVE` prints the line. It runs `/REPLAY` under eight combinations of file and flags and requires the golden `TICK`, `FINAL` and `EVENT` lines every time. `fizz-machine` tests cover the file's round trip, the version 1 upgrade, every kind of corruption and the flag precedence.",

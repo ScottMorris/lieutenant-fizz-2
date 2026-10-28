@@ -69,6 +69,12 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 - `/CHECKCELLS` — draws the same check screen, reads it back from the screen memory, restores the text mode and prints it as hexadecimal, 25 lines of 80 cells (`CELLROW 00 ...`), after the `PROBE` lines. It needs no key. It is for testing that what the screen holds is what the game meant to draw.
 - `/PANIC` — makes the program stop on purpose, to show that it puts the keyboard, timer and screen mode back as it found them. It is a test, and it exits with status 3.
 
+### Command-line switches
+
+Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), keys (`/MODERN`), captions (`/CAPTIONS`, `/NOCAPTIONS`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+
+If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a sound switch with a value it does not know, such as `/MUSIC:FOO`. Two testing switches, `/PANIC` and `/CFGTEST`, work but are left out of the list because they are not for playing.
+
 ### Choosing your sound on DOS
 
 The DOS version plays the chicken's cluck (there is no music yet). It works out how to play it from your computer and your choices, and `/LIVE`, `/REPLAY` and `/PROBE` print the answer as one line, such as `SOUND MUSIC opl3 FX ch14`. `MUSIC` is `off`, `opl2` (an AdLib or the music chip of an older Sound Blaster) or `opl3` (a Sound Blaster Pro 2, 16 or later). `FX`, the sound effects, is `off`, `ch5` (the AdLib chip), `ch14` (the Sound Blaster's second bank) or `speaker` (the PC speaker, which cannot play music). Music and effects are chosen separately. If you ask for something your computer does not have, the game falls back to the nearest thing it does have and adds a word saying why, such as `music-sb-to-adlib`; it never stops.

@@ -41,6 +41,7 @@ mod hal;
 mod machine;
 mod sound;
 
+use alloc::string::String;
 use core::fmt::{self, Write};
 use alloc::string::String;
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
