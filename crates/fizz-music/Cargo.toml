@@ -1,0 +1,9 @@
+[package]
+name = "fizz-music"
+description = "Generated OPL2 and OPL3 register streams for Lieutenant Fizz 2's level music (a placeholder song)"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
