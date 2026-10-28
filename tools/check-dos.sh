@@ -176,6 +176,35 @@ probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-1
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
 probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 100-1024'
 probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
+# 3d. The check screen: /CHECKCELLS draws it, reads the 4,000 bytes back from video memory (0xB8000, or 0xB0000 on a monochrome adapter)
+# and prints them as CELLROW lines. They must equal what the pure builder makes for the PROBE lines printed in the same run. This is the
+# only way the check screen is exercised here: the interactive /CHECK waits for a key and is never run by a script.
+cargo build -q -p fizz-machine --example cells-hex
+cells_case() {
+  local name="$1" machine="$2" conf="$3"
+  local out status=0
+  out="$(DOS_MACHINE="$machine" DOS_CONF="$conf" DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /CHECKCELLS)" || status=$?
+  [ "$status" = 0 ] || fail "/CHECKCELLS ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qxF 'EXIT yes' || fail "/CHECKCELLS ($name) printed no 'EXIT yes' line"
+  local want got
+  want="$(printf '%s\n' "$out" | cargo run -q -p fizz-machine --example cells-hex)"
+  got="$(printf '%s\n' "$out" | grep '^CELLROW ' || true)"
+  [ -n "$got" ] && [ "$got" = "$want" ] || fail "/CHECKCELLS ($name): the cells read back from video memory differ from the host's"
+  local written read
+  written="$(printf '%s\n' "$out" | sed -n 's/^CELLS WRITTEN //p')"
+  read="$(printf '%s\n' "$out" | sed -n 's/^CELLS \([0-9a-f]\{16\}\)$/\1/p')"
+  [ -n "$read" ] && [ "$read" = "$written" ] || fail "/CHECKCELLS ($name): hash read back '$read' differs from the one written '$written'"
+  echo "CHECKCELLS case $name ok (CELLS $read)"
+}
+cells_case 'no sound card' svga_s3 ''
+cells_case 'sb16' svga_s3 "$(sb sb16)"
+cells_case 'sbpro1' svga_s3 "$(sb sbpro1)"
+cells_case 'machine ega' ega ''
+cells_case 'machine cga' cga ''
+cells_case 'machine hercules' hercules ''
+# A test (crates/fizz-machine/tests/no-check-in-scripts.rs) fails if any script or workflow runs the interactive /CHECK.
+
 # The slice's memory floor: the replay must still play, with the same transcript, on DOSBox's smallest memory size (1 MB).
 status=0
 out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?

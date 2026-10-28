@@ -26,6 +26,7 @@
 // - `mem`      `memset` and `memcpy` on string instructions, in place of the generic loops
 // - `vga`      mode 13h, the palette, the vertical retrace and the frame buffer
 // - `pit`      a busy-wait delay in microseconds from the PIT count, valid only at the BIOS rate
+// - `text`     the 80x25 text screen: mode, cells at B8000h or B0000h, and a key read through the BIOS
 // - `probe`    hardware probes: video, mouse, joystick, FM chip, Sound Blaster DSP, x87, processor and free memory
 //
 // Single-threaded, with one exception: interrupt handlers, which touch only `static`s and never allocate, call DOS or use the x87.
@@ -52,6 +53,7 @@ pub mod port;
 pub mod probe;
 pub mod ring;
 pub mod start;
+pub mod text;
 pub mod timer;
 pub mod vga;
 

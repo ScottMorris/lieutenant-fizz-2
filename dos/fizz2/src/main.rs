@@ -12,6 +12,9 @@
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
 //   FIZZ2.EXE /PROBE    probes the machine (video, mouse, joystick, FM chip, Sound Blaster, x87, processor, memory) and prints what it found
 //                       as `PROBE` lines with the hash of the check screen those values make; it needs no key and draws nothing
+//   FIZZ2.EXE /CHECK    shows the machine check (an 80x25 text screen, read-only): Esc leaves, Enter goes on to /LIVE. It waits for a
+//                       key, so no script or test runs it
+//   FIZZ2.EXE /CHECKCELLS draws the same screen, reads the 4,000 bytes back from video memory and prints them as hex (no key needed)
 //   FIZZ2.EXE /MUSIC:x /FX:x /ADLIB /SB /SPEAKER /NOSOUND  choose the sound for this run over FIZZ2.CFG (sound.rs) and print a `SOUND` line
 //   FIZZ2.EXE /CFGTEST  a test mode: saves FIZZ2.CFG from the sound flags, reads it back and prints the result
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
@@ -28,6 +31,7 @@
 extern crate alloc;
 
 mod bench;
+mod check;
 mod hal;
 mod machine;
 mod sound;
@@ -170,6 +174,13 @@ fn main() -> i32 {
         replay(&options)
     } else if mode.eq_ignore_ascii_case("/PROBE") {
         machine::probe_mode()
+    } else if mode.eq_ignore_ascii_case("/CHECK") {
+        match check::check_mode() {
+            check::Choice::Quit => 0,
+            check::Choice::Play => live(layout, &options),
+        }
+    } else if mode.eq_ignore_ascii_case("/CHECKCELLS") {
+        check::cells_mode()
     } else if mode.eq_ignore_ascii_case("/CFGTEST") {
         sound::cfgtest_mode()
     } else if mode.eq_ignore_ascii_case("/BENCH") {

@@ -10,7 +10,7 @@
 
 use crate::probe::{Blaster, CpuClass, FmKind, Probe, SoundBlaster, VideoClass, parse_blaster};
 use crate::resolve::{FxPlan, MusicPlan, Resolved};
-use crate::screen::CELLS;
+use crate::screen::{CELLS, COLS, ROWS};
 use crate::settings::ConfigIssue;
 use core::fmt::{self, Write};
 
@@ -24,6 +24,49 @@ pub fn cells_hash(cells: &[u16; CELLS]) -> u64 {
         }
     }
     hash
+}
+
+/// Writes the screen as 25 `CELLROW <row> <hex>` lines (row as two digits, then 160 hex digits: character and attribute of each of
+/// the row's 80 cells, in video-memory order), each ending in a newline. This is what `FIZZ2.EXE /CHECKCELLS` prints for the bytes it
+/// reads back from video memory.
+pub fn write_cells_hex(cells: &[u16; CELLS], out: &mut impl Write) -> fmt::Result {
+    for row in 0..ROWS {
+        write!(out, "CELLROW {row:02} ")?;
+        for cell in &cells[row * COLS..(row + 1) * COLS] {
+            let [ch, attr] = cell.to_le_bytes();
+            write!(out, "{ch:02X}{attr:02X}")?;
+        }
+        out.write_char('\n')?;
+    }
+    Ok(())
+}
+
+/// Reads `CELLROW` lines back into a screen. Other lines are ignored; all 25 rows must appear with 160 hex digits each.
+pub fn parse_cells_hex(text: &str) -> Result<[u16; CELLS], &'static str> {
+    let mut out = [0u16; CELLS];
+    let mut seen = [false; ROWS];
+    for line in text.lines() {
+        let Some(rest) = line.trim_end().strip_prefix("CELLROW ") else {
+            continue;
+        };
+        let (row, hex) = rest.split_once(' ').ok_or("a CELLROW line has no cells")?;
+        let row: usize = row.parse().map_err(|_| "bad CELLROW row")?;
+        if row >= ROWS || hex.len() != COLS * 4 || !hex.is_ascii() {
+            return Err("a CELLROW line has the wrong shape");
+        }
+        for (i, chunk) in hex.as_bytes().chunks(4).enumerate() {
+            let chunk = core::str::from_utf8(chunk).map_err(|_| "bad CELLROW hex")?;
+            let ch = u8::from_str_radix(&chunk[..2], 16).map_err(|_| "bad CELLROW hex")?;
+            let attr = u8::from_str_radix(&chunk[2..], 16).map_err(|_| "bad CELLROW hex")?;
+            out[row * COLS + i] = u16::from_le_bytes([ch, attr]);
+        }
+        seen[row] = true;
+    }
+    if seen.iter().all(|&s| s) {
+        Ok(out)
+    } else {
+        Err("a CELLROW row is missing")
+    }
 }
 
 fn yes_no(b: bool) -> &'static str {
@@ -319,6 +362,39 @@ mod tests {
             Err("unknown video class")
         );
         assert_eq!(parse_probe("PROBE colour red\n"), Err("unknown PROBE key"));
+    }
+
+    #[test]
+    fn cell_rows_round_trip_for_every_machine_kind() {
+        use crate::{Settings, cells, resolve};
+        for video in [
+            VideoClass::Vga,
+            VideoClass::Ega,
+            VideoClass::Cga,
+            VideoClass::MdaHercules,
+        ] {
+            let p = Probe {
+                video,
+                ..Probe::BARE
+            };
+            let mut screen = [0u16; CELLS];
+            cells(&p, &resolve(&Settings::default(), &p), &mut screen);
+            let mut t = String::new();
+            write_cells_hex(&screen, &mut t).unwrap();
+            assert_eq!(t.lines().count(), ROWS);
+            assert!(t.starts_with("CELLROW 00 "));
+            let back = parse_cells_hex(&t).unwrap();
+            assert_eq!(back, screen);
+            assert_eq!(cells_hash(&back), cells_hash(&screen));
+        }
+        assert_eq!(
+            parse_cells_hex("CELLROW 00 41\n"),
+            Err("a CELLROW line has the wrong shape")
+        );
+        assert_eq!(
+            parse_cells_hex("nothing\n"),
+            Err("a CELLROW row is missing")
+        );
     }
 
     #[test]
