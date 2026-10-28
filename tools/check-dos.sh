@@ -185,6 +185,126 @@ got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || tru
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
 echo "REPLAY at memsize 1 ok"
 
+# 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
+# plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
+# file, the file over Auto, per field; flags never write the file; and a missing file is Auto with no message.
+cfgdir="$(mktemp -d "${TMPDIR:-/tmp}/fizz2-cfg.XXXXXX")"
+trap 'rm -rf "$cfgdir"' EXIT
+cp dist/dos/*.EXE "$cfgdir"/
+cfg_none() { rm -f "$cfgdir/FIZZ2.CFG"; }
+cfg_put() { printf "$1" > "$cfgdir/FIZZ2.CFG"; }
+cfg_hex() { od -An -tx1 -v "$cfgdir/FIZZ2.CFG" | tr -d ' \n'; }
+sound_case() {
+  local name="$1" conf="$2" expect="$3" mode="$4" out status=0 line
+  shift 4
+  out="$(DOS_CONF="$conf" DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE "$mode" "$@")" || status=$?
+  [ "$status" = 0 ] || fail "sound case '$name' exited $status"
+  line="$(printf '%s\n' "$out" | tr -d '\r' | grep '^SOUND ' || true)"
+  [ "$line" = "$expect" ] || fail "sound case '$name': got '$line', expected '$expect'"
+  echo "SOUND case $name ok ($line)"
+}
+SB16="$(sb sb16)"
+# V2 is a version 2 file (music, effects, frame rate): music AdLib, effects Speaker, 60 Hz.
+V2='FZ2C\x02\x02\x04\x02\x00'
+cfg_none
+sound_case 'no file, no card' '' 'SOUND MUSIC off FX speaker' /PROBE
+sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case '/NOSOUND' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
+sound_case '/SPEAKER' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE /SPEAKER
+sound_case '/ADLIB' "$SB16" 'SOUND MUSIC opl2 FX ch5' /PROBE /ADLIB
+sound_case '/SB' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE /SB
+sound_case '/MUSIC:OFF /FX:ADLIB' "$SB16" 'SOUND MUSIC off FX ch5' /PROBE /MUSIC:OFF /FX:ADLIB
+sound_case 'lower case, later flag wins' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE /nosound /music:adlib /fx:speaker
+sound_case '/SB without a chip falls back' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE /SB
+sound_case '/SB on an OPL2 falls back' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5 music-sb-to-adlib fx-sb-to-adlib' /PROBE /SB
+sound_case '/ADLIB without a chip falls back' '' 'SOUND MUSIC off FX speaker music-adlib-to-off fx-adlib-to-speaker' /PROBE /ADLIB
+# The file alone, a flag over the file, and the file's older and damaged forms.
+cfg_put "$V2"
+sound_case 'file v2' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+sound_case 'flag over file, per field' "$SB16" 'SOUND MUSIC opl2 FX off' /PROBE /FX:OFF
+sound_case 'shortcut over file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
+cfg_put 'FZ2C\x01\x01\x04\x00'
+sound_case 'file v1 still read' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE
+cfg_put 'FZ2C\x02\x03\x03\x01\x00'
+sound_case 'file sb on sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'file sb on no card' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE
+cfg_put 'junk'
+sound_case 'corrupt: length' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+cfg_put 'XZ2C\x02\x02\x02\x00\x00'
+sound_case 'corrupt: magic' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-magic' /PROBE
+cfg_put 'FZ2C\x07\x02\x02\x00\x00'
+sound_case 'corrupt: version' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-version' /PROBE
+cfg_put 'FZ2C\x02\x09\x04\x00\x00'
+sound_case 'corrupt: music byte only' "$SB16" 'SOUND MUSIC opl3 FX speaker cfg-music' /PROBE
+cfg_put 'FZ2C\x02\x02\x09\x00\x00'
+sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch14 cfg-effects' /PROBE
+cfg_put 'FZ2C\x02\x02\x02\x05\x00'
+sound_case 'corrupt: frame-rate byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5 cfg-framerate' /PROBE
+cfg_put ''
+sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+# /LIVE prints the line too (Esc ends it).
+cfg_put "$V2"
+status=0
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 esc' DOS_CONF="$SB16" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE /FX:OFF)" || status=$?
+[ "$status" = 0 ] || fail "/LIVE with sound flags exited $status"
+printf '%s\n' "$out" | grep -qx 'SOUND MUSIC opl2 FX off' || fail "/LIVE did not print 'SOUND MUSIC opl2 FX off'"
+# Flags never write the file: the planted file is byte for byte what it was, and with none planted none appears.
+[ "$(cfg_hex)" = '465a32430202040200' ] || fail "a flag run changed FIZZ2.CFG to $(cfg_hex)"
+cfg_none
+sound_case 'flags leave no file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with flags created FIZZ2.CFG"
+# The save path: /CFGTEST (a test mode, not for players) saves the settings the flags give with the 60 Hz frame rate, reads the file back
+# and prints it. The bytes are the documented version 2 layout, and a version 1 file is replaced by a version 2 one.
+cfgtest_case() {
+  local name="$1" hex="$2" out status=0
+  shift 2
+  out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/CFGTEST ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qx 'CFG SAVED yes' || fail "/CFGTEST ($name) did not save"
+  printf '%s\n' "$out" | grep -qx 'CFG ROUNDTRIP yes' || fail "/CFGTEST ($name) did not read back what it saved"
+  printf '%s\n' "$out" | grep -qx "CFG BYTES $hex" || fail "/CFGTEST ($name) bytes differ from $hex"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/CFGTEST ($name) did not restore the vectors"
+  [ "$(cfg_hex)" = "$(printf '%s' "$hex" | tr 'A-F' 'a-f')" ] || fail "/CFGTEST ($name): the file holds $(cfg_hex), not $hex"
+  echo "CFGTEST case $name ok ($hex)"
+}
+cfg_none
+cfgtest_case 'sb and speaker' 465A32430203040200 /MUSIC:SB /FX:SPEAKER
+cfgtest_case 'nosound' 465A32430201010200 /NOSOUND
+cfg_put 'FZ2C\x01\x03\x03\x00'
+cfgtest_case 'replaces a version 1 file' 465A32430202020200 /ADLIB
+cfgtest_case 'no flags is Auto' 465A32430200000200
+# And what it saved is what the next run reads.
+sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+
+# 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
+# of file and flags, and each run prints the SOUND line its settings give.
+replay_case() {
+  local name="$1" conf="$2" expect="$3" out status=0 got_lines
+  shift 3
+  out="$(DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/REPLAY ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  got_lines="$(printf '%s\n' "$out" | grep -E '^(TICK|FINAL|EVENT) ' || true)"
+  [ "$got_lines" = "$want" ] || fail "/REPLAY ($name) transcript differs from $golden"
+  printf '%s\n' "$out" | grep -qxF "$expect" || fail "/REPLAY ($name) printed no '$expect' line"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY ($name) did not reach the exit"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLAY ($name) did not restore the vectors"
+  echo "REPLAY case $name ok ($expect)"
+}
+cfg_none
+replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
+replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
+replay_case '/SB, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
+replay_case '/ADLIB /MODERN, opl2' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
+replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
+cfg_put "$V2"
+replay_case 'file v2, sb16' "$SB16" 'SOUND MUSIC opl2 FX speaker'
+replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
+cfg_put 'junk'
+replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
+cfg_none
+
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
 echo "SIZE $size"

@@ -12,6 +12,8 @@
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
 //   FIZZ2.EXE /PROBE    probes the machine (video, mouse, joystick, FM chip, Sound Blaster, x87, processor, memory) and prints what it found
 //                       as `PROBE` lines with the hash of the check screen those values make; it needs no key and draws nothing
+//   FIZZ2.EXE /MUSIC:x /FX:x /ADLIB /SB /SPEAKER /NOSOUND  choose the sound for this run over FIZZ2.CFG (sound.rs) and print a `SOUND` line
+//   FIZZ2.EXE /CFGTEST  a test mode: saves FIZZ2.CFG from the sound flags, reads it back and prints the result
 //   FIZZ2.EXE /MODERN   selects the modern keys (arrows or WASD, Z jump, X pogo, C or Space fire) instead of the default Keen
 //                       keys (arrows, Ctrl jump, Alt pogo, Space fire). It combines with /LIVE or stands alone for /LIVE
 //   FIZZ2.EXE /NOCAPTIONS  turns off the words that float above a chicken when it clucks (/CAPTIONS, the default, turns them on; the
@@ -28,6 +30,7 @@ extern crate alloc;
 mod bench;
 mod hal;
 mod machine;
+mod sound;
 
 use core::fmt::{self, Write};
 use fizz_dos_rt::{dpmi, entry, env, fpu, irq, kbd, println, timer};
@@ -154,6 +157,7 @@ fn main() -> i32 {
             !["/MODERN", "/CAPTIONS", "/NOCAPTIONS"]
                 .iter()
                 .any(|flag| a.eq_ignore_ascii_case(flag))
+                && !sound::is_flag(a)
         })
         .unwrap_or("/LIVE");
     // `/BENCH <ticks>` times only the first `ticks` ticks of the script, for quick measurements while changing the drawing.
@@ -166,6 +170,8 @@ fn main() -> i32 {
         replay(&options)
     } else if mode.eq_ignore_ascii_case("/PROBE") {
         machine::probe_mode()
+    } else if mode.eq_ignore_ascii_case("/CFGTEST") {
+        sound::cfgtest_mode()
     } else if mode.eq_ignore_ascii_case("/BENCH") {
         bench(bench_limit, &options)
     } else if mode.eq_ignore_ascii_case("/PANIC") {
@@ -183,6 +189,8 @@ fn main() -> i32 {
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
 /// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
 fn replay(options: &DrawOptions) -> i32 {
+    // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
+    let sound = sound::Plan::new(&machine::probe_machine());
     let session = match start_session(false) {
         Ok(s) => s,
         Err(e) => {
@@ -239,6 +247,7 @@ fn replay(options: &DrawOptions) -> i32 {
     for line in out.text().lines() {
         println!("{}", line);
     }
+    sound.print();
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
     println!("EXIT {}", if exited { "yes" } else { "no" });
     println!("FPU CW {:04X}", cw);
@@ -300,6 +309,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
 }
 
 fn live(layout: Layout, options: &DrawOptions) -> i32 {
+    let sound = sound::Plan::new(&machine::probe_machine());
     let session = match start_session(true) {
         Ok(s) => s,
         Err(e) => {
@@ -348,6 +358,7 @@ fn live(layout: Layout, options: &DrawOptions) -> i32 {
     // Ben has moved when he is anywhere but the spawn he started at: a step changes `x`, a jump changes `y`.
     let moved = world.ben.b.x.to_bits() != level::SPAWN.0.to_bits() || world.ben.b.y.to_bits() != level::SPAWN.1.to_bits();
     println!("LIVE TICKS {} HASH {:016x}", world.tick.0, fizz_ep2::hash(&world).finish());
+    sound.print();
     println!("MOVED {}", if moved { "yes" } else { "no" });
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     0
