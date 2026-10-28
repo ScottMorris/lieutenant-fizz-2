@@ -25,7 +25,7 @@ Fizz 1 (`liminal-hq/lieutenant-fizz`) stays as it is: a working multiplatform pr
 - The slice's transcript is the same on native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}` (`snapshots/measured.json`; chapters 5 and 8). Milestone 0's marker transcript ended `{{m0.final}}` on the same three platforms and is kept in `snapshots/m0.json`.
 
 ### Uncatalogued
-- The game beyond the slice: there is one level, placeholder art for the chicken, one sound effect and no music, story, menu or save.
+- The game beyond the slice: there is one level, placeholder art for the chicken, one sound effect and one placeholder song on the Web, and no story, menu or save.
 - Anything on a real 486, a real display or a real browser window (the Not verified list on the front page).
 
 ### Wish list

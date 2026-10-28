@@ -4,7 +4,7 @@ n: 9
 title: The slice on two screens
 date: 2026-10-27
 summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound, and the start-up check, probe and help screens.
-prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74]
+prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75]
 ---
 The first slice is a cut-down lighthouse: a tall room split into two shafts, Ben, one chicken, a red key, a red door and an exit. It plays on the Web and on DOS from the same rules and the same drawing routine, `fizz_slice_view::draw_slice`. This chapter follows the slice from the level to the two screens and the DOS start-up screens. Chapter 8 covers the rules underneath it.
 
@@ -73,9 +73,9 @@ The cluck has a place (#74). `fizz_sfx::place`, a pure function of whole numbers
 
 The cluck itself changed in #69: the first variant's `buh` is 85 milliseconds, up from 50, and its `GAWK` starts 45 milliseconds later, so the variant runs about 345 milliseconds instead of 300. The other three variants, the events and the hashes are unchanged.
 
-## The song source (#73)
+## The level music (#73, #75)
 
-`assets/music/` holds the source of the slice's level music, "Crater Fields", which is Fizz 1's track used as a placeholder test song and not an official Fizz 2 track. The builder is Fizz 1's, ported and held to a saved fixture of its output, and `bun tools/music/notes.ts --check` guards the committed note list: 39 bars, 63.24 seconds. Nothing plays the song yet, on either platform; `docs/MUSIC.md` has the layout and the plan.
+`assets/music/` holds the source of the slice's level music, "Crater Fields", which is Fizz 1's track used as a placeholder test song and not an official Fizz 2 track. The builder is Fizz 1's, ported and held to a saved fixture of its output, and `bun tools/music/notes.ts --check` guards the committed note list: 39 bars, 63.24 seconds. The Web page plays it (#75): `web/music.ts` loops the song with Undertone from the first key press or click, on a music bus at 0.65 that shares one `AudioContext` and a limiter with the cluck's bus, and the Music button in the H panel and `M` stop it. The rules never start, stop or read it, so no event, hash or transcript line changed. DOS does not play it yet; `docs/MUSIC.md` has the layout, the Web player and the plan, and nobody has listened to either.
 
 ## /CHECK, /PROBE and /?
 
@@ -99,6 +99,7 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 - DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` of 419, 440 and 836 for the golden replay's three clucks, and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
 - `/PROBE` runs under 21 DOSBox configurations, `/CHECKCELLS` under six machines with the cells equal to the host builder's, `/?` prints the text of `crates/fizz-machine/tests/help.txt`, and a host test refuses any script that runs the interactive `/CHECK`.
 - The Web cluck path is checked with a stand-in `AudioContext`: `web/sfx.test.ts` under `bun test` and `tools/check-web-sfx.py` in headless Chromium show what is scheduled, that nothing plays before a key press or while muted, that a pan other than the middle adds a panner to each voice, and that the cluck at tick 197 schedules variant 2 with its panners.
+- The Web music is checked with the same kind of stand-in: `bun test web/music.test.ts` matches the sources scheduled over one loop with the note list of `assets/music/notes/crater.txt` for start time, pitch and pan, and `tools/check-web-sfx.py` shows nothing sounding before a key press and the Music button and `M` working in headless Chromium. `bun tools/music/notes.ts --check` guards the note list itself.
 - The screenshots on this page are records in `media/captures.json`: headless Chromium for the Web, and DOSBox grabbed under a virtual display for DOS, each with its command, commit and date.
 
 ### Uncatalogued
@@ -107,12 +108,13 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 - The Web page played by a person: the screenshots come from headless Chromium with scripted keys, and fullscreen, Keyboard Lock, the panel and the Motion button have not been driven by hand. Firefox and Safari have not loaded the page.
 - A real 486, a real VGA display and a real keyboard controller: the DOS screenshots are DOSBox's scaled window, and the `/BENCH` figures are DOSBox at a fixed cycle count, which hides what the `f64` rules cost on a 486DX.
 - The `/CHECK` screen shown on a real screen, and `/?` read on a real console; whether FreeDOS's `COMMAND.COM` passes `/?` through to the program.
+- Hearing the Web music, and the levels of its bus and the cluck's bus, which are a first guess.
 - Sound on the Web: the first-key start under each browser's autoplay policy, and the silence on a hidden tab, in a real browser.
 
 ### Wish list
 - The other Fizz 1 sound effects for the slice with their captions (Milestone 4), and effects authored in stereo, which the pair already allows with one record stream for each side.
 - A Classic or Enhanced choice on DOS, with the Options screen.
-- The level music: the song source exists (#73) and nothing plays it.
+- The level music on DOS, lowered to OPL2 and OPL3 (Milestone 4).
 - The Options screen and a Motion setting on DOS, a live HUD and the HUD extras of Fizz 1's survey (ammo in red at zero, a key chip, a toast line, a level-name banner).
 - Fizz 1's art and enemy roster in place of the placeholder chicken (Milestone 2), and the camera's pixel-locking (Milestone 3).
 - A first listen: the owner on a real AdLib, Sound Blaster and speaker, then a move of the cluck to the catalogued shelf.
