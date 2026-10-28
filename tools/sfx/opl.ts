@@ -17,16 +17,16 @@ export const EFFECT_RATE = 140;
 /** The OPL2's sample clock in Hz. */
 export const OPL_CLOCK = 49_716;
 
-/** The OPL channel sound effects use, in bank 0: unpanned effects and plain OPL2 cards. Scores must not use it. */
+/** The OPL channel sound effects use, in bank 0: the only one on plain OPL2 cards, and the left channel of the OPL3 pair. Scores must not use it. */
 export const EFFECT_CHANNEL = 5;
 /**
- * The OPL3 channel a panned effect uses: 14 is slot 5 of the second register bank (9 + 5), so its registers are 0x1a5, 0x1b5 and
- * 0x1c5 and its operators sit at the same offsets as channel 5's, 0x0a and 0x0d, plus 0x100. Scores must not use it either. Two
- * effects panned at once would need a third reserved channel; that is not done.
+ * The right channel of the OPL3 pair: 14 is slot 5 of the second register bank (9 + 5), so its registers are 0x1a5, 0x1b5 and
+ * 0x1c5 and its operators sit at the same offsets as channel 5's, 0x0a and 0x0d, plus 0x100. It plays the same effect as channel 5
+ * (output bit 0x20 against 0x10), each at its own level. Scores must not use it either.
  */
-export const EFFECT_CHANNEL_PANNED = 14;
+export const EFFECT_CHANNEL_RIGHT = 14;
 /** The channels (0 to 17) that effects own; a score-writing tool imports this list to refuse them. Mirrors `fizz_sfx::RESERVED_OPL_CHANNELS`. */
-export const RESERVED_OPL_CHANNELS: readonly number[] = [EFFECT_CHANNEL, EFFECT_CHANNEL_PANNED];
+export const RESERVED_OPL_CHANNELS: readonly number[] = [EFFECT_CHANNEL, EFFECT_CHANNEL_RIGHT];
 
 /** The bank (0 or 1) and in-bank slot (0 to 8) of a channel numbered 0 to 17, as the owner's IMF lab's `bankOf`. */
 export const bankOf = (channel: number): { bank: number; slot: number } => ({ bank: channel >= 9 ? 1 : 0, slot: channel % 9 });

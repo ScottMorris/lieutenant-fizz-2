@@ -65,6 +65,7 @@ name = "fizz-sfx"
 version = "0.1.0"
 dependencies = [
  "fizz-ep2",
+ "fizz-sim",
 ]
 
 [[package]]
