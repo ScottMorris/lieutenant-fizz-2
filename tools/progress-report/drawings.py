@@ -209,7 +209,7 @@ def pr_stack(D):
     opens = [o for o in D["open"]["prs"] if not o["isReport"]]
     if not stacks:
         return '<figure class="chartfig"><p class="how">No stack of pull requests has been merged into main.</p></figure>'
-    s = stacks[-1]
+    s = max(stacks, key=lambda x: len(x["numbers"]))
     nums = s["numbers"]
     BW, BH, GAP, X0 = 300, 46, 10, 150
     H = 30 + len(nums) * (BH + GAP) + 70 + (len(opens) * (BH + GAP))
@@ -242,7 +242,7 @@ def pr_stack(D):
                      X0, y, BW, BH, X0 + 10, y + 19, o_["number"], X0 + 10, y + 36, esc(o_["title"][:40]), esc(o_["state"]), "green" if o_["ci"] == "passing" else o_["ci"]))
         o.append('<line x1="%d" y1="%d" x2="%d" y2="%d" class="d-line" stroke-width="1.2" stroke-dasharray="4 3"/>' % (X0 + BW / 2, y, X0 + BW / 2, ybot + 50))
     o.append("</svg>")
-    cap = ("The pull requests of the last stack merged into main, top of the stack first, read from <code>gh pr list</code> and <code>git</code>. "
+    cap = ("The pull requests of the largest stack merged into main, top of the stack first, read from <code>gh pr list</code> and <code>git</code>. "
            "Each box counts only the commits between its own head and the head of the pull request below it. Pull requests still open on main are drawn in blue below the line.")
     return chart("".join(o), cap, "Pull request stack", 820)
 

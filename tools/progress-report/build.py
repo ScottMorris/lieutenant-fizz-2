@@ -139,7 +139,7 @@ def values_of(data):
     vals["open.count"] = len(subject)
     big = [s for s in data.get("stacks", []) if len(s["numbers"]) > 1]
     if big:
-        s = big[-1]
+        s = max(big, key=lambda x: len(x["numbers"]))  # Milestone 0's stack of eight, which chapter 6 and the front page describe
         vals.update({"stack.count": len(s["numbers"]), "stack.merge": s["mergeCommit"], "stack.numbers": ", ".join("#%d" % n for n in s["numbers"]),
                      "stack.when": "%s at %s" % (dr.day_label(s["landedAt"]), dr.hhmm(s["landedAt"])),
                      "stack.commits": sum(p["commitCount"] for p in data["prs"] if p["mergeCommit"] == s["mergeCommit"]),
@@ -460,7 +460,7 @@ class Site:
                                                    (": the stack %s" % ", ".join("#%d" % n for n in big[-1]["numbers"])) if big and big[-1]["mergeCommit"] == last["mergeCommit"] else ": #%d" % last["number"])) if last else "none"
         main_ci = ci_word(last["ci"]) if last else "unknown"
         g, m0 = d["facts"]["golden"], d["facts"]["m0"]["golden"]
-        return ('<dl class="status"><div><dt>Is there a game?</dt><dd><b>A first slice.</b> One small level with Ben, a chicken, a red key and a door plays on Web and DOS from the same rules (<code>fizz-ep2</code>). The chapters below describe Milestone 0, the marker that came before it.</dd></div>'
+        return ('<dl class="status"><div><dt>Is there a game?</dt><dd><b>A first slice.</b> One small level with Ben, a chicken, a red key and a door plays on Web and DOS from the same rules (<code>fizz-ep2</code>). Chapters 8 and 9 describe the slice; chapters 3 to 6 describe Milestone 0, the marker that came before it.</dd></div>'
                 '<div><dt>The parity gate</dt><dd>The same <code>FINAL TICK %s HASH %s</code> on native, Web (WASM under Node and Bun) and DOS (headless DOSBox), compared with <code>crates/fizz-ep2/slice-replay.txt</code> by <code>tools/check-parity.sh</code>.</dd></div>'
                 '<div><dt>Milestone 0, the platform skeleton</dt><dd><b>%s.</b> Its marker replay ended <code>FINAL TICK %s HASH %s</code> on all three platforms.</dd></div>'
                 '<div><dt>Last merge into main</dt><dd>%s<div class="sub">CI on that commit: %s.</div></dd></div>'
