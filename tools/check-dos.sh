@@ -46,7 +46,7 @@ bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
 # MOVED means Ben is somewhere other than his spawn (a step changes x, a jump changes y). Movement only; autotype timing is not
 # tied to ticks.
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 lctrl right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 lctrl right right down esc up enter' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/LIVE exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/LIVE did not move Ben"
@@ -54,19 +54,19 @@ printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/LIVE did not re
 
 # 2b. The layouts are exclusive. /MODERN moves on Z and the arrows; the default Keen keys ignore W, A, S, D, Z, X and C.
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /MODERN)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc up enter' tools/dosrun.sh dist/dos FIZZ2.EXE /MODERN)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/MODERN exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/MODERN did not move Ben"
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 w a s d z x c esc' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 w a s d z x c esc up enter' tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/LIVE (Keen) exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED no' || fail "the Keen layout moved on modern-only keys"
 
 # 2c. /NOCAPTIONS is a switch, not a mode: it combines with /MODERN, and the program still runs live and ends cleanly.
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc' tools/dosrun.sh dist/dos FIZZ2.EXE /NOCAPTIONS /MODERN)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc up enter' tools/dosrun.sh dist/dos FIZZ2.EXE /NOCAPTIONS /MODERN)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/NOCAPTIONS /MODERN exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/NOCAPTIONS did not leave /MODERN live"
@@ -448,10 +448,10 @@ cfg_put 'FZ2C\x03\x02\x04\x02\x00'
 sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
 cfg_put ''
 sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
-# /LIVE prints the line too (Esc ends it).
+# /LIVE prints the line too (Esc opens Paused; Up and Enter choose Quit to DOS).
 cfg_put "$V2"
 status=0
-out="$(DOS_AUTOTYPE='-w 2 -p 0.2 esc' DOS_CONF="$SB16" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE /FX:OFF)" || status=$?
+out="$(DOS_AUTOTYPE='-w 2 -p 0.2 esc up enter' DOS_CONF="$SB16" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE /FX:OFF)" || status=$?
 [ "$status" = 0 ] || fail "/LIVE with sound flags exited $status"
 printf '%s\n' "$out" | grep -qx 'SOUND MUSIC opl2 FX off' || fail "/LIVE did not print 'SOUND MUSIC opl2 FX off'"
 # Flags never write the file: the planted file is byte for byte what it was, and with none planted none appears.
@@ -649,7 +649,7 @@ frames_replay() {
 frames_live() {
   local name="$1" rate="$2" mode="$3" out status=0 line n t
   shift 3
-  out="$(DOS_AUTOTYPE='-w 3 -p 0.2 esc' DOS_TIMEOUT=60 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE "$@")" || status=$?
+  out="$(DOS_AUTOTYPE='-w 3 -p 0.2 esc up enter' DOS_TIMEOUT=60 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /LIVE "$@")" || status=$?
   [ "$status" = 0 ] || fail "/LIVE frames case '$name' exited $status"
   line="$(frames_line "$out")"
   n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
@@ -693,6 +693,77 @@ cfg_put "$F30"
 cfg_none
 frames_live 'no file, /FPS30' 30 30 /FPS30
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with /FPS30 created FIZZ2.CFG"
+
+# 3h. The Options screen in play. Esc in /LIVE opens Paused (Resume, Options, Quit to DOS), and Options is inside it; the world is held
+# while either is up, a change applies at once and FIZZ2.CFG is written when Options is left with something changed. Keys are typed
+# through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys,
+# Back. From Paused, `down enter` opens Options; leaving Options puts the cursor on Options, so `down enter` is then Quit to DOS.
+# Bytes: FZ2C, version 3, music, effects, frame rate (0 Auto, 1 30 Hz, 2 60 Hz), reserved, motion, placement (1 Classic), captions, keys.
+OPEN='esc down enter'
+QUIT='esc down enter'
+options_run() {
+  local keys="$1" out status=0
+  shift
+  out="$(DOS_AUTOTYPE="-w 3 -p 0.2 $keys" DOS_TIMEOUT=90 tools/dosrun.sh "$cfgdir" FIZZ2.EXE "$@")" || status=$?
+  [ "$status" = 0 ] || fail "options run '$keys' $* exited $status"
+  OUT="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$OUT" | grep -qx 'VECTORS RESTORED yes' || fail "options run '$keys' $* did not restore the vectors"
+}
+saved_line() { printf '%s\n' "$OUT" | grep '^OPTIONS SAVED' || true; }
+# Placement to Classic, saved on leaving Options, then Quit to DOS.
+cfg_none
+options_run "$OPEN down down right $QUIT" /LIVE
+[ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "leaving Options with a change did not save"
+[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Classic placement saved $(cfg_hex)"
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "the Options save left FIZZ2.NEW behind"
+echo "OPTIONS case placement saved ok"
+# Nothing changed, so nothing is written (a missing file stays missing).
+cfg_none
+options_run "$OPEN $QUIT" /LIVE
+[ -z "$(saved_line)" ] || fail "visiting Options without a change saved"
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "visiting Options without a change created FIZZ2.CFG"
+echo "OPTIONS case no change, no save ok"
+# The frame rate: Auto, 60, 30, so two Rights; the governor switches at once and the file keeps the 30 Hz byte.
+cfg_none
+options_run "$OPEN down down down right right $QUIT" /LIVE
+[ -n "$(frames_line "$OUT")" ] || fail "no FRAMES line"
+printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "the frame rate was not changed to 30 live: $(frames_line "$OUT")"
+[ "$(cfg_hex)" = '465a3243030000010000000000' ] || fail "30 Hz saved $(cfg_hex)"
+echo "OPTIONS case frame rate live ok ($(frames_line "$OUT"))"
+# A switch is never saved: /FPS30 holds the row (starred), the player changes placement, and the file keeps the frame-rate byte it had.
+cfg_put 'FZ2C\x02\x02\x04\x02\x00'
+options_run "down down right esc" /OPTIONS /FPS30
+[ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "/OPTIONS did not save"
+printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "/OPTIONS /FPS30 did not hold 30 Hz: $(frames_line "$OUT")"
+[ "$(cfg_hex)" = '465a3243030204020000010000' ] || fail "a run with /FPS30 saved $(cfg_hex), not the file's own frame rate"
+echo "OPTIONS case a switch is not saved ok"
+# /OPTIONS opens straight into Options and Esc leaves: no ticks run and nothing is saved without a change. The layout's keys work in it
+# (Modern: S moves down, D steps forward; the /MODERN switch is not saved either).
+cfg_none
+options_run "esc" /OPTIONS
+printf '%s\n' "$OUT" | grep -qE '^LIVE TICKS 0 ' || fail "/OPTIONS stepped the world"
+[ -z "$(saved_line)" ] || fail "/OPTIONS saved with no change"
+[ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "/OPTIONS with no change created FIZZ2.CFG"
+options_run "s s d esc" /OPTIONS /MODERN
+[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Modern keys in /OPTIONS saved $(cfg_hex)"
+echo "OPTIONS case /OPTIONS and Modern keys ok"
+# A read-only FIZZ2.CFG: the save fails, the screen says so and the game carries on to a clean exit; the file is untouched.
+cfg_put 'FZ2C\x02\x03\x03\x01\x00'
+chmod 444 "$cfgdir/FIZZ2.CFG"
+options_run "$OPEN down down right $QUIT" /LIVE
+chmod 644 "$cfgdir/FIZZ2.CFG"
+[ "$(saved_line)" = 'OPTIONS SAVED no' ] || fail "a read-only FIZZ2.CFG did not report 'OPTIONS SAVED no'"
+[ "$(cfg_hex)" = '465a32430203030100' ] || fail "a failed Options save changed FIZZ2.CFG to $(cfg_hex)"
+[ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a failed Options save left FIZZ2.NEW behind"
+echo "OPTIONS case read-only file ok"
+# A menu left open ends at the run's wall-clock cap (30 seconds): the world is held, so its ticks no longer count the time.
+cfg_none
+options_run "esc" /LIVE
+t="$(printf '%s\n' "$OUT" | sed -n 's/^LIVE TICKS \([0-9]*\) .*/\1/p')"
+{ [ -n "$t" ] && [ "$t" -lt 600 ]; } || fail "a run left in Paused ended at tick '$t' (the world should be held)"
+[ -z "$(saved_line)" ] || fail "a run left in Paused saved"
+echo "OPTIONS case a menu left open ends at the cap ok (LIVE TICKS $t)"
+cfg_none
 
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"
