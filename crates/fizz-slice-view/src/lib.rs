@@ -332,43 +332,88 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
 
 /// How far above the chicken's feet the top of a new caption's glyph cell sits: the body's 24 rows, the 8-row cell and two
 /// pixels of air.
-const CAPTION_ABOVE_FEET: i32 = 34;
+pub const CAPTION_ABOVE_FEET: i32 = 34;
 
 /// How far outside the frame, in pixels, a chicken's feet may be and still have a caption (Fizz 1's limit).
-const CAPTION_REACH: i32 = 50;
+pub const CAPTION_REACH: i32 = 50;
 
-/// Draws the chicken's caption: the variant's word above its head, rising and fading with `cluck_age`.
-fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
+/// Where a chicken's live caption stands, before a presenter decides how to draw it. Both presenters take it from
+/// [`caption_view`], so they agree on which captions exist, for how long and for which chicken.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CaptionView {
+    /// The variant's word, lower-case as in Fizz 1.
+    pub text: &'static str,
+    /// The bright and dark colours of the word (EGA indices).
+    pub bright: u8,
+    pub dark: u8,
+    /// Ticks since the cluck, from 0 up to but not including [`CAPTION_TICKS`].
+    pub age: u32,
+    /// The chicken's feet in frame pixels, which may lie outside the frame by up to [`CAPTION_REACH`].
+    pub x: i32,
+    pub y: i32,
+}
+
+/// The caption of chicken `c` in a `w` by `h` frame drawn from `world`, or `None` when it has none: no cluck yet, the
+/// caption's life is over, or the chicken is more than 50 pixels off screen (Fizz 1's limit, because clamping would pin a
+/// word to the edge for a chicken the player cannot see; the feet may be that far below the frame while the head is still
+/// in it). Pure: it reads the chicken and the camera only.
+pub fn caption_view(
+    world: &World,
+    w: usize,
+    h: usize,
+    c: &fizz_ep2::Chicken,
+) -> Option<CaptionView> {
+    let (cam_x, cam_y) = camera(world, w, h);
+    let map_h = world.map.h;
+    let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
+    caption_at(c, w, h, &at)
+}
+
+fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<CaptionView> {
     let age = c.cluck_age;
     if age >= CAPTION_TICKS {
-        return;
+        return None;
     }
-    let Some(&(text, bright, dark)) = CAPTIONS.get(usize::from(c.cluck_variant)) else {
+    let &(text, bright, dark) = CAPTIONS.get(usize::from(c.cluck_variant))?;
+    let (x, y) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    if x < -CAPTION_REACH
+        || x > w as i32 + CAPTION_REACH
+        || y < -CAPTION_REACH
+        || y > h as i32 + CAPTION_REACH + CAPTION_ABOVE_FEET
+    {
+        return None;
+    }
+    Some(CaptionView {
+        text,
+        bright,
+        dark,
+        age,
+        x,
+        y,
+    })
+}
+
+/// Draws the chicken's caption as pixel text, the downscaled form for the 320 by 200 picture: the variant's word above its
+/// head, rising and fading with `cluck_age`. The Web page draws the same captions as DOM text instead.
+fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
+    let Some(cap) = caption_at(c, w, h, at) else {
         return;
     };
+    let age = cap.age;
     // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
     let colour = if age < CAPTION_TICKS / 2 {
-        bright
+        cap.bright
     } else if age < CAPTION_TICKS * 3 / 4 || (age / 2).is_multiple_of(2) {
-        dark
+        cap.dark
     } else {
         return;
     };
     let rise = (age * CAPTION_RISE as u32 / CAPTION_TICKS) as i32;
-    let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
-    // Like Fizz 1, drop the caption of a chicken more than 50 pixels off screen: clamping it would pin a word to the edge
-    // for a chicken the player cannot see. (The feet may be that far below the frame while the head is still in it.)
-    if sx < -CAPTION_REACH
-        || sx > w as i32 + CAPTION_REACH
-        || sy < -CAPTION_REACH
-        || sy > h as i32 + CAPTION_REACH + CAPTION_ABOVE_FEET
-    {
-        return;
-    }
+    let text = cap.text;
     let width = text_width(text);
     // Centred on the chicken, a little above its head, and moved inside the frame (the shadow needs one more pixel).
-    let left = (sx - width / 2).clamp(0, (w as i32 - width - 1).max(0));
-    let top = (sy - CAPTION_ABOVE_FEET - rise).clamp(0, (h as i32 - 9).max(0));
+    let left = (cap.x - width / 2).clamp(0, (w as i32 - width - 1).max(0));
+    let top = (cap.y - CAPTION_ABOVE_FEET - rise).clamp(0, (h as i32 - 9).max(0));
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
     draw_text(frame, w, h, left, top, text, colour);
 }
@@ -593,6 +638,23 @@ mod tests {
         w.chickens[0].cluck_variant = variant;
         w.chickens[0].cluck_age = age;
         w
+    }
+
+    #[test]
+    fn caption_view_is_the_shared_caption_state() {
+        let view = |w: &World| caption_view(w, VIEW_W, VIEW_H, &w.chickens[0]);
+        let w = cluck_world(2, 5);
+        let cap = view(&w).expect("a caption");
+        assert_eq!((cap.text, cap.age), ("bwuk-BWUK", 5));
+        assert_eq!((cap.bright, cap.dark), (LIGHT_RED, RED));
+        // Over after its life, and never for a chicken that has not clucked.
+        assert!(view(&cluck_world(2, CAPTION_TICKS)).is_none());
+        assert!(view(&cluck_world(2, fizz_ep2::chicken::CLUCK_NEVER)).is_none());
+        // Dropped when the chicken is far off screen, as the pixel version does.
+        let mut far = cluck_world(0, 3);
+        far.ben.b.x = 2.0;
+        far.chickens[0].b.x += 40.0;
+        assert!(view(&far).is_none());
     }
 
     /// Every world in the replay whose chicken clucked within the caption's life, with the cluck's age.
