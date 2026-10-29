@@ -6,8 +6,8 @@
 use fizz_pack::level::{KIND_CHICKEN, KIND_SNACK, LevelError};
 use fizz_pack::pack::{
     CODEC_DEFLATE, CODEC_STORED, CONTAINER_HASH, ENTRY_LEN, HEADER_LEN, LEVEL_HASH, SCHEMA_HASH,
-    SECTION_LIMIT, TAG_FXPK, TAG_LEVL, TAG_MUSC, TAG_OPL2, TAG_OPL3, TAG_SPKR, TARGET_DOS,
-    TARGET_WEB, audio_hash, checksum,
+    SECTION_LIMIT, TAG_FXPK, TAG_LEVL, TAG_MUSC, TAG_OPL2, TAG_OPL3, TARGET_DOS, TARGET_WEB,
+    audio_hash, checksum,
 };
 use fizz_pack::write::{LevelSpec, PackWriter, deflate_fixed, deflate_stored, encode_level, seal};
 use fizz_pack::{
@@ -23,8 +23,8 @@ const PIN_CONTAINER: u32 = 0x6F16_BA34;
 const PIN_LEVEL: u32 = 0xEB2F_AD5D;
 const PIN_AUDIO_OPL3: u32 = 0xB899_1606;
 const PIN_AUDIO_OPL2: u32 = 0x8D24_DCC8;
-const PIN_AUDIO_SPKR: u32 = 0x855E_3CF6;
-const PIN_SCHEMA: u32 = 0x7C49_EA7E;
+const PIN_AUDIO_SPKR: u32 = 0x5A80_96D0;
+const PIN_SCHEMA: u32 = 0xD59D_3505;
 const PIN_COMPAT_OPL3: u32 = 0x2E1A_73F9;
 
 fn expect() -> Expect<'static> {
@@ -443,18 +443,17 @@ fn compatibility_is_a_function_of_the_content_table() {
     assert_eq!(audio_hash(Device::Opl2), PIN_AUDIO_OPL2);
     assert_eq!(audio_hash(Device::Speaker), PIN_AUDIO_SPKR);
     assert_eq!(SCHEMA_HASH, PIN_SCHEMA);
-    assert_eq!(audio_compatibility(Device::Opl3), PIN_COMPAT_OPL3);
+    assert_eq!(audio_compatibility(Device::Opl3), Some(PIN_COMPAT_OPL3));
 }
 
 #[test]
 fn audio_numbers_are_per_device_and_ignore_the_content_table() {
-    let (a, b, c) = (
-        audio_compatibility(Device::Opl3),
-        audio_compatibility(Device::Opl2),
-        audio_compatibility(Device::Speaker),
-    );
-    assert!(a != b && b != c && a != c);
-    for x in [a, b, c] {
+    let a = audio_compatibility(Device::Opl3).unwrap();
+    let b = audio_compatibility(Device::Opl2).unwrap();
+    // The speaker plays effects only, so it has no music file and no music number.
+    assert_eq!(audio_compatibility(Device::Speaker), None);
+    assert_ne!(a, b);
+    for x in [a, b] {
         assert_ne!(x, SCHEMA_HASH);
         assert_ne!(x, COMPAT);
     }
@@ -585,9 +584,9 @@ fn tags_sort_bytewise_not_as_numbers() {
     put_u32(&mut f, ent(1), a);
     seal(&mut f);
     assert_eq!(parse(&f).unwrap_err(), Error::Unsorted);
-    // The effect-set tag sorts before LEVL, the speaker tag after OPL3.
+    // The effect-set tag sorts before LEVL, and OPL3 after OPL2.
     assert!(TAG_FXPK.swap_bytes() < TAG_LEVL.swap_bytes());
-    assert!(TAG_SPKR.swap_bytes() > TAG_OPL3.swap_bytes());
+    assert!(TAG_OPL3.swap_bytes() > TAG_OPL2.swap_bytes());
 }
 
 #[test]
