@@ -53,6 +53,23 @@ When the chicken clucks, its beak opens and its words float above its head for a
 
 Turning captions off hides only the words; the beak still opens.
 
+Other things Ben does raise a word where they happen, in the colours of Lieutenant Fizz 1:
+
+| Word | Colour | When |
+| --- | --- | --- |
+| `fzzt` | light cyan | A Fizz shot leaves the blaster |
+| `click - no fizz` | grey | You press Fizz with no shots left |
+| `fizzled` | light cyan | A shot stuns a chicken |
+| `bonk` | white | You land on a chicken |
+| `whoa!` | light red | Ben dies |
+| `ta-da!` | light green | You reach the exit |
+| `red gumdrop`, `blue gumdrop`, `green gumdrop` | red, blue, green | You pick up a key |
+| `clunk` | white | A door opens with its key, or Ben bumps his head |
+| `boing` | yellow | The pogo stick bounces off the ground |
+| `crunch` | yellow | Ben takes a snack |
+
+A jump has no word. The same word is left out if it comes again within about a fifth of a second (so a fast run of shots does not pile up `fzzt`), at most six words show at once (a seventh replaces the first), and a word is left out if its spot is more than a tile outside the picture. Each word stays where it appeared while the view moves, rises a little and fades over about a second, on the Web and on DOS alike.
+
 ### Where a cluck comes from
 
 In the Enhanced way of playing, which is the only one on DOS in this version, a cluck sounds as if it comes from where the chicken is on the screen, as in Lieutenant Fizz 1. A chicken at the left of the picture is louder in your left ear and a chicken at the right is louder in your right, but never all the way: the far ear is still about a third as loud (ten decibels down), so the cluck does not vanish from one side. A chicken that is off the screen is quieter, getting softer as it gets further away and no softer than about 40 percent of the level (eight decibels down). What you hear depends on your sound:
@@ -246,7 +263,7 @@ The gallery at the top is also a small playground, where the things Ben can do e
 - **The blue door.** Drop off the left end of the shelf facing the blue door with the blue key. The door opens and the key is used up, just like the red one. The way to the exit is through it.
 - **An empty blaster.** You start with five Fizz shots. After the fifth, pressing Fizz again does nothing but make the "no Fizz" click that Fizz 1 has.
 
-The Web page and the DOS build show all of these as pictures and, for the cluck, as before; the other sounds and their captions are still to come, so the snack, the bump, the bounce and the click are silent so far. The key chip in the HUD is the red key's only; the blue key has no chip.
+The Web page and the DOS build show all of these as pictures and, for the cluck, as before; the captions for all of them are shown (see [Captions](#captions)), but only the cluck makes a sound so far, so the snack, the bump, the bounce and the click are silent. The key chip in the HUD is the red key's only; the blue key has no chip.
 
 ### The chicken
 
