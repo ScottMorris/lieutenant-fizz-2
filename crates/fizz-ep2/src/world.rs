@@ -1,19 +1,20 @@
-// The slice's world: Ben, the chickens, the Fizz Blaster shots, the red key and door, death, respawn and the exit.
+// The slice's world: Ben, the chickens, the Fizz Blaster shots, the snacks, the red and blue keys and doors, death, respawn and the exit.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: the `Mode::Level` branch of
-// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the red door, the red key and the enemy contact rules),
-// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the other doors, keys and
-// items, switches and mirrors, targets, bosses, captions, sound, the camera and the score. Departures: the red door is a
-// switched tile (see `tiles.rs`), its open state and the key live in [`WorldFlags`], and a death respawns Ben in place
-// instead of reloading the level, so the open door survives it.
+// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the enemy contact rules),
+// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key, the
+// soda and the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
+// Departures: the red and blue doors are switched tiles (see `tiles.rs`), their open states and the keys live in
+// [`WorldFlags`], and a death respawns Ben in place instead of reloading the level, so an open door survives it (the snacks
+// come back, as they do when Fizz 1 reloads).
 
 use crate::ben::{Ben, FALL_DEATH_Y};
 use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
 use crate::shot::Shot;
-use crate::tiles::{DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
+use crate::tiles::{DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
 use alloc::vec::Vec;
 #[cfg_attr(test, allow(unused_imports))]
 use fizz_phys::fmath::FloatMath;
@@ -48,8 +49,8 @@ pub enum Event {
     Stun { chicken: u8, x: i32, y: i32 },
     /// Ben died (Fizz 1's "whoa!"), at the point Fizz 1 raises it, 1.6 tiles above his feet.
     Death { x: i32, y: i32 },
-    /// Ben picked up a key (Fizz 1's gumdrops). `colour` is Fizz 1's key order: 0 red, 1 blue, 2 green; the slice has only
-    /// the red one.
+    /// Ben picked up a key (Fizz 1's gumdrops). `colour` is Fizz 1's key order: 0 red, 1 blue, 2 green; the slice has the
+    /// red and the blue one.
     Key { colour: u8, x: i32, y: i32 },
     /// A door opened with the matching key (Fizz 1's "clunk"), above the door's tile.
     DoorOpen { x: i32, y: i32 },
@@ -61,6 +62,39 @@ pub enum Event {
     HeadBump { x: i32, y: i32 },
     /// A ground jump started (Fizz 1's jump sound, which has no caption).
     Jump { x: i32, y: i32 },
+    /// Ben took a snack, a cheezie, a chocolate or a cookie (Fizz 1's "crunch"), half a tile above the item's centre.
+    Snack { x: i32, y: i32 },
+}
+
+/// The snacks Fizz 1 scatters through its levels, with the points each is worth in its `tick_ben_contacts`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SnackKind {
+    /// A cheezie: 1 point.
+    Cheezie,
+    /// A chocolate: 2 points.
+    Choc,
+    /// A cookie: 5 points.
+    Cookie,
+}
+
+impl SnackKind {
+    /// The points Fizz 1 adds to the score for this snack.
+    pub const fn points(self) -> u32 {
+        match self {
+            SnackKind::Cheezie => 1,
+            SnackKind::Choc => 2,
+            SnackKind::Cookie => 5,
+        }
+    }
+}
+
+/// A snack lying in the level. The position is its centre in tiles; `taken` is the only part that changes, and it is hashed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Snack {
+    pub kind: SnackKind,
+    pub x: f64,
+    pub y: f64,
+    pub taken: bool,
 }
 
 /// A point in tiles as an event position: sixteenths of a tile, rounded down.
@@ -95,6 +129,10 @@ impl WorldFlags {
     pub const DOOR_RED_OPEN: u32 = 2;
     /// Ben has touched the exit (Fizz 1's `won`).
     pub const EXIT_REACHED: u32 = 4;
+    /// Ben carries the blue key. A death drops it.
+    pub const KEY_BLUE: u32 = 8;
+    /// The blue door has been opened. It survives a death.
+    pub const DOOR_BLUE_OPEN: u32 = 16;
 
     pub const fn contains(self, bit: u32) -> bool {
         self.0 & bit == bit
@@ -122,6 +160,8 @@ pub struct World {
     pub deaths: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
+    /// The snacks lying in the level, in the order they were added. A death puts them all back (Fizz 1 reloads the level).
+    pub snacks: Vec<Snack>,
     /// What the last [`step`](World::step) emitted: Ben's own events and his contacts first, then clucks in chicken order,
     /// then the shots from the last to the first (a stun, then its shot end).
     events: Vec<Event>,
@@ -129,6 +169,8 @@ pub struct World {
     spawn: (f64, f64),
     /// Where the red key lies, as its centre, while it is in the world.
     key: Option<(f64, f64)>,
+    /// Where the blue key lies, as its centre, while it is in the world. A world with a blue key has a blue door.
+    key_blue: Option<(f64, f64)>,
     /// Where each chicken starts: `(x, y, dir)` as passed to [`Chicken::new`].
     chicken_spawns: Vec<(f64, f64, f64)>,
 }
@@ -146,9 +188,11 @@ impl World {
             deaths: 0,
             chickens: Vec::new(),
             shots: Vec::new(),
+            snacks: Vec::new(),
             events: Vec::new(),
             spawn,
             key: None,
+            key_blue: None,
             chicken_spawns: Vec::new(),
         }
     }
@@ -195,6 +239,49 @@ impl World {
     /// the door has spent it.
     pub fn key_position(&self) -> Option<(f64, f64)> {
         if self.key_in_world() { self.key } else { None }
+    }
+
+    /// Lays the blue key with its centre at `(x, y)` and closes the blue door. A world without a blue key leaves the blue
+    /// door's switch alone, so it stays as Fizz 1's traces expect it.
+    pub fn set_key_blue(&mut self, x: f64, y: f64) {
+        self.key_blue = Some((x, y));
+        self.map.set_switch(DOOR_BLUE_CHANNEL, true);
+    }
+
+    /// Whether the blue key is lying in the world: not carried, and not spent on the door.
+    pub fn key_blue_in_world(&self) -> bool {
+        self.key_blue.is_some()
+            && !self.flags.contains(WorldFlags::KEY_BLUE)
+            && !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN)
+    }
+
+    /// The centre of the blue key while it is lying in the world, as [`World::key_position`] is for the red one.
+    pub fn key_blue_position(&self) -> Option<(f64, f64)> {
+        if self.key_blue_in_world() {
+            self.key_blue
+        } else {
+            None
+        }
+    }
+
+    /// Lays a snack with its centre at `(x, y)`.
+    pub fn add_snack(&mut self, kind: SnackKind, x: f64, y: f64) {
+        self.snacks.push(Snack {
+            kind,
+            x,
+            y,
+            taken: false,
+        });
+    }
+
+    /// Fizz 1's score for the snacks taken so far: 1 for a cheezie, 2 for a chocolate, 5 for a cookie. It is worked out from
+    /// the snacks, so it is not hashed on its own.
+    pub fn score(&self) -> u32 {
+        self.snacks
+            .iter()
+            .filter(|s| s.taken)
+            .map(|s| s.kind.points())
+            .sum()
     }
 
     /// Advances the world by one tick (the level branch of Fizz 1's `step`).
@@ -295,18 +382,33 @@ impl World {
                 }
             }
         }
-        if self.flags.contains(WorldFlags::KEY_RED) {
+        // Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs.
+        for (tile, channel, key, open) in [
+            (
+                DOOR_R,
+                DOOR_RED_CHANNEL,
+                WorldFlags::KEY_RED,
+                WorldFlags::DOOR_RED_OPEN,
+            ),
+            (
+                DOOR_B,
+                DOOR_BLUE_CHANNEL,
+                WorldFlags::KEY_BLUE,
+                WorldFlags::DOOR_BLUE_OPEN,
+            ),
+        ] {
+            if !self.flags.contains(key) {
+                continue;
+            }
             let cx = if self.ben.face > 0.0 {
                 (px + pw + 0.1).floor() as i32
             } else {
                 (px - 0.1).floor() as i32
             };
-            if self.map.get(cx, (py + 0.2).floor() as i32) == DOOR_R
-                && self.map.switch(DOOR_RED_CHANNEL)
-            {
-                self.map.set_switch(DOOR_RED_CHANNEL, false);
-                self.flags.clear(WorldFlags::KEY_RED);
-                self.flags.set(WorldFlags::DOOR_RED_OPEN);
+            if self.map.get(cx, (py + 0.2).floor() as i32) == tile && self.map.switch(channel) {
+                self.map.set_switch(channel, false);
+                self.flags.clear(key);
+                self.flags.set(open);
                 let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
                 self.events.push(Event::DoorOpen { x, y });
             }
@@ -323,6 +425,24 @@ impl World {
             self.flags.set(WorldFlags::KEY_RED);
             let (x, y) = sixteenths((kx, ky + 0.6));
             self.events.push(Event::Key { colour: 0, x, y });
+        }
+
+        if let Some((kx, ky)) = self.key_blue
+            && self.key_blue_in_world()
+            && self.ben.b.overlaps(kx - 0.4, ky - 0.4, 0.8, 0.8)
+        {
+            self.flags.set(WorldFlags::KEY_BLUE);
+            let (x, y) = sixteenths((kx, ky + 0.6));
+            self.events.push(Event::Key { colour: 1, x, y });
+        }
+
+        for i in 0..self.snacks.len() {
+            let sn = self.snacks[i];
+            if !sn.taken && self.ben.b.overlaps(sn.x - 0.4, sn.y - 0.4, 0.8, 0.8) {
+                self.snacks[i].taken = true;
+                let (x, y) = sixteenths((sn.x, sn.y + 0.6));
+                self.events.push(Event::Snack { x, y });
+            }
         }
 
         for i in 0..self.chickens.len() {
@@ -421,8 +541,12 @@ impl World {
         self.deaths += 1;
         self.ben = Ben::new(self.spawn.0, self.spawn.1);
         self.flags.clear(WorldFlags::KEY_RED);
+        self.flags.clear(WorldFlags::KEY_BLUE);
         self.ammo = START_AMMO;
         self.shots.clear();
+        for s in &mut self.snacks {
+            s.taken = false;
+        }
         self.chickens = self
             .chicken_spawns
             .iter()
@@ -433,6 +557,12 @@ impl World {
             DOOR_RED_CHANNEL,
             !self.flags.contains(WorldFlags::DOOR_RED_OPEN),
         );
+        if self.key_blue.is_some() {
+            self.map.set_switch(
+                DOOR_BLUE_CHANNEL,
+                !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN),
+            );
+        }
     }
 
     /// Hashes the world in the order [`hash`] documents.
@@ -450,7 +580,10 @@ impl World {
 /// 4. `map.switches` (`u32`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
 ///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
-/// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits.
+/// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits;
+/// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. A snack's kind and position
+///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
+///    the [`WorldFlags`] word and in `map.switches` (bit 2).
 ///
 /// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
@@ -498,6 +631,10 @@ pub fn hash(w: &World) -> StateHash {
         for v in [s.x, s.y, s.vx, s.vy, s.life] {
             h.write_f64(v);
         }
+    }
+    h.write_u32(w.snacks.len() as u32);
+    for s in &w.snacks {
+        h.write_u8(u8::from(s.taken));
     }
     h
 }
@@ -572,6 +709,9 @@ mod tests {
             vy: 0.0,
             life: 0.5,
         });
+        w.add_snack(SnackKind::Cheezie, 2.0, 3.0);
+        w.add_snack(SnackKind::Cookie, 3.0, 3.0);
+        w.snacks[1].taken = true;
         w
     }
 
@@ -605,6 +745,8 @@ mod tests {
         for v in [10.0, 11.0, 16.0, 0.0, 0.5] {
             f(&mut b, v);
         }
+        b.extend_from_slice(&2u32.to_le_bytes()); // snack count
+        b.extend_from_slice(&[0, 1]); // taken: the cheezie no, the cookie yes
         assert_eq!(hash(&w).finish(), fnv(&b));
     }
 
@@ -612,13 +754,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0x4763_4dcf_4449_e880);
+        assert_eq!(hash(&populated()).finish(), 0xff10_8a2f_9aab_52a5);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 28] = [
+        let edits: [fn(&mut World); 31] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -647,6 +789,12 @@ mod tests {
             |w| w.chickens[1].cluck_draws += 1,
             |w| w.shots[0].life += 1.0,
             |w| w.shots.clear(),
+            |w| w.snacks[0].taken = true,
+            |w| w.snacks[1].taken = false,
+            |w| {
+                w.flags
+                    .set(WorldFlags::KEY_BLUE | WorldFlags::DOOR_BLUE_OPEN)
+            },
         ];
         for (i, edit) in edits.iter().enumerate() {
             let mut w = populated();

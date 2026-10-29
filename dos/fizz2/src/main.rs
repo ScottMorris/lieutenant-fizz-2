@@ -191,7 +191,8 @@ fn play_events(world: &World, options: &DrawOptions) {
             | Event::Exit { .. }
             | Event::Bounce { .. }
             | Event::HeadBump { .. }
-            | Event::Jump { .. } => {}
+            | Event::Jump { .. }
+            | Event::Snack { .. } => {}
         }
     }
 }

@@ -13,7 +13,7 @@
 //! [`Event::Cluck`] the rules emitted on tick `n`, and one line for every other [`Event`], all with `<x> <y>` in sixteenths
 //! of a tile as integers (y up): `shotend <x> <y>`, `fire <x> <y>`, `dud <x> <y>`, `stomp <chicken> <x> <y>`,
 //! `stun <chicken> <x> <y>`, `death <x> <y>`, `key <colour> <x> <y>` (0 red, 1 blue, 2 green), `dooropen <x> <y>`,
-//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>` and `jump <x> <y>`. `<chicken>` is the chicken's index in the
+//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>`, `jump <x> <y>` and `snack <x> <y>`. `<chicken>` is the chicken's index in the
 //! world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
@@ -32,6 +32,7 @@ const L: Buttons = Buttons::LEFT;
 const R: Buttons = Buttons::RIGHT;
 const J: Buttons = Buttons::JUMP;
 const F: Buttons = Buttons::FIRE;
+const P: Buttons = Buttons::POGO;
 
 /// The slice script as `(ticks, held buttons)` runs. It sums to [`SLICE_TICKS`].
 ///
@@ -152,18 +153,49 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     (4, J),
     (4, R),
     (4, IDLE),
-    // Walk to the exit.
-    (44, L),
-    (8, L.union(J)),
+    // The snack nook. Spend the five shots on the wall to the right, then press Fire once more: the empty blaster clicks.
     (4, IDLE),
-    (4, R),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    // Jump under the shelf: the cheezie hanging there crunches and the head bumps the shelf. Then the same at the other one.
+    (8, R),
     (4, IDLE),
+    (20, J),
+    (16, IDLE),
+    (28, L),
+    (4, IDLE),
+    (20, J),
+    (16, IDLE),
+    // Walk to the right-hand wall, take the pogo stick and bounce, low, low, then high.
+    (52, R),
+    (4, IDLE),
+    (2, P),
+    (50, IDLE),
+    (6, J),
+    (9, IDLE),
+    // Drift left at the top of the high bounce and land on the shelf, then bounce along it to the left end, taking the snacks
+    // and the blue key.
+    (14, L),
+    (60, IDLE),
+    // Drop off the shelf facing the blue door with the key: it opens, and the exit is behind it.
+    (60, L),
+    (40, IDLE),
     // Stand at the exit; the world keeps running.
     (90, IDLE),
 ];
 
 /// The number of ticks the transcript covers.
-pub const SLICE_TICKS: u64 = 1268;
+pub const SLICE_TICKS: u64 = 1681;
 
 /// Writes the header and the tick 0 line.
 pub fn write_start(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
@@ -197,6 +229,7 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
             Event::Bounce { x, y } => writeln!(out, "EVENT {} bounce {x} {y}", w.tick.0)?,
             Event::HeadBump { x, y } => writeln!(out, "EVENT {} headbump {x} {y}", w.tick.0)?,
             Event::Jump { x, y } => writeln!(out, "EVENT {} jump {x} {y}", w.tick.0)?,
+            Event::Snack { x, y } => writeln!(out, "EVENT {} snack {x} {y}", w.tick.0)?,
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -345,19 +378,20 @@ mod tests {
     }
 
     #[test]
-    fn the_final_hash_is_unchanged_by_the_presentation_state() {
-        // Adding `cluck_age`, `cluck_variant` and the chicken index to the event must not move the state hash.
+    fn the_final_hash_is_the_playground_golden() {
+        // The final hash moved once, when the playground's snacks, blue key and blue door joined the hashed state and the
+        // level (the hash order is in `world::hash`). Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1268 HASH 0edebb797e63edff\n"),
+            t.ends_with("FINAL TICK 1681 HASH e3d629fda94149ab\n"),
             "{t}"
         );
     }
 
     #[test]
-    fn every_tick_and_final_line_is_unchanged_by_the_events() {
-        // The event list was grown after the first golden file: the non-EVENT lines (header, TICK and FINAL) must stay as
-        // they were, so adding events can never be the cause of a hash moving. The digest is FNV-1a 64 over those lines.
+    fn every_tick_and_final_line_is_pinned_apart_from_the_events() {
+        // The non-EVENT lines (header, TICK and FINAL) are the state hashes; adding or changing events can never be the
+        // cause of one moving. The digest is FNV-1a 64 over those lines.
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         let mut lines = 0;
         for l in transcript().lines().filter(|l| !l.starts_with("EVENT ")) {
@@ -367,8 +401,122 @@ mod tests {
             }
             lines += 1;
         }
-        assert_eq!(lines, 24);
-        assert_eq!(h, 0xd5b3_75fa_7de0_a2bc);
+        assert_eq!(lines, 31);
+        assert_eq!(h, 0xcb57_844e_4cd2_6b11);
+    }
+
+    /// The kind of every `EVENT` line, in order.
+    fn kinds() -> Vec<String> {
+        transcript()
+            .lines()
+            .filter_map(|l| l.strip_prefix("EVENT "))
+            .map(|l| String::from(l.split(' ').nth(1).unwrap()))
+            .collect()
+    }
+
+    #[test]
+    fn the_playground_fires_every_event_the_slice_can_show() {
+        let k = kinds();
+        let count = |name: &str| k.iter().filter(|x| x.as_str() == name).count();
+        for name in [
+            "fire", "dud", "stomp", "stun", "death", "key", "dooropen", "exit", "bounce",
+            "headbump", "jump", "snack", "shotend", "cluck",
+        ] {
+            assert!(count(name) >= 1, "no {name} event in the replay");
+        }
+        assert_eq!(count("key"), 3, "red twice (a death between), blue once");
+        assert_eq!(count("dooropen"), 2);
+        assert_eq!(count("dud"), 1);
+        assert_eq!(count("snack"), 5);
+        assert!(count("bounce") >= 5);
+        assert!(count("headbump") >= 3);
+    }
+
+    #[test]
+    fn the_playground_pays_fizz_1s_points_and_opens_the_blue_door() {
+        let mut w = level::world();
+        let mut prev = Buttons::NONE;
+        for &(frames, now) in SLICE_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+            }
+        }
+        // Three cheezies (1 each), a chocolate (2) and a cookie (5).
+        assert_eq!(w.score(), 10);
+        assert!(w.snacks.iter().all(|s| s.taken));
+        assert!(w.flags.contains(WorldFlags::DOOR_BLUE_OPEN));
+        assert!(!w.flags.contains(WorldFlags::KEY_BLUE), "the door spent it");
+        assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
+        assert!(!w.key_blue_in_world());
+        assert_eq!(w.ammo, 0, "the shots were spent on the wall");
+    }
+
+    #[test]
+    fn the_blue_door_stays_shut_without_the_blue_key() {
+        let mut w = level::world();
+        // Stand at the door's right side with only the red key and walk into it.
+        w.flags.set(WorldFlags::KEY_RED);
+        w.ben.b.x = 23.2;
+        w.ben.b.y = 38.0;
+        w.ben.face = -1.0;
+        let mut prev = Buttons::NONE;
+        for _ in 0..90 {
+            step(&mut w, InputFrame::from_transition(prev, L));
+            prev = L;
+        }
+        assert!(w.ben.b.x >= 23.0);
+        assert!(!w.flags.contains(WorldFlags::DOOR_BLUE_OPEN));
+        assert!(w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
+    }
+
+    #[test]
+    fn the_nook_is_sealed_so_the_exit_needs_the_blue_door() {
+        // The lintel above the door and the wall right of the nook run to the top of the map.
+        let m = level::map();
+        for y in 41..48 {
+            assert!(m.solid(22, y, false, 0.0), "lintel block at y={y}");
+        }
+        for y in 38..48 {
+            assert!(m.solid(31, y, false, 0.0), "right wall at y={y}");
+        }
+    }
+
+    #[test]
+    fn a_jump_into_the_shelf_bumps_the_head_once() {
+        let mut w = level::world();
+        w.ben.b.x = 26.5;
+        w.ben.b.y = 38.0;
+        w.ben.b.on_ground = true;
+        let mut prev = Buttons::NONE;
+        let mut bumps = 0;
+        for i in 0..40 {
+            let now = if i < 24 { J } else { IDLE };
+            step(&mut w, InputFrame::from_transition(prev, now));
+            prev = now;
+            bumps += w
+                .events()
+                .iter()
+                .filter(|e| matches!(e, Event::HeadBump { .. }))
+                .count();
+        }
+        assert_eq!(bumps, 1);
+    }
+
+    #[test]
+    fn a_death_puts_the_snacks_back_and_keeps_the_open_blue_door() {
+        let mut w = level::world();
+        w.snacks[0].taken = true;
+        w.flags.set(WorldFlags::DOOR_BLUE_OPEN);
+        w.map.set_switch(crate::tiles::DOOR_BLUE_CHANNEL, false);
+        w.ben.kill();
+        for _ in 0..100 {
+            step(&mut w, InputFrame::from_transition(IDLE, IDLE));
+        }
+        assert_eq!(w.deaths, 1);
+        assert!(w.snacks.iter().all(|s| !s.taken));
+        assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
+        assert!(w.map.switch(crate::tiles::DOOR_RED_CHANNEL));
     }
 
     #[test]
