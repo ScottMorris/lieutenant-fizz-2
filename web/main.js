@@ -9,6 +9,7 @@ import init, { App } from "./pkg/fizz_present_web.js";
 import { AudioRoot } from "./audio.ts";
 import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
+import { EFFECT_NAMES } from "../assets/sfx/effects.ts";
 import { OptionsUi, ROW, ROW_OF, browserStorage, loadOptions, menuKeyFor, MENU_KEY, opensPaused, placementFromSearch, pullOptions, pushOptions, saveOptions } from "./options.ts";
 import { announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, sameHud } from "./hud.ts";
 
@@ -327,6 +328,18 @@ async function main() {
   addEventListener("pointerdown", unlockSound);
   document.addEventListener("visibilitychange", () => sfx.sync());
 
+  // Audition: the H panel's list plays any effect by its id, on its own and centred, so the owner can hear each one. A change plays it, so
+  // the arrow keys step through them; the select keeps its keys (the game's key handler leaves a select alone) and Esc gives focus back.
+  const picker = document.getElementById("effect-picker");
+  const playButton = document.getElementById("effect-play");
+  EFFECT_NAMES.forEach((name, id) => picker.add(new Option(`${id}  ${name}`, String(id))));
+  const audition = () => {
+    unlockSound();
+    sfx.playEffect(Number(picker.value));
+  };
+  picker.addEventListener("change", audition);
+  playButton.addEventListener("click", audition);
+
   let layout = stored.keys;
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
   const held = new Map();
@@ -404,6 +417,11 @@ async function main() {
 
   const handle = (event, down) => {
     if (down) unlockSound();
+    // The audition list takes its own keys (arrows step through the effects); Esc hands the keyboard back to the game.
+    if (event.target === picker) {
+      if (down && event.code === "Escape") picker.blur();
+      return;
+    }
     const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
     if (event.code === "KeyM" && plain) {
       event.preventDefault();

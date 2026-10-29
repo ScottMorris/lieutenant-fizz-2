@@ -17,6 +17,9 @@
 #      (the bass, its partner, the pad and the hats of assets/music/events.ts) and the shared context is made once; M suspends the
 #      context; a muted page does not start the song; the Music option (Esc, Options) turns the song off, remembered in the fizz2-options blob, and back on. The mute and music
 #      choices are read from the options screen, so the check also proves the page holds and resumes around it.
+#   5. the audition list in the H panel (web/index.html, web/main.js): all 15 effects in id order, silent before a key, and each choice
+#      schedules exactly that effect's oscillators (a carrier and a modulator for an FM voice) and noise bursts, centred; Play repeats
+#      it and a muted page plays nothing. The music is turned off first and the stand-in's clock is moved on between effects.
 # The stand-in's clock stays at 0, so only the first fraction of a second of the song is scheduled: bar 1's first beat.
 # This proves what the page asks the browser to play. It does not hear anything: the sound has not been listened to.
 import functools
@@ -52,7 +55,7 @@ STUB = """
   const param = (onSet) => ({ value: 0, setValueAtTime(v, t) { if (onSet) onSet(v, t); }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
   const node = (extra = {}) => ({ connect() {}, start() {}, stop() {}, ...extra });
   window.AudioContext = class {
-    constructor() { log.made++; this.state = 'suspended'; log.state = this.state; this.currentTime = 0; this.sampleRate = 44100; this.destination = node(); }
+    constructor() { log.made++; Object.defineProperty(log, 'ctx', { value: this, enumerable: false }); this.state = 'suspended'; log.state = this.state; this.currentTime = 0; this.sampleRate = 44100; this.destination = node(); }
     resume() { log.resumed++; this.state = log.state = 'running'; return Promise.resolve(); }
     suspend() { log.suspended++; this.state = log.state = 'suspended'; return Promise.resolve(); }
     createDynamicsCompressor() { log.limiters++; return node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }); }
@@ -73,10 +76,13 @@ STUB = """
 
 
 def expected_voices(effect_id):
-    """The tone voices (type, exact Hz) and the noise count of effect `effect_id` (a cluck variant), from the source the page imports."""
+    """The oscillators (type, first Hz) and the noise count of effect `effect_id`, from the source the page imports. A voice with `fm` is a
+    carrier and then its modulator (the oscillator's own wave, then the modulator's at ratio times the pitch); pitch steps start at step 0."""
     script = (
-        "import {EFFECTS} from './assets/sfx/effects.ts'; import {voiceHz,isNoise} from './assets/sfx/voice.ts';"
-        "const v=EFFECTS[%d]; console.log(JSON.stringify({tones:v.filter(x=>!isNoise(x.n)).map(x=>[x.w??'triangle',voiceHz(x)]),noise:v.filter(x=>isNoise(x.n)).length}))" % effect_id
+        "import {EFFECTS} from './assets/sfx/effects.ts'; import {voiceHz,isNoise,stepOffset} from './assets/sfx/voice.ts';"
+        "const v=EFFECTS[%d]; const hz=x=>voiceHz(x)*2**(stepOffset(x,0)/12);"
+        "console.log(JSON.stringify({tones:v.filter(x=>!isNoise(x.n)).flatMap(x=>[[x.w??'triangle',hz(x)],...(x.fm?[[x.fm.wave??'sine',hz(x)*x.fm.ratio]]:[])]),"
+        "noise:v.filter(x=>isNoise(x.n)).length,voices:v.length,names:null}))" % effect_id
     )
     out = subprocess.run(["bun", "-e", script], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return json.loads(out)
@@ -230,7 +236,7 @@ def main(argv):
         # The cluck's voices are the sources after the song's.
         got = [[o["type"], o["hz"]] for o in a["osc"][len(music["osc"]):]]
         same = len(got) == len(want["tones"]) and all(g[0] == w[0] and abs(g[1] - w[1]) < 1e-6 for g, w in zip(got, want["tones"]))
-        check(same and a["noise"] - music["noise"] == want["noise"] and a["panners"] - music["panners"] in (0, len(want["tones"]) + want["noise"]),
+        check(same and a["noise"] - music["noise"] == want["noise"] and a["panners"] - music["panners"] in (0, want["voices"]),
               "the cluck at tick %d schedules variant %d: %d tones and %d noise bursts, placed (a panner on every voice, or none when the chicken is dead centre)" % (tick, variant, len(want["tones"]), want["noise"]))
 
         # 3. M mutes, and the choice is remembered.
@@ -286,6 +292,41 @@ def main(argv):
         time.sleep(0.5)
         a = page.audio()
         check(not a["osc"] and a["noise"] == 0, "a page that starts muted schedules no song at its first key")
+        page.js("localStorage.clear()")
+
+        # 5. The audition list in the H panel plays any effect by its id, on its own. It exists, lists the 15 effects by id, makes no
+        # sound before a key, and each choice schedules exactly that effect's voices (a carrier and a modulator for an FM voice).
+        page.load()
+        check(page.js("document.getElementById('effect-picker').options.length") == 15, "the H panel's audition list has the 15 effects")
+        check(page.js("[...document.getElementById('effect-picker').options].map(o => o.value).join(',')") == ",".join(str(i) for i in range(15)),
+              "the audition list is in effect-id order, 0 to 14")
+        check(page.audio()["made"] == 0 and not page.audio()["osc"], "the audition list makes no sound before a key or click")
+        page.key("ShiftLeft")
+        time.sleep(0.3)
+        page.toggle("music")  # the song's scheduler would add sources as the stand-in's clock is moved on below
+        time.sleep(0.3)
+        for effect in range(15):
+            want_fx = expected_voices(effect)
+            page.js("window.__audio.ctx.currentTime += 5")  # the earlier effect is over, so the player's cap of six at once is not in the way
+            before = page.audio()
+            page.js("(() => { const s = document.getElementById('effect-picker'); s.value = '%d'; s.dispatchEvent(new Event('change')); })()" % effect)
+            time.sleep(0.05)
+            after = page.audio()
+            got = [[o["type"], o["hz"]] for o in after["osc"][len(before["osc"]):]]
+            ok = len(got) == len(want_fx["tones"]) and all(g[0] == w[0] and abs(g[1] - w[1]) < 1e-3 * max(1, w[1]) for g, w in zip(got, want_fx["tones"]))
+            check(ok and after["noise"] - before["noise"] == want_fx["noise"] and after["panners"] == before["panners"],
+                  "audition %d plays its %d oscillators and %d noise bursts, centred" % (effect, len(want_fx["tones"]), want_fx["noise"]))
+        # The Play button repeats the chosen effect, and a muted page stays silent.
+        page.js("window.__audio.ctx.currentTime += 5")
+        before = page.audio()
+        page.js("document.getElementById('effect-play').click()")
+        time.sleep(0.05)
+        check(len(page.audio()["osc"]) > len(before["osc"]), "the Play button plays the chosen effect again")
+        page.key("KeyM")
+        before = page.audio()
+        page.js("document.getElementById('effect-play').click()")
+        time.sleep(0.05)
+        check(len(page.audio()["osc"]) == len(before["osc"]) and page.audio()["noise"] == before["noise"], "a muted page auditions nothing")
         page.js("localStorage.clear()")
     finally:
         proc.terminate()
