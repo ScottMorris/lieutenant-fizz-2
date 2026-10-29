@@ -421,6 +421,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     }
     let (cal_loops, cal_us) = bench::calibrate();
     let (world, r) = bench::run(&mut display, limit, options, false);
+    let caps = bench::captions(&mut display, options, false);
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -447,6 +448,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     for &(tick, digest) in &r.frames[..r.frame_count] {
         println!("BENCH FRAME {} {:016x}", tick, digest);
     }
+    print_captions("BENCH", &caps);
     println!("BENCH BUDGET {} us per tick at 60 Hz", bench::BUDGET_US);
     println!("BENCH HASH {:016x}", fizz_ep2::hash(&world).finish());
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
@@ -616,6 +618,25 @@ fn clocks_to_us(clocks: u64) -> u64 {
     clocks * 1_000_000 / 1_193_182
 }
 
+/// The `CAPTIONS` lines of a bench: the same picture drawn with no captions and with all six slots full, and what the six cost.
+fn print_captions(prefix: &str, c: &bench::CaptionsReport) {
+    println!("{} CAPTIONS TICK {} FRAMES {} EACH", prefix, c.tick, c.frames);
+    for (name, s) in [
+        ("none DRAW", &c.none_draw),
+        ("six DRAW", &c.six_draw),
+        ("none DRAW+PRESENT", &c.none_total),
+        ("six DRAW+PRESENT", &c.six_total),
+    ] {
+        println!("{} CAPTIONS {} avg {} max {} units us", prefix, name, s.avg_us(), s.max_us());
+    }
+    println!(
+        "{} CAPTIONS COST six minus none: draw avg {} us, draw+present avg {} us",
+        prefix,
+        c.six_draw.avg_us().saturating_sub(c.none_draw.avg_us()),
+        c.six_total.avg_us().saturating_sub(c.none_total.avg_us())
+    );
+}
+
 fn print_pass(name: &str, r: &bench::Report) {
     for (section, s) in [
         ("STEP", &r.step),
@@ -662,6 +683,10 @@ fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
     let (world_on, on) = bench::run(&mut display, limit, options, true);
     let irq_on = audio::profile();
     let music_on = audio::music_report();
+    // Six captions on screen while effects play: the music is still running, so the chip has music and effects at once.
+    audio::set_profile(true);
+    let caps = bench::captions(&mut display, options, true);
+    let irq_caps = audio::profile();
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -713,6 +738,18 @@ fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
         "BENCH AUDIO HASH {:016x} {:016x}",
         fizz_ep2::hash(&world_off).finish(),
         fizz_ep2::hash(&world_on).finish()
+    );
+    print_captions("BENCH AUDIO", &caps);
+    let n = u64::from(irq_caps.count).max(1);
+    let tenths = clocks_to_us(u64::from(irq_caps.sum_clocks) * 10 / n);
+    println!(
+        "BENCH AUDIO CAPTIONS IRQ count {} avg {}.{} max {} discarded {} units us; MAX_WRITES_PER_TICK {} (music and effects together)",
+        irq_caps.count,
+        tenths / 10,
+        tenths % 10,
+        clocks_to_us(u64::from(irq_caps.max_clocks)),
+        irq_caps.bad,
+        irq_caps.max_tick_writes
     );
     println!("BENCH AUDIO NOTE DOSBox charges no time for ISA port I/O: the counts are exact, the 486 time is not measured");
     let exited = world_off.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED)

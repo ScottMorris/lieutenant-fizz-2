@@ -194,6 +194,16 @@ pub fn event_sound(
     Some((effect, place))
 }
 
+/// The six words that draw widest, for [`EventCaptions::show_six`].
+pub const SIX_WIDEST: [u8; 6] = [
+    CAP_CLICK,
+    CAP_GREEN,
+    CAP_BLUE,
+    CAP_RED,
+    CAP_FIZZLED,
+    CAP_CRUNCH,
+];
+
 /// Ticks within which a second caption of the same word is dropped: Fizz 1's 180 ms, 10.8 ticks, rounded to 11.
 pub const DEDUPE_TICKS: u32 = 11;
 /// The slots in the list, Fizz 1's DOS port's.
@@ -234,6 +244,24 @@ impl EventCaptions {
     /// Forgets everything (a presenter restarting the level).
     pub fn clear(&mut self) {
         *self = Self::new();
+    }
+
+    /// Puts all six slots on show at once, as the worst case the list can draw: six of the widest words ([`SIX_WIDEST`]), spread over
+    /// the `w` by `h` view in two rows of three, each raised six ticks before `world.tick`. For `/BENCH` and screenshots, which want
+    /// the cost or the look of a full list without a route that fills it. It replaces whatever was on show; the rules never see it.
+    pub fn show_six(&mut self, world: &World, w: usize, h: usize, options: &DrawOptions) {
+        let now = world.tick.0 as u32;
+        let (cam_x, cam_y) = camera_shaken(world, w, h, options);
+        for (i, &id) in SIX_WIDEST.iter().enumerate() {
+            let (col, row) = ((i % 3) as i32, (i / 3) as i32);
+            self.slots[i] = Some(Slot {
+                caption: id,
+                x: cam_x + w as i32 * (2 * col + 1) / 6,
+                y: cam_y + h as i32 * (2 * row + 1) / 4,
+                born: now.saturating_sub(6),
+            });
+            self.last[usize::from(id)] = Some(now);
+        }
     }
 
     /// Takes the events of the step that just ran, for a `w` by `h` view drawn with `options`. Call it whether or not captions

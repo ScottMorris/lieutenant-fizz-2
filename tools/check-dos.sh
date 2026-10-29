@@ -160,6 +160,21 @@ for section in STEP DRAW PRESENT TOTAL; do
     [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
   fi
 done
+# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
+# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
+caps_check() {
+  local prefix="$1" text="$2" none six
+  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
+  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
+    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS $kind avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
+  done
+  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
+  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
+  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
+  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
+  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
+}
+caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
 
 # 3b2. /BENCH /AUDIO: the same bench with the 560 Hz audio service, once without music and once with it (an OPL3 here). The picture and the
 # rules are untouched (the same final hash twice), the music writes only in the second pass and never more than 16 on a tick, and the
@@ -193,6 +208,14 @@ mline="$(printf '%s\n' "$out" | grep -E '^BENCH AUDIO on MUSIC TICKS [0-9]+ WRIT
 [ -n "$mline" ] || fail "/BENCH /AUDIO printed no 'on MUSIC' line"
 set -- $mline
 { [ "$8" -gt 0 ] && [ "${10}" -le 16 ]; } || fail "/BENCH /AUDIO music wrote $8 times, at most ${10} on a tick: $mline"
+# Six captions on screen while effects play over the music (the third pass): the same checks, and the interrupt's profile for it. The busiest
+# tick with music and effects together is at most 16 for the music and 22 for the pair's patch load (the OPL3 here), so 38.
+caps_check "BENCH AUDIO" "$out"
+cline="$(printf '%s\n' "$out" | grep -E '^BENCH AUDIO CAPTIONS IRQ count [0-9]+ avg [0-9]+\.[0-9] max [0-9]+ discarded [0-9]+ units us; MAX_WRITES_PER_TICK [0-9]+ \(music and effects together\)$' || true)"
+[ -n "$cline" ] || fail "/BENCH /AUDIO printed no 'CAPTIONS IRQ' line"
+cmax="$(printf '%s\n' "$cline" | sed -n 's/.*MAX_WRITES_PER_TICK \([0-9]*\) .*/\1/p')"
+{ [ "$cmax" -gt 0 ] && [ "$cmax" -le 38 ]; } || fail "/BENCH /AUDIO CAPTIONS: $cmax writes in a tick, over the 16 for the music plus 22 for the pair"
+echo "BENCH AUDIO CAPTIONS: $cline"
 
 # 3c. The probes: /PROBE under one DOSBox configuration after another. tools/dosrun.sh sets `sbtype = none`, so a variant that wants
 # a Sound Blaster appends an `[sblaster]` section (the later value wins); `nosound = true` still emulates the OPL. Each run must exit 0
@@ -541,17 +564,19 @@ replay_case() {
   [ -n "$writes" ] && [ -n "$steps" ] || fail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
   case "${AUDIO:-}" in
     opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
-    # The three OPL paths, by how many writes the script's clucks cause. The attenuation of a distant source changes a value in a write the
+    # The three OPL paths, by how many writes the script's sounds cause. The attenuation of a distant source changes a value in a write the
     # effect makes anyway, never the count, so a path's count is a function of the path alone.
-    #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the clucks' records.
+    #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the effects' records.
     #   opl_or: channel 5 on an OPL3 in its own mode: the same plus 21 (OPL3 mode on, 0x104, and the second bank keyed off, and back).
-    #   opl_pair: channels 5 and 14: the OPL3's 41 start and stop writes and the clucks' records twice, less the chip-wide waveform-select
-    #     enable the right channel leaves to the left (one per cluck; the script has four). Also checked against the golden transcript.
+    #   opl_pair: channels 5 and 14: the OPL3's 41 start and stop writes and the effects' records twice, less the chip-wide waveform-select
+    #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
+    #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
+    #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
     opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes" ;;
     opl_or) [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
-      clucks="$(grep -c '^EVENT [0-9]* cluck ' "$golden")"
-      expected=$((41 + 2 * (CH5_WRITES - 20) - clucks))
+      starts="$(grep '^EVENT ' "$golden" | grep -v ' shotend ' | cut -d' ' -f2 | sort -u | wc -l)"
+      expected=$((41 + 2 * (CH5_WRITES - 20) - starts))
       { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
     speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
     # Effects on the speaker while music holds the chip: the chip is only keyed off at start and stop (no cluck reaches it).
@@ -592,7 +617,7 @@ AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl
 AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
-# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 836 writes either way.
+# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,382 writes either way.
 AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch14' /MUSIC:OFF
 AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
 AUDIO=opl2 replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
@@ -603,8 +628,15 @@ cfg_put 'junk'
 AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
 cfg_none
 
-# 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters): channel 5 on an
-# when music holds it, and silence 0.
+# 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
+# exact because the replay is deterministic and DOSBox runs at fixed cycles (twice in a row gave the same figures), and they count the
+# 61 effects the replay starts (62 sounding events, two of them on one tick) with the last one of a tick winning and a later one cutting
+# an earlier one off. They were 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
+#   5221: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,201 records of the effects.
+#   5242: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   10382: the OPL3 pair = 41 start and stop writes, twice the 5,201 records, less 61 enables (one per effect, left to channel 5).
+#   1213 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+#   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
   shift 3
@@ -613,9 +645,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-audio_count 'ch5 on an OPL2 (569)' "$(sb sb1)" '569 SPEAKER STEPS 0' /MODERN /ADLIB
-audio_count 'ch5 through the OR rule on an OPL3 (590)' "$SB16" '590 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-audio_count 'the OPL3 pair (1135)' "$SB16" '1135 SPEAKER STEPS 0' /SB
+audio_count 'ch5 on an OPL2 (5221)' "$(sb sb1)" '5221 SPEAKER STEPS 0' /MODERN /ADLIB
+audio_count 'ch5 through the OR rule on an OPL3 (5242)' "$SB16" '5242 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+audio_count 'the OPL3 pair (10382)' "$SB16" '10382 SPEAKER STEPS 0' /SB
+audio_count 'the PC speaker (1213 steps)' '' '0 SPEAKER STEPS 1213' /SPEAKER
 audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 
 # 3g. The frame rate: the simulation always steps at 60 Hz and only the drawing changes. /REPLAY prints `FRAMES <n> TICKS <t> RATE <hz> MODE

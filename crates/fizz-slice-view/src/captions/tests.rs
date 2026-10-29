@@ -389,6 +389,54 @@ fn replay_sounds(captions: bool) -> Vec<(u32, u8, fizz_sfx::place::Placement)> {
 }
 
 #[test]
+fn show_six_fills_every_slot_inside_the_view_with_the_widest_words() {
+    let w = world_with_fire();
+    let o = opts();
+    // The six chosen are the six widest of the twelve words (a tie at the bottom may be broken either way).
+    let width = |id: u8| fizz_view::pfont::text_width(EVENT_CAPTIONS[usize::from(id)].text);
+    let mut all: Vec<u8> = (0..EVENT_CAPTIONS.len() as u8).collect();
+    all.sort_by_key(|&id| core::cmp::Reverse(width(id)));
+    let sixth = width(all[5]);
+    for id in SIX_WIDEST {
+        assert!(
+            width(id) >= sixth,
+            "{} is narrower than the sixth widest",
+            EVENT_CAPTIONS[usize::from(id)].text
+        );
+    }
+    let mut caps = EventCaptions::new();
+    caps.show_six(&w, VIEW_W, VIEW_H, &o);
+    let views: Vec<CaptionView> = caps.views(&w, VIEW_W, VIEW_H, &o).collect();
+    assert_eq!(views.len(), MAX_EVENT_CAPTIONS);
+    for v in &views {
+        assert!(v.event && v.age <= 6);
+        assert!(
+            v.x >= 0 && v.x < VIEW_W as i32 && v.y >= 0 && v.y < VIEW_H as i32,
+            "{v:?}"
+        );
+    }
+    let mut words: Vec<&str> = views.iter().map(|v| v.text).collect();
+    words.sort_unstable();
+    words.dedup();
+    assert_eq!(words.len(), 6, "six different words");
+    // They are drawn: the picture differs from the same world with none on show.
+    let (mut a, mut b) = (vec![0u8; VIEW_W * VIEW_H], vec![0u8; VIEW_W * VIEW_H]);
+    let t = w.tick.0 as u32;
+    draw_slice_captions(
+        &mut a,
+        VIEW_W,
+        VIEW_H,
+        &w,
+        t,
+        &o,
+        &Puffs::new(),
+        &EventCaptions::new(),
+    );
+    draw_slice_captions(&mut b, VIEW_W, VIEW_H, &w, t, &o, &Puffs::new(), &caps);
+    assert_ne!(a, b);
+}
+
+#[test]
 fn the_effect_ids_are_the_sound_tables_order() {
     // Eleven effects follow the cluck's four variants, and every id the table hands out is one the sound data has.
     assert_eq!(EFFECT_CRUNCH as usize + 1, fizz_sfx::EFFECT_COUNT);

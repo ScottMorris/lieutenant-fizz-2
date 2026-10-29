@@ -120,6 +120,79 @@ pub struct Report {
     pub frame_count: usize,
 }
 
+/// The tick the caption measurement stops the script at: Ben is in the snack nook, with a jump, a snack and a head-bump about to
+/// fire, so the picture is a busy one (the sprites, the HUD and the puffs are all in view).
+pub const CAPTION_BENCH_TICK: u64 = 1190;
+/// Pictures timed for each of the two cases.
+pub const CAPTION_BENCH_FRAMES: u64 = 120;
+
+/// What `captions` measured: the drawing of one busy picture with no captions on show and with all six slots full.
+pub struct CaptionsReport {
+    pub tick: u64,
+    pub frames: u64,
+    /// `render_slice_with` alone, then with the copy to the screen, with no captions.
+    pub none_draw: Stat,
+    pub none_total: Stat,
+    /// The same with the six widest words on show (`EventCaptions::show_six`).
+    pub six_draw: Stat,
+    pub six_total: Stat,
+}
+
+/// Times the drawing of the picture at `CAPTION_BENCH_TICK` with no captions, then with six on show, `CAPTION_BENCH_FRAMES` pictures
+/// each, always drawing captions whatever the Captions setting says. The world does not move between pictures, so the only thing that
+/// differs between the two cases is the six words. With `audio` an effect is requested every few pictures, cycling through the longest
+/// ones (ta-da!, boing, whoa!, crunch, key), so the audio service has the chip busy while the pictures are drawn; the caller reads the
+/// service's profile for what that cost.
+pub fn captions(display: &mut DosDisplay, options: &DrawOptions, audio: bool) -> CaptionsReport {
+    let mut sw = Stopwatch::new();
+    let cost = overhead(&mut sw);
+    let options = DrawOptions {
+        captions: true,
+        ..*options
+    };
+    let mut world = fizz_ep2::level::world();
+    let mut prev = Buttons::NONE;
+    'script: for &(frames, now) in SLICE_SCRIPT {
+        for _ in 0..frames {
+            if world.tick.0 >= CAPTION_BENCH_TICK {
+                break 'script;
+            }
+            fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
+            prev = now;
+        }
+    }
+    let mut frame = Frame::new();
+    let mut run = |fx: &ViewFx| -> (Stat, Stat) {
+        let (mut draw, mut total) = (Stat::default(), Stat::default());
+        for i in 0..CAPTION_BENCH_FRAMES {
+            if audio && i % 6 == 0 {
+                const CYCLE: [u8; 5] = [8, 12, 7, 14, 9];
+                fizz_dos_rt::audio::effect(CYCLE[(i / 6) as usize % CYCLE.len()], &fizz_present_dos::Placement::CENTRE);
+            }
+            let t0 = sw.now();
+            render_slice_with(&world, &mut frame, &options, fx);
+            let t1 = sw.now();
+            let _ = present(display, &frame);
+            let t2 = sw.now();
+            draw.add((t1 - t0).saturating_sub(cost));
+            total.add((t2 - t0).saturating_sub(2 * cost));
+        }
+        (draw, total)
+    };
+    let (none_draw, none_total) = run(&ViewFx::new());
+    let mut fx = ViewFx::new();
+    fx.captions.show_six(&world, VIEW_W, VIEW_H, &options);
+    let (six_draw, six_total) = run(&fx);
+    CaptionsReport {
+        tick: world.tick.0,
+        frames: CAPTION_BENCH_FRAMES,
+        none_draw,
+        none_total,
+        six_draw,
+        six_total,
+    }
+}
+
 /// Measures the cost of one reading: the average gap between readings taken one straight after the other.
 fn overhead(sw: &mut Stopwatch) -> u64 {
     let first = sw.now();
