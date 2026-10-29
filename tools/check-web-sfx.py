@@ -6,12 +6,12 @@
 #
 # usage: python3 tools/check-web-sfx.py [--port 9418] [--chromium /usr/bin/chromium]
 #
-# Needs dist/web from tools/build-web.sh, Bun (to read the expected voices from assets/sfx/cluck.ts) and Chromium; the DevTools
+# Needs dist/web from tools/build-web.sh, Bun (to read the expected voices from assets/sfx/effects.ts) and Chromium; the DevTools
 # client is the one in tools/progress-report/capture-web.py. A script injected before the page loads replaces `AudioContext`
 # with a recorder, so the page runs its real code against it. The level is not played: the idle world's first cluck is the one the
 # slice transcript lists first, at tick 197. The checks are:
 #   1. no key pressed: no AudioContext is made and nothing is scheduled, though the cluck at tick 197 has passed;
-#   2. a key pressed first: one context, resumed, and the cluck's oscillators match the variant's voices in assets/sfx/cluck.ts;
+#   2. a key pressed first: one context, resumed, and the cluck's oscillators match the variant's voices in assets/sfx/effects.ts;
 #   3. M mutes: the button says off, nothing is scheduled, the choice is in localStorage and survives a reload; M turns it on again;
 #   4. the placeholder music (assets/music, web/music.ts): nothing is audible before a key; the first key schedules bar 1's notes
 #      (the bass, its partner, the pad and the hats of assets/music/events.ts) and the shared context is made once; M suspends the
@@ -72,11 +72,11 @@ STUB = """
 """
 
 
-def expected_voices(variant):
-    """The tone voices (type, exact Hz) and the noise count of a variant, from the source the page imports."""
+def expected_voices(effect_id):
+    """The tone voices (type, exact Hz) and the noise count of effect `effect_id` (a cluck variant), from the source the page imports."""
     script = (
-        "import {CLUCK} from './assets/sfx/cluck.ts'; import {voiceHz,isNoise} from './assets/sfx/voice.ts';"
-        "const v=CLUCK[%d]; console.log(JSON.stringify({tones:v.filter(x=>!isNoise(x.n)).map(x=>[x.w??'triangle',voiceHz(x)]),noise:v.filter(x=>isNoise(x.n)).length}))" % variant
+        "import {EFFECTS} from './assets/sfx/effects.ts'; import {voiceHz,isNoise} from './assets/sfx/voice.ts';"
+        "const v=EFFECTS[%d]; console.log(JSON.stringify({tones:v.filter(x=>!isNoise(x.n)).map(x=>[x.w??'triangle',voiceHz(x)]),noise:v.filter(x=>isNoise(x.n)).length}))" % effect_id
     )
     out = subprocess.run(["bun", "-e", script], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     return json.loads(out)

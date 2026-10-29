@@ -6,13 +6,13 @@
 //   bun tools/sfx/downmix.ts           regenerates the file
 //   bun tools/sfx/downmix.ts --check   regenerates in memory; exits non-zero with a diff if the committed file differs
 // The output depends only on the committed source and the converter: there is no clock and no unseeded randomness. The effect is
-// `cluck`; its variants are written in source order, so variant `n` of `Event::Cluck` is entry `n` of every table.
+// every entry of `EFFECTS`, written in order, so effect id `n` is entry `n` of every table (the cluck is ids 0 to 3).
 
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { EFFECTS } from '../../assets/sfx/cluck.ts';
+import { EFFECTS } from '../../assets/sfx/effects.ts';
 import { convertSfx, type Conversion } from './convert.ts';
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -20,11 +20,10 @@ const OUT = `${ROOT}crates/fizz-sfx/src/data.rs`;
 
 const hex = (n: number): string => `0x${n.toString(16).padStart(2, '0')}`;
 
-/** Converts every variant of the cluck. */
+/** Converts every effect, in effect-id order. */
 export function convertAll(): Conversion[] {
-  const variants = EFFECTS.cluck;
-  if (!variants || variants.length === 0) throw new Error('assets/sfx/cluck.ts defines no cluck variants');
-  return variants.map((v) => convertSfx(v));
+  if (EFFECTS.length === 0) throw new Error('assets/sfx/effects.ts defines no effects');
+  return EFFECTS.map((v) => convertSfx(v));
 }
 
 export function emit(): string {

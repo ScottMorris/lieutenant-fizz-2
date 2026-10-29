@@ -464,9 +464,9 @@ async function main() {
     // A screen up holds the game: the module drops its pacer, so the first frame after it restarts the clock and nothing is caught up.
     if (ui.isOpen) app.hold();
     else app.frame(performance.now());
-    // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
-    // Each cluck carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
-    for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v, app.cluck_pan(), app.cluck_gain());
+    // Read after every frame: the module keeps the effects of all the ticks the frame ran.
+    // Each effect carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
+    for (let id = app.take_effect(); id >= 0; id = app.take_effect()) sfx.playEffect(id, app.effect_pan(), app.effect_gain());
     draw(app, wasm.memory);
     showCaptions(app);
     showPlayHud(app);

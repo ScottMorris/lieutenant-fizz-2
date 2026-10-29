@@ -9,11 +9,11 @@
 // come from `fizz-sfx` and `fizz-machine`. Not verified on real hardware: the sound itself cannot be heard in a headless run.
 //
 // What it does. `start` hooks IRQ 0 at 560 Hz (`timer::hook_560hz`, so the BIOS clock keeps its 18.2 Hz through the same accumulator),
-// puts the FM chip in the state the plan names and installs `service` as the timer's tick hook. The game calls `cluck` for each
-// `Event::Cluck` together with the `Placement` of the chicken on screen (`fizz_sfx::place`, worked out by the program, not here); that
-// stores the variant and the three attenuations in one atomic, and the next tick takes it up:
+// puts the FM chip in the state the plan names and installs `service` as the timer's tick hook. The game calls `effect(id, ..)` for each
+// sound event (so far `Event::Cluck`, whose variant is the effect id) together with the `Placement` of the chicken on screen (`fizz_sfx::place`, worked out by the program, not here); that
+// stores the effect id and the three attenuations in one atomic, and the next tick takes it up:
 //
-// - effects on channel 5 (`FxPlan::Ch5`): an `OplPlayer::mono` plays the variant's records, one `tick` per interrupt, with the carrier's
+// - effects on channel 5 (`FxPlan::Ch5`): an `OplPlayer::mono` plays the effect's records, one `tick` per interrupt, with the carrier's
 //   total level raised by the distance attenuation (no pan, no extra writes). On an OPL3 in its own mode (the plan has music on the
 //   Sound Blaster) each bank-0 write goes through `fizz_machine::route`, which sets the C0-C8 output bits so the mono voice sounds in
 //   both speakers.
@@ -42,7 +42,7 @@
 // bus does, so those times are the emulator's; the exact write and status-read counts are the evidence, not the microseconds.
 //
 // Ownership. The service's state is touched by the interrupt handler alone (it never nests), so it needs no lock; the program reaches it
-// through two atomics only: the pending cluck (`xchg`, no `cmpxchg`, which DOSBox's 486 refuses) and the counters. `stop` clears the
+// through two atomics only: the pending effect (`xchg`, no `cmpxchg`, which DOSBox's 486 refuses) and the counters. `stop` clears the
 // active flag first, so a tick that arrives while the chip is being put back does nothing.
 //
 // Changing devices while the game runs (`replan`). The Options screen changes the music and effects devices without leaving the game.
@@ -87,8 +87,9 @@ const SPEAKER_PORT: u16 = 0x61;
 static ACTIVE: AtomicBool = AtomicBool::new(false);
 /// The chip's mode for `stop`, which must not read the interrupt's state: 0 unused, 1 OPL2, 2 OPL3.
 static CHIP: AtomicU8 = AtomicU8::new(0);
-/// The cluck the program wants played; 0 for none. Taken (swapped to 0) by the handler. Bits 0 to 7 are `variant + 1`, then three
-/// 6-bit attenuations (0.75 dB steps): bits 8 to 13 the left channel, 14 to 19 the right and 20 to 25 the single channel.
+/// The effect the program wants played; 0 for none. Taken (swapped to 0) by the handler. Bits 0 to 7 are `id + 1` (the effect id), then three
+/// 6-bit attenuations (0.75 dB steps): bits 8 to 13 the left channel, 14 to 19 the right and 20 to 25 the single channel. Bits 26 to 31
+/// are free.
 static PENDING: AtomicU32 = AtomicU32::new(0);
 /// OPL register writes made since `start`, the enable and key-off writes included. Written by the handler (and `start`/`stop`) only.
 static WRITES: AtomicU32 = AtomicU32::new(0);
@@ -287,24 +288,24 @@ impl Service {
         MUSIC_MAX_TICK.store(self.music_max, Ordering::Relaxed);
     }
 
-    /// Starts the cluck `variant` on the plan's device, replacing one still playing.
-    fn begin(&mut self, variant: usize, left: u8, right: u8, mono: u8) {
+    /// Starts effect `id` on the plan's device, replacing one still playing.
+    fn begin(&mut self, id: usize, left: u8, right: u8, mono: u8) {
         match self.fx {
             FxPlan::Off => {}
             FxPlan::Ch5 => {
                 if self.opl_player.is_some() {
                     opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                 }
-                self.opl_player = Some(OplPlayer::mono(variant, mono));
+                self.opl_player = Some(OplPlayer::mono(id, mono));
             }
             FxPlan::Ch14 => {
                 if self.pair.is_some() {
                     opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                     opl_write(1, 0xB0 + EFFECT_CHANNEL, 0);
                 }
-                self.pair = Some(OplPair::same(variant, left, right));
+                self.pair = Some(OplPair::same(id, left, right));
             }
-            FxPlan::Speaker => self.speaker = Some(SpeakerPlayer::new(variant)),
+            FxPlan::Speaker => self.speaker = Some(SpeakerPlayer::new(id)),
         }
     }
 
@@ -394,7 +395,7 @@ fn pit_count() -> u32 {
 }
 
 /// Hooks the timer at 560 Hz and starts the audio service for `plan`: the chip is keyed off (and put in OPL3 mode when the plan
-/// uses it), and `cluck` then plays on the device the plan names. With no device the service still runs, silently, so the clock is the same.
+/// uses it), and `effect` then plays on the device the plan names. With no device the service still runs, silently, so the clock is the same.
 /// `stop` undoes it, and so do the exit and the panic handler. Call it after the probes: their waits need the PIT at the BIOS rate.
 pub fn start(plan: &Resolved) -> Result<(), irq::Error> {
     reset(plan);
@@ -653,12 +654,12 @@ pub fn music_test(plan: &Resolved) -> Result<(), irq::Error> {
     Ok(())
 }
 
-/// Plays cluck variant `variant` (an `Event::Cluck`'s) from where `placement` puts its chicken, on the plan's device at the next tick,
+/// Plays effect `id` (an index into `fizz_sfx`'s tables: the cluck's variants are ids 0 to 3) from where `placement` puts its source, on the plan's device at the next tick,
 /// replacing one still playing. Several calls before a tick play the last. A no-op when the service is not running or the plan has no
 /// device. The OPL3 pair uses the placement's two sides, a single OPL channel its distance, and the speaker neither (it has no volume).
-pub fn cluck(variant: u8, placement: &Placement) {
+pub fn effect(id: u8, placement: &Placement) {
     if ACTIVE.load(Ordering::Relaxed) {
-        let packed = (u32::from(variant) + 1)
+        let packed = (u32::from(id) + 1)
             | (u32::from(placement.left_attenuation()) << 8)
             | (u32::from(placement.right_attenuation()) << 14)
             | (u32::from(placement.mono_attenuation()) << 20);

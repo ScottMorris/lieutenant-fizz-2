@@ -15,21 +15,21 @@ What plays where, today:
 
 Two rules hold on every path. Channel 5 is the default effects channel everywhere, and channel 14 is its right extension on an OPL3, so music never uses either. Positional sound is view-only: the rules never see it, so it cannot change a hash or a replay.
 
-The cluck has one definition, as a rich Undertone effect, and a script derives the DOS data from it:
+Every effect has one definition, as a rich Undertone effect, and a script derives the DOS data from it. The effect id is the one number that names an effect on every path: entry `id` of `EFFECTS` in the source, entry `id` of every table in `data.rs`, the id `audio::effect` stores for the DOS service and the id the Web's `take_effect` hands the page. The chicken's cluck is ids 0 to 3 (its `variant` is its id). These ids are reserved for later effects, in this order, and are not defined yet: fzzt 4, stun 5, bonk 6, hurt 7, win 8, key 9, clunk 10, plink 11, boing 12, jump 13, crunch 14. A new effect is appended at its reserved index; there are no gaps, because the index is the id.
 
 ```text
-assets/sfx/cluck.ts            the rich source: layered Undertone voices, four variants
+assets/sfx/effects.ts          the rich source: layered Undertone voices, one entry per effect id (cluck = ids 0 to 3)
         |
         |  tools/sfx/downmix.ts  (convert.ts, opl.ts, patches.ts)
         v
-crates/fizz-sfx/src/data.rs    generated: OPL2 records and PC speaker divisors per variant
+crates/fizz-sfx/src/data.rs    generated: OPL2 records and PC speaker divisors per effect id
         |
         |  fizz-sfx: OplPlayer, SpeakerPlayer
         v
 DOS audio service              steps them from its 560 Hz timer interrupt (dos/rt/src/audio.rs)
 ```
 
-The Web presenter imports `assets/sfx/cluck.ts` and hands the voices to Undertone when the rules emit `Event::Cluck { variant, chicken }` (see [The Web path](#the-web-path)). The DOS audio service is described under [DOS playback](#dos-playback).
+The Web presenter imports `assets/sfx/effects.ts` and hands the voices of an effect id to Undertone when the rules emit a sound event (today `Event::Cluck { variant, chicken }`, effect id `variant`) (see [The Web path](#the-web-path)). The DOS audio service is described under [DOS playback](#dos-playback).
 
 Each arrow loses something:
 
@@ -43,7 +43,7 @@ Nobody has listened to any of it (see [Not verified](#not-verified)).
 
 ## Effects: the cluck
 
-The cluck is the first sound effect. It is a placeholder built from the project's goals and from the shapes Fizz 1 uses for its effects. How effects should really sound is a separate discovery track, run in the owner's IMF lab (see [The IMF lab](#the-imf-lab-private)). When that produces a designed effect it replaces `assets/sfx/cluck.ts` and the pipeline stays as it is.
+The cluck is the first sound effect. It is a placeholder built from the project's goals and from the shapes Fizz 1 uses for its effects. How effects should really sound is a separate discovery track, run in the owner's IMF lab (see [The IMF lab](#the-imf-lab-private)). When that produces a designed effect it replaces its entry in `assets/sfx/effects.ts` and the pipeline stays as it is.
 
 ### The source
 
@@ -53,7 +53,7 @@ A pitch curve is a chain of short notes, one every 25 ms, each at the next pitch
 
 ### The four variants
 
-`assets/sfx/cluck.ts` exports `CLUCK`, indexed by the `variant` of `Event::Cluck` (`CLUCK_VARIANTS` is 4), and an `EFFECTS` table the downmix reads. The four variants are all short, none sustains, and each has a noise breath at the attack:
+`assets/sfx/effects.ts` exports `CLUCK`, indexed by the `variant` of `Event::Cluck` (`CLUCK_VARIANTS` is 4), and the `EFFECTS` table, indexed by effect id, which the downmix, the Web and the WAV previews read (`EFFECTS` is `CLUCK` for now, so cluck variant `n` is effect id `n`). The four variants are all short, none sustains, and each has a noise breath at the attack:
 
 | Variant | Intent | Voices | Source length |
 | --- | --- | --- | --- |
@@ -62,13 +62,13 @@ A pitch curve is a chain of short notes, one every 25 ms, each at the next pitch
 | 2 | The double cluck: two quick falling clucks a little apart, the second higher and longer | 10 | 305 ms |
 | 3 | The repeated cluck: variant 1 played twice, "cluck, cluck" | 10 | 328 ms |
 
-Variant 3 is not written note by note. `repeat()` in `voice.ts` takes a base effect and plays it twice: the base voices as they are, then a copy shifted to start 75 ms after the base ends (`REPEAT_GAP`), its pitched voices a semitone lower and every gain a tenth quieter. The base is `REPEAT_BASE`, set to variant 1, so repeating a different variant (or changing the gap, pitch or gain) is a one-line change in `cluck.ts`. Variants 1 and 3 are both meant to be usable: 1 is the quick single, 3 the same cluck twice.
+Variant 3 is not written note by note. `repeat()` in `voice.ts` takes a base effect and plays it twice: the base voices as they are, then a copy shifted to start 75 ms after the base ends (`REPEAT_GAP`), its pitched voices a semitone lower and every gain a tenth quieter. The base is `REPEAT_BASE`, set to variant 1, so repeating a different variant (or changing the gap, pitch or gain) is a one-line change in `effects.ts`. Variants 1 and 3 are both meant to be usable: 1 is the quick single, 3 the same cluck twice.
 
 Two layering rules make the source downmix well. Voices that share a start time put the main layer at the highest gain, and a noise breath starts a little before the pitched note it belongs to.
 
 ### The downmix
 
-`tools/sfx/downmix.ts` converts every variant and writes `crates/fizz-sfx/src/data.rs`. It runs on Bun and uses no clock and no unseeded randomness, so the same source gives byte-identical output.
+`tools/sfx/downmix.ts` converts every effect (every entry of `EFFECTS`, in id order) and writes `crates/fizz-sfx/src/data.rs`. It runs on Bun and uses no clock and no unseeded randomness, so the same source gives byte-identical output.
 
 Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk is timed in 560 Hz ticks (four per frame), the rate of the IMF music format and of the DOS timer the audio service needs; the speaker list has one entry per frame.
 
@@ -118,11 +118,11 @@ The converter is adapted from `convertSfx` in `m4/sound/fizz-dos/sfx.ts` of `lie
 
 ### The crate
 
-`crates/fizz-sfx` is `no_std`, forbids `unsafe` and has no dependencies (a dev-dependency on `fizz-ep2` lets one test prove that its `VARIANTS` equals `CLUCK_VARIANTS`). Its `data.rs` is generated. The rest is a small stepping API with no allocation and no hardware access:
+`crates/fizz-sfx` is `no_std`, forbids `unsafe` and has no dependencies (a dev-dependency on `fizz-ep2` lets one test prove that its `EFFECT_COUNT` covers `CLUCK_VARIANTS`). Its `data.rs` is generated. The rest is a small stepping API with no allocation and no hardware access:
 
-- `VARIANTS`, the number of variants; `opl_steps(variant)`, `opl_ticks(variant)` and `speaker_steps(variant)` return the data. A `variant` out of range wraps, so a bad value is a different cluck and never a panic inside an interrupt handler.
+- `EFFECT_COUNT`, the number of effects; `opl_steps(id)`, `opl_ticks(id)` and `speaker_steps(id)` return the data of effect `id`. An `id` out of range wraps, so a bad value is a different effect and never a panic inside an interrupt handler.
 - `OplStep`, and `OplPlayer`: call `tick(&mut |bank, reg, val| ...)` once per 560 Hz tick. It emits the writes due on that tick and returns `false` once the chunk's last wait has run out. A step holds a register's low byte `reg`, its value `val`, a `bank()` (0 for registers 0x000 to 0x0ff, 1 for 0x100 to 0x1ff) and a `wait()` in ticks. The bank is the top bit of the `u16` that holds the wait, so a step is still four bytes and the wait is at most 32,767 ticks. The converter and the generated data write every register of the cluck in bank 0.
-- `OplPlayer::new(variant)` is the plain path: exactly the stored writes on channel 5 in bank 0. `OplPlayer::mono(variant, attenuation)` is channel 5 with the distance added to the carrier's total level (OPL2, and an OPL3 on the AdLib role). `OplPlayer::side(steps, Side::{Left, Right}, attenuation)` is one member of the OPL3 pair and `OplPair` steps two of them; see [The OPL3 pair](#the-opl3-pair).
+- `OplPlayer::new(id)` is the plain path: exactly the stored writes on channel 5 in bank 0. `OplPlayer::mono(id, attenuation)` is channel 5 with the distance added to the carrier's total level (OPL2, and an OPL3 on the AdLib role). `OplPlayer::side(steps, Side::{Left, Right}, attenuation)` is one member of the OPL3 pair and `OplPair` steps two of them; see [The OPL3 pair](#the-opl3-pair).
 - `place::place(x, y, View)` returns a `Placement` (a pan, a distance and a level for each side) and `attenuation_for_level` the nearest 0.75 dB step; see [Where a sound is placed](#where-a-sound-is-placed).
 - `SpeakerStep::{Divisor(u16), Off}`, and `SpeakerPlayer`: call `tick()` once per 140 Hz tick. It returns `None` once the list is spent; the step before that is always `Off`.
 - `EFFECT_CHANNEL` (5), `EFFECT_CHANNEL_RIGHT` (14), `RESERVED_OPL_CHANNELS` (`[5, 14]`), `is_reserved_opl_channel`, `OPL_TICK_HZ` (560) and `SPEAKER_TICK_HZ` (140).
@@ -179,12 +179,12 @@ World::step -> Event::Cluck { variant, chicken }
 
 | Platform | From the placement to the speaker |
 | --- | --- |
-| DOS, OPL3 pair | `audio::cluck(variant, &placement)` packs the variant and three attenuations (left, right, single) in one atomic. The next tick starts `OplPair::same(variant, left, right)`. Channel 5 writes go to ports 0x388 and 0x389 with output bit 0x10, channel 14's to 0x38a and 0x38b with 0x20, both with their own carrier level. |
+| DOS, OPL3 pair | `audio::effect(id, &placement)` packs the effect id and three attenuations (left, right, single) in one atomic. The next tick starts `OplPair::same(id, left, right)`. Channel 5 writes go to ports 0x388 and 0x389 with output bit 0x10, channel 14's to 0x38a and 0x38b with 0x20, both with their own carrier level. |
 | DOS, OPL2 or AdLib (`FX ch5`) | The single attenuation (the distance only; the pan is dropped) is added to the carrier level by `OplPlayer::mono`. The count of writes is unchanged: the level is a value in a write the effect makes anyway. |
 | DOS, OPL3 with effects on AdLib (`FX ch5`, music on the Sound Blaster) | The same, then `route` ORs 0x30 into the config writes, so the one voice sounds in both speakers at the distance level. |
 | DOS, PC speaker | The placement is ignored. The speaker is on or off and has no volume control, so distance does nothing and there is no pan. |
 | DOS, `/NOSOUND` or no device | Silent. |
-| Web, Enhanced | `App.take_cluck()` returns the variant and `cluck_pan()` and `cluck_gain()` give the pan (-0.6 to 0.6) and distance (0.4 to 1) of that cluck. `Sfx.playCluck(variant, pan, gain)` gives each Undertone voice an equal-power `StereoPannerNode` and scales its gain. Undertone already takes both per voice, so there are no extra nodes of ours and no fork. |
+| Web, Enhanced | `App.take_effect()` returns the effect id and `effect_pan()` and `effect_gain()` give the pan (-0.6 to 0.6) and distance (0.4 to 1) of that effect. `Sfx.playEffect(id, pan, gain)` gives each Undertone voice an equal-power `StereoPannerNode` and scales its gain. Undertone already takes both per voice, so there are no extra nodes of ours and no fork. |
 | Web, Classic | The pan and gain are ignored: centred, full level, the cached stack. |
 
 On DOS the choice is the Sound placement row of the Options screen (Enhanced by default), saved in `FIZZ2.CFG`, and it applies at once. On the Web it is the Placement row of the Options screen, remembered in the `placement` field of the `fizz2-options` blob in `localStorage` (`classic` or `enhanced`); a `?audio=classic` or `?audio=enhanced` query decides for that visit without being saved. Classic is Fizz 1's Classic mode: everything centred at full level.
@@ -213,14 +213,14 @@ The steps, in general: `steps = round(-20 * log10(level) / 0.75)`, 0 to 63.
 
 ## DOS playback
 
-`dos/rt/src/audio.rs` is the DOS audio service. `audio::start(&Resolved)` hooks IRQ 0 at 560 Hz (`timer::hook_560hz`, PIT divisor 2131, 559.9165 Hz) and installs a tick hook that the timer handler calls on every interrupt. The BIOS accumulator is the one `hook_60hz` used, now adding 2131 a tick: the BIOS handler runs on every 30.75th interrupt. The simulation is still paced by the integer `Pacer`, which reads the 560 Hz tick count as a clock of 559,916 millihertz and releases 60 steps a second. `audio::cluck(variant, &placement)` stores the variant and the placement's attenuations in an atomic (the game calls it for every `Event::Cluck { variant, chicken }`, in `FIZZ2.EXE`'s `play_events`, with the placement of that chicken), and the handler takes it up on the next tick; a second cluck replaces one still sounding (last wins). The handler allocates nothing, calls no DOS service and uses no x87. What it does with the cluck depends on the resolved plan (`fizz_machine::Resolved`, see [`DOS-CHECK.md`](DOS-CHECK.md)):
+`dos/rt/src/audio.rs` is the DOS audio service. `audio::start(&Resolved)` hooks IRQ 0 at 560 Hz (`timer::hook_560hz`, PIT divisor 2131, 559.9165 Hz) and installs a tick hook that the timer handler calls on every interrupt. The BIOS accumulator is the one `hook_60hz` used, now adding 2131 a tick: the BIOS handler runs on every 30.75th interrupt. The simulation is still paced by the integer `Pacer`, which reads the 560 Hz tick count as a clock of 559,916 millihertz and releases 60 steps a second. `audio::effect(id, &placement)` stores the effect id and the placement's attenuations in an atomic (the game calls it for every `Event::Cluck { variant, chicken }`, in `FIZZ2.EXE`'s `play_events`, with the placement of that chicken), and the handler takes it up on the next tick; a second cluck replaces one still sounding (last wins). The handler allocates nothing, calls no DOS service and uses no x87. What it does with the cluck depends on the resolved plan (`fizz_machine::Resolved`, see [`DOS-CHECK.md`](DOS-CHECK.md)):
 
 | Plan | Device | What the service does each tick |
 | --- | --- | --- |
-| `FX ch5`, chip `Opl2` | AdLib or Sound Blaster OPL2 | `OplPlayer::mono(variant, distance)` once per tick; each `(bank, reg, val)` is written to ports 0x388 and 0x389. |
+| `FX ch5`, chip `Opl2` | AdLib or Sound Blaster OPL2 | `OplPlayer::mono(id, distance)` once per tick; each `(bank, reg, val)` is written to ports 0x388 and 0x389. |
 | `FX ch5`, chip `Opl3` (music on the Sound Blaster, effects on AdLib) | OPL3 in its own mode | The same, with `fizz_machine::route` on every write as an OPL2-format stream: a bank-0 write to registers 0xC0 to 0xC8 gets bits 4 and 5 set, so the mono voice sounds in both speakers. |
-| `FX ch14`, chip `Opl3` | OPL3, both banks | `OplPair::same(variant, left, right)`: channel 5 (ports 0x388 and 0x389, output bit 0x10) and channel 14 (bank 1, ports 0x38A and 0x38B, output bit 0x20), each at its own carrier level; it goes through `route` as an OPL3-aware stream, which leaves its output bits as authored. See "The OPL3 pair". |
-| `FX speaker` | PC speaker | `SpeakerPlayer::new(variant)` stepped on every fourth tick (140 Hz): a divisor is written to PIT channel 2 (command 0xB6, port 0x42) and bits 0 and 1 of port 0x61 are set, `Off` clears them. |
+| `FX ch14`, chip `Opl3` | OPL3, both banks | `OplPair::same(id, left, right)`: channel 5 (ports 0x388 and 0x389, output bit 0x10) and channel 14 (bank 1, ports 0x38A and 0x38B, output bit 0x20), each at its own carrier level; it goes through `route` as an OPL3-aware stream, which leaves its output bits as authored. See "The OPL3 pair". |
+| `FX speaker` | PC speaker | `SpeakerPlayer::new(id)` stepped on every fourth tick (140 Hz): a divisor is written to PIT channel 2 (command 0xB6, port 0x42) and bits 0 and 1 of port 0x61 are set, `Off` clears them. |
 | `FX off`, or no device | none | The service runs and does nothing, so the clock is the same in every case. |
 
 **Start-up and shutdown.** When the plan uses the chip (`opl` is not `None`), `start` keys off every channel of bank 0 and the rhythm register and, for an OPL3, first writes 0x105 = 1 and 0x104 = 0 and keys off bank 1. `audio::stop` is on the clean-up list, so it runs at exit and in the panic handler: it keys off both banks, writes 0x105 = 0 so an OPL3 leaves OPL3 mode, and closes the speaker gate. The timer's own clean-up puts the PIT and the vector back. A write to the chip is the register port, six status reads, the data port and 35 status reads (Fizz 1's settling times), so the busiest tick of a cluck, the patch with about a dozen writes, takes roughly 40 port reads each.
@@ -263,7 +263,7 @@ When the chip is an OPL3 in its own mode and effects are on the Sound Blaster (`
 | Carrier total level | 0x4d: stored level + the left attenuation | 0x14d: stored level + the right attenuation |
 | Everything else | as stored | as stored, except that the chip-wide waveform-select enable (register 0x01) is left to channel 5's stream |
 
-`OplPair::same(variant, left_attenuation, right_attenuation)` steps the two `OplPlayer::side` players together. The OPL3 mode was switched on by `audio::start` (register 0x105 = 1), so an effect adds no enable write. The attenuation is added to the carrier operator's total level, a 6-bit field in 0.75 dB steps (the key-scale bits above it are kept), clamped at 63 (47 dB: quiet, not silent). No effect is additive-connected (a test pins that), so the modulator, which only shapes the timbre, is left alone. The attenuation is chosen once, when the effect starts: a cluck does not follow a chicken that walks while it sounds. Centre is both channels at -3 dB (4 steps, 3.0 dB), so the sum matches one centred voice's power.
+`OplPair::same(id, left_attenuation, right_attenuation)` steps the two `OplPlayer::side` players together. The OPL3 mode was switched on by `audio::start` (register 0x105 = 1), so an effect adds no enable write. The attenuation is added to the carrier operator's total level, a 6-bit field in 0.75 dB steps (the key-scale bits above it are kept), clamped at 63 (47 dB: quiet, not silent). No effect is additive-connected (a test pins that), so the modulator, which only shapes the timbre, is left alone. The attenuation is chosen once, when the effect starts: a cluck does not follow a chicken that walks while it sounds. Centre is both channels at -3 dB (4 steps, 3.0 dB), so the sum matches one centred voice's power.
 
 `route`'s OR rule (every bank-0 write to registers 0xc0 to 0xc8 gets 0x30) applies to OPL2-format streams only: the mono effect on channel 5 and the OPL2 music arrangement. The pair and the OPL3 music arrangement are OPL3-aware streams (`Stream::Opl3`), and `route` leaves their output bits as authored, because the OR would turn channel 5's left-only bit into both.
 
@@ -282,11 +282,11 @@ Each OPL write is the register port, six status reads, the data port and 35 stat
 
 How the page gets from a rules event to a sound:
 
-1. `App::frame` queues each `Event::Cluck` after the step that emitted it; the page calls `take_cluck()` until it returns -1 after every frame, so a frame that runs several ticks loses none.
-2. `Sfx.playCluck(variant, pan = 0)` takes the variant's voices from `CLUCK` (a variant out of range wraps, as on DOS), builds an Undertone stack the way Fizz 1's `buildVoice` does with a sustain of 0, caches it per variant and plays it once on the page's `AudioContext`.
+1. `App::frame` queues each `Event::Cluck` after the step that emitted it; the page calls `take_effect()` until it returns -1 after every frame, so a frame that runs several ticks loses none.
+2. `Sfx.playEffect(id, pan = 0)` takes the effect's voices from `EFFECTS` (an id out of range wraps, as on DOS), builds an Undertone stack the way Fizz 1's `buildVoice` does with a sustain of 0, caches it per variant and plays it once on the page's `AudioContext`.
 3. The context is made on the first key press or click and resumed. Nothing is made before that, and a cluck that arrives before then, while muted, while the tab is hidden, while the context is not running, or with four clucks already sounding, is dropped, never queued.
 4. `M` toggles mute and the Options screen's Sound row shows it. The choice is kept in the `sound` field of the `fizz2-options` blob in `localStorage` (`off` or `on`; `web/options.ts` writes it inside try/catch and migrates the older `fizz2-sound` key), so blocked storage only means it is not remembered. The page makes `Sfx` with no storage of its own; `Sfx` itself still reads and writes `fizz2-sound` and `fizz2-audio` when given some, which `web/sfx.test.ts` covers. A hidden tab suspends the context and a shown one resumes it.
-5. Enhanced placement. `App` records the placement of each cluck when it queues it (the chicken's position after the step, the camera and the window-sized view the page last reported). After `take_cluck()` returns a variant, `cluck_pan()` (-1 to 1, within +-0.6) and `cluck_gain()` (1 to 0.4) hold its placement, and `playCluck(variant, pan, gain)` builds the stack with a per-voice `.pan(pan)` (Undertone makes a `StereoPannerNode`, which is equal power) and `.gain(g * gain)`. A centred full-level stack is cached; a placed one is built each time. Classic mode passes 0 and 1 whatever the page says. The pan and gain come from the same pure function as DOS; the Web does not recompute them.
+5. Enhanced placement. `App` records the placement of each cluck when it queues it (the chicken's position after the step, the camera and the window-sized view the page last reported). After `take_effect()` returns an id, `effect_pan()` (-1 to 1, within +-0.6) and `effect_gain()` (1 to 0.4) hold its placement, and `playEffect(id, pan, gain)` builds the stack with a per-voice `.pan(pan)` (Undertone makes a `StereoPannerNode`, which is equal power) and `.gain(g * gain)`. A centred full-level stack is cached; a placed one is built each time. Classic mode passes 0 and 1 whatever the page says. The pan and gain come from the same pure function as DOS; the Web does not recompute them.
 
 One mapping differs from Fizz 1. `SfxVoice.lpenv` is the cutoff the filter opens to, and the WAV preview and the downmix read it that way, but Undertone adds the envelope amount to `lpf` (0.2 and 0.3 alike; `web/music.test.ts` and `web/sfx.test.ts` pin it). The page passes `lpenv - lpf`, so the Web filter peaks where the preview does. Fizz 1 passes `lpenv` unchanged, so its filters open further than their definitions say.
 
@@ -317,7 +317,7 @@ bun tools/sfx/downmix.ts --check   fail with a diff if the committed file is out
 
 The CI parity job runs `--check`, so a source change committed without its regenerated data fails CI. The crate's tests check that every variant terminates, ends keyed off, writes only channel 5's registers in bank 0, stays in the audible divisor range and plays the same every time.
 
-To listen, `bun tools/sfx/render-wav.ts <directory>` (it needs cargo as well) writes per variant: the rich source, an approximate OPL2 preview of the generated records, a square-wave speaker preview, four stereo OPL3 pair previews (`-opl3-pair-left`, `-centre`, `-right` for a source at the view's left edge, middle and right edge, and `-distant`, three half-views off to the right), and two distant sources, `-opl2-distant` (channel 5 at the distance floor, 11 steps) and `-rich-distant` (the Web's pan 0.6 and gain 0.4). All are approximations and none is committed.
+To listen, `bun tools/sfx/render-wav.ts <directory>` (it needs cargo as well) writes per effect id (files named `effect-<id>-...`): the rich source, an approximate OPL2 preview of the generated records, a square-wave speaker preview, four stereo OPL3 pair previews (`-opl3-pair-left`, `-centre`, `-right` for a source at the view's left edge, middle and right edge, and `-distant`, three half-views off to the right), and two distant sources, `-opl2-distant` (channel 5 at the distance floor, 11 steps) and `-rich-distant` (the Web's pan 0.6 and gain 0.4). All are approximations and none is committed.
 
 - The rich file does not come from Undertone. Undertone renders through Web Audio, which Bun does not have, so the script has a small synth that follows Undertone's voice model (an oscillator or noise, a linear attack, a linear decay to a sustain of 0, a low-pass with a filter envelope). Its waves are naive, not band-limited, and the Web will sound like Undertone, not like this file.
 - The OPL2 file is a two-operator FM model of channel 5 driven by the generated records, with the chip's feedback and level steps but a rough envelope-rate table and no key scaling, tremolo or vibrato. DOSBox's emulator or a real card will differ.

@@ -7,14 +7,14 @@
 // and gains Undertone schedules, which proves the mapping from `SfxVoice` to Undertone and the player's rules (first gesture,
 // mute, hidden tab, the cap). How a cluck sounds has not been listened to.
 import { describe, expect, test } from 'bun:test';
-import { CLUCK } from '../assets/sfx/cluck.ts';
+import { EFFECTS } from '../assets/sfx/effects.ts';
 import { noteHz, isNoise } from '../assets/sfx/voice.ts';
 import {
   AUDIO_KEY,
   MAX_SIMULTANEOUS,
   MUTE_KEY,
   Sfx,
-  cluckVoices,
+  effectVoices,
   parseAudioMode,
   type ContextLike,
   type StorageLike,
@@ -153,10 +153,10 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('variant mapping', () => {
   test('each variant maps to its own table entry and a bad value wraps', () => {
-    expect(CLUCK.length).toBe(4);
-    for (let v = 0; v < 4; v++) expect(cluckVoices(v)).toBe(CLUCK[v]);
-    expect(cluckVoices(4)).toBe(CLUCK[0]);
-    expect(cluckVoices(-1)).toBe(CLUCK[3]);
+    expect(EFFECTS.length).toBe(4);
+    for (let v = 0; v < 4; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
+    expect(effectVoices(4)).toBe(EFFECTS[0]);
+    expect(effectVoices(-1)).toBe(EFFECTS[3]);
   });
 
   test('every variant schedules one source per voice, at the voice pitch, kind and start', async () => {
@@ -164,8 +164,8 @@ describe('variant mapping', () => {
       const { ctx, sfx } = setup();
       sfx.unlock();
       await settle();
-      expect(sfx.playCluck(variant)).toBe(true);
-      const voices = CLUCK[variant];
+      expect(sfx.playEffect(variant)).toBe(true);
+      const voices = EFFECTS[variant];
       const noise = voices.filter((v) => isNoise(v.n));
       const tones = voices.filter((v) => !isNoise(v.n));
       expect(ctx.of('noise').length).toBe(noise.length);
@@ -188,8 +188,8 @@ describe('variant mapping', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
-    const filtered = CLUCK[1].filter((v) => v.lpf);
+    sfx.playEffect(1);
+    const filtered = EFFECTS[1].filter((v) => v.lpf);
     const voice = filtered.find((v) => v.lpenv)!;
     const filter = ctx.of('filter')[filtered.indexOf(voice)];
     const peaks = [...filter.frequency!.ramps.map((r) => r[0]), ...filter.frequency!.sets.map((s) => s[0])];
@@ -200,15 +200,15 @@ describe('variant mapping', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    sfx.playCluck(1, -0.5);
-    expect(ctx.of('pan').length).toBe(CLUCK[1].length);
+    sfx.playEffect(1, -0.5);
+    expect(ctx.of('pan').length).toBe(EFFECTS[1].length);
   });
 });
 
 describe('when a cluck is heard', () => {
   test('nothing is made or scheduled before unlock', () => {
     const { ctx, sfx } = setup();
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     expect(sfx.started).toBe(false);
     expect(ctx.nodes.length).toBe(0);
   });
@@ -222,14 +222,14 @@ describe('when a cluck is heard', () => {
     await settle();
     expect(made).toBe(1);
     expect(ctx.resumed).toBeGreaterThanOrEqual(1);
-    expect(sfx.playCluck(2)).toBe(true);
+    expect(sfx.playEffect(2)).toBe(true);
   });
 
   test('a context that is not running yet plays nothing', () => {
     const { sfx, ctx } = setup();
     sfx.unlock();
     expect(ctx.state).toBe('suspended');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
   });
 
   test('mute silences, is remembered and survives a new player', async () => {
@@ -239,14 +239,14 @@ describe('when a cluck is heard', () => {
     await settle();
     expect(sfx.toggleMute()).toBe(true);
     expect(storage.getItem(MUTE_KEY)).toBe('off');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     expect(ctx.nodes.length).toBe(0);
     const again = new Sfx({ createContext: () => ctx, isHidden: () => false, storage });
     expect(again.muted).toBe(true);
     expect(sfx.toggleMute()).toBe(false);
     expect(storage.getItem(MUTE_KEY)).toBe('on');
     await settle();
-    expect(sfx.playCluck(0)).toBe(true);
+    expect(sfx.playEffect(0)).toBe(true);
   });
 
   test('blocked storage does not break mute', () => {
@@ -273,21 +273,21 @@ describe('when a cluck is heard', () => {
     sfx.sync();
     await settle();
     expect(ctx.state).toBe('suspended');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     hidden = false;
     sfx.sync();
     await settle();
-    expect(sfx.playCluck(0)).toBe(true);
+    expect(sfx.playEffect(0)).toBe(true);
   });
 
   test('no more than the cap sound at once, and room returns as they end', async () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playCluck(1)).toBe(true);
-    expect(sfx.playCluck(1)).toBe(false);
+    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playEffect(1)).toBe(true);
+    expect(sfx.playEffect(1)).toBe(false);
     ctx.currentTime += 1;
-    expect(sfx.playCluck(1)).toBe(true);
+    expect(sfx.playEffect(1)).toBe(true);
   });
 
   test('a browser with no audio leaves the player silent and unbroken', () => {
@@ -299,7 +299,7 @@ describe('when a cluck is heard', () => {
       storage: new Memory(),
     });
     sfx.unlock();
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
   });
 });
 
@@ -313,16 +313,16 @@ describe('placed clucks (Enhanced) and Classic', () => {
     expect(sfx.mode).toBe('enhanced');
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
+    sfx.playEffect(1);
     const centred = peakGain(ctx);
     expect(ctx.of('pan').length).toBe(0);
 
     const placed = setup();
     placed.sfx.unlock();
     await settle();
-    expect(placed.sfx.playCluck(1, 0.6, 0.5)).toBe(true);
+    expect(placed.sfx.playEffect(1, 0.6, 0.5)).toBe(true);
     const panners = placed.ctx.of('pan');
-    expect(panners.length).toBe(CLUCK[1].length);
+    expect(panners.length).toBe(EFFECTS[1].length);
     for (const p of panners) expect(p.pan!.sets[0][0]).toBeCloseTo(0.6, 6);
     expect(peakGain(placed.ctx)).toBeCloseTo(centred * 0.5, 6);
   });
@@ -332,23 +332,23 @@ describe('placed clucks (Enhanced) and Classic', () => {
       const { ctx, sfx } = setup();
       sfx.unlock();
       await settle();
-      sfx.playCluck(0, pan, 7);
+      sfx.playEffect(0, pan, 7);
       expect(ctx.of('pan')[0].pan!.sets[0][0]).toBeCloseTo(want, 6);
     }
     const base = setup();
     base.sfx.unlock();
     await settle();
-    base.sfx.playCluck(0);
+    base.sfx.playEffect(0);
     const over = setup();
     over.sfx.unlock();
     await settle();
-    over.sfx.playCluck(0, 0, 7);
+    over.sfx.playEffect(0, 0, 7);
     expect(peakGain(over.ctx)).toBeCloseTo(peakGain(base.ctx), 6);
     // Not a number: played centred at full level, never thrown.
     const bad = setup();
     bad.sfx.unlock();
     await settle();
-    expect(bad.sfx.playCluck(0, Number.NaN, Number.NaN)).toBe(true);
+    expect(bad.sfx.playEffect(0, Number.NaN, Number.NaN)).toBe(true);
     expect(bad.ctx.of('pan').length).toBe(0);
   });
 
@@ -356,14 +356,14 @@ describe('placed clucks (Enhanced) and Classic', () => {
     const base = setup();
     base.sfx.unlock();
     await settle();
-    base.sfx.playCluck(2);
+    base.sfx.playEffect(2);
 
     const { ctx, sfx } = setup();
     sfx.setMode('classic');
     expect(sfx.mode).toBe('classic');
     sfx.unlock();
     await settle();
-    expect(sfx.playCluck(2, -0.6, 0.4)).toBe(true);
+    expect(sfx.playEffect(2, -0.6, 0.4)).toBe(true);
     expect(ctx.of('pan').length).toBe(0);
     expect(peakGain(ctx)).toBeCloseTo(peakGain(base.ctx), 6);
   });
@@ -425,12 +425,12 @@ describe('Undertone 0.3 scheduling pinned for the cluck', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
+    sfx.playEffect(1);
     const nodes = schedule(ctx);
     // Voice 0 is the white-noise breath (lpf 3000 opening to 3000 + (lpenv - lpf)); voice 1 the square at 640 Hz (lpf 2200, start 12 ms).
     const filters = nodes.filter((n) => n.kind === 'filter');
-    expect(filters.length).toBe(CLUCK[1].filter((v) => v.lpf).length);
-    CLUCK[1].filter((v) => v.lpf).forEach((v, i) => {
+    expect(filters.length).toBe(EFFECTS[1].filter((v) => v.lpf).length);
+    EFFECTS[1].filter((v) => v.lpf).forEach((v, i) => {
       const f = filters[i].freq!;
       expect(f.sets[0][0]).toBeCloseTo(v.lpf!, 3); // rests at lpf
       if (v.lpenv && v.lpenv > v.lpf!) {
@@ -447,7 +447,7 @@ describe('Undertone 0.3 scheduling pinned for the cluck', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    for (let v = 0; v < 4; v++) sfx.playCluck(v);
+    for (let v = 0; v < 4; v++) sfx.playEffect(v);
     expect(ctx.nodes.some((n) => n.kind === 'compressor')).toBe(false);
   });
 
@@ -461,8 +461,8 @@ describe('Undertone 0.3 scheduling pinned for the cluck', () => {
     };
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
-    sfx.playCluck(1);
+    sfx.playEffect(1);
+    sfx.playEffect(1);
     expect(buffers.length).toBe(2);
     expect(buffers[0].length).toBe(buffers[1].length);
     expect(Array.from(buffers[0].slice(0, 32))).not.toEqual(Array.from(buffers[1].slice(0, 32)));

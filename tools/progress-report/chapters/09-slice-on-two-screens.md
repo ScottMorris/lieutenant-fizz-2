@@ -155,7 +155,7 @@ id: cluck-path
 kind: diagram
 track: shared
 title: The cluck from event to speaker
-alt: Flow diagram with the shared rules at the top (World::step emitting Event::Cluck, and the EVENT line that all three platforms print), a DOS row (audio::cluck with the placement, the 560 Hz audio service, OplPair, OplPlayer or SpeakerPlayer, the OPL2 channel 5, the OPL3 pair of channels 5 and 14 or the speaker ports, a real chip nobody has listened to) and a Web row (take_cluck, the main.js loop, Sfx.playCluck with a pan and a gain, the AudioContext voices, a real browser nobody has listened to), with the evidence under each box.
+alt: Flow diagram with the shared rules at the top (World::step emitting Event::Cluck, and the EVENT line that all three platforms print), a DOS row (audio::effect with the placement, the 560 Hz audio service, OplPair, OplPlayer or SpeakerPlayer, the OPL2 channel 5, the OPL3 pair of channels 5 and 14 or the speaker ports, a real chip nobody has listened to) and a Web row (take_effect, the main.js loop, Sfx.playEffect with a pan and a gain, the AudioContext voices, a real browser nobody has listened to), with the evidence under each box.
 caption: Each box names its file and the check behind it; the last box of each row is uncatalogued.
 at: figure cluck-path
 thumb: svg

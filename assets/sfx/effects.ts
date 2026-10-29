@@ -1,4 +1,13 @@
-// The chicken's cluck as an Undertone effect with three variants: the rich source of truth the Web plays and the DOS downmixes derive from.
+// The sound effects as Undertone voices, one per effect id: the rich source of truth the Web plays and the DOS downmixes derive from.
+//
+// An effect id is a small number: `EFFECTS[id]` is the effect's voices, the DOS data is generated in the same order (entry `id` of every
+// table in crates/fizz-sfx/src/data.rs), and `audio::effect(id, ..)` on DOS and `Sfx.play(id, ..)` on the Web both play by it. Ids:
+//
+//   0-3  the chicken's cluck, variants 0..=3 (`Event::Cluck { variant }`; `CLUCK_VARIANTS = 4`); defined below.
+//   Reserved for later packages (not defined yet, so nothing may play them; add each at exactly this index, in order):
+//   4 fzzt, 5 stun, 6 bonk, 7 hurt, 8 win, 9 key, 10 clunk, 11 plink, 12 boing, 13 jump, 14 crunch.
+//
+// The cluck is described first.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -53,8 +62,12 @@ const REPEAT_BASE: readonly SfxVoice[] = single;
 const REPEAT_GAP = 0.075;
 const repeated: SfxVoice[] = repeat(REPEAT_BASE, REPEAT_GAP, { pitch: 2 ** (-1 / 12), gain: 0.9 });
 
-/** The cluck's variants, indexed by `Event::Cluck { variant }`. */
+/** The cluck's variants, indexed by `Event::Cluck { variant }`: effect ids 0 to 3. */
 export const CLUCK: readonly (readonly SfxVoice[])[] = [buhGawk, single, double, repeated];
 
-/** Every effect in the source; the downmix writes one chunk per variant of each, in this order. */
-export const EFFECTS: Record<string, readonly (readonly SfxVoice[])[]> = { cluck: CLUCK };
+
+/**
+ * Every effect in the source, indexed by effect id; the downmix writes one chunk per entry, in this order. The reserved ids above
+ * are appended here, in order, as their effects are designed: a gap is not allowed, because the index is the id.
+ */
+export const EFFECTS: readonly (readonly SfxVoice[])[] = [...CLUCK];

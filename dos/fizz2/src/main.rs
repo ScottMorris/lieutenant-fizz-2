@@ -177,7 +177,7 @@ fn play_events(world: &World, options: &DrawOptions) {
                 } else {
                     cluck_placement(world, chicken, VIEW_W, VIEW_H, options)
                 };
-                audio::cluck(variant, &place);
+                audio::effect(variant, &place);
             }
             // The puff is drawn, not heard. The rest have no sound yet; they are listed so a new event cannot slip by unheard.
             Event::ShotEnd { .. }
@@ -312,7 +312,7 @@ fn main() -> i32 {
                 return 1;
             }
             audio::music_start();
-            audio::cluck(0, &Placement::CENTRE);
+            audio::effect(0, &Placement::CENTRE);
             // Let the music write for a while (about 0.4 s of 560 Hz ticks), so the clean-up has sounding channels to key off.
             let until = timer::ticks().wrapping_add(200);
             while timer::ticks().wrapping_sub(until) > u32::MAX / 2 {}

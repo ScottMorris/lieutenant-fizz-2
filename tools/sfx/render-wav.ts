@@ -23,7 +23,7 @@
 // - speaker: a square wave at the divisor's frequency, held for each 1/140 s step. A real speaker's cone and a case colour it.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { EFFECTS } from '../../assets/sfx/cluck.ts';
+import { EFFECTS } from '../../assets/sfx/effects.ts';
 import { isNoise, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
 import type { Conversion } from './convert.ts';
 import { convertAll } from './downmix.ts';
@@ -411,16 +411,16 @@ if (import.meta.main) {
     writeFileSync(`${dir}/${name}`, bytes);
     console.log(`${dir}/${name}  ${bytes.length} bytes`);
   };
-  EFFECTS.cluck.forEach((voices, i) => {
+  EFFECTS.forEach((voices, i) => {
     const ticks = conv[i].opl.ticks;
-    write(`cluck-${i}-rich.wav`, wav(renderRich(voices), SR));
-    write(`cluck-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, ticks), OPL_CLOCK));
-    write(`cluck-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR));
+    write(`effect-${i}-rich.wav`, wav(renderRich(voices), SR));
+    write(`effect-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, ticks), OPL_CLOCK));
+    write(`effect-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR));
     for (const [spot, x] of Object.entries(spots)) {
-      write(`cluck-${i}-opl3-pair-${spot}.wav`, wav(renderOplPair(streamWrites(i, 'at', x, 100, ...view), ticks), OPL_CLOCK, 2));
+      write(`effect-${i}-opl3-pair-${spot}.wav`, wav(renderOplPair(streamWrites(i, 'at', x, 100, ...view), ticks), OPL_CLOCK, 2));
     }
     // One distant source on the single-channel and the rich paths: the OPL2's distance attenuation, and the Web's pan and gain.
-    write(`cluck-${i}-opl2-distant.wav`, wav(renderOplMono(streamWrites(i, 'mono', 11), ticks), OPL_CLOCK));
-    write(`cluck-${i}-rich-distant.wav`, wav(renderRichPlaced(voices, 0.6, 0.4), SR, 2));
+    write(`effect-${i}-opl2-distant.wav`, wav(renderOplMono(streamWrites(i, 'mono', 11), ticks), OPL_CLOCK));
+    write(`effect-${i}-rich-distant.wav`, wav(renderRichPlaced(voices, 0.6, 0.4), SR, 2));
   });
 }

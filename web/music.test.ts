@@ -481,7 +481,7 @@ describe('the cluck keeps working on the shared root', () => {
     await Promise.resolve();
     music.sync();
     const before = ctx.voices.length;
-    expect(sfx.playCluck(0)).toBe(true);
+    expect(sfx.playEffect(0)).toBe(true);
     expect(ctx.voices.length).toBeGreaterThan(before);
     expect(ctx.nodes.some((n) => n.connectedTo === root.sfxBus)).toBe(true);
   });

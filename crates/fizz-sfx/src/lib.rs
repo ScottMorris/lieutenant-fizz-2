@@ -1,4 +1,4 @@
-// Generated OPL and PC speaker data for the chicken's cluck, and two small steppers a DOS interrupt handler can drive.
+// Generated OPL and PC speaker data for the sound effects (the chicken's cluck is ids 0 to 3), and two small steppers a DOS interrupt handler can drive.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -22,7 +22,9 @@
 mod data;
 pub mod place;
 
-pub use data::VARIANTS;
+/// The number of effects in the source (`assets/sfx/effects.ts`), which is also the length of every table in `data.rs`. Effect ids
+/// are `0..EFFECT_COUNT`; the cluck's four variants are ids 0 to 3 (`fizz_ep2::CLUCK_VARIANTS` of them).
+pub const EFFECT_COUNT: usize = data::VARIANTS;
 
 /// The OPL channel the effects use, in bank 0: the only channel on a plain OPL2 or an OPL3 whose effects are on the AdLib role, and
 /// the left channel of the pair when stereo is available. Scores must not use it.
@@ -124,20 +126,20 @@ pub enum SpeakerStep {
     Off,
 }
 
-/// The OPL records of a cluck variant. A `variant` of `VARIANTS` or more wraps, so a bad value is a different cluck and never a
+/// The OPL records of effect `id`. An `id` of `EFFECT_COUNT` or more wraps, so a bad value is a different effect and never a
 /// panic in an interrupt handler.
-pub fn opl_steps(variant: usize) -> &'static [OplStep] {
-    data::OPL[variant % VARIANTS]
+pub fn opl_steps(id: usize) -> &'static [OplStep] {
+    data::OPL[id % EFFECT_COUNT]
 }
 
-/// The length of a cluck variant's OPL chunk in 560 Hz ticks, including the wait after its last record.
-pub fn opl_ticks(variant: usize) -> u32 {
-    data::OPL_TICKS[variant % VARIANTS]
+/// The length of effect `id`'s OPL chunk in 560 Hz ticks, including the wait after its last record.
+pub fn opl_ticks(id: usize) -> u32 {
+    data::OPL_TICKS[id % EFFECT_COUNT]
 }
 
-/// The PC speaker divisors of a cluck variant, one per 140 Hz step, with 0 for gate off; the last is always 0.
-pub fn speaker_steps(variant: usize) -> &'static [u16] {
-    data::SPEAKER[variant % VARIANTS]
+/// The PC speaker divisors of effect `id`, one per 140 Hz step, with 0 for gate off; the last is always 0.
+pub fn speaker_steps(id: usize) -> &'static [u16] {
+    data::SPEAKER[id % EFFECT_COUNT]
 }
 
 /// How a player rewrites the stored channel-5 records.
@@ -344,12 +346,12 @@ mod tests {
 
     #[test]
     fn variant_count_matches_the_rules() {
-        assert_eq!(VARIANTS, fizz_ep2::CLUCK_VARIANTS as usize);
+        assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize);
     }
 
     #[test]
     fn every_opl_variant_terminates_at_its_declared_length() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (writes, ticks) = run_opl(v);
             assert_eq!(ticks, opl_ticks(v), "variant {v}");
             assert_eq!(writes.len(), opl_steps(v).len(), "variant {v}");
@@ -360,7 +362,7 @@ mod tests {
 
     #[test]
     fn opl_variants_end_keyed_off_on_the_effect_channel() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (writes, _) = run_opl(v);
             let b = 0xb0 + EFFECT_CHANNEL;
             let key_writes: Vec<_> = writes.iter().filter(|w| w.2 == b).collect();
@@ -461,7 +463,7 @@ mod tests {
 
     #[test]
     fn a_plain_or_unattenuated_player_adds_nothing() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (plain, _) = run_opl(v);
             assert!(!plain.iter().any(|w| w.1 == 1), "variant {v}");
             for w in plain.iter().filter(|w| w.2 == CONFIG) {
@@ -475,7 +477,7 @@ mod tests {
 
     #[test]
     fn mono_attenuation_changes_only_the_carrier_level() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (plain, ticks) = run_opl(v);
             for att in [1u8, 4, 20, 63] {
                 let (mono, mono_ticks) = run_with(OplPlayer::mono(v, att));
@@ -522,7 +524,7 @@ mod tests {
 
     #[test]
     fn the_pair_plays_one_effect_on_both_channels_with_one_output_bit_each() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (plain, plain_ticks) = run_opl(v);
             let waveform_enables = plain.iter().filter(|w| w.2 == 0x01).count();
             for (l, r) in [(4u8, 4u8), (1, 14), (14, 1), (0, 63)] {
@@ -570,7 +572,7 @@ mod tests {
             0x2a, 0x2d, 0x4a, 0x4d, 0x6a, 0x6d, 0x8a, 0x8d, 0xea, 0xed, 0xa5, 0xb5, 0xc5,
         ];
         assert_eq!(EFFECT_CHANNEL_RIGHT, 9 + EFFECT_CHANNEL);
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let (left, right, _) = pair_run(v, 4, 4);
             for w in left.iter().filter(|w| w.2 != 0x01).chain(&right) {
                 assert!(SLOT5.contains(&w.2), "variant {v} register {:#04x}", w.2);
@@ -631,7 +633,7 @@ mod tests {
 
     #[test]
     fn every_speaker_variant_terminates_with_the_gate_off() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let mut p = SpeakerPlayer::new(v);
             let mut steps = Vec::new();
             while let Some(s) = p.tick() {
@@ -663,7 +665,7 @@ mod tests {
     #[test]
     fn the_speaker_list_is_no_longer_than_the_opl_chunk() {
         // The speaker list drops the quiet tail the OPL2 still plays, so it may be shorter, never longer.
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             let opl_ms = opl_ticks(v) * 1000 / OPL_TICK_HZ;
             let speaker_ms = speaker_steps(v).len() as u32 * 1000 / SPEAKER_TICK_HZ;
             assert!(
@@ -679,7 +681,7 @@ mod tests {
 
     #[test]
     fn playing_twice_is_identical_and_variants_differ() {
-        for v in 0..VARIANTS {
+        for v in 0..EFFECT_COUNT {
             assert_eq!(run_opl(v), run_opl(v));
         }
         assert_ne!(speaker_steps(0), speaker_steps(1));
@@ -689,8 +691,8 @@ mod tests {
 
     #[test]
     fn an_out_of_range_variant_wraps_and_never_panics() {
-        assert_eq!(opl_steps(VARIANTS), opl_steps(0));
-        assert_eq!(speaker_steps(VARIANTS + 1), speaker_steps(1));
+        assert_eq!(opl_steps(EFFECT_COUNT), opl_steps(0));
+        assert_eq!(speaker_steps(EFFECT_COUNT + 1), speaker_steps(1));
     }
 
     #[test]

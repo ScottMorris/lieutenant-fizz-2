@@ -1,18 +1,18 @@
-// Plays the rules' sound events on the Web: the chicken's cluck as the rich Undertone effect in assets/sfx/cluck.ts.
+// Plays the rules' sound events on the Web by effect id: the rich Undertone effects in assets/sfx/effects.ts (so far the chicken's cluck, ids 0 to 3).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // The effect definitions are imported from assets/sfx/, never copied, so the Web, the DOS downmix and the WAV previews share one
-// source. Each `SfxVoice` becomes an Undertone voice the way Fizz 1's `buildVoice` (packages/engine/src/audio.ts) does it, and a
-// variant is a stack of those voices played once on the page's `AudioContext`.
+// source. Each `SfxVoice` becomes an Undertone voice the way Fizz 1's `buildVoice` (packages/engine/src/audio.ts) does it, and an
+// effect is a stack of those voices played once on the page's `AudioContext`.
 //
 // Browsers only let a page make sound after a user gesture, so nothing is created until `unlock()` runs from a key press or a
 // click. A cluck that arrives before then, while muted, while the tab is hidden or while the context is not running is dropped and
 // never queued: sound that arrives late is worse than none. Nothing here touches the rules, so it cannot change a state hash.
 import * as Undertone from '@liminal-hq/undertone';
 import type { AudioContextLike } from '@liminal-hq/undertone';
-import { CLUCK } from '../assets/sfx/cluck.ts';
+import { EFFECTS } from '../assets/sfx/effects.ts';
 import { routedContext } from './audio.ts';
 import { effectSeconds, isNoise, type SfxVoice } from '../assets/sfx/voice.ts';
 
@@ -40,10 +40,10 @@ export function parseAudioMode(word: string | null | undefined): AudioMode {
   return word === 'classic' ? 'classic' : 'enhanced';
 }
 
-/** The voices of cluck `variant`. A variant out of range wraps, as on DOS, so a bad value is a different cluck and never a failure. */
-export function cluckVoices(variant: number): readonly SfxVoice[] {
-  const n = CLUCK.length;
-  return CLUCK[((Math.trunc(variant) % n) + n) % n];
+/** The voices of effect `id` (the cluck is ids 0 to 3). An id out of range wraps, as on DOS, so a bad value is a different effect and never a failure. */
+export function effectVoices(id: number): readonly SfxVoice[] {
+  const n = EFFECTS.length;
+  return EFFECTS[((Math.trunc(id) % n) + n) % n];
 }
 
 /** The part of the Undertone module this file uses (the module, or a test double). */
@@ -230,20 +230,20 @@ export class Sfx {
   }
 
   /**
-   * Plays cluck `variant` now, if it can be heard: sound has been unlocked, is not muted, the tab is visible, the context is
+   * Plays effect `id` now, if it can be heard: sound has been unlocked, is not muted, the tab is visible, the context is
    * running and fewer than `MAX_SIMULTANEOUS` clucks are still sounding. Returns whether it was scheduled.
    *
    * `pan` is the stereo position from -1 (left) to 1 (right) and `gain` the distance loudness from 0 to 1, both from the presenter
-   * (`App.cluck_pan()` and `App.cluck_gain()`). In Classic mode both are ignored and the cluck plays centred at full level. Each
+   * (`App.effect_pan()` and `App.effect_gain()`). In Classic mode both are ignored and the cluck plays centred at full level. Each
    * voice of the cluck gets an equal-power panner and the gain; a centred full-level cluck is cached, a placed one is built each time.
    */
-  playCluck(variant: number, pan = 0, gain = 1): boolean {
+  playEffect(id: number, pan = 0, gain = 1): boolean {
     const ctx = this.ctx;
     if (!ctx || this._muted || this.isHidden() || ctx.state !== 'running') return false;
     const now = ctx.currentTime;
     this.ends = this.ends.filter((end) => end > now);
     if (this.ends.length >= MAX_SIMULTANEOUS) return false;
-    const voices = cluckVoices(variant);
+    const voices = effectVoices(id);
     if (this._mode === 'classic' || !Number.isFinite(pan) || !Number.isFinite(gain)) {
       pan = 0;
       gain = 1;
@@ -252,14 +252,14 @@ export class Sfx {
     gain = Math.max(0, Math.min(1, gain));
     try {
       const centred = pan === 0 && gain === 1;
-      let fx = centred ? this.cache.get(Math.trunc(variant)) : undefined;
+      let fx = centred ? this.cache.get(Math.trunc(id)) : undefined;
       if (!fx) {
         fx = this.U.stack(...voices.map((v) => buildVoice(this.U, v, pan, gain)));
-        if (centred) this.cache.set(Math.trunc(variant), fx);
+        if (centred) this.cache.set(Math.trunc(id), fx);
       }
       fx.play({ ctx: this.target(ctx) });
     } catch (err) {
-      console.warn('A cluck could not be played', err);
+      console.warn('An effect could not be played', err);
       return false;
     }
     this.ends.push(now + effectSeconds(voices) + TAIL);
