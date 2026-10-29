@@ -367,3 +367,160 @@ fn the_word_is_drawn_inside_its_cell_around_the_event_point() {
 }
 
 const CAPTION_RISE_PX: u32 = crate::CAPTION_RISE as u32;
+
+/// Every sound the replay makes, as `(tick, effect id, placement)` in event order, with the Captions option as given.
+fn replay_sounds(captions: bool) -> Vec<(u32, u8, fizz_sfx::place::Placement)> {
+    let options = DrawOptions { captions, ..opts() };
+    let mut w = level::world();
+    let mut out = Vec::new();
+    let mut prev = Buttons::NONE;
+    for &(frames, now) in SLICE_SCRIPT {
+        for _ in 0..frames {
+            step(&mut w, InputFrame::from_transition(prev, now));
+            prev = now;
+            for e in w.events() {
+                if let Some((id, place)) = event_sound(&w, e, VIEW_W, VIEW_H, &options) {
+                    out.push((w.tick.0 as u32, id, place));
+                }
+            }
+        }
+    }
+    out
+}
+
+#[test]
+fn the_effect_ids_are_the_sound_tables_order() {
+    // Eleven effects follow the cluck's four variants, and every id the table hands out is one the sound data has.
+    assert_eq!(EFFECT_CRUNCH as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_CLUCK, 0);
+    assert_eq!(fizz_ep2::CLUCK_VARIANTS, EFFECT_FZZT);
+    let ids = [
+        EFFECT_FZZT,
+        EFFECT_STUN,
+        EFFECT_BONK,
+        EFFECT_HURT,
+        EFFECT_WIN,
+        EFFECT_KEY,
+        EFFECT_CLUNK,
+        EFFECT_PLINK,
+        EFFECT_BOING,
+        EFFECT_JUMP,
+        EFFECT_CRUNCH,
+    ];
+    assert_eq!(ids, core::array::from_fn(|i| EFFECT_FZZT + i as u8));
+}
+
+#[test]
+fn every_event_in_the_replay_but_a_shot_ending_plays_one_effect() {
+    // The golden transcript's EVENT lines are the contract: each line but `shotend` is one sound, in order, and nothing else is.
+    let golden = include_str!("../../../fizz-ep2/slice-replay.txt");
+    let want: Vec<(u32, &str)> = golden
+        .lines()
+        .filter_map(|l| l.strip_prefix("EVENT "))
+        .filter_map(|l| {
+            let mut it = l.split_whitespace();
+            let tick = it.next()?.parse().ok()?;
+            let name = it.next()?;
+            (name != "shotend").then_some((tick, name))
+        })
+        .collect();
+    let got = replay_sounds(true);
+    assert_eq!(got.len(), want.len(), "one effect per sounding event");
+    let name_of = |id: u8| match id {
+        0..=3 => "cluck",
+        EFFECT_FZZT => "fire",
+        EFFECT_STUN => "stun",
+        EFFECT_BONK => "stomp",
+        EFFECT_HURT => "death",
+        EFFECT_WIN => "exit",
+        EFFECT_KEY => "key",
+        EFFECT_CLUNK => "clunk",
+        EFFECT_PLINK => "dud",
+        EFFECT_BOING => "bounce",
+        EFFECT_JUMP => "jump",
+        EFFECT_CRUNCH => "snack",
+        _ => "?",
+    };
+    for ((tick, id, _), (want_tick, want_name)) in got.iter().zip(&want) {
+        assert_eq!(tick, want_tick);
+        let name = name_of(*id);
+        let ok = name == *want_name
+            || (name == "clunk" && matches!(*want_name, "dooropen" | "headbump"));
+        assert!(
+            ok,
+            "tick {tick}: effect {id} ({name}) for a {want_name} event"
+        );
+        assert!(usize::from(*id) < fizz_sfx::EFFECT_COUNT);
+    }
+}
+
+#[test]
+fn the_replay_plays_these_effects_this_often() {
+    let mut count = [0u32; fizz_sfx::EFFECT_COUNT];
+    for (_, id, _) in replay_sounds(true) {
+        count[usize::from(id)] += 1;
+    }
+    // The four clucks (variants 0 to 3, once each), then fzzt, fizzled, bonk, whoa!, ta-da!, the keys, clunks (two doors and four
+    // head-bumps), click, boings, jumps and crunches.
+    assert_eq!(count[..4], [1, 1, 1, 1]);
+    assert_eq!(
+        count[4..],
+        [8, 1, 1, 1, 1, 3, 6, 1, 9, count[13], 5],
+        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch"
+    );
+    assert!(count[13] >= 20, "the route jumps a lot: {}", count[13]);
+}
+
+#[test]
+fn sound_is_the_same_whatever_the_captions_setting_and_is_never_deduped() {
+    let on = replay_sounds(true);
+    let off = replay_sounds(false);
+    assert_eq!(on, off, "the Captions setting is text only");
+    // Fizz 1's 180 ms caption dedupe drops text, not sound: the same event twice in a row plays twice.
+    let w = world_with_fire();
+    let e = Event::Fire { x: 100, y: 100 };
+    let a = event_sound(&w, &e, VIEW_W, VIEW_H, &opts());
+    let b = event_sound(&w, &e, VIEW_W, VIEW_H, &opts());
+    assert!(a.is_some() && a == b);
+    // And the replay has two different sounds in adjacent ticks (a jump, then a snack), both of them played.
+    assert!(
+        on.windows(2)
+            .any(|p| p[0].0 + 1 >= p[1].0 && p[0].1 != p[1].1),
+        "the replay has two different sounds within a tick of each other"
+    );
+}
+
+#[test]
+fn a_sound_is_placed_where_its_event_happened_and_a_shot_ending_is_silent() {
+    let w = world_with_fire();
+    let o = opts();
+    let (cam_x, cam_y) = camera_shaken(&w, VIEW_W, VIEW_H, &o);
+    let map_h_px = w.map.h * TILE_PX;
+    let jump = |x: i32| Event::Jump {
+        x,
+        y: map_h_px - cam_y - 100,
+    };
+    let at = |e: Event| event_sound(&w, &e, VIEW_W, VIEW_H, &o).unwrap();
+    let (id, l) = at(jump(cam_x));
+    assert_eq!(id, EFFECT_JUMP);
+    let (_, r) = at(jump(cam_x + VIEW_W as i32));
+    assert!(
+        l.pan < 0 && r.pan > 0,
+        "left of the view pans left, right of it right"
+    );
+    let (_, f) = at(jump(cam_x + VIEW_W as i32 * 4));
+    assert!(f.distance < r.distance, "farther is quieter");
+    assert_eq!(
+        event_sound(&w, &Event::ShotEnd { x: 0, y: 0 }, VIEW_W, VIEW_H, &o),
+        None
+    );
+    // A cluck comes from its chicken, exactly where `cluck_placement` puts it.
+    let cluck = Event::Cluck {
+        variant: 2,
+        chicken: 0,
+    };
+    assert_eq!(
+        event_sound(&w, &cluck, VIEW_W, VIEW_H, &o),
+        Some((2, crate::cluck_placement(&w, 0, VIEW_W, VIEW_H, &o)))
+    );
+}

@@ -33,7 +33,7 @@
 //   FIZZ2.EXE /OPTIONS  a test mode: opens the Options screen at once over the slice's first frame; Esc leaves (menu.rs)
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
-// /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
+// /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each event that has a sound to the audio service and print an `AUDIO`
 // line with the register writes and speaker steps it made, and the music starts with the session: a `MUSIC` line next to it says what the
 // music wrote (the player's own tick count, the writes, the loops and the FNV-1a of every write); /BENCH keeps the 60 Hz timer unless it is
 // given /AUDIO.
@@ -59,14 +59,14 @@ use alloc::string::String;
 use core::fmt::{self, Write};
 use core::sync::atomic::{AtomicBool, Ordering};
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
-use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
+use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, cluck_placement, dos_palette, frame_digest, key_to_buttons,
+    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, event_sound, frame_digest, key_to_buttons,
     menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
@@ -165,34 +165,22 @@ fn end_session(display: &mut DosDisplay) {
 /// Whether sound placement is Classic for this run (set once in `main` from `FIZZ2.CFG` and the switches; the program is single-threaded).
 static CLASSIC_PLACEMENT: AtomicBool = AtomicBool::new(false);
 
-/// Hands the clucks the last step emitted to the audio service, each with where its chicken is in the view the frame is drawn in
-/// (Enhanced), or centred at full volume (Classic). Positions are read after the step, with the camera the picture uses; the view
-/// and the placement are for sound only and have no effect on the rules.
+/// Hands the sounds the last step emitted to the audio service, each with where it happened in the view the frame is drawn in
+/// (Enhanced), or centred at full volume (Classic). Every event with a sound plays its effect (`fizz_slice_view::event_sound`: the
+/// table in `captions.rs` says which), whatever the Captions setting says. The service has one effect slot on its channel, so within a
+/// step the last event's effect is the one that starts and a later effect cuts an earlier one off, as in Fizz 1's DOS port (see
+/// `docs/SOUND.md`). Positions are read after the step, with the camera the picture uses; the view and the placement are for sound
+/// only and have no effect on the rules.
 fn play_events(world: &World, options: &DrawOptions) {
     for event in world.events() {
-        match *event {
-            Event::Cluck { variant, chicken } => {
-                let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
-                    Placement::CENTRE
-                } else {
-                    cluck_placement(world, chicken, VIEW_W, VIEW_H, options)
-                };
-                audio::effect(variant, &place);
-            }
-            // The puff is drawn, not heard. The rest have no sound yet; they are listed so a new event cannot slip by unheard.
-            Event::ShotEnd { .. }
-            | Event::Fire { .. }
-            | Event::Dud { .. }
-            | Event::Stomp { .. }
-            | Event::Stun { .. }
-            | Event::Death { .. }
-            | Event::Key { .. }
-            | Event::DoorOpen { .. }
-            | Event::Exit { .. }
-            | Event::Bounce { .. }
-            | Event::HeadBump { .. }
-            | Event::Jump { .. }
-            | Event::Snack { .. } => {}
+        // A shot ending is drawn (the puff), not heard, so it gives no sound.
+        if let Some((id, place)) = event_sound(world, event, VIEW_W, VIEW_H, options) {
+            let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
+                Placement::CENTRE
+            } else {
+                place
+            };
+            audio::effect(id, &place);
         }
     }
 }

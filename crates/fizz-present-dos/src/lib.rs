@@ -19,7 +19,7 @@ use fizz_sim::Buttons;
 
 pub use fizz_sfx::place::Placement;
 pub use fizz_slice_view::{
-    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement,
+    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound,
 };
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;

@@ -14,7 +14,7 @@ use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
     CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, Puffs, ben_view_box, caption_view,
-    cluck_placement, draw_slice_puffs,
+    draw_slice_puffs, event_sound,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -215,7 +215,7 @@ impl App {
         due
     }
 
-    /// The next effect id (today the cluck variant, 0 to `CLUCK_VARIANTS - 1`) the rules emitted since the last call, oldest first, or -1 when there
+    /// The next effect id (0 to `fizz_sfx::EFFECT_COUNT - 1`: the cluck's variants, then fzzt, stun and the rest; see `captions.rs`) the rules emitted since the last call, oldest first, or -1 when there
     /// are none left. Call it until it returns -1 after each [`App::frame`]. Each effect is handed out once and none is lost when
     /// a frame runs several ticks: the events are read after every step, because the rules clear them on the next one. It
     /// allocates nothing. The page decides what an effect sounds like (`assets/sfx/effects.ts`); the rules and the replay transcript never see this.
@@ -261,18 +261,20 @@ impl App {
         self.event_captions.clear();
     }
 
-    /// Queues the sound events (so far only the cluck, as its variant id) the step that just ran emitted, and takes its shot ends for the puffs.
+    /// Queues the sound of every event the step that just ran emitted, and takes its shot ends for the puffs and its captions for the
+    /// caption list. Each event with a sound gets its effect id and where it sounds (`fizz_slice_view::event_sound`, the table in
+    /// `captions.rs`), whatever the Captions setting says. The page plays them in order, each its own sound, as Fizz 1 does.
     fn collect_events(&mut self) {
         let options = DrawOptions {
             captions: false,
             shake: self.shake,
         };
         for event in self.world.events() {
-            if let fizz_ep2::Event::Cluck { variant, chicken } = *event {
-                // The chicken's position after this step and the camera the picture is drawn with, in the view the page last set.
-                let place =
-                    cluck_placement(&self.world, chicken, self.view_w, self.view_h, &options);
-                queue_effect(&mut self.effects, variant, place);
+            // The camera is the one the picture is drawn with, in the view the page last set.
+            if let Some((id, place)) =
+                event_sound(&self.world, event, self.view_w, self.view_h, &options)
+            {
+                queue_effect(&mut self.effects, id, place);
             }
         }
         self.puffs.observe(&self.world);
@@ -1164,6 +1166,51 @@ mod tests {
         for (_, v) in idle_clucks(3000) {
             assert!(v < fizz_ep2::CLUCK_VARIANTS);
         }
+    }
+
+    #[test]
+    fn every_sounding_event_of_the_replay_reaches_the_page_as_its_effect_in_order() {
+        // Drive the app's world through the slice script and queue each step's events as `frame` does; the page must be handed one
+        // effect per event but a shot ending, with the id `presentation` names, a pan within Fizz 1's width and a gain in 0.4 to 1.
+        let mut app = App::new();
+        app.world = fizz_ep2::level::world();
+        let mut want = Vec::new();
+        let mut got = Vec::new();
+        let mut prev = Buttons::NONE;
+        for &(frames, now) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..frames {
+                fizz_ep2::step(&mut app.world, InputFrame::from_transition(prev, now));
+                prev = now;
+                app.collect_events();
+                for e in app.world.events() {
+                    if let Some(id) = fizz_slice_view::presentation(e).effect {
+                        want.push(id);
+                    }
+                }
+                loop {
+                    let v = app.take_effect();
+                    if v < 0 {
+                        break;
+                    }
+                    assert!(app.effect_pan().abs() <= 0.6 + 1e-3);
+                    assert!((0.4 - 1e-3..=1.0).contains(&app.effect_gain()));
+                    got.push(u8::try_from(v).unwrap());
+                }
+            }
+        }
+        assert_eq!(got, want);
+        assert_eq!(
+            got.len(),
+            4 + 8 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + jumps(&got)
+        );
+        for id in 4..fizz_sfx::EFFECT_COUNT as u8 {
+            assert!(got.contains(&id), "effect {id} is never played");
+        }
+    }
+
+    /// How many jumps (effect 13) a list of effects has.
+    fn jumps(list: &[u8]) -> usize {
+        list.iter().filter(|&&id| id == 13).count()
     }
 
     #[test]

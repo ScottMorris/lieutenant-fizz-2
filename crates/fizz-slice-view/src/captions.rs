@@ -157,6 +157,43 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
     }
 }
 
+/// The sound an event makes and where it sounds, for a `w` by `h` view drawn with `options`: the effect id (see the `EFFECT_`
+/// constants) and the [`fizz_sfx::place::Placement`] of its source, or `None` for an event with no sound (a shot ending). Both
+/// presenters call this after a step, so DOS and the Web play the same effect from the same place: a cluck from its chicken, any
+/// other event from the point it happened at, placed against the camera the picture is drawn with (the shaken one when
+/// `options.shake` is on). Pure, and sound only: the rules never see it, and it is the same whatever the Captions setting says.
+///
+/// Fizz 1 plays a sound whenever a caption is raised and does not apply its 180 ms caption dedupe to it, so neither does this: the
+/// dedupe is in [`EventCaptions::observe`], which this does not call.
+pub fn event_sound(
+    world: &World,
+    event: &Event,
+    w: usize,
+    h: usize,
+    options: &DrawOptions,
+) -> Option<(u8, fizz_sfx::place::Placement)> {
+    let effect = presentation(event).effect?;
+    let place = match (*event, event_point(event)) {
+        (Event::Cluck { chicken, .. }, _) => crate::cluck_placement(world, chicken, w, h, options),
+        (_, Some((px, py))) => {
+            let (cam_x, cam_y) = camera_shaken(world, w, h, options);
+            let map_h_px = world.map.h.saturating_mul(TILE_PX);
+            fizz_sfx::place::place(
+                px,
+                map_h_px - py,
+                fizz_sfx::place::View {
+                    x: cam_x,
+                    y: cam_y,
+                    w: w as i32,
+                    h: h as i32,
+                },
+            )
+        }
+        (_, None) => fizz_sfx::place::Placement::CENTRE,
+    };
+    Some((effect, place))
+}
+
 /// Ticks within which a second caption of the same word is dropped: Fizz 1's 180 ms, 10.8 ticks, rounded to 11.
 pub const DEDUPE_TICKS: u32 = 11;
 /// The slots in the list, Fizz 1's DOS port's.
