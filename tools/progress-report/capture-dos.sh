@@ -34,7 +34,7 @@ window() { xdotool search --sync --name 'FIZZ2' | head -n 1; }
 DOS_X11=1 DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY > "$out/replay.txt" 2>&1 &
 pid=$!
 win="$(window)"
-for n in $(seq 0 49); do
+for n in $(seq 0 79); do
   kill -0 "$pid" 2>/dev/null || break
   import -window "$win" "$out/replay-$(printf %02d "$n").png" 2>/dev/null || true
   sleep 0.4

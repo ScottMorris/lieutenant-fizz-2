@@ -3,7 +3,7 @@
  {"id": "bake", "title": "Milestone 2: the content pipeline", "summary": "fizz-bake and the first Level Studio script baked into a Fizz Asset Pack (`.FAP`)."},
  {"id": "scene", "title": "Milestone 3: scene intent and the camera", "summary": "fizz-engine, the scene contract and a camera with Fizz 1's pixel-locking, on Web and DOS."},
  {"id": "mechanics", "title": "Milestone 3.5: mechanics roster", "summary": "Wall-kick first, because the lighthouse level is vertical, then ladders, vines, mantle, lifts, switches and the enemy AI set. A placeholder with no start date."},
- {"id": "audio", "title": "Milestone 4: audio", "summary": "Fizz 1's other sound effects with the full caption table, and a first listen on DOS and real hardware. Stereo-authored effects, the FM-to-OPL downmix and the IMF lab's songs are Milestone 4.5."},
+ {"id": "audio", "title": "Milestone 4.5: lab music and OPL tools", "summary": "The IMF lab's songs, stereo-authored effects, the FM-to-OPL downmix, the OPL3 core-and-extras and music compression ideas, and an audit of redundant register writes. Milestone 4, the effects and captions, is in chapters 9 and 10."},
  {"id": "budgets", "title": "Milestone 5: CI gates and the 486 budget", "summary": "Cycle and size budgets against a 486DX model, gated in CI."},
  {"id": "shell", "title": "Milestone 6: shell", "summary": "Title, pause, options, four save slots, result cards and the opening cinematic. A placeholder with no start date."}
 ]

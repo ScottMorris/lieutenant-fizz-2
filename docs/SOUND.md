@@ -39,7 +39,7 @@ Each arrow loses something:
 | OPL2 chunk to the speaker list | the same single voice, its pitch and level contour as on or off | loudness, timbre, and pitches below 60 Hz or above 9000 Hz |
 | OPL2 chunk to the OPL3 pair | the chunk, played on channels 5 and 14 with a level for each side | nothing in the sound, but two FM voices stand in for one stereo voice, and the level is fixed when the effect starts |
 
-Nobody has listened to any of it (see [Not verified](#not-verified)).
+The owner listened to the new effects on the Web on 29 October 2026 and found them good ("they sound decent", and they may revisit them); nobody has reported how any effect sounds on DOS or on real hardware (see [Not verified](#not-verified)).
 
 ## Effects
 
@@ -201,7 +201,7 @@ The consequences to know: on DOS a head-bump that follows a jump and a snack wit
 
 ## Hearing the effects
 
-Nobody can hear them headlessly, and nobody has: the checks prove what is scheduled and what is written, not how it sounds.
+Nobody can hear them headlessly: the checks prove what is scheduled and what is written, not how it sounds. The owner's listen of 29 October 2026 covered the Web.
 
 **On the Web**, press H (or the ? button) to open the panel. Under the hint there is a list, "Hear an effect", with all fifteen in id order, and a Play button. Choosing an entry plays that effect on its own, centred, at full level; the arrow keys on the list play each as they move, and Esc hands the keyboard back to the game. It makes the sound with the page's own player (first key or click, the M mute and the hidden-tab rule all apply). `?audio=classic` changes nothing for it, since it is always centred.
 

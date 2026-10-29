@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-28T06:44:07-04:00",
+ "capturedAt": "2026-10-29T17:47:42-04:00",
  "data": {
   "prs": [
    {
@@ -4197,9 +4197,543 @@
     "state": "MERGED",
     "title": "Let the live 60 Hz frame check fall a few frames short",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/97"
+   },
+   {
+    "additions": 121,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-28T10:45:19Z",
+    "deletions": 2,
+    "headRefName": "docs/archive-snapshot",
+    "headRefOid": "ca636064f713074a95eac81cb4dc0a9bcb15f5ce",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "e96aaecd522ae780adb029346e9e884c2a6634cd"
+    },
+    "mergedAt": "2026-10-28T11:01:02Z",
+    "number": 98,
+    "state": "MERGED",
+    "title": "Refresh the archive's gh snapshot after the Options screen",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/98"
+   },
+   {
+    "additions": 460,
+    "baseRefName": "main",
+    "changedFiles": 11,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T16:21:46Z",
+    "deletions": 13,
+    "headRefName": "m4/undertone-0.3",
+    "headRefOid": "9bc354a636633adbc045ed8346982ba6c2b4feef",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:04Z",
+    "number": 99,
+    "state": "MERGED",
+    "title": "Move Undertone to 0.3.0 and pin the audio it affects",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/99"
+   },
+   {
+    "additions": 470,
+    "baseRefName": "m4/undertone-0.3",
+    "changedFiles": 13,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T16:21:50Z",
+    "deletions": 32,
+    "headRefName": "m4/rules-events",
+    "headRefOid": "8046592d8a5f9916f8fe490a89ae127d24090d89",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:05Z",
+    "number": 100,
+    "state": "MERGED",
+    "title": "Raise sound and caption events from the rules",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/100"
+   },
+   {
+    "additions": 1109,
+    "baseRefName": "m4/rules-events",
+    "changedFiles": 32,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T17:06:06Z",
+    "deletions": 254,
+    "headRefName": "m4/slice-playground",
+    "headRefOid": "0d6ccfd03e87d456c4c3cd02d38482243072877b",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "5319e7",
+      "description": "Levels, overworlds and the level script language",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvNw",
+      "name": "levels"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:06Z",
+    "number": 102,
+    "state": "MERGED",
+    "title": "Add a snack nook playground to the slice level",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/102"
+   },
+   {
+    "additions": 881,
+    "baseRefName": "m4/slice-playground",
+    "changedFiles": 14,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T17:30:59Z",
+    "deletions": 31,
+    "headRefName": "m4/caption-list",
+    "headRefOid": "4855d154bca13a6b80f0487af74c4c60ebe70b1a",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:08Z",
+    "number": 103,
+    "state": "MERGED",
+    "title": "Show Fizz 1's captions for the new events",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/103"
+   },
+   {
+    "additions": 215,
+    "baseRefName": "m4/caption-list",
+    "changedFiles": 19,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T17:50:19Z",
+    "deletions": 199,
+    "headRefName": "m4/effect-pipeline",
+    "headRefOid": "b81aac05bb3c9f3a7f0bf28aa70ecdac8d606838",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:09Z",
+    "number": 104,
+    "state": "MERGED",
+    "title": "Play sound effects by effect id",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/104"
+   },
+   {
+    "additions": 7153,
+    "baseRefName": "m4/effect-pipeline",
+    "changedFiles": 39,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T18:55:12Z",
+    "deletions": 218,
+    "headRefName": "m4/effects-content",
+    "headRefOid": "9fea2b03be7cf360b25b56d6352fc60fca4d2e71",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:10Z",
+    "number": 105,
+    "state": "MERGED",
+    "title": "Play every event's sound effect, authored in Undertone",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/105"
+   },
+   {
+    "additions": 55,
+    "baseRefName": "m4/effects-content",
+    "changedFiles": 14,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T20:18:50Z",
+    "deletions": 54,
+    "headRefName": "m4/pair-label",
+    "headRefOid": "8b095dc648eb8df115dec9799a69b081e0300cb1",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:11Z",
+    "number": 106,
+    "state": "MERGED",
+    "title": "Print the OPL3 effects pair as ch5+14",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/106"
+   },
+   {
+    "additions": 14,
+    "baseRefName": "m4/pair-label",
+    "changedFiles": 6,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T20:21:15Z",
+    "deletions": 11,
+    "headRefName": "m4/move-to-m4-5",
+    "headRefOid": "357775d5085723578c13dd445dc8edb5949cce65",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:12Z",
+    "number": 107,
+    "state": "MERGED",
+    "title": "Move stereo effects and the FM-to-OPL downmix to M4.5",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/107"
+   },
+   {
+    "additions": 6,
+    "baseRefName": "m4/move-to-m4-5",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-29T21:23:57Z",
+    "deletions": 3,
+    "headRefName": "m4/m4-5-music-ideas",
+    "headRefOid": "bcd9af22199232b9cf651639faa189e69f0a18d4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5"
+    },
+    "mergedAt": "2026-10-29T21:47:13Z",
+    "number": 108,
+    "state": "MERGED",
+    "title": "Record the OPL3 core-and-extras and music compression ideas in M4.5",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/108"
    }
   ],
   "runs": [
+   {
+    "conclusion": "",
+    "createdAt": "2026-10-29T21:47:20Z",
+    "displayTitle": "Record the OPL3 core-and-extras and music compression ideas in M4.5 (\u2026",
+    "event": "push",
+    "headSha": "2ea8dcb95bf3505d901d4fc4c15cff0cf69c25e5",
+    "status": "in_progress",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40960697980",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-28T11:01:05Z",
+    "displayTitle": "Refresh the archive's gh snapshot after the Options screen (#98)",
+    "event": "push",
+    "headSha": "e96aaecd522ae780adb029346e9e884c2a6634cd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/40676650746",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "cancelled",
     "createdAt": "2026-10-28T10:28:31Z",

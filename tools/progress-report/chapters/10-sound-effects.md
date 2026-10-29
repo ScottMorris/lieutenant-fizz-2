@@ -4,7 +4,7 @@ n: 10
 title: Sound effects for every event
 date: 2026-10-29
 summary: The eleven effects after the cluck, written in Undertone with FM voices and pitch steps, downmixed to the OPL3 pair, OPL2 and the PC speaker, played for every rules event on the Web and DOS, with Fizz 1's overlap rules and an audition list on the Web.
-prs: [103, 104, 105]
+prs: [99, 100, 102, 103, 104, 105, 106]
 ---
 Fizz 1 pairs every floating word with a sound. Chapter 9 ends with the cluck as the only sound in Fizz 2; this chapter covers the other eleven and the table that wires them to the rules' events. The rules did not change: the golden `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}` is the same, and sound is a view, like the captions and the stereo place.
 
@@ -30,11 +30,14 @@ In Fizz 2 the DOS service has one effect slot and takes the last request of a ti
 
 On the Web, `web/sfx.test.ts` snapshots what each new effect schedules on a stand-in `AudioContext`, and checks that FM voices schedule a modulator at the ratio times the pitch and that pitch steps arrive a frame at a time. The H panel has a list, "Hear an effect", and a Play button that play any of the fifteen by id, centred and on their own; `tools/check-web-sfx.py` drives it in headless Chromium.
 
+<!-- figure shots web-effects.png -->
+
 `/BENCH` also times one busy picture with no captions and with all six caption slots full, and with `/AUDIO` while effects play over the music. The figures are in `docs/DOS-CHECK.md`.
 
 ## The shelves
 
 ### Catalogued
+- The owner's playtest of 29 October 2026: they listened to the new effects on the Web and found them good ("they sound decent", and they may revisit them), and said Milestone 4 "looks good in gameplay" on the Web and in the DOS player. One person's statement, not a measurement.
 - The fifteen effects exist in `assets/sfx/effects.ts`, and `bun tools/sfx/downmix.ts --check` keeps `crates/fizz-sfx/src/data.rs` equal to what the converter makes of them. `cargo test -p fizz-sfx` pins each effect's records, ticks and speaker frames and the 11-write ceiling.
 - Every sounding event of the replay maps to one effect: a `fizz-slice-view` test walks the golden's `EVENT` lines against the sounds the table gives, in order, with the same sounds whether captions are on or off.
 - The Web schedules each effect's oscillators, modulators and noise bursts on a stand-in `AudioContext` (`bun test web/sfx.test.ts`) and in headless Chromium through the audition list (`tools/check-web-sfx.py`).
@@ -42,14 +45,25 @@ On the Web, `web/sfx.test.ts` snapshots what each new effect schedules on a stan
 - The six-caption bench runs under DOSBox and prints the same picture's cost with and without the captions.
 
 ### Uncatalogued
-- Hearing the eleven new effects on DOS or on real hardware. The owner listened to the Web effects on 29 October 2026 and found them good, but not DOS or hardware. The stand-in cannot hear, DOSBox's register writes are counted and not played to a person, and the FM voices are authored by their numbers.
+- Hearing the eleven new effects on DOS or on real hardware. The owner's remark that Milestone 4 looks good in gameplay on the DOS player does not name a DOS effect or the sound. The stand-in cannot hear, DOSBox's register writes are counted and not played to a person, and the FM voices are authored by their numbers.
 - The best-effort FM downmix compared by ear against the Web source, and the effects on a real OPL2, OPL3, Sound Blaster or PC speaker.
 - The loudness of each effect beside the others and beside the music, and the cap of six on a real browser.
 - The cost of the 560 Hz interrupt with effects and music together on a 486: DOSBox charges no time for port I/O, so the `/BENCH /AUDIO` counts are exact and the microseconds are the emulator's.
 
 ### Wish list
 - Effects designed by ear in the owner's lab in place of these first drafts, and stereo-authored effects, which the pair already allows with one record stream for each side.
-- The exact FM-to-OPL mapping from the companion package in Undertone issue 25, and the lab's songs; both are Milestone 4.5 on the roadmap, as are the stereo-authored effects.
+- The exact FM-to-OPL mapping from the companion package in Undertone issue 25, and the lab's songs; both are Milestone 4.5 on the roadmap, as are the stereo-authored effects, the OPL3 core-and-extras idea, music compression and the audit of redundant register writes.
 
 > **From the workbench — FM synthesis.** In frequency-modulation synthesis one oscillator, the carrier, has its pitch swung by another, the modulator. A modulator at a whole-number multiple of the carrier gives a harmonic tone, and a fraction such as 2.76 gives the inharmonic partials of a bell. John Chowning developed the method at Stanford in the late 1960s, and the Yamaha OPL2 and OPL3 chips build their tones from pairs of such operators.
 > Source: [Frequency modulation synthesis, Wikipedia](https://en.wikipedia.org/wiki/Frequency_modulation_synthesis)
+
+```figures
+id: web-effects-shot
+kind: screenshot
+track: web
+title: The Hear an effect list
+alt: The Web slice at 1280 by 720 with the H panel open on its right: the Options button, the list Hear an effect showing all fifteen entries from 0 cluck 0 (buh-GAWK) to 14 crunch with crunch chosen, a Play button, and the debug lines TICK 40 and HASH.
+caption: The H panel's picker lists the fifteen effects by id. In the page it is a drop-down; the capture draws it open.
+at: figure shots web-effects.png
+thumb: img:media/web-effects.png
+```
