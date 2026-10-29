@@ -2,9 +2,9 @@
 id: slice
 n: 9
 title: The slice on two screens
-date: 2026-10-27
-summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound and music, the HUD, the Fizz colour, the frame-rate policy, the Paused and Options screens, and the start-up check, probe and help screens.
-prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75, 76, 79, 80, 81, 83, 84, 86, 87, 88, 89, 90, 92, 93, 94, 95]
+date: 2026-10-29
+summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound and music, the HUD, the Fizz colour, the frame-rate policy, the Paused and Options screens, the snack nook that gives the rules' events a place to happen, and the start-up check, probe and help screens.
+prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75, 76, 79, 80, 81, 83, 84, 86, 87, 88, 89, 90, 92, 93, 94, 95, 96, 99, 100, 102, 103, 104, 105, 106]
 ---
 The first slice is a cut-down lighthouse: a tall room split into two shafts, Ben, one chicken, a red key, a red door and an exit. It plays on the Web and on DOS from the same rules and the same drawing routine, `fizz_slice_view::draw_slice`. This chapter follows the slice from the level to the two screens and the DOS start-up screens. Chapter 8 covers the rules underneath it.
 
@@ -24,7 +24,7 @@ Looking and aiming are Fizz 1's (#47). Up or Down held alone while Ben stands st
 
 ## The chicken, its cluck and its captions
 
-The chicken is Fizz 1's Gloop with placeholder art: it patrols its ledge, turns at walls and edges, kills Ben on contact from the side or below, and is stunned for three seconds by a stomp or six by a shot. Each chicken draws a cluck timer from 90 to 360 ticks and a variant from four, from Fizz 1's `hashf` over the tick, the chicken's index and its draw count. The rules emit `Event::Cluck { variant, chicken }`, the transcript prints it as an `EVENT` line, and a stunned chicken is silent. The golden transcript has three clucks, at ticks 197 (variant 2), 853 (variant 1) and 1094 (variant 0), and three shot ends, at ticks 96, 106 and 281.
+The chicken is Fizz 1's Gloop with placeholder art: it patrols its ledge, turns at walls and edges, kills Ben on contact from the side or below, and is stunned for three seconds by a stomp or six by a shot. Each chicken draws a cluck timer from 90 to 360 ticks and a variant from four, from Fizz 1's `hashf` over the tick, the chicken's index and its draw count. The rules emit `Event::Cluck { variant, chicken }`, the transcript prints it as an `EVENT` line, and a stunned chicken is silent. The golden transcript has four clucks, at ticks 197 (variant 2), 853 (variant 1), 1094 (variant 0) and 1382 (variant 3), and eight shot ends, at ticks 96, 106 and 281 and every ten ticks from 1132 to 1172.
 
 <!-- figure cluck-path -->
 
@@ -77,6 +77,14 @@ The cluck itself changed in #69: the first variant's `buh` is 85 milliseconds, u
 
 `assets/music/` holds the source of the slice's level music, "Crater Fields", which is Fizz 1's track used as a placeholder test song and not an official Fizz 2 track. The builder is Fizz 1's, ported and held to a saved fixture of its output, and `bun tools/music/notes.ts --check` guards the committed note list: 39 bars, 63.24 seconds. The Web page plays it (#75): `web/music.ts` loops the song with Undertone from the first key press or click, on a music bus at 0.65 that shares one `AudioContext` and a limiter with the cluck's bus, and the Music button in the H panel and `M` stop it. The rules never start, stop or read it, so no event, hash or transcript line changed. DOS plays it too (#76, #79, #81): the lowering writes OPL2 and OPL3 register streams, `fizz_music::MusicPlayer` steps them from the same 560 Hz handler before the effect, and `/LIVE` and `/REPLAY` print a `MUSIC` line that the check compares with the host's. `docs/MUSIC.md` has the layout, both players and the plan; the owner heard the Web music roll on 28 October 2026, and nobody has reported hearing the DOS music.
 
+## The snack nook and the rules' events (#99, #100, #102)
+
+Milestone 4 gave the rules a list of moments to report. Undertone moved to 0.3.0 with the audio it affects pinned (#99), and `World::step` raises an `Event` for each moment that has a caption or a sound in Fizz 1: a shot leaving the blaster, an empty-blaster click, a stomp, a stun, a death, a key, a door, the exit, a pogo bounce, a head bump and a snack (#100). The golden transcript prints them as `EVENT` lines, so native, Web and DOS agree on when each happened. The gallery's right end became a small playground (#102): a shelf of grey blocks with snacks on it and two cheezies underneath, a blue key and door in front of the exit, and the pogo, the head bump and the empty blaster each with a place to happen. The golden replay grew to {{golden.finalTick}} ticks and `{{golden.final}}`, and the captions (#103) and the sounds (#104, #105; chapter 10) follow the events. Milestone 4 closed with the pair label `FX ch5+14` in the `SOUND` line (#106) and the move of the remaining audio ideas to Milestone 4.5 (#107, #108).
+
+<!-- figure shots web-nook.png web-nook-boing.png -->
+
+<!-- figure shots dos-nook-crunch.png dos-nook-boing.png -->
+
 ## The HUD, the frame rate, the colour and the menus (#83 to #95)
 
 The HUD (#83, #86) follows Fizz 1's: `Fizz` is the shots left, `Deaths` the count and a chip shows the red key. On DOS it is a 72 by 27 pixel pill at (4, 4) in Fizz 1's pixel font, drawn translucent over the picture: the palette gains the sixteen EGA colours dimmed to 4/13 in entries 16 to 31 (Fizz 1's `ui::dim`), and the cached strip is rendered again only when a value changes. `TICK` left the live screen and stays in `/BENCH`, the transcripts and the Web panel. At 26,800 cycles a millisecond the `/BENCH` drawing average fell from 2,802 microseconds for the old 8 by 8 strip to 2,229 for the cached box and rose to 2,340 for the translucent pill, and the eleven `BENCH FRAME` digests are pinned in both the host tests and `tools/check-dos.sh`. The Web HUD is DOM in `#stage`, a dark panel scaled by the stage's height that moves to the other corner when Ben comes near; `web/hud.ts` holds its rules and `tools/check-web-hud.py` plays the golden replay against the built page in headless Chromium.
@@ -111,7 +119,7 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 
 ### Catalogued
 - #29, #31, #32, #34, #38, #39, #42 and #44 are merged into `main`; the last of them, #44, landed on `{{pr44.merge}}` with CI {{pr44.ci}}.
-- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, three `cluck`, three `shotend` and 31 other `EVENT` lines) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
+- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, four `cluck`, eight `shotend` and 58 other `EVENT` lines, 70 in all) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
 - Both screens call `fizz_slice_view::draw_slice`; frame digests at nine ticks of the replay, and for the puff, the stars and the death frame, are pinned in its tests, and `/BENCH` compares eleven `BENCH FRAME` digests from DOS with the host's.
 - The chicken's `EVENT` lines are the evidence that a cluck happens at the same tick and with the same variant on all three platforms.
 - DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` for the golden replay (569, 590 and 1,135 when only its four clucks played; 5,221, 5,242 and 10,382 now that every event has a sound, see chapter 10), and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
@@ -120,6 +128,7 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 - The Web music is checked with the same kind of stand-in: `bun test web/music.test.ts` matches the sources scheduled over one loop with the note list of `assets/music/notes/crater.txt` for start time, pitch and pan, and `tools/check-web-sfx.py` shows nothing sounding before a key press and the Music button and `M` working in headless Chromium. `bun tools/music/notes.ts --check` guards the note list itself.
 - The HUD, the frame-rate policy, `FIZZ2.CFG` version 3, the crash-safe save, device switching and the screens (#83 to #95) are merged with the checks named in the section above: the `BENCH FRAME` digests and the `FRAMES` lines in `tools/check-dos.sh`, the byte-for-byte saves and the typed-key Options cases there, `/REPLANTEST` under four machines, `/MENUSHOT`'s digests, `tools/check-web-hud.py`, `tools/check-web-options.py`, and `cargo test -p fizz-menu`; the golden hash is unchanged by all of them (`PARITY ok {{ms.parityHash}}`).
 - The screenshots on this page are records in `media/captures.json`: headless Chromium for the Web, and DOSBox grabbed under a virtual display for DOS, each with its command, commit and date.
+- The owner's playtest of 29 October 2026 of the Milestone 4 builds: they listened to the new Web effects and found them good ("they sound decent", and they may revisit them), and said Milestone 4 "looks good in gameplay" on the Web and in the DOS player. That is one person's statement; it does not name a DOS effect or any sound hardware.
 - The owner's playtests of 28 October 2026: the death spin, the stun stars and the shot puff look good, the cluck effects sound good, the panning is hard to tell on DOS because the slice's level is small, the Web music is working and rolls, the Web HUD looks good, the cluck plays as buh-gawk, and the translucent DOS HUD pill matches Fizz 1's look. These are one person's observations, not measurements, and the notes do not say which screen showed which picture in every case.
 
 ### Uncatalogued
@@ -222,6 +231,24 @@ alt: Two DOSBox screenshots of FIZZ2.EXE in live play: the frozen picture dimmed
 caption: Esc opens Paused; Options is its second row. Both are grabs of the running game.
 at: figure shots dos-paused.png dos-options.png
 thumb: img:media/dos-options.png
+
+id: web-nook-shots
+kind: screenshot
+track: web
+title: The snack nook on the Web
+alt: Two screenshots of the Web slice in headless Chromium, 1280 by 720, in the snack nook: Ben jumps under a grey shelf that carries a blue key, a cookie, a chocolate bar and a cheezie, with a cheezie beside him and the captions crunch and click - no fizz near him, and Ben on the pogo stick beside the gallery's right wall with the caption boing at his feet.
+caption: The nook at ticks 1195 and 1354 of the golden replay, with the captions of the snack and of the bounce.
+at: figure shots web-nook.png web-nook-boing.png
+thumb: img:media/web-nook.png
+
+id: dos-nook-shots
+kind: screenshot
+track: dos
+title: The snack nook in DOSBox
+alt: Two DOSBox screenshots of FIZZ2.EXE running the replay in the snack nook: Ben below the shelf with the captions crunch and click - no fizz beside him and Fizz 0 and Deaths 1 in the HUD pill, and Ben bouncing on the pogo stick with the caption boing at the spot of the bounce.
+caption: The same nook on DOS, grabbed from the running replay; DOSBox's pace varies, so the grabs fall within a few ticks of the Web's.
+at: figure shots dos-nook-crunch.png dos-nook-boing.png
+thumb: img:media/dos-nook-crunch.png
 
 id: web-menu-shots
 kind: screenshot

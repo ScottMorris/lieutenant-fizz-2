@@ -58,7 +58,7 @@
    "section": "Sound effects",
    "shelf": "catalogued",
    "evidence": "`fizz-slice-view` tests play the replay through `event_sound`: one effect for each of its 62 sounding events (every `EVENT` line but `shotend`), in order, with the counts the manual's table implies, the same with the Captions setting on or off, and placed against the camera. `web/sfx.test.ts` schedules each of the eleven new effects on a stand-in `AudioContext` (a carrier and a modulator for an FM voice, a pitch step for each frame) and checks that whoa! and ta-da! bypass the cap. `tools/check-web-sfx.py` drives the audition list in headless Chromium: fifteen entries in id order, silence before a key, each choice scheduling exactly that effect, Play repeating it and a muted page staying quiet. `tools/check-dos.sh` requires `AUDIO WRITES` of 5,221 (channel 5), 5,242 (the OR rule) and 10,382 (the pair) and 1,213 speaker steps for the 61 effects the replay starts, with the golden transcript unchanged. The rules Fizz 1 follows for overlap, dedupe, the click and the music are in [chapter 10](chapter:effects).",
-   "gaps": "how any of the eleven new effects sounds, on the Web or on DOS: nobody has listened, and a stand-in cannot hear; the audition list was driven by script, not by a person with the arrow keys; and a real OPL2, OPL3, Sound Blaster or PC speaker."
+   "gaps": "how any of the eleven new effects sounds on DOS or on real hardware (the owner listened to them on the Web on 29 October 2026 and found them good; a stand-in cannot hear); the audition list was driven by script, not by a person with the arrow keys; and a real OPL2, OPL3, Sound Blaster or PC speaker."
   },
   {
    "section": "Fullscreen and browser shortcuts",
