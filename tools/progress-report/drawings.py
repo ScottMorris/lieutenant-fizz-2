@@ -636,8 +636,8 @@ def crate_graph(D, root):
 
 # ---- the maze, read from level.rs ----------------------------------------------------------------------------------------------
 
-TILE_CLASS = {".": "e0", "w": "e1", "#": "e8", "B": "e7", "=": "e10", "^": "e12", "D": "e6", "E": "e14"}
-TILE_NAME = [("e0", "sky"), ("e1", "wall behind the rooms"), ("e8", "solid fill"), ("e7", "solid block"), ("e10", "one-way platform"), ("e12", "spikes"), ("e6", "red door"), ("e14", "exit")]
+TILE_CLASS = {".": "e0", "w": "e1", "#": "e8", "B": "e7", "=": "e10", "^": "e12", "D": "e6", "b": "e9", "E": "e14"}
+TILE_NAME = [("e0", "sky"), ("e1", "wall behind the rooms"), ("e8", "solid fill"), ("e7", "solid block"), ("e10", "one-way platform"), ("e12", "spikes"), ("e6", "red door"), ("e9", "blue door"), ("e14", "exit")]
 
 
 def level_facts(root):
@@ -645,7 +645,7 @@ def level_facts(root):
     with open(os.path.join(root, "crates", "fizz-ep2", "src", "level.rs"), encoding="utf-8") as f:
         text = f.read()
     block = text[text.index("const ROWS"):]
-    rows = re.findall(r'^\s*"([.w#B=^DE]{32})",', block, re.M)
+    rows = re.findall(r'^\s*"([.w#B=^DbE]{32})",', block, re.M)
     if len(rows) != 48:
         raise ValueError("level.rs has %d rows of 32 tiles, not 48" % len(rows))
 
@@ -703,7 +703,7 @@ def maze(D, root):
     W_SVG, H_SVG = legend_x + 300, Y0 + H * S + 24
     label = ("Map of the slice level, 32 tiles wide and 48 tall, read from crates/fizz-ep2/src/level.rs. Ben starts on the floor of the left shaft beside a run of spikes. "
              "One-way ledges climb the left shaft; the chicken walks the long ledge at the third level and the red key lies at its far left end. "
-             "Above it the ledges lead to the red door in the wall between the shafts. Through the door the right shaft climbs to a gallery, where the exit stands.")
+             "Above it the ledges lead to the red door in the wall between the shafts. Through the door the right shaft climbs to a gallery, where a snack nook and a blue door stand in front of the exit.")
     o = ['<svg viewBox="0 0 %d %d" role="img" class="diagram" aria-label="%s"><defs><marker id="mz-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="d-arrow-hot"/></marker></defs>' % (W_SVG, H_SVG, esc(label))]
     for y in range(H):
         for x in range(W):

@@ -40,7 +40,10 @@ const P: Buttons = Buttons::POGO;
 /// first half so the replay proves more than a clean run. The first life shoots two shots into the air and a wall,
 /// climbs to the long ledge, shoots the chicken, takes the red key past it and carries it onto the spikes: Ben dies, the
 /// key drops and the world respawns him. The second life climbs again and stomps the chicken instead, takes the key,
-/// opens the red door with it, climbs the right shaft and walks into the exit.
+/// opens the red door with it, climbs the right shaft and, on the gallery, plays in the snack nook before it walks into the
+/// exit: it spends the five shots on the wall and clicks once (a dud), jumps under the shelf twice (two cheezies and two head
+/// bumps), takes the pogo, bounces low and then high onto the shelf, bounces along it past a cheezie, a chocolate and a cookie
+/// to the blue key, and drops off its left end into the blue door, which opens and leads to the exit.
 pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     // Stand still, fire straight up, then level into the wall, and wait for both shots to end.
     (30, IDLE),

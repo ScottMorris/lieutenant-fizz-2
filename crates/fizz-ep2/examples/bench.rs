@@ -5,7 +5,7 @@
 //
 // usage: cargo run --release -p fizz-ep2 --example bench [repetitions]
 //
-// Each repetition plays the whole slice script (1,268 ticks) from a fresh level, stepping only: no transcript, no hashing and
+// Each repetition plays the whole slice script (1,681 ticks) from a fresh level, stepping only: no transcript, no hashing and
 // no drawing, so the figure is the rules' cost. The default is 200 repetitions. Wall-clock time depends on the host and is an
 // extra; the comparable figure is instructions per tick, which does not:
 //
@@ -13,7 +13,7 @@
 //   valgrind --tool=callgrind --callgrind-out-file=/dev/null --toggle-collect='fizz_ep2::world::step' \
 //       target/release/examples/bench 1
 //
-// divides the "Collected" count by 1,268 (`bench 1` is one repetition). Without `--toggle-collect` the count includes the level
+// divides the "Collected" count by 1,681 (`bench 1` is one repetition). Without `--toggle-collect` the count includes the level
 // build. The DOS build's cost is measured by `FIZZ2.EXE /BENCH`; see docs/PLATFORM.md for how the two relate.
 use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, level, step};
 use fizz_sim::{Buttons, InputFrame};

@@ -4,7 +4,7 @@ This manual is updated with every change a player can see or do, in the same pul
 
 ## What this is
 
-Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Paused and Options screens on the Web and on DOS; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
+Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken, a snack nook with a blue key and door, and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Paused and Options screens on the Web and on DOS; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
 
 ## Running it
 
@@ -75,7 +75,7 @@ On the Web, press `F` or use the Fullscreen row of the Options screen to fill th
 Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
 
 - `/LIVE` — you play the slice. Esc opens the pause menu (Resume, Options, Quit to DOS). The run ends when you choose Quit to DOS, or by itself after 30 seconds of real time (time spent in the menu counts), and then prints the final tick, the hash, and whether Ben moved from where he started.
-- `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
+- `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 28 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door, plays in the snack nook (snacks, a head bump, the pogo, the empty blaster, the blue key and door) and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
 - `/BENCH` — times your computer. It plays the same built-in run as fast as it can, with no waiting, and then prints how many microseconds each picture took for the game's rules, the drawing and the copy to the screen, next to the 16,667 microseconds that one tick at 60 a second allows. If the drawing figure is much larger than that, the game will run slower than 60 pictures a second on your machine. It also prints a line that times a short fixed loop of simple steps, which shows how fast your computer ran the test. It does not wait between pictures, so it is usually over sooner than `/REPLAY`, and it ends with `EXIT yes` when Ben got out. Add a number, as in `/BENCH 120`, to time only that many pictures from the start of the run; it is quicker, and it does not reach the exit.
 - `/PROBE` — looks at your computer and tells you what it found, without playing or drawing anything and without waiting for a key. It prints one line each for your screen (`vga`, `ega`, `cga` or a monochrome adapter), whether a mouse and a joystick are connected, what kind of music chip you have (`none`, `opl2`, `dualopl2` or `opl3`), your Sound Blaster (`none`, or its version and port), the `BLASTER` setting, whether you have a maths chip, your processor (`386`, `486` or `586` for a Pentium or later) and how much memory is free. It also prints a code for the start-up screen the game will show for your computer and how much memory the program holds, and ends with `EXIT yes`. Use it to see how the game sees your computer; the sound uses these results, and `/CHECK` shows them on a start-up screen.
 - `/CHECK` — shows a start-up check screen in text mode: what your computer has (screen, keyboard, mouse, joystick, sound, processor, maths chip, memory) and which sound the game would use. It only shows; there is nothing to change on it. Press Enter to go on and play (it then runs as `/LIVE`), or Esc to quit. Enter does nothing while the screen says something the game needs is missing (a VGA display or a maths chip). Each sound line is in one of three states: dim when that device is not on your computer, normal when it is there but not used, and bright (a white-on-blue bar in colour, an inverse bar on a monochrome screen) when the game will use it. It waits for a key, so use `/PROBE` or `/CHECKCELLS` in scripts.
@@ -148,7 +148,7 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins. A choice saved in `FIZZ2.CFG` (the file the sound choices use) is used when no option is given, and an option wins over the file. An option never changes the file.
 
-`/LIVE` and `/REPLAY` end with a line such as `FRAMES 635 TICKS 1268 RATE 30 MODE 30`: how many pictures were drawn, how many steps were taken, the rate in use at the end and the mode (`auto`, `30` or `60`). At 30 the first number is about half the second. `/BENCH` does not use the frame rate: it draws every step and times it.
+`/LIVE` and `/REPLAY` end with a line such as `FRAMES 841 TICKS 1681 RATE 30 MODE 30`: how many pictures were drawn, how many steps were taken, the rate in use at the end and the mode (`auto`, `30` or `60`). At 30 the first number is about half the second. `/BENCH` does not use the frame rate: it draws every step and times it.
 
 ### Hearing the cluck on DOS
 
@@ -212,9 +212,9 @@ The small box in the top-left corner is the HUD, in Fizz 1's own letters. `Fizz`
 
 ### The level on DOS
 
-You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands. Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
+You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands behind a blue door; the gallery's right end is a snack nook (see [The snack nook](#the-snack-nook)). Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
 
-Tiles are told apart by colour: dark blue is the wall behind the rooms, dark grey and light grey are solid blocks you cannot pass, bright green is a one-way platform, bright red is spikes, brown is the red door and yellow is the exit.
+Tiles are told apart by colour: dark blue is the wall behind the rooms, dark grey and light grey are solid blocks you cannot pass, bright green is a one-way platform, bright red is spikes, brown is the red door and the blue door (each has its own colour of gumdrop and door picture) and yellow is the exit. Snacks and keys are small pictures that bob in place.
 
 ### Moves
 
@@ -235,6 +235,18 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 ### The red key and the door
 
 Walk onto the red key to pick it up; the key chip in the HUD fills in. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
+
+### The snack nook
+
+The gallery at the top is also a small playground, where the things Ben can do each have a place to happen. The exit is behind a blue door under a ceiling of blocks, so you have to go through the nook to reach it. Walk onto the gallery's right end and you will see a shelf of grey blocks four tiles up, with snacks on top of it and two cheezies hanging underneath.
+
+- **Snacks.** Cheezies are worth 1 point, a chocolate bar 2 and a cookie 5 (Fizz 1's points). Walking into one takes it. The score is worked out in the rules but not drawn yet. If you die, the snacks come back.
+- **Bumping your head.** Jump straight up under the shelf. You take the cheezie, and your head hits the shelf, which counts as a head bump (it happens once for each jump).
+- **Bouncing.** The shelf is too high to jump onto. Get on the pogo stick next to the right-hand wall, bounce a couple of times, then hold Jump as you land for the high bounce and steer left at the top: you land on the shelf and keep bouncing along it, collecting the cheezie, the chocolate bar, the cookie and the blue key at the left end.
+- **The blue door.** Drop off the left end of the shelf facing the blue door with the blue key. The door opens and the key is used up, just like the red one. The way to the exit is through it.
+- **An empty blaster.** You start with five Fizz shots. After the fifth, pressing Fizz again does nothing but make the "no Fizz" click that Fizz 1 has.
+
+The Web page and the DOS build show all of these as pictures and, for the cluck, as before; the other sounds and their captions are still to come, so the snack, the bump, the bounce and the click are silent so far. The key chip in the HUD is the red key's only; the blue key has no chip.
 
 ### The chicken
 
