@@ -111,7 +111,7 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 
 ### Catalogued
 - #29, #31, #32, #34, #38, #39, #42 and #44 are merged into `main`; the last of them, #44, landed on `{{pr44.merge}}` with CI {{pr44.ci}}.
-- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, three `cluck` and three `shotend` `EVENT` lines) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
+- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, three `cluck`, three `shotend` and 31 other `EVENT` lines) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
 - Both screens call `fizz_slice_view::draw_slice`; frame digests at nine ticks of the replay, and for the puff, the stars and the death frame, are pinned in its tests, and `/BENCH` compares eleven `BENCH FRAME` digests from DOS with the host's.
 - The chicken's `EVENT` lines are the evidence that a cluck happens at the same tick and with the same variant on all three platforms.
 - DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` of 419, 440 and 836 for the golden replay's three clucks, and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
@@ -263,7 +263,7 @@ id: slice-transcript
 kind: transcript
 track: dos
 title: FIZZ2.EXE /REPLAY output
-alt: Terminal output of FIZZ2.EXE /REPLAY: the SLICE REPLAY 1 line, TICK lines every 60 ticks, three cluck and three shotend EVENT lines, the FINAL line and the EXIT, FPU, BIOS, SOUND, AUDIO and VECTORS lines.
+alt: Terminal output of FIZZ2.EXE /REPLAY: the SLICE REPLAY 1 line, TICK lines every 60 ticks, three cluck, three shotend and 31 other EVENT lines, the FINAL line and the EXIT, FPU, BIOS, SOUND, AUDIO and VECTORS lines.
 caption: The transcript of the grabbed DOSBox run, line for line.
 at: figure dos-transcript
 thumb: term

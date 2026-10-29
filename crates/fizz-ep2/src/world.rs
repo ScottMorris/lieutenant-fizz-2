@@ -37,6 +37,35 @@ pub enum Event {
     /// logical pixels, y up from the map's bottom), rounded down. A respawn that clears the shots emits nothing. The slice
     /// has no enemy shots, so the event carries no owner.
     ShotEnd { x: i32, y: i32 },
+    /// A shot left the Fizz Blaster (Fizz 1's "fzzt"). `x` and `y` are where Fizz 1 puts the caption: the shot's start, half
+    /// a tile up. Positions of every event below are in sixteenths of a tile, y up, rounded down, like `ShotEnd`.
+    Fire { x: i32, y: i32 },
+    /// Fire was pressed with no ammo (Fizz 1's "click, no fizz").
+    Dud { x: i32, y: i32 },
+    /// Ben stomped an unstunned chicken (Fizz 1's "bonk"). `chicken` indexes [`World::chickens`]. Raised above the chicken.
+    Stomp { chicken: u8, x: i32, y: i32 },
+    /// A shot stunned an unstunned chicken (Fizz 1's "fizzled"). The shot also ends, so a [`Event::ShotEnd`] follows it.
+    Stun { chicken: u8, x: i32, y: i32 },
+    /// Ben died (Fizz 1's "whoa!"), at the point Fizz 1 raises it, 1.6 tiles above his feet.
+    Death { x: i32, y: i32 },
+    /// Ben picked up a key (Fizz 1's gumdrops). `colour` is Fizz 1's key order: 0 red, 1 blue, 2 green; the slice has only
+    /// the red one.
+    Key { colour: u8, x: i32, y: i32 },
+    /// A door opened with the matching key (Fizz 1's "clunk"), above the door's tile.
+    DoorOpen { x: i32, y: i32 },
+    /// Ben touched the exit (Fizz 1's "ta-da!"). Raised once; the world freezes Ben afterwards.
+    Exit { x: i32, y: i32 },
+    /// The pogo bounced off the ground (Fizz 1's "boing").
+    Bounce { x: i32, y: i32 },
+    /// Ben's head hit a ceiling on a rise that counts, once per rise (Fizz 1's "clunk").
+    HeadBump { x: i32, y: i32 },
+    /// A ground jump started (Fizz 1's jump sound, which has no caption).
+    Jump { x: i32, y: i32 },
+}
+
+/// A point in tiles as an event position: sixteenths of a tile, rounded down.
+fn sixteenths((x, y): (f64, f64)) -> (i32, i32) {
+    ((x * 16.0).floor() as i32, (y * 16.0).floor() as i32)
 }
 
 /// What a presenter needs to draw a chicken and its cluck: where it is, which way it faces, and how far into its last
@@ -93,7 +122,8 @@ pub struct World {
     pub deaths: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
-    /// What the last [`step`](World::step) emitted: clucks in chicken order, then shot ends from the last shot to the first.
+    /// What the last [`step`](World::step) emitted: Ben's own events and his contacts first, then clucks in chicken order,
+    /// then the shots from the last to the first (a stun, then its shot end).
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
@@ -198,8 +228,30 @@ impl World {
         if !dead && self.flags.contains(WorldFlags::EXIT_REACHED) {
             return;
         }
-        self.ben
+        let f = self
+            .ben
             .tick(&self.map, &[], input, &mut self.ammo, &mut self.shots);
+        // Fizz 1's order inside `tick_ben_move`: the jump or bounce, the shot, then the head bump.
+        if let Some(p) = f.bounced {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Bounce { x, y });
+        }
+        if let Some(p) = f.jumped {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Jump { x, y });
+        }
+        if let Some(p) = f.fired {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Fire { x, y });
+        }
+        if let Some(p) = f.dud {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Dud { x, y });
+        }
+        if let Some(p) = f.bumped {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::HeadBump { x, y });
+        }
         if !dead {
             self.tick_ben_contacts();
         }
@@ -207,7 +259,12 @@ impl World {
 
     /// Kills Ben unless he is already dead.
     fn kill(&mut self) {
+        if self.ben.dead > 0.0 {
+            return;
+        }
         self.ben.kill();
+        let (x, y) = sixteenths((self.ben.b.x, self.ben.b.y + 1.6));
+        self.events.push(Event::Death { x, y });
     }
 
     /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the red door, the red key, then the chickens.
@@ -232,6 +289,8 @@ impl World {
                 }
                 if t == EXIT && !self.flags.contains(WorldFlags::EXIT_REACHED) {
                     self.flags.set(WorldFlags::EXIT_REACHED);
+                    let (x, y) = sixteenths((px, py + 2.0));
+                    self.events.push(Event::Exit { x, y });
                     return;
                 }
             }
@@ -248,6 +307,8 @@ impl World {
                 self.map.set_switch(DOOR_RED_CHANNEL, false);
                 self.flags.clear(WorldFlags::KEY_RED);
                 self.flags.set(WorldFlags::DOOR_RED_OPEN);
+                let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
+                self.events.push(Event::DoorOpen { x, y });
             }
         }
         if die {
@@ -260,6 +321,8 @@ impl World {
             && self.ben.b.overlaps(kx - 0.4, ky - 0.4, 0.8, 0.8)
         {
             self.flags.set(WorldFlags::KEY_RED);
+            let (x, y) = sixteenths((kx, ky + 0.6));
+            self.events.push(Event::Key { colour: 0, x, y });
         }
 
         for i in 0..self.chickens.len() {
@@ -280,6 +343,12 @@ impl World {
             if stomp {
                 self.chickens[i].stun = STOMP_STUN;
                 self.ben.b.vy = if self.ben.pogo { 20.0 } else { 12.0 };
+                let (x, y) = sixteenths((b.x + b.w / 2.0, b.y + b.h + 0.4));
+                self.events.push(Event::Stomp {
+                    chicken: i as u8,
+                    x,
+                    y,
+                });
                 continue;
             }
             if self.ben.inv <= 0.0 {
@@ -323,6 +392,12 @@ impl World {
                         }
                         gone = true;
                         self.chickens[j].stun = SHOT_STUN;
+                        let (x, y) = sixteenths((ex + ew / 2.0, ey + eh + 0.4));
+                        self.events.push(Event::Stun {
+                            chicken: j as u8,
+                            x,
+                            y,
+                        });
                         break;
                     }
                 }
@@ -437,6 +512,7 @@ mod tests {
     use super::*;
     use crate::tiles;
     use fizz_phys::TileMap;
+    use fizz_sim::Buttons;
 
     extern crate std;
     use std::vec::Vec;
@@ -743,7 +819,7 @@ mod tests {
             .iter()
             .filter_map(|e| match *e {
                 Event::ShotEnd { x, y } => Some((x, y)),
-                Event::Cluck { .. } => None,
+                _ => None,
             })
             .collect()
     }
@@ -892,5 +968,223 @@ mod tests {
             more.iter().any(|&t| t != timers[0]),
             "ids give different streams"
         );
+    }
+
+    /// An empty arena with a solid floor under row 1 and, when `ceiling` is set, a solid ceiling at row 6, Ben at rest on
+    /// the floor and no chickens, so only Ben's own events can happen.
+    fn arena(ceiling: Option<i32>) -> World {
+        let mut map = TileMap::new(24, 14, tiles::props());
+        for x in 0..24 {
+            map.set(x, 0, tiles::BLOCK);
+            map.set(x, 1, tiles::BLOCK);
+            if let Some(row) = ceiling {
+                map.set(x, row, tiles::BLOCK);
+            }
+        }
+        let mut w = World::new(map, (10.0, 2.0));
+        for _ in 0..5 {
+            w.step(idle());
+        }
+        w
+    }
+
+    fn press(w: &mut World, prev: Buttons, held: Buttons) {
+        w.step(InputFrame::from_transition(prev, held));
+    }
+
+    fn kinds(w: &World) -> Vec<Event> {
+        w.events().to_vec()
+    }
+
+    #[test]
+    fn firing_raises_fire_and_an_empty_blaster_raises_dud() {
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::FIRE);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Fire { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        assert_eq!(w.ammo, START_AMMO - 1);
+        let Event::Fire { x, y } = w.events()[0] else {
+            panic!()
+        };
+        // Fizz 1: the shot starts 0.6 ahead of Ben's middle, 0.85 up, and the caption half a tile above that.
+        assert_eq!(
+            x,
+            ((w.ben.b.x + w.ben.b.w / 2.0 + 0.6) * 16.0).floor() as i32
+        );
+        assert_eq!(y, ((2.0 + 0.85 + 0.5) * 16.0).floor() as i32);
+
+        let mut w = arena(None);
+        w.ammo = 0;
+        press(&mut w, Buttons::NONE, Buttons::FIRE);
+        let Event::Dud { x, y } = w.events()[0] else {
+            panic!("a dud: {:?}", kinds(&w))
+        };
+        assert_eq!(w.events().len(), 1, "no Fire without ammo");
+        assert!(w.shots.is_empty());
+        assert_eq!(x, ((10.0 + 0.35) * 16.0).floor() as i32);
+        assert_eq!(y, ((2.0 + 1.6) * 16.0).floor() as i32);
+    }
+
+    #[test]
+    fn a_ground_jump_raises_jump_once_and_the_pogo_raises_bounce_instead() {
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Jump { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        let Event::Jump { x, y } = w.events()[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (160, 32));
+        for _ in 0..3 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            assert!(w.events().is_empty(), "airborne: {:?}", kinds(&w));
+        }
+
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::POGO);
+        let ev = kinds(&w);
+        assert!(matches!(ev[..], [Event::Bounce { .. }]), "{ev:?}");
+        let Event::Bounce { x, y } = ev[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (((10.0 + 0.35) * 16.0) as i32, 32));
+        // Each landing bounces again, and no jump sound goes with it.
+        let mut bounces = 0;
+        for _ in 0..120 {
+            press(&mut w, Buttons::POGO, Buttons::POGO);
+            for e in w.events() {
+                assert!(!matches!(e, Event::Jump { .. }));
+                bounces += usize::from(matches!(e, Event::Bounce { .. }));
+            }
+        }
+        assert!(bounces >= 2, "{bounces}");
+    }
+
+    #[test]
+    fn a_head_bump_is_raised_once_per_rise_under_a_ceiling() {
+        // Floor top at row 2; ceiling tile at row 6 leaves a 4-tile gap, which a 20.5 tiles/s jump (about 3.4 tiles) crosses
+        // only by Ben's 1.4 tile body: his head meets the ceiling.
+        let mut w = arena(Some(5));
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        let mut bumps = Vec::new();
+        for _ in 0..80 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            for e in w.events() {
+                if let Event::HeadBump { x, y } = *e {
+                    bumps.push((w.tick.0, x, y));
+                }
+            }
+        }
+        assert_eq!(bumps.len(), 1, "{bumps:?}");
+        let (_, x, y) = bumps[0];
+        assert_eq!(x, ((10.0 + w.ben.b.w / 2.0) * 16.0).floor() as i32);
+        assert!((16 * 5 - 24..=16 * 5).contains(&y), "head height {y}");
+        // Without a ceiling the same jump never bumps.
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        for _ in 0..80 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            assert!(
+                !w.events()
+                    .iter()
+                    .any(|e| matches!(e, Event::HeadBump { .. }))
+            );
+        }
+    }
+
+    #[test]
+    fn contacts_raise_death_key_door_exit_stomp_and_stun() {
+        // Death: a spike under Ben kills him once, 1.6 tiles above his feet.
+        let mut w = arena(None);
+        w.map.set(10, 2, tiles::SPIKE);
+        w.step(idle());
+        let ev = kinds(&w);
+        assert!(matches!(ev[..], [Event::Death { .. }]), "{ev:?}");
+        let Event::Death { x, y } = ev[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (160, ((w.ben.b.y + 1.6) * 16.0).floor() as i32));
+        w.step(idle());
+        assert!(w.events().is_empty(), "dying is raised once");
+
+        // Exit: raised once, then the world freezes Ben.
+        let mut w = arena(None);
+        w.map.set(10, 2, tiles::EXIT);
+        w.step(idle());
+        assert!(
+            matches!(kinds(&w)[..], [Event::Exit { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        w.step(idle());
+        assert!(w.events().is_empty());
+
+        // Key: red, at the key's centre and 0.6 up.
+        let mut w = arena(None);
+        w.set_key(10.4, 2.7);
+        w.step(idle());
+        assert_eq!(
+            kinds(&w),
+            [Event::Key {
+                colour: 0,
+                x: (10.4f64 * 16.0).floor() as i32,
+                y: (3.3f64 * 16.0).floor() as i32
+            }]
+        );
+
+        // Stun: a shot in a chicken raises Stun before its ShotEnd.
+        let mut w = quiet();
+        w.chickens[0].cluck_timer = 100_000;
+        let (cx, cy) = (w.chickens[0].b.x + 0.5, w.chickens[0].b.y + 0.5);
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 5.0,
+        });
+        w.step(idle());
+        let ev = kinds(&w);
+        assert!(
+            matches!(
+                ev[..],
+                [Event::Stun { chicken: 0, .. }, Event::ShotEnd { .. }]
+            ),
+            "{ev:?}"
+        );
+        // A second shot through the stunned chicken stuns nothing.
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.05,
+        });
+        w.step(idle());
+        assert!(!kinds(&w).iter().any(|e| matches!(e, Event::Stun { .. })));
+    }
+
+    #[test]
+    fn events_do_not_move_the_hash() {
+        // The same inputs with the event list ignored give the same hash whether or not anyone reads the events.
+        let (mut a, mut b) = (arena(Some(5)), arena(Some(5)));
+        for t in 0..90 {
+            let held = if t % 20 < 10 {
+                Buttons::JUMP | Buttons::FIRE
+            } else {
+                Buttons::FIRE
+            };
+            let f = InputFrame::from_transition(Buttons::NONE, held);
+            a.step(f);
+            b.events.clear();
+            b.step(f);
+            assert_eq!(hash(&a).finish(), hash(&b).finish());
+        }
     }
 }

@@ -61,6 +61,23 @@ fn snap(v: f64) -> f64 {
     if v.abs() < SNAP { 0.0 } else { v }
 }
 
+/// What Ben's own tick did that the rules may want to announce. Ben does not raise events himself: [`World`](crate::World)
+/// turns these into [`Event`](crate::Event)s. Each field is `None` or the point, in tiles, where Fizz 1 puts the matching
+/// caption (y up), taken at the moment Fizz 1 takes it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct BenFlags {
+    /// A ground jump started (Fizz 1's `Cap::Jump`): Ben's position before the move.
+    pub jumped: Option<(f64, f64)>,
+    /// The pogo bounced off the ground (`Cap::Boing`): his position before the move, plus 0.35 in x.
+    pub bounced: Option<(f64, f64)>,
+    /// His head hit a ceiling on a rise that counts (`Cap::Clunk`): the top of his head, after the move.
+    pub bumped: Option<(f64, f64)>,
+    /// A shot left the Fizz Blaster (`Cap::Fzzt`): where the shot starts, half a tile up.
+    pub fired: Option<(f64, f64)>,
+    /// Fire was pressed with no ammo (`Cap::NoFizz`).
+    pub dud: Option<(f64, f64)>,
+}
+
 /// Ben: the body and the state that drives his movement. Fields keep Fizz 1's `Player` names.
 ///
 /// Mantle is out of scope. Fizz 1 starts a mantle automatically when Ben, airborne and not on the pogo, runs into a wall
@@ -140,7 +157,7 @@ impl Ben {
     }
 
     /// Advances Ben by one tick (Fizz 1's `tick_ben`, alive and dead branches). A shot Ben fires is pushed onto `shots`
-    /// and costs one of `ammo`.
+    /// and costs one of `ammo`. Returns what happened, for the rules to announce.
     pub fn tick(
         &mut self,
         map: &TileMap,
@@ -148,7 +165,7 @@ impl Ben {
         input: InputFrame,
         ammo: &mut u32,
         shots: &mut Vec<Shot>,
-    ) {
+    ) -> BenFlags {
         let dt = STEP;
         self.b.px = self.b.x;
         self.b.py = self.b.y;
@@ -157,7 +174,7 @@ impl Ben {
             self.b.vy -= 30.0 * dt;
             self.b.x += self.b.vx * dt;
             self.b.y += self.b.vy * dt;
-            return;
+            return BenFlags::default();
         }
         if self.inv > 0.0 {
             self.inv -= dt;
@@ -168,7 +185,7 @@ impl Ben {
         if self.wall_t > 0.0 {
             self.wall_t -= dt;
         }
-        self.tick_move(map, plats, input, ammo, shots, dt);
+        self.tick_move(map, plats, input, ammo, shots, dt)
     }
 
     /// Kills Ben as Fizz 1's `kill_by` does, minus the shake and the sound.
@@ -191,7 +208,8 @@ impl Ben {
         ammo: &mut u32,
         shots: &mut Vec<Shot>,
         dt: f64,
-    ) {
+    ) -> BenFlags {
+        let mut flags = BenFlags::default();
         let (h, e) = (input.held, input.pressed);
         if e.contains(Buttons::POGO) {
             self.pogo = !self.pogo;
@@ -252,7 +270,9 @@ impl Ben {
                 };
                 self.b.on_ground = false;
                 self.squash = 0.12;
+                flags.bounced = Some((self.b.x + 0.35, self.b.y));
             } else if e.contains(Buttons::JUMP) {
+                flags.jumped = Some((self.b.x, self.b.y));
                 self.b.vy = 20.5;
                 self.cut = true;
                 self.b.on_ground = false;
@@ -273,7 +293,11 @@ impl Ben {
             self.b.vy = (self.b.vy - GRAVITY * dt).max(-22.0);
         }
         if e.contains(Buttons::FIRE) {
-            self.fire(h, ammo, shots);
+            if let Some(at) = self.fire(h, ammo, shots) {
+                flags.fired = Some(at);
+            } else {
+                flags.dud = Some((self.b.x + 0.35, self.b.y + 1.6));
+            }
         }
         let rising = self.b.vy;
         // Only a rising pogo has the taller head: walking, falling and standing use the body alone.
@@ -287,14 +311,16 @@ impl Ben {
         if self.b.bonk && self.pogo {
             self.b.vy = 0.0;
         }
-        self.tick_head_bump(rising);
+        flags.bumped = self.tick_head_bump(rising);
         // Fizz 1's `tick_mantle` would start a mantle here; it is out of scope.
         self.b.vx = snap(self.b.vx);
         self.b.vy = snap(self.b.vy);
+        flags
     }
 
-    /// Tracks the rise so a ceiling bump counts once per rise (Fizz 1's `tick_head_bump`, without the sound).
-    fn tick_head_bump(&mut self, rising: f64) {
+    /// Tracks the rise so a ceiling bump counts once per rise (Fizz 1's `tick_head_bump`). Returns where the
+    /// bump happened when this tick is one.
+    fn tick_head_bump(&mut self, rising: f64) -> Option<(f64, f64)> {
         if self.b.vy <= 0.0 && !self.b.bonk {
             self.bumped = false;
         }
@@ -306,16 +332,18 @@ impl Ben {
             || !self.b.bonk
             || self.b.y - self.rise_y < HEAD_BUMP_MIN_RISE
         {
-            return;
+            return None;
         }
         self.bumped = true;
+        Some((self.b.x + self.b.w / 2.0, self.b.y + self.b.h))
     }
 
     /// Fires the Fizz Blaster (Fizz 1's `fire`). With no ammo nothing happens. Up fires straight up; Down fires straight
-    /// down while Ben is in the air; otherwise the shot leaves from the front of his body, level.
-    fn fire(&mut self, h: Buttons, ammo: &mut u32, shots: &mut Vec<Shot>) {
+    /// down while Ben is in the air; otherwise the shot leaves from the front of his body, level. Returns where Fizz 1
+    /// puts the shot's caption, or `None` when there was no ammo.
+    fn fire(&mut self, h: Buttons, ammo: &mut u32, shots: &mut Vec<Shot>) -> Option<(f64, f64)> {
         if *ammo == 0 {
-            return;
+            return None;
         }
         *ammo -= 1;
         let b = &self.b;
@@ -338,6 +366,7 @@ impl Ben {
             life: SHOT_LIFE,
         });
         self.shoot_t = SHOOT_POSE;
+        Some((sx, sy + 0.5))
     }
 }
 

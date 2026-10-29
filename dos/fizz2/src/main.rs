@@ -179,8 +179,19 @@ fn play_events(world: &World, options: &DrawOptions) {
                 };
                 audio::cluck(variant, &place);
             }
-            // The puff is drawn, not heard; the shot sound comes with the other effects in a later milestone.
-            Event::ShotEnd { .. } => {}
+            // The puff is drawn, not heard. The rest have no sound yet; they are listed so a new event cannot slip by unheard.
+            Event::ShotEnd { .. }
+            | Event::Fire { .. }
+            | Event::Dud { .. }
+            | Event::Stomp { .. }
+            | Event::Stun { .. }
+            | Event::Death { .. }
+            | Event::Key { .. }
+            | Event::DoorOpen { .. }
+            | Event::Exit { .. }
+            | Event::Bounce { .. }
+            | Event::HeadBump { .. }
+            | Event::Jump { .. } => {}
         }
     }
 }

@@ -10,8 +10,11 @@
 //! The shape mirrors `fizz_hello::replay` so a presenter swaps one for the other: [`replay`] writes transcript v1, whose
 //! header is `SLICE REPLAY 1`, then `TICK <n> HASH <digest>` at tick 0 and every 60th tick, then
 //! `FINAL TICK <n> HASH <digest>`. Between them sit `EVENT <n> cluck <variant> <chicken>` lines, one per
-//! [`Event::Cluck`] the rules emitted on tick `n`, and `EVENT <n> shotend <x> <y>` lines, one per [`Event::ShotEnd`]; `<chicken>` is the
-//! chicken's index in the world's list, `<x>` and `<y>` are where the shot was, in sixteenths of a tile, as integers. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
+//! [`Event::Cluck`] the rules emitted on tick `n`, and one line for every other [`Event`], all with `<x> <y>` in sixteenths
+//! of a tile as integers (y up): `shotend <x> <y>`, `fire <x> <y>`, `dud <x> <y>`, `stomp <chicken> <x> <y>`,
+//! `stun <chicken> <x> <y>`, `death <x> <y>`, `key <colour> <x> <y>` (0 red, 1 blue, 2 green), `dooropen <x> <y>`,
+//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>` and `jump <x> <y>`. `<chicken>` is the chicken's index in the
+//! world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
 //! kind is why the gates compare `EVENT` lines too. The header stays `1` because no existing line changed its shape.
@@ -177,6 +180,23 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
                 writeln!(out, "EVENT {} cluck {variant} {chicken}", w.tick.0)?
             }
             Event::ShotEnd { x, y } => writeln!(out, "EVENT {} shotend {x} {y}", w.tick.0)?,
+            Event::Fire { x, y } => writeln!(out, "EVENT {} fire {x} {y}", w.tick.0)?,
+            Event::Dud { x, y } => writeln!(out, "EVENT {} dud {x} {y}", w.tick.0)?,
+            Event::Stomp { chicken, x, y } => {
+                writeln!(out, "EVENT {} stomp {chicken} {x} {y}", w.tick.0)?
+            }
+            Event::Stun { chicken, x, y } => {
+                writeln!(out, "EVENT {} stun {chicken} {x} {y}", w.tick.0)?
+            }
+            Event::Death { x, y } => writeln!(out, "EVENT {} death {x} {y}", w.tick.0)?,
+            Event::Key { colour, x, y } => {
+                writeln!(out, "EVENT {} key {colour} {x} {y}", w.tick.0)?
+            }
+            Event::DoorOpen { x, y } => writeln!(out, "EVENT {} dooropen {x} {y}", w.tick.0)?,
+            Event::Exit { x, y } => writeln!(out, "EVENT {} exit {x} {y}", w.tick.0)?,
+            Event::Bounce { x, y } => writeln!(out, "EVENT {} bounce {x} {y}", w.tick.0)?,
+            Event::HeadBump { x, y } => writeln!(out, "EVENT {} headbump {x} {y}", w.tick.0)?,
+            Event::Jump { x, y } => writeln!(out, "EVENT {} jump {x} {y}", w.tick.0)?,
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -332,6 +352,23 @@ mod tests {
             t.ends_with("FINAL TICK 1268 HASH 0edebb797e63edff\n"),
             "{t}"
         );
+    }
+
+    #[test]
+    fn every_tick_and_final_line_is_unchanged_by_the_events() {
+        // The event list was grown after the first golden file: the non-EVENT lines (header, TICK and FINAL) must stay as
+        // they were, so adding events can never be the cause of a hash moving. The digest is FNV-1a 64 over those lines.
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut lines = 0;
+        for l in transcript().lines().filter(|l| !l.starts_with("EVENT ")) {
+            for &b in l.as_bytes().iter().chain(b"\n") {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            lines += 1;
+        }
+        assert_eq!(lines, 24);
+        assert_eq!(h, 0xd5b3_75fa_7de0_a2bc);
     }
 
     #[test]

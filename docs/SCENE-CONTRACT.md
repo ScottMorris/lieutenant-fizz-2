@@ -71,6 +71,10 @@ pub struct Scene<'a> {
 
 The lighthouse beam becomes one node: a `Cone` with a gradient fill, additive blend and a rotation driven by the same `lighthouse_sweep` function. The twenty-odd rectangles disappear from the core.
 
+## Semantic events
+
+Sound and captions follow the same rule as the scene: the core says what happened and never how it is shown. `fizz_ep2::Event` is the slice's version of that. The rules emit `Fire`, `Dud`, `Stomp`, `Stun`, `Death`, `Key`, `DoorOpen`, `Exit`, `Bounce`, `HeadBump` and `Jump` (and the older `Cluck` and `ShotEnd`), each with a position in sixteenths of a tile, and every presenter picks its own sound, caption and stereo placement. Events are output only and not hashed. The parity transcript prints them as `EVENT` lines, so all platforms agree on when each fired. A richer scene would carry them beside the nodes.
+
 ## Backend responsibilities
 
 | Presenter | Responsibility |
