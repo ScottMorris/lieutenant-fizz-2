@@ -40,6 +40,10 @@ name = "fizz-music"
 version = "0.1.0"
 
 [[package]]
+name = "fizz-pack"
+version = "0.1.0"
+
+[[package]]
 name = "fizz-phys"
 version = "0.1.0"
 dependencies = [
@@ -90,6 +94,7 @@ dependencies = [
  "fizz-machine",
  "fizz-menu",
  "fizz-music",
+ "fizz-pack",
  "fizz-present-dos",
  "fizz-sim",
 ]
