@@ -57,7 +57,8 @@ CLOCK = """
 # ("death", n), n ticks after the HUD first reads DEATHS 1. Kind "ledge" plays the first n ticks of SLICE_SCRIPT, which leave Ben
 # standing on the first ledge, then presses buttons as "hold" does, counted from that tick: (n, spans, ticks to play). Kind "menu" plays
 # n ticks with nothing held, then presses the page keys in the list one after another ("Escape" opens Paused, then "ArrowDown" and "Enter"
-# open Options); kind "panel" plays n ticks and presses H to show the panel.
+# open Options); kind "panel" plays n ticks and presses H to show the panel; kind "effects" does the same and then lists every entry of the
+# "Hear an effect" picker at once, since headless Chromium does not draw a drop-down open.
 SCENES = [
     ("web-start.png", 960, 540, "hold", ([], 40)),
     ("web-portrait.png", 390, 780, "hold", ([], 40)),
@@ -67,6 +68,9 @@ SCENES = [
     ("web-puff.png", 960, 540, "replay", 108),
     ("web-cluck.png", 960, 540, "replay", 201),
     ("web-stars.png", 960, 540, "replay", 300),
+    ("web-nook.png", 1280, 720, "replay", 1195),
+    ("web-nook-boing.png", 1280, 720, "replay", 1354),
+    ("web-effects.png", 1280, 720, "effects", 40),
     ("web-paused.png", 960, 540, "menu", (60, ["Escape"])),
     ("web-options.png", 960, 540, "menu", (60, ["Escape", "ArrowDown", "Enter"])),
 ]
@@ -277,13 +281,17 @@ def main(argv):
                 spans, until = arg
                 for t in range(until):
                     p.step("".join(b for a, z, b in spans if a <= t < z))
-            elif kind in ("menu", "panel"):
-                for _ in range(arg if kind == "panel" else arg[0]):
+            elif kind in ("menu", "panel", "effects"):
+                for _ in range(arg if kind != "menu" else arg[0]):
                     p.step("")
-                for code in ["KeyH"] if kind == "panel" else arg[1]:
+                for code in ["KeyH"] if kind != "menu" else arg[1]:
                     p.press(code)
                     if kind == "menu":
                         p.frame()  # the game is held, so the frame draws the screen and runs no tick
+                if kind == "effects":
+                    # The page's list is a drop-down, which headless Chromium does not draw open; the capture lists all fifteen
+                    # entries at once (the select's size attribute) and chooses effect 14, crunch, without playing it.
+                    p.js("(() => { const s = document.getElementById('effect-picker'); s.size = s.options.length; s.selectedIndex = 14; })()")
             elif kind == "ledge":
                 lead, spans, until = arg
                 for held in per_tick[:lead]:

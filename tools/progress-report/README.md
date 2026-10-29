@@ -80,6 +80,7 @@ The page ends with "What is checked", built from `manual-evidence.json`: for eac
 tools/check-dos.sh && tools/build-web.sh                     # build dist/dos and dist/web first
 python3 tools/progress-report/capture.py                     # needs xvfb-run, xdotool, ImageMagick, Chromium; optipng if installed
 python3 tools/progress-report/capture.py --manual            # the manual's screenshots instead: docs/img (DOS) and docs/images (Web)
+python3 tools/progress-report/capture.py --keep DIR          # leave the raw grabs in DIR, to choose replay grabs by eye; --reuse DIR makes media/ from them
 ```
 
 `capture-dos.sh` runs `FIZZ2.EXE /REPLAY` and `/LIVE` through `tools/dosrun.sh` with `DOS_X11=1` under `xvfb-run`, types keys with DOSBox's AUTOTYPE, and grabs DOSBox's window with ImageMagick's `import`. `capture-web.py` serves `dist/web`, starts headless Chromium with a debugging port, sends real key events through the DevTools protocol and saves `Page.captureScreenshot`. `capture.py` reduces each grab to a 32-colour PNG in `media/` and writes `media/captures.json` with what each shows, its source, the command, the commit and the date. Keep `media/` under 1 MB.

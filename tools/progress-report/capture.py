@@ -4,7 +4,7 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: python3 tools/progress-report/capture.py [--manual]      (after tools/build-dos.sh and tools/build-web.sh)
+# usage: python3 tools/progress-report/capture.py [--manual] [--keep DIR | --reuse DIR]      (after tools/build-dos.sh and tools/build-web.sh)
 #
 # With --manual it retakes the manual's screenshots instead (docs/img for DOS, docs/images for the Web) with the same tools and writes no
 # records: the manual's captions say what each shows.
@@ -28,13 +28,15 @@ MEDIA = os.path.join(HERE, "media")
 # DOS grabs from capture-dos.sh: (media file, raw file, what it shows). The replay grabs are every 0.4 s of /REPLAY, picked by index. The HUD
 # no longer prints the tick, so each replay entry says where in the script its picture falls rather than a tick number.
 DOS = [
-    ("dos-puff.png", "replay-04.png", "FIZZ2.EXE /REPLAY in DOSBox, a few seconds into the script: Ben stands at the foot of the left shaft with Fizz 3 in the translucent HUD pill, and a small light magenta puff hangs where his shot hit the wall on the shaft's right side."),
+    ("dos-puff.png", "replay-05.png", "FIZZ2.EXE /REPLAY in DOSBox, a few seconds into the script: Ben stands at the foot of the left shaft with Fizz 3 in the translucent HUD pill, and a small light magenta puff hangs where his shot hit the wall on the shaft's right side."),
     ("dos-cluck.png", "replay-08.png", "FIZZ2.EXE /REPLAY in DOSBox, a little before the middle of the script: Ben stands on the second ledge and the chicken, on the ledge above, has its beak open with bwuk-BWUK floating above it in Fizz 1's pixel font."),
-    ("dos-stars.png", "replay-12.png", "FIZZ2.EXE /REPLAY in DOSBox, with the key carried (the chip in the HUD pill is filled) and Fizz 2: the chicken, stunned by Ben's shot, has two yellow and white stars above its head."),
-    ("dos-exit.png", "replay-48.png", "FIZZ2.EXE /REPLAY in DOSBox near the end of the script: Ben stands at the exit on the gallery in the open air with Fizz 5 and Deaths 1 in the HUD pill."),
+    ("dos-stars.png", "replay-12.png", "FIZZ2.EXE /REPLAY in DOSBox, with the key carried (the chip in the HUD pill is filled) and Fizz 2: the chicken, stunned by Ben's shot, has two yellow and white stars above its head, and the caption red gumdrop floats where Ben took the key."),
+    ("dos-nook-crunch.png", "replay-47.png", "FIZZ2.EXE /REPLAY in DOSBox in the snack nook, about two thirds of the way through the script: Ben, with Fizz 0 and Deaths 1 in the HUD pill, has just taken a cheezie below the shelf, and the captions crunch (yellow) and click - no fizz (grey, from the empty blaster) float where they happened."),
+    ("dos-nook-boing.png", "replay-53.png", "FIZZ2.EXE /REPLAY in DOSBox in the snack nook: Ben bounces on the pogo stick beside the right-hand wall of the gallery and the caption boing (yellow) floats at the spot of the bounce, with Fizz 0 and Deaths 1 in the HUD pill."),
+    ("dos-exit.png", "replay-64.png", "FIZZ2.EXE /REPLAY in DOSBox at the end of the script: Ben stands on the pogo stick at the open blue door in front of the exit with the caption ta-da! (light green) above him, Fizz 0 and Deaths 1 in the HUD pill and LEVEL CLEAR below."),
     ("dos-look-up.png", "look-up.png", "FIZZ2.EXE /LIVE in DOSBox, keys typed through the X server: after a jump onto the first ledge Ben holds Up alone for 1.8 seconds, so he looks up and the view has risen to show the chicken, which has just clucked bwuk, bwuk."),
-    ("dos-aim-up.png", "aim-up.png", "FIZZ2.EXE /LIVE in DOSBox: Up and Space pressed together, so Ben raises the blaster and a shot rises above him (Fizz 4 in the HUD pill)."),
-    ("dos-aim-down.png", "aim-down.png", "FIZZ2.EXE /LIVE in DOSBox: Down and Space pressed while Ben is in the air after a jump, so he holds the blaster down and a shot falls below him."),
+    ("dos-aim-up.png", "aim-up.png", "FIZZ2.EXE /LIVE in DOSBox: Up and Space pressed together, so Ben raises the blaster and a shot rises above him, with the caption fzzt (Fizz 4 in the HUD pill)."),
+    ("dos-aim-down.png", "aim-down.png", "FIZZ2.EXE /LIVE in DOSBox: Down and Space pressed while Ben is in the air after a jump, so he holds the blaster down, a shot falls below him and the caption fzzt floats by his head."),
     ("dos-paused.png", "paused.png", "FIZZ2.EXE /LIVE in DOSBox after Esc, typed through the X server: the frozen picture dimmed behind the heading Paused with a light magenta rule, the rows Resume (chosen, on a light magenta plate with the soda can), Options and Quit to DOS, and the grey footer."),
     ("dos-options.png", "options.png", "FIZZ2.EXE /LIVE in DOSBox after Esc, Down, Enter and Down: the Options screen over the dimmed picture with Music, Effects (chosen), Sound placement, Frame rate, Motion, Captions, Keys and Back, the values on the right in the Fizz colour, and the footer. A genuine DOSBox grab of the game, not the host drawing of the same screen."),
 ]
@@ -47,6 +49,9 @@ WEB = {
     "web-wide.png": "The Web slice in a 1600 by 520 window, 40 ticks after load: the view is the same 13 tiles tall and much wider, so the right wall and the sky beyond it show, and dark bars fill the rest past the view's width limit.",
     "web-look-up.png": "The Web slice after the script's first 150 ticks put Ben on the first ledge, then 90 ticks of ArrowUp held alone: the view has risen to show the chicken and its caption bwuk-BWUK, fading above it.",
     "web-aim-up.png": "The Web slice, ArrowUp and Space pressed together at tick 30 and shown at tick 36: Ben has his blaster raised and a shot rises above him (Fizz 4 in the HUD panel).",
+    "web-nook.png": "The Web slice in a 1280 by 720 window at tick 1195, three ticks after the first snack event of the golden transcript (EVENT 1192 snack): Ben jumps under the grey shelf with a cheezie beside him, the caption crunch is fresh above him and click - no fizz, from the empty blaster, is still fading behind (Fizz 0 and Deaths 1 in the HUD panel). The shelf carries the blue key, a cookie, a chocolate bar and a cheezie.",
+    "web-nook-boing.png": "The Web slice in a 1280 by 720 window at tick 1354, three ticks after a pogo bounce in the snack nook: Ben is in the air on the stick beside the right-hand wall of the gallery and the caption boing sits at the gallery's floor (Fizz 0 and Deaths 1 in the HUD panel).",
+    "web-effects.png": "The Web slice in a 1280 by 720 window, 40 ticks after load and H pressed: the panel lists the fifteen effects of the Hear an effect picker by id, from 0 cluck 0 (buh-GAWK) to 14 crunch, with crunch chosen and the Play button beside it. In the page the picker is a drop-down; the capture shows it open as a list because headless Chromium does not draw a drop-down open.",
     "web-puff.png": "The Web slice at tick 108, two ticks after the script's second shot ended against the wall of the shaft: a small light magenta puff hangs at the wall beside the spikes (Fizz 3 in the HUD panel).",
     "web-cluck.png": "The Web slice at tick 201, four ticks after the first cluck of the golden transcript: the chicken's beak is open and its caption floats above it as text over the canvas.",
     "web-paused.png": "The Web slice in a 960 by 540 window after 60 ticks and Esc: the picture is dimmed behind a dark panel titled Paused with Resume (chosen, on a light magenta plate with a soda can), Options and Restart, and a footer line.",
@@ -87,17 +92,25 @@ def manual():
     return 0
 
 
+def argv_value(flag):
+    return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else None
+
+
 def main():
     if "--manual" in sys.argv:
         return manual()
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     today = datetime.date.today().isoformat()
     os.makedirs(MEDIA, exist_ok=True)
-    raw = tempfile.mkdtemp(prefix="fizz2-capture.", dir=os.environ.get("TMPDIR") or None)
+    # --keep DIR leaves the raw grabs in DIR for choosing replay indexes by eye (DOSBox's pace varies, so index n is not the same tick every
+    # run); --reuse DIR makes the records from the grabs already in DIR without running anything.
+    keep = argv_value("--keep") or argv_value("--reuse")
+    raw = os.path.abspath(keep) if keep else tempfile.mkdtemp(prefix="fizz2-capture.", dir=os.environ.get("TMPDIR") or None)
     try:
-        run(["xvfb-run", "-a", "-s", "-screen 0 1024x768x24", os.path.join(HERE, "capture-dos.sh"), raw])
-        run([sys.executable, "-I", os.path.join(HERE, "capture-web.py"), raw])
-        run([sys.executable, "-I", os.path.join(ROOT, "tools", "render-cells.py"), os.path.join(raw, "check-cells.txt"), os.path.join(raw, "cells")])
+        if not argv_value("--reuse"):
+            run(["xvfb-run", "-a", "-s", "-screen 0 1024x768x24", os.path.join(HERE, "capture-dos.sh"), raw])
+            run([sys.executable, "-I", os.path.join(HERE, "capture-web.py"), raw])
+            run([sys.executable, "-I", os.path.join(ROOT, "tools", "render-cells.py"), os.path.join(raw, "check-cells.txt"), os.path.join(raw, "cells")])
         records = []
         dos_source = "DOSBox Staging window, grabbed from Xvfb with ImageMagick import"
         for name, grab, shows in DOS:
@@ -124,7 +137,8 @@ def main():
             records.append({"file": shot["file"], "kind": "screenshot", "track": "web", "source": "%s, headless, Page.captureScreenshot, %dx%d window, fake 60 Hz clock" % (web["chromium"], shot["width"], shot["height"]),
                             "shows": WEB[shot["file"]], "hud": shot["hud"], "command": "python3 tools/progress-report/capture.py (capture-web.py)", "commit": commit, "date": today})
     finally:
-        shutil.rmtree(raw, ignore_errors=True)
+        if not keep:
+            shutil.rmtree(raw, ignore_errors=True)
     with open(os.path.join(MEDIA, "captures.json"), "w", encoding="utf-8") as f:
         json.dump(records, f, indent=1)
         f.write("\n")
