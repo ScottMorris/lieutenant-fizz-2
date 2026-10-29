@@ -14,10 +14,16 @@ import * as Undertone from '@liminal-hq/undertone';
 import type { AudioContextLike } from '@liminal-hq/undertone';
 import { EFFECTS } from '../assets/sfx/effects.ts';
 import { routedContext } from './audio.ts';
-import { effectSeconds, isNoise, type SfxVoice } from '../assets/sfx/voice.ts';
+import { STEP_RATE, effectSeconds, isNoise, type SfxVoice } from '../assets/sfx/voice.ts';
 
-/** Most clucks sounding at once. Further ones are dropped, so a pile-up cannot clip. */
-export const MAX_SIMULTANEOUS = 4;
+/**
+ * Most effects sounding at once. Further ones are dropped, so a pile-up cannot clip, except the ones that must never be missed (see
+ * `ALWAYS`). Fizz 1 has no limit at all; this one only matters in a cluster of events, such as a head-bump, a snack and a jump together.
+ */
+export const MAX_SIMULTANEOUS = 6;
+
+/** Effects that play even when the cap is reached: hurt ("whoa!", id 7) and win ("ta-da!", id 8). */
+export const ALWAYS: readonly number[] = [7, 8];
 
 /** Seconds past an effect's last voice that it still counts as sounding: the release of its last note. */
 const TAIL = 0.05;
@@ -47,7 +53,7 @@ export function effectVoices(id: number): readonly SfxVoice[] {
 }
 
 /** The part of the Undertone module this file uses (the module, or a test double). */
-export type UndertoneLike = Pick<typeof Undertone, 'note' | 'sound' | 'stack'>;
+export type UndertoneLike = Pick<typeof Undertone, 'note' | 'sound' | 'stack' | 'fmVoice'>;
 
 type Voice = ReturnType<typeof Undertone.stack>;
 
@@ -62,6 +68,20 @@ type Voice = ReturnType<typeof Undertone.stack>;
  */
 export function buildVoice(U: UndertoneLike, v: SfxVoice, pan = 0, gain = 1): Voice {
   let p = isNoise(v.n) ? U.sound(v.n) : U.note(v.hz ?? v.n).sound(v.w ?? 'triangle');
+  if (v.fm && !isNoise(v.n)) {
+    // Two-operator FM as Undertone's own `fmVoice` patch (Tone's harmonicity and modulation index, a modulation envelope that falls to
+    // nothing over `decay`), applied first so the controls below win. The patch carries the oscillator type, so `sound` is not repeated.
+    p = U.note(v.hz ?? v.n).voice(
+      U.fmVoice({
+        harmonicity: v.fm.ratio,
+        modulationIndex: v.fm.index,
+        oscillator: { type: v.w ?? 'triangle' },
+        modulation: { type: v.fm.wave ?? 'sine' },
+        ...(v.fm.decay !== undefined ? { modulationEnvelope: { attack: 0, decay: v.fm.decay, sustain: 0 } } : {}),
+      }),
+    );
+  }
+  if (v.steps && v.steps.length > 0 && !isNoise(v.n)) p = p.pitchsteps(v.steps, STEP_RATE);
   p = p
     .attack(v.a ?? 0.001)
     .decay(v.d ?? 0.1)
@@ -242,7 +262,7 @@ export class Sfx {
     if (!ctx || this._muted || this.isHidden() || ctx.state !== 'running') return false;
     const now = ctx.currentTime;
     this.ends = this.ends.filter((end) => end > now);
-    if (this.ends.length >= MAX_SIMULTANEOUS) return false;
+    if (this.ends.length >= MAX_SIMULTANEOUS && !ALWAYS.includes(Math.trunc(id))) return false;
     const voices = effectVoices(id);
     if (this._mode === 'classic' || !Number.isFinite(pan) || !Number.isFinite(gain)) {
       pan = 0;

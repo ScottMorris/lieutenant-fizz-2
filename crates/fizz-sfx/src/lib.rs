@@ -344,9 +344,58 @@ mod tests {
         run_with(OplPlayer::new(variant))
     }
 
+    /// Effect ids, in order: the cluck's four variants, then fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump and crunch.
+    /// The OPL records, the OPL chunk's ticks and the speaker frames of each, as `tools/sfx/downmix.ts --stats` prints them. A
+    /// change to the source or the converter moves these on purpose, and this table is what says so.
+    const EFFECTS: [(&str, usize, u32, usize); 15] = [
+        ("cluck 0", 178, 212, 48),
+        ("cluck 1", 74, 88, 16),
+        ("cluck 2", 147, 188, 42),
+        ("cluck 3", 150, 200, 46),
+        ("fzzt", 69, 100, 16),
+        ("stun", 75, 112, 16),
+        ("bonk", 74, 88, 14),
+        ("hurt", 223, 336, 62),
+        ("win", 317, 432, 86),
+        ("key", 166, 220, 42),
+        ("clunk", 95, 116, 20),
+        ("plink", 39, 56, 8),
+        ("boing", 186, 252, 42),
+        ("jump", 57, 84, 12),
+        ("crunch", 118, 136, 24),
+    ];
+
     #[test]
-    fn variant_count_matches_the_rules() {
-        assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize);
+    fn effect_ids_are_the_cluck_variants_then_the_eleven_others() {
+        assert_eq!(EFFECT_COUNT, EFFECTS.len());
+        assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize + 11);
+    }
+
+    #[test]
+    fn every_effect_has_the_recorded_size_and_length() {
+        for (id, &(name, records, ticks, frames)) in EFFECTS.iter().enumerate() {
+            assert_eq!(opl_steps(id).len(), records, "{name}: records");
+            assert_eq!(opl_ticks(id), ticks, "{name}: ticks");
+            assert_eq!(speaker_steps(id).len(), frames, "{name}: speaker frames");
+        }
+    }
+
+    /// An effect on its own channel stays inside the music's 16 writes in any tick (the patch load is 11), so a pair of channels
+    /// is at most 22 and the chip never has more than 38 writes to make in a tick with music on it.
+    #[test]
+    fn no_effect_writes_more_than_eleven_registers_in_a_tick() {
+        for (id, &(name, ..)) in EFFECTS.iter().enumerate() {
+            let mut run = 0;
+            let mut worst = 0;
+            for s in opl_steps(id) {
+                run += 1;
+                worst = worst.max(run);
+                if s.wait() > 0 {
+                    run = 0;
+                }
+            }
+            assert!(worst <= 11, "{name}: {worst} writes in one tick");
+        }
     }
 
     #[test]
@@ -355,8 +404,8 @@ mod tests {
             let (writes, ticks) = run_opl(v);
             assert_eq!(ticks, opl_ticks(v), "variant {v}");
             assert_eq!(writes.len(), opl_steps(v).len(), "variant {v}");
-            // About 100 to 400 ms at 560 Hz.
-            assert!((56..=224).contains(&ticks), "variant {v}: {ticks} ticks");
+            // 100 ms to 800 ms at 560 Hz.
+            assert!((56..=450).contains(&ticks), "variant {v}: {ticks} ticks");
         }
     }
 
@@ -647,9 +696,9 @@ mod tests {
                 steps.iter().any(|s| matches!(s, SpeakerStep::Divisor(_))),
                 "variant {v} is silent"
             );
-            // About 100 to 400 ms at 140 Hz.
+            // 50 ms to 650 ms at 140 Hz.
             assert!(
-                (14..=56).contains(&steps.len()),
+                (8..=110).contains(&steps.len()),
                 "variant {v}: {} steps",
                 steps.len()
             );

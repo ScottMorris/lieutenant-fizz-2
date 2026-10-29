@@ -7,9 +7,10 @@
 // and gains Undertone schedules, which proves the mapping from `SfxVoice` to Undertone and the player's rules (first gesture,
 // mute, hidden tab, the cap). How a cluck sounds has not been listened to.
 import { describe, expect, test } from 'bun:test';
-import { EFFECTS } from '../assets/sfx/effects.ts';
-import { noteHz, isNoise } from '../assets/sfx/voice.ts';
+import { EFFECTS, EFFECT_NAMES } from '../assets/sfx/effects.ts';
+import { noteHz, isNoise, STEP_RATE, stepOffset, voiceHz, effectSeconds } from '../assets/sfx/voice.ts';
 import {
+  ALWAYS,
   AUDIO_KEY,
   MAX_SIMULTANEOUS,
   MUTE_KEY,
@@ -152,14 +153,15 @@ function setup(opts: { hidden?: () => boolean; storage?: StorageLike | null; sea
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('variant mapping', () => {
-  test('each variant maps to its own table entry and a bad value wraps', () => {
-    expect(EFFECTS.length).toBe(4);
-    for (let v = 0; v < 4; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
-    expect(effectVoices(4)).toBe(EFFECTS[0]);
-    expect(effectVoices(-1)).toBe(EFFECTS[3]);
+  test('each id maps to its own table entry and a bad value wraps', () => {
+    expect(EFFECTS.length).toBe(15);
+    expect(EFFECT_NAMES.length).toBe(EFFECTS.length);
+    for (let v = 0; v < EFFECTS.length; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
+    expect(effectVoices(15)).toBe(EFFECTS[0]);
+    expect(effectVoices(-1)).toBe(EFFECTS[14]);
   });
 
-  test('every variant schedules one source per voice, at the voice pitch, kind and start', async () => {
+  test('every cluck variant schedules one source per voice, at the voice pitch, kind and start', async () => {
     for (let variant = 0; variant < 4; variant++) {
       const { ctx, sfx } = setup();
       sfx.unlock();
@@ -202,6 +204,105 @@ describe('variant mapping', () => {
     await settle();
     sfx.playEffect(1, -0.5);
     expect(ctx.of('pan').length).toBe(EFFECTS[1].length);
+  });
+});
+
+describe('the effects after the cluck (ids 4 to 14)', () => {
+  /** Plays effect `id` centred on a fresh stand-in and returns what it scheduled. */
+  async function play(id: number, pan = 0, gain = 1) {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    expect(sfx.playEffect(id, pan, gain)).toBe(true);
+    return ctx;
+  }
+
+  for (let id = 4; id < EFFECTS.length; id++) {
+    const voices = EFFECTS[id];
+    describe(`${id} ${EFFECT_NAMES[id]}`, () => {
+      test('schedules one carrier per pitched voice, one modulator per FM voice and one source per noise voice', async () => {
+        const ctx = await play(id);
+        const tones = voices.filter((v) => !isNoise(v.n));
+        const fms = tones.filter((v) => v.fm);
+        expect(ctx.of('noise').length).toBe(voices.length - tones.length);
+        expect(ctx.of('osc').length).toBe(tones.length + fms.length);
+        // Every carrier starts at its voice's nudge, with the voice's exact pitch; an FM voice's modulator follows its carrier.
+        const oscs = ctx.of('osc');
+        let at = 0;
+        for (const v of tones) {
+          const carrier = oscs[at++];
+          expect(carrier.started).toBeCloseTo(v.nudge ?? 0, 6);
+          if (v.fm) {
+            const modulator = oscs[at++];
+            expect(modulator.started).toBeCloseTo(v.nudge ?? 0, 6);
+            expect(modulator.type).toBe(v.fm.wave ?? 'sine');
+          }
+        }
+      });
+
+      test('has a length the player knows, and a caption-free, loud-enough voice at the top', () => {
+        const seconds = effectSeconds(voices);
+        expect(seconds).toBeGreaterThan(0.04);
+        expect(seconds).toBeLessThan(0.9);
+        expect(Math.max(...voices.map((v) => v.g))).toBeGreaterThanOrEqual(0.2);
+      });
+
+      test('schedules these values, so a later Undertone that moves any shows up here', async () => {
+        const ctx = await play(id);
+        expect(schedule(ctx)).toMatchSnapshot();
+      });
+    });
+  }
+
+  test('pitch steps become the carrier pitch a 140 Hz frame at a time', async () => {
+    // Effect 4 (fzzt): the sine falls an octave from c7 to c6 in 80 ms, then holds.
+    const voice = EFFECTS[4].find((v) => v.steps)!;
+    const ctx = await play(4);
+    const carrier = ctx.of('osc')[0];
+    const times = carrier.frequency!.sets;
+    expect(times.length + carrier.frequency!.ramps.length).toBeGreaterThan(8);
+    const first = carrier.frequency!.sets[0][0];
+    expect(first).toBeCloseTo(voiceHz(voice) * 2 ** (stepOffset(voice, 0) / 12), 1);
+    expect(stepOffset(voice, 0)).toBe(12);
+    expect(stepOffset(voice, 10)).toBe(0);
+    expect(STEP_RATE).toBe(140);
+  });
+
+  test('FM depth is the Tone index over the harmonicity at the modulator, and the modulator runs at the ratio times the pitch', async () => {
+    // Effect 8 (ta-da!), its last voice: the long e6 bell at 2.76 times, index 1.2.
+    const ctx = await play(8);
+    const oscs = ctx.of('osc');
+    const bell = EFFECTS[8][4];
+    const carrier = oscs[oscs.length - 2];
+    const modulator = oscs[oscs.length - 1];
+    expect(carrier.frequency!.sets[0][0]).toBeCloseTo(noteHz('e6'), 3);
+    expect(modulator.frequency!.sets[0][0]).toBeCloseTo(noteHz('e6') * bell.fm!.ratio, 2);
+  });
+
+  test('a placed effect adds a panner to every voice, FM voices included', async () => {
+    const ctx = await play(8, -0.4, 0.7);
+    expect(ctx.of('pan').length).toBe(EFFECTS[8].length);
+  });
+
+  test('whoa! and ta-da! are heard even with the cap reached; others are not', async () => {
+    expect(ALWAYS).toEqual([7, 8]);
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playEffect(13)).toBe(true);
+    expect(sfx.playEffect(13)).toBe(false);
+    expect(sfx.playEffect(7)).toBe(true);
+    expect(sfx.playEffect(8)).toBe(true);
+    ctx.currentTime += 2;
+    expect(sfx.playEffect(13)).toBe(true);
+  });
+
+  test('the same effect played twice schedules the same values (no hidden state), noise sources aside', async () => {
+    for (let id = 4; id < EFFECTS.length; id++) {
+      const a = schedule(await play(id));
+      const b = schedule(await play(id));
+      expect(b).toEqual(a);
+    }
   });
 });
 

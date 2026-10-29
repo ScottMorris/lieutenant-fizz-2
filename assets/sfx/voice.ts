@@ -31,7 +31,32 @@ export interface SfxVoice {
   nudge?: number;
   /** An exact pitch in Hz, used in place of `n`. */
   hz?: number;
+  /**
+   * Two-operator FM, the shape of Undertone's `fmVoice` definition (Tone.js `FMSynth` terms): a modulator at `ratio` times the
+   * voice's pitch swings it by `index` times the voice's pitch (Tone's `modulationIndex`), and the swing falls to nothing over `decay`
+   * seconds when `decay` is given. The web plays it as Undertone does; the DOS downmix lowers it to the nearest OPL modulator setting.
+   */
+  fm?: Fm;
+  /**
+   * A frame-stepped pitch curve (Undertone's `pitchsteps`): semitone offsets from the voice's pitch, one per 1/140 s (the classic
+   * AdLib effect frame, which DOS steps at as well), holding the last. A voice with `steps` is one note that moves, not a chain of notes.
+   */
+  steps?: readonly number[];
 }
+
+export interface Fm {
+  /** The modulator's frequency as a multiple of the voice's (Tone's `harmonicity`). Whole numbers are harmonic, fractions metallic. */
+  ratio: number;
+  /** Peak deviation as a multiple of the voice's frequency (Tone's `modulationIndex`). */
+  index: number;
+  /** Seconds for the modulation to fall to nothing; without it the depth is constant. */
+  decay?: number;
+  /** The modulator's waveform; sine when absent. */
+  wave?: Wave;
+}
+
+/** The frame rate of `steps`, in hertz: the classic AdLib effect clock, which Undertone's `pitchsteps` defaults to as well. */
+export const STEP_RATE = 140;
 
 /** The time between the short notes of a pitch curve, in seconds. */
 export const STEP = 0.025;
@@ -92,6 +117,31 @@ export function curve(c: Curve): SfxVoice[] {
     }
     return v;
   });
+}
+
+/** Pitch steps for a straight glide of `semitones` over `seconds` (negative falls) from `from` semitones off the voice's pitch, then holding the end. */
+export function glide(semitones: number, seconds: number, from = 0): number[] {
+  const frames = Math.max(1, Math.round(seconds * STEP_RATE));
+  return Array.from({ length: frames + 1 }, (_, i) => round(from + (semitones * i) / frames, 3));
+}
+
+/**
+ * Pitch steps for a wobble: a swing of `semitones` at `rate` swings a second, fading linearly to nothing over `seconds`
+ * (Fizz 1's Enhanced `wobble` shape), on top of a straight glide of `drift` semitones over the same time, from `from` semitones off the voice's pitch.
+ */
+export function wobble(semitones: number, rate: number, seconds: number, drift = 0, from = 0): number[] {
+  const frames = Math.max(1, Math.round(seconds * STEP_RATE));
+  return Array.from({ length: frames + 1 }, (_, i) => {
+    const u = i / frames;
+    return round(from + semitones * (1 - u) * Math.sin(2 * Math.PI * rate * seconds * u) + drift * u, 3);
+  });
+}
+
+/** The semitone offset a voice's `steps` give `t` seconds into its own life (0 with none; the last step holds). */
+export function stepOffset(v: SfxVoice, t: number): number {
+  if (!v.steps || v.steps.length === 0) return 0;
+  const frame = Math.min(v.steps.length - 1, Math.max(0, Math.floor(t * STEP_RATE + 1e-9)));
+  return v.steps[frame];
 }
 
 /** A short burst of noise: a breath or the rasp of a clack. `start` is when it begins and `seconds` how long it lasts. */
