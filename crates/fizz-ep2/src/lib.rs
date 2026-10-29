@@ -27,4 +27,4 @@ pub use ben::{Ben, BenFlags};
 pub use chicken::{CLUCK_VARIANTS, Chicken};
 pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay};
 pub use shot::Shot;
-pub use world::{ChickenView, Event, World, WorldFlags, hash, step};
+pub use world::{ChickenView, Event, Snack, SnackKind, World, WorldFlags, hash, step};
