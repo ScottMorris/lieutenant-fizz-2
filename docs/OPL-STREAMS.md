@@ -64,20 +64,21 @@ The Fizz Asset Pack stores OPL streams in the audio section layout `I3`: a 16-by
 
 ## OPX, the converged wide form
 
-**OPX** (file extension `.OPX`) is the wide, byte-aligned form of the model. It has two layers: the header-less **OPX chunk** that packs and the runtime use, and the self-describing **`.OPX` file**, which is a 16-byte header followed by exactly one chunk. The chunk comes first below.
+**OPX** (file extension `.OPX`) is the wide, byte-aligned form of the model. It has two layers: the **OPX chunk**, which has no header and no length prefix and is what packs and the runtime use, and the self-describing **`.OPX` file**, which is a 16-byte header followed by exactly one chunk. The chunk comes first below.
 
 ### The OPX chunk
 
-Little endian:
+An OPX chunk is exactly an array of `OplStep` records, little endian, with nothing before or after them:
 
-| Offset | Size | Field |
+| Field | Size | Meaning |
 | --- | --- | --- |
-| 0 | 4 | `length`, `u32`: the payload in bytes, four times the record count (the header is not counted) |
-| 4 | 4 each | `reg` (`u8`), `val` (`u8`), `bank_wait` (`u16`): bit 15 selects the bank, bits 0 to 14 are the wait in ticks |
+| `reg` | 1 | Register low byte |
+| `val` | 1 | Value |
+| `bank_wait` | 2 | `u16`: bit 15 selects the bank (1 for registers 0x100 and up), bits 0 to 14 are the wait in ticks after the write |
 
-The record is byte-for-byte `OplStep` (on a little-endian machine, as both targets are). An OPX file is therefore a 4-byte length followed by an `OplStep` array, and the runtime can step the payload in place with no conversion. A chunk has no loop point or rate of its own: in a pack or in the runtime the rate is fixed by what the stream is for (560 Hz for music and OPL effects) and the loop point is carried beside it (see [Loop and prelude](#loop-and-prelude)). The record count is the length divided by four.
+The record is byte-for-byte `OplStep` (on a little-endian machine, as both targets are), so the runtime steps a chunk in place with no conversion. The chunk does not say how long it is: the byte length (four times the record count) lives in the container, which is the pack's directory entry or the `.OPX` file's own length (the file minus its 16-byte header). A chunk has no loop point or rate of its own either: the rate is fixed by what the stream is for (560 Hz for music and OPL effects) and the loop point is carried beside it (see [Loop and prelude](#loop-and-prelude)).
 
-The waits are limited to 0x7FFF. A gap longer than that is split by the source tool with a harmless write in the middle (the baker refuses a stream whose summed wait would exceed the limit, see [FAP.md](FAP.md#audio-sections)).
+The waits are limited to 0x7FFF (32,767 ticks, 58.5 s at 560 Hz), because bit 15 is the bank. A writer rejects a record whose wait is 0x8000 or more. A converter splits a longer gap: it gives the first record 0x7FFF ticks, then inserts a harmless write of the value 1 and then 0 alternately (so that compaction never sees it as redundant) to register 0xFF of bank 0 (an unused register on the OPL2 and OPL3), each carrying up to 0x7FFF ticks of the rest. That register choice is a proposal; it has not been tried against the game's register checks or on hardware. The baker also refuses a stream whose summed wait would exceed the limit after compaction, see [FAP.md](FAP.md#audio-sections).
 
 ### The `.OPX` file
 
@@ -93,30 +94,31 @@ An `.OPX` file is for interchange between the lab, Undertone, the tools and this
 | 10 | 4 | `loop_start`, `u32`: the index of the first record of the loop, or 0xFFFFFFFF for a stream that plays once |
 | 14 | 2 | Reserved, zero |
 
-The record count is the chunk's length divided by four, so the header does not repeat it. The prelude length is not stored: it is the sum of the waits of the records before `loop_start`, which a reader gets in one pass, and the loop length is the stream's total ticks minus the prelude. This is the same model as the `loop_start`, `prelude_ticks` and `loop_ticks` of [FAP.md](FAP.md#audio-sections), without the redundant fields. A reader checks the magic, refuses an unknown major version (see [Versioning](#versioning)), refuses a zero rate, a length that is not a multiple of four, a `loop_start` that is neither 0xFFFFFFFF nor below the record count, and a clear flag bit 0 on a stream that has a bank-1 record. A reader ignores a flag bit it does not know in a minor version it does not know, and refuses it in a version it does know.
+The record count is the chunk's length divided by four, and the chunk is the rest of the file after the header, so the header does not repeat it. The prelude length is not stored: it is the sum of the waits of the records before `loop_start`, which a reader gets in one pass, and the loop length is the stream's total ticks minus the prelude. This is the same model as the `loop_start`, `prelude_ticks` and `loop_ticks` of [FAP.md](FAP.md#audio-sections), without the redundant fields. A reader checks the magic, refuses an unknown major version (see [Versioning](#versioning)), refuses a zero rate, a chunk whose byte length is not a multiple of four, a `loop_start` that is neither 0xFFFFFFFF nor below the record count, and a clear flag bit 0 on a stream that has a bank-1 record. A reader ignores a flag bit it does not know in a minor version it does not know, and refuses it in a version it does know.
 
 The `.OPX` file is **proposed**, not built.
 
-### How a standard IMF reader and an OPX reader differ
+### Compatibility with IMF
 
-A standard IMF Type-1 reader and an OPX reader disagree in two places, and only two:
+An OPX chunk is the IMF record array. The record layout is identical (`reg`, `val`, a little-endian `u16`, the delay being the wait after the write); the differences are one bit and what wraps the records.
 
-| | IMF Type-1 | OPX |
-| --- | --- | --- |
-| Length | `u16` | `u32` |
-| Delay | `u16`, all 16 bits are the wait | `u16`, bit 15 is the bank and only 15 bits are the wait |
+| | IMF Type-0 | IMF Type-1 | OPX chunk |
+| --- | --- | --- | --- |
+| Before the records | nothing | `u16` byte length | nothing |
+| Records | to the end of the file | for the length (tags may follow) | to the end of the container |
+| Delay | all 16 bits | all 16 bits | bits 0 to 14; bit 15 is the bank |
 
-Everything else (the 4-byte record, the register and value bytes, the delay being the wait after the write, little endian) is the same. So:
-
-- An OPX in which every record has bank 0, and whose length fits in a `u16`, has the IMF record array exactly. A Type-1 reader takes the low 16 bits as the length, which are right, but then starts its records two bytes early (on the upper half of the `u32`), so every record is misaligned by two bytes until the header is skipped. A reader that reads a `u32` length (as the lab's reader does for its own stream) reads it correctly. The bytes after the length are the same, and only the header width differs.
-- An OPX with any bank-1 record is not readable by an IMF reader: bit 15 of the delay would be taken as a 32.8 second wait, and the register would hit bank 0 instead of bank 1.
-- A genuine IMF file read by an OPX reader reads its first 16-bit length as a `u32` and gets the wrong number, so a file needs its extension (`.IMF` or `.OPX`) or a converter to tell them apart. An IMF delay of 0x8000 or more would read as bank 1 with a short wait.
+- **Type-0.** A bank-0-only OPX chunk is byte-for-byte an IMF Type-0 file. Existing Type-0 players play an OPL2 OPX stream unchanged (at the stream's own rate, 560 Hz for Fizz).
+- **Type-1.** An OPX chunk with a `u16` byte length put in front of it is a valid Type-1 file when it is bank-0-only and its byte length fits in 65,535. Crater Fields' OPL2 stream is about 11.8 KB and fits (the OPL3 stream is 20 KB and also fits, but has bank-1 records); a lab song over 64 KB does not, and needs the `.OPX` header form. The records after the length are the same, so a Type-1 reader reads them correctly.
+- **Telling them apart.** The IMF convention is that a file whose first `u16` is 0 is Type-0 (its first record writes 0 to register 0) and any other first `u16` is the Type-1 length. An `.OPX` file is told by its magic (`O`, `P`, `X`, 0x1A), which cannot be a valid IMF start in practice. A bare chunk, in a pack or in the runtime, is told by the container's section tag, not by its bytes, so a bare chunk found loose is ambiguous with Type-0 and is taken as one.
+- **OPL3 is not compatible.** A bank-1 record read by a Type-0 or Type-1 reader has its register taken as bank 0 and its bit 15 taken as a 32,768-tick or longer delay, which stalls the song. An OPX that uses bank 1 (flag bit 0 in the `.OPX` header, or the pack's section tag) must only be read by an OPX reader.
+- **Long waits.** An IMF delay of 0x8000 or more read by an OPX reader would be a bank-1 record with a short wait. A converter from IMF splits such delays first (below).
 
 ### What a converter does
 
-- **IMF Type-1 to OPX.** Write the payload length as a `u32`. Copy every record; if its delay is 0x8000 or more, split the wait into a first record carrying 0x7FFF and a no-op write for the rest (see above). No record gets bank 1. Rescale the waits if the source rate is not 560 Hz (700 Hz Wolfenstein files), and say so in the output name or metadata, because OPX does not store the rate.
-- **IMF Type-0 to OPX.** The same, with the payload length being the file length.
-- **OPX to IMF Type-1.** Refuse a stream with any bank-1 record. Otherwise write the length as a `u16` (refuse if it does not fit; a longer stream has to be split), and write the waits as they are.
+- **IMF Type-1 to OPX.** Drop the `u16` length (and any tags after the records). Copy every record; if its delay is 0x8000 or more, split the wait as described above. No record gets bank 1. Rescale the waits if the source rate is not 560 Hz (700 Hz Wolfenstein files), and say so in the output name or metadata, because OPX does not store the rate.
+- **IMF Type-0 to OPX.** Nothing but the long-wait split: the file already is the chunk.
+- **OPX to IMF Type-1.** Refuse a stream with any bank-1 record. Otherwise, for Type-0, write the chunk as it is; for Type-1, put a `u16` byte length in front (refuse if it does not fit in 65,535; use the `.OPX` form or Type-0 instead).
 - **Anything to the runtime.** An OPX payload is the runtime record array. The converter's only job is to check each record (the bank is a bit, so it cannot be wrong; the waits are 15 bits, so they cannot be wrong) and, for music, the rules below.
 
 ## Compact encoding, `I3`
@@ -146,10 +148,10 @@ A music stream is a prelude followed by a loop: the one-time setup (waveform ena
 
 | From | To | What changes |
 | --- | --- | --- |
-| IMF Type-1 | OPX | `u16` length becomes `u32`; a delay of 0x8000 or more is split; rescale if the source is not 560 Hz |
-| IMF Type-0 | OPX | As above, and the length is the file length |
-| Lab 5-byte stream | OPX | Mechanical. Fold the bank into bit 15 of the delay (`delay \| bank << 15`) and drop the bank byte; the `u32` length stays, but becomes four times the record count rather than five times. A delay of 0x8000 or more needs the split. For music, also strip the 0x104 and 0x105 records and refuse channels 5 and 14 |
-| OPX | IMF Type-1 | Only a stream with no bank-1 record; `u16` length |
+| IMF Type-1 | OPX | Drop the `u16` length; a delay of 0x8000 or more is split; rescale if the source is not 560 Hz |
+| IMF Type-0 | OPX | None, apart from the long-wait split: the file is the chunk |
+| Lab 5-byte stream | OPX | Mechanical. Fold the bank into bit 15 of the delay (`delay \| bank << 15`) and drop the bank byte; the lab's `u32` length is dropped into the container (the pack directory, or the `.OPX` header's chunk, whose length is the file minus 16). A delay of 0x8000 or more needs the split. For music, also strip the 0x104 and 0x105 records and refuse channels 5 and 14 |
+| OPX | IMF Type-0 or Type-1 | Only a stream with no bank-1 record. Type-0: the chunk as it is. Type-1: a `u16` length in front, if it fits |
 | OPX | `I3` | Compact, then pack each record as `reg`, `val`, `varint(wait << 1 \| bank)`, then deflate in the pack; done by the baker |
 | `I3` | OPX | Decode each record; the dropped redundant writes are not restored |
 | OPX chunk | `.OPX` file, and back | Add or remove the 16-byte header; set the rate, the loop start, the version and the flags from the stream (the flags are derived: any bank-1 record, any stereo bit) |
@@ -164,7 +166,7 @@ The format version is two numbers, major and minor, and is 0.1 now. Versions bel
 - A reader refuses a file whose major version it does not know. A higher minor version of a known major is read, ignoring what it does not understand (new flag bits, and bytes in the reserved field).
 - A writer sets the lowest version that can express the stream, so that an old reader keeps reading a stream that does not use a new feature.
 - While the major version is 0, a change to the layout can break old readers, and it increments the minor version. Every version change is recorded in the table below with a date and the reason, and the doc is the only definition of the format.
-- The chunk, being header-less, has no version of its own. It is the chunk of the 0.1 layout (4-byte records, a `u32` length), and a pack records which version of the chunk it was baked with in its own compatibility number.
+- The chunk, being header-less, has no version of its own. It is the chunk of the 0.1 layout (a bare array of 4-byte records), and a pack records which version of the chunk it was baked with in its own compatibility number.
 
 | Version | Date | Change |
 | --- | --- | --- |
@@ -194,7 +196,7 @@ What exists today:
 
 What this document proposes, and is not decided until the owner confirms it:
 
-- The name OPX and the file extension `.OPX`, for the 4-byte-record, `u32`-length chunk and the 16-byte-header file around it (version 0.1).
+- The name OPX and the file extension `.OPX`, for the 4-byte-record, bare-record chunk (no length prefix) and the 16-byte-header file around it (version 0.1).
 - The lab adopting OPX in its writer and runner.
 - Undertone's companion OPL package targeting OPX.
 
