@@ -336,10 +336,10 @@ musictest_case() {
   echo "MUSICTEST case $name ok ($got)"
 }
 musictest_case 'AdLib machine (OPL2 arrangement)' "$(sb none 'oplmode = opl2')" opl2 'SOUND MUSIC opl2 FX ch5'
-musictest_case 'SB16 (OPL3 arrangement)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch14'
+musictest_case 'SB16 (OPL3 arrangement)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch5+14'
 musictest_case 'SB16 with /ADLIB (OPL2 arrangement on an OPL3 chip)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5' /ADLIB
-musictest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
-musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch14' /MUSIC:OFF
+musictest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
+musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
 musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
 musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
@@ -361,7 +361,7 @@ replantest_case() {
   while read -r _ from _ to _ g0 _ opl _ gate _ changed _ m0 _ writes _ steps _ ticks _ music; do
     lines=$((lines + 1))
     tmusic="${to%%/*}" tfx="${to##*/}" fmusic="${from%%/*}" want=off
-    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch14 ]; then want=on; fi
+    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch5+14 ]; then want=on; fi
     [ "$opl" = "$want" ] || fail "/REPLANTEST ($name): OPL3 is $opl after $from -> $to (expected $want)"
     [ "$ticks" -gt 0 ] || fail "/REPLANTEST ($name): the service stopped ticking after $from -> $to"
     if [ "$changed" = yes ]; then
@@ -425,11 +425,11 @@ SB16="$(sb sb16)"
 V2='FZ2C\x02\x02\x04\x02\x00'
 cfg_none
 sound_case 'no file, no card' '' 'SOUND MUSIC off FX speaker' /PROBE
-sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 sound_case '/NOSOUND' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 sound_case '/SPEAKER' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE /SPEAKER
 sound_case '/ADLIB' "$SB16" 'SOUND MUSIC opl2 FX ch5' /PROBE /ADLIB
-sound_case '/SB' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE /SB
+sound_case '/SB' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE /SB
 sound_case '/MUSIC:OFF /FX:ADLIB' "$SB16" 'SOUND MUSIC off FX ch5' /PROBE /MUSIC:OFF /FX:ADLIB
 sound_case 'lower case, later flag wins' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE /nosound /music:adlib /fx:speaker
 sound_case '/SB without a chip falls back' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE /SB
@@ -443,18 +443,18 @@ sound_case 'shortcut over file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 cfg_put 'FZ2C\x01\x01\x04\x00'
 sound_case 'file v1 still read' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE
 cfg_put 'FZ2C\x02\x03\x03\x01\x00'
-sound_case 'file sb on sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'file sb on sb16' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 sound_case 'file sb on no card' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE
 cfg_put 'junk'
-sound_case 'corrupt: length' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'corrupt: length' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put 'XZ2C\x02\x02\x02\x00\x00'
-sound_case 'corrupt: magic' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-magic' /PROBE
+sound_case 'corrupt: magic' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-magic' /PROBE
 cfg_put 'FZ2C\x07\x02\x02\x00\x00'
-sound_case 'corrupt: version' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-version' /PROBE
+sound_case 'corrupt: version' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-version' /PROBE
 cfg_put 'FZ2C\x02\x09\x04\x00\x00'
 sound_case 'corrupt: music byte only' "$SB16" 'SOUND MUSIC opl3 FX speaker cfg-music' /PROBE
 cfg_put 'FZ2C\x02\x02\x09\x00\x00'
-sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch14 cfg-effects' /PROBE
+sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5+14 cfg-effects' /PROBE
 cfg_put 'FZ2C\x02\x02\x02\x05\x00'
 sound_case 'corrupt: frame-rate byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5 cfg-framerate' /PROBE
 # Version 3 adds motion, placement, captions and keys (bytes 9 to 12); a bad value resets only its own field and has its own code.
@@ -469,9 +469,9 @@ sound_case 'corrupt: captions byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cf
 cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
 sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
 cfg_put 'FZ2C\x03\x02\x04\x02\x00'
-sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put ''
-sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 # /LIVE prints the line too (Esc opens Paused; Up and Enter choose Quit to DOS).
 cfg_put "$V2"
 status=0
@@ -535,12 +535,12 @@ printf "$V2" > "$cfgdir/FIZZ2.NEW"
 sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
 printf 'junk' > "$cfgdir/FIZZ2.NEW"
-sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
 cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
 # And what it saved is what the next run reads.
-sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 
 # 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
 # of file and flags, and each run prints the SOUND line its settings give.
@@ -612,21 +612,21 @@ cfg_none
 AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
 AUDIO=silent replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
 AUDIO=opl2 replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
-AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
-AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch14'
+AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /SB
+AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch5+14'
 AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
 # Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,382 writes either way.
-AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch14' /MUSIC:OFF
-AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
+AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
+AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
 AUDIO=opl2 replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
 cfg_put "$V2"
 AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
-AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
+AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /FX:SB
 cfg_put 'junk'
-AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
+AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length'
 cfg_none
 
 # 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are

@@ -17,7 +17,7 @@
 //   total level raised by the distance attenuation (no pan, no extra writes). On an OPL3 in its own mode (the plan has music on the
 //   Sound Blaster) each bank-0 write goes through `fizz_machine::route`, which sets the C0-C8 output bits so the mono voice sounds in
 //   both speakers.
-// - effects on the OPL3 pair (`FxPlan::Ch14`, an OPL3 with the Sound Blaster chosen): an `OplPair` plays the same records on channel 5
+// - effects on the OPL3 pair (`FxPlan::Pair`, an OPL3 with the Sound Blaster chosen): an `OplPair` plays the same records on channel 5
 //   (bank 0, output bit 0x10, the left) and channel 14 (bank 1, 0x20, the right), each at the carrier level the placement gives that
 //   side. The pair's writes do not go through `route`: each channel has exactly its own output bit. The OPL3 mode was switched on
 //   by `start`, so the effect adds no enable write. Two channels double the effect's register writes.
@@ -298,7 +298,7 @@ impl Service {
                 }
                 self.opl_player = Some(OplPlayer::mono(id, mono));
             }
-            FxPlan::Ch14 => {
+            FxPlan::Pair => {
                 if self.pair.is_some() {
                     opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                     opl_write(1, 0xB0 + EFFECT_CHANNEL, 0);
@@ -506,7 +506,7 @@ pub fn replan(plan: &Resolved) -> bool {
         }
         match state.fx {
             FxPlan::Ch5 => opl_write(0, 0xB0 + EFFECT_CHANNEL, 0),
-            FxPlan::Ch14 => {
+            FxPlan::Pair => {
                 opl_write(0, 0xB0 + EFFECT_CHANNEL, 0);
                 opl_write(1, 0xB0 + EFFECT_CHANNEL, 0);
             }

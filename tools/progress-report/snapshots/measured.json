@@ -167,18 +167,18 @@
   "no file, no card ok (SOUND MUSIC off FX speaker; AUDIO WRITES 0 SPEAKER STEPS 1213)",
   "/NOSOUND, sb16 ok (SOUND MUSIC off FX off; AUDIO WRITES 0 SPEAKER STEPS 0)",
   "/ADLIB /MODERN, opl2 (channel 5) ok (SOUND MUSIC opl2 FX ch5; AUDIO WRITES 5221 SPEAKER STEPS 0)",
-  "/SB, sb16 (OPL3 pair, channels 5 and 14) ok (SOUND MUSIC opl3 FX ch14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
-  "auto, sbpro2 (OPL3 pair, channels 5 and 14) ok (SOUND MUSIC opl3 FX ch14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
+  "/SB, sb16 (OPL3 pair, channels 5 and 14) ok (SOUND MUSIC opl3 FX ch5+14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
+  "auto, sbpro2 (OPL3 pair, channels 5 and 14) ok (SOUND MUSIC opl3 FX ch5+14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
   "/ADLIB, sb16 with oplmode opl2 ok (SOUND MUSIC opl2 FX ch5; AUDIO WRITES 5221 SPEAKER STEPS 0)",
   "AdLib card alone (no Sound Blaster) ok (SOUND MUSIC opl2 FX ch5; AUDIO WRITES 5221 SPEAKER STEPS 0)",
   "/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule) ok (SOUND MUSIC opl3 FX ch5; AUDIO WRITES 5242 SPEAKER STEPS 0)",
   "/SPEAKER, sb16 ok (SOUND MUSIC off FX speaker; AUDIO WRITES 0 SPEAKER STEPS 1213)",
-  "/MUSIC:OFF, sb16 (the pair, no music) ok (SOUND MUSIC off FX ch14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
-  "/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair) ok (SOUND MUSIC opl2 FX ch14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
+  "/MUSIC:OFF, sb16 (the pair, no music) ok (SOUND MUSIC off FX ch5+14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
+  "/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair) ok (SOUND MUSIC opl2 FX ch5+14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
   "/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music) ok (SOUND MUSIC off FX ch5; AUDIO WRITES 5221 SPEAKER STEPS 0)",
   "file v2, sb16 (music on AdLib, effects on the speaker) ok (SOUND MUSIC opl2 FX speaker; AUDIO WRITES 20 SPEAKER STEPS 1213)",
-  "file v2 with a flag over it ok (SOUND MUSIC opl2 FX ch14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
-  "corrupt file ok (SOUND MUSIC opl3 FX ch14 cfg-length; AUDIO WRITES 10382 SPEAKER STEPS 0)"
+  "file v2 with a flag over it ok (SOUND MUSIC opl2 FX ch5+14; AUDIO WRITES 10382 SPEAKER STEPS 0)",
+  "corrupt file ok (SOUND MUSIC opl3 FX ch5+14 cfg-length; AUDIO WRITES 10382 SPEAKER STEPS 0)"
  ],
  "audioPathsHow": "The REPLAY case lines of `tools/check-dos.sh` on the same tree: each sound configuration, the SOUND line it resolved to and its AUDIO WRITES and SPEAKER STEPS."
 }

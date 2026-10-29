@@ -307,7 +307,7 @@ The steps, in general: `steps = round(-20 * log10(level) / 0.75)`, 0 to 63.
 | --- | --- | --- |
 | `FX ch5`, chip `Opl2` | AdLib or Sound Blaster OPL2 | `OplPlayer::mono(id, distance)` once per tick; each `(bank, reg, val)` is written to ports 0x388 and 0x389. |
 | `FX ch5`, chip `Opl3` (music on the Sound Blaster, effects on AdLib) | OPL3 in its own mode | The same, with `fizz_machine::route` on every write as an OPL2-format stream: a bank-0 write to registers 0xC0 to 0xC8 gets bits 4 and 5 set, so the mono voice sounds in both speakers. |
-| `FX ch14`, chip `Opl3` | OPL3, both banks | `OplPair::same(id, left, right)`: channel 5 (ports 0x388 and 0x389, output bit 0x10) and channel 14 (bank 1, ports 0x38A and 0x38B, output bit 0x20), each at its own carrier level; it goes through `route` as an OPL3-aware stream, which leaves its output bits as authored. See "The OPL3 pair". |
+| `FX ch5+14`, chip `Opl3` | OPL3, both banks | `OplPair::same(id, left, right)`: channel 5 (ports 0x388 and 0x389, output bit 0x10) and channel 14 (bank 1, ports 0x38A and 0x38B, output bit 0x20), each at its own carrier level; it goes through `route` as an OPL3-aware stream, which leaves its output bits as authored. See "The OPL3 pair". |
 | `FX speaker` | PC speaker | `SpeakerPlayer::new(id)` stepped on every fourth tick (140 Hz): a divisor is written to PIT channel 2 (command 0xB6, port 0x42) and bits 0 and 1 of port 0x61 are set, `Off` clears them. |
 | `FX off`, or no device | none | The service runs and does nothing, so the clock is the same in every case. |
 
@@ -342,7 +342,7 @@ This costs a score one channel: the OPL3 list loses channel 14 (see [The IMF lab
 
 ### The OPL3 pair
 
-When the chip is an OPL3 in its own mode and effects are on the Sound Blaster (`FX ch14` in the `SOUND` line, kept as the word so the line does not change), the effect plays on two channels at once. Channel 5 (bank 0) is the left channel, as it is on every other path; channel 14 (bank 1) is the extension that makes it stereo, the right channel. Both play the same records:
+When the chip is an OPL3 in its own mode and effects are on the Sound Blaster (`FX ch5+14` in the `SOUND` line, the pair named by both its channels), the effect plays on two channels at once. Channel 5 (bank 0) is the left channel, as it is on every other path; channel 14 (bank 1) is the extension that makes it stereo, the right channel. Both play the same records:
 
 | | Channel 5, left | Channel 14, right |
 | --- | --- | --- |

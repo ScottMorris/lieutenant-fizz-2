@@ -406,7 +406,7 @@ pub fn cells(probe: &Probe, resolved: &Resolved, out: &mut [u16; CELLS]) {
     let fx = match resolved.fx {
         FxPlan::Off => "off",
         FxPlan::Ch5 => "AdLib",
-        FxPlan::Ch14 => "Sound Blaster",
+        FxPlan::Pair => "Sound Blaster",
         FxPlan::Speaker => "PC speaker",
     };
     let _ = write!(plan, "Music: {music}   Effects: {fx}");

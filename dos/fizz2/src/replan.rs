@@ -54,7 +54,7 @@ fn name(plan: &Resolved) -> String {
     let fx = match plan.fx {
         FxPlan::Off => "off",
         FxPlan::Ch5 => "ch5",
-        FxPlan::Ch14 => "ch14",
+        FxPlan::Pair => "ch5+14",
         FxPlan::Speaker => "speaker",
     };
     let mut s = String::new();
