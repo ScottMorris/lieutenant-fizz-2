@@ -82,3 +82,53 @@ pub fn props() -> TileProps {
     }
     p
 }
+
+/// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
+/// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
+/// the tile property table (flags, slope and switch channel for each of the 256 tile ids, in that order), the named tile ids, and the
+/// numbers of the snack kinds. The object kind numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel or an id
+/// changes the number on purpose, so a pack baked before the change is refused.
+pub fn pack_content() -> alloc::vec::Vec<u8> {
+    use crate::world::SnackKind;
+    let mut v = alloc::vec::Vec::new();
+    v.extend_from_slice(b"fizz-ep2-content");
+    let p = props();
+    for id in 0..=255u8 {
+        v.push(p.flags(id));
+    }
+    for id in 0..=255u8 {
+        v.push(p.slope(id));
+    }
+    for id in 0..=255u8 {
+        v.push(p.channel(id));
+    }
+    v.extend_from_slice(&[
+        EMPTY, FILL, BLOCK, PLAT, SPIKE, CHOC, R45, L45, R22A, R22B, L22A, L22B, DOOR_R, DOOR_B,
+        EXIT, WALLBG,
+    ]);
+    v.extend_from_slice(&[
+        SnackKind::Cheezie.number(),
+        SnackKind::Choc.number(),
+        SnackKind::Cookie.number(),
+    ]);
+    v
+}
+
+#[cfg(test)]
+mod pack_content_tests {
+    use super::*;
+
+    #[test]
+    fn the_content_bytes_follow_the_property_table() {
+        let a = pack_content();
+        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 3);
+        assert_eq!(a, pack_content());
+        // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
+        assert_eq!(a[16], 0);
+        assert_ne!(a[16 + usize::from(FILL)], 0);
+        // The door channels are in the third table.
+        assert_eq!(a[16 + 512 + usize::from(DOOR_R)], DOOR_RED_CHANNEL);
+        assert_eq!(a[16 + 512 + usize::from(DOOR_B)], DOOR_BLUE_CHANNEL);
+        assert_eq!(&a[a.len() - 3..], &[0, 1, 2]);
+    }
+}
