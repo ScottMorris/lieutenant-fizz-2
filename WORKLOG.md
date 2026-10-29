@@ -91,3 +91,4 @@ P5 m4/pair-label: print the OPL3 effects pair as ch5+14 in the SOUND line (FxPla
 - Give the DOS runtime's memset and memcpy the C signatures the compiler expects (void pointers), which clears the two suspicious runtime symbol warnings in the CI build log
 - write docs/FAP.md, the Fizz Asset Pack format spec (M2 package 1), and update the crate table and open questions in ARCHITECTURE.md; docs only
 - add the fizz-pack crate: no_std allocation-free .FAP reader (header, directory, checksum, schema-derived compatibility number, LevelView), a from-scratch raw-deflate decoder, and a write-feature pack writer with a simple deflate compressor; not linked into any executable yet
+- reconcile docs/FAP.md and the fizz-pack crate (stem in the header, 24-byte entries with section checksums, per-device compatibility numbers, FXPK effect sets, 96 KB section limit, no speaker music) and add fizz-ep2 tiles::pack_content; not linked into any executable yet
