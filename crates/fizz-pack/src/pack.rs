@@ -36,10 +36,8 @@ pub const TAG_LEVL: u32 = tag(b"LEVL");
 pub const TAG_SPRT: u32 = tag(b"SPRT");
 /// Section tag: OPL3 register stream (one song).
 pub const TAG_OPL3: u32 = tag(b"OPL3");
-/// Section tag: OPL2 register stream.
+/// Section tag: OPL2 register stream (one song).
 pub const TAG_OPL2: u32 = tag(b"OPL2");
-/// Section tag: PC speaker stream.
-pub const TAG_SPKR: u32 = tag(b"SPKR");
 /// Section tag: music metadata.
 pub const TAG_MUSC: u32 = tag(b"MUSC");
 /// Section tag: backdrops.
@@ -59,7 +57,8 @@ pub const FX_ENTRY_LEN: usize = 16;
 /// The default per-section decoded-size limit the baker enforces, in bytes.
 pub const SECTION_LIMIT: u32 = 96 * 1024;
 
-/// The three audio devices. Each has its own section tag, tick rate and compatibility number.
+/// The three audio devices. Each has its own effect set (`FXPK`) and tick rate; the two OPL devices also have music files with a
+/// section tag and a compatibility number of their own. The PC speaker plays effects only: there is no speaker music.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Device {
     Opl3,
@@ -77,12 +76,12 @@ impl Device {
         }
     }
 
-    /// The tag of this device's song sections.
-    pub const fn tag(self) -> u32 {
+    /// The tag of this device's song sections; `None` for the speaker, which has no music.
+    pub const fn song_tag(self) -> Option<u32> {
         match self {
-            Device::Opl3 => TAG_OPL3,
-            Device::Opl2 => TAG_OPL2,
-            Device::Speaker => TAG_SPKR,
+            Device::Opl3 => Some(TAG_OPL3),
+            Device::Opl2 => Some(TAG_OPL2),
+            Device::Speaker => None,
         }
     }
 
@@ -150,13 +149,19 @@ pub const LEVEL_HASH: u32 = {
     h
 };
 
-/// The hash of one device's audio layout: the audio header size, the no-loop marker, the device's tag, number and tick rate, and
+/// The hash of one device's audio layout: the audio header size, the no-loop marker, the device's song tag (0 for the speaker), number and tick rate, and
 /// the effect-set tag, header and entry sizes. A change to one device's layout changes only that device's number.
 pub const fn audio_hash(d: Device) -> u32 {
     let mut h = fnv(b"fizz-pack-audio");
     h = feed_u32(h, AUDIO_HEADER_LEN as u32);
     h = feed_u32(h, NO_LOOP);
-    h = feed_u32(h, d.tag());
+    h = feed_u32(
+        h,
+        match d.song_tag() {
+            Some(t) => t,
+            None => 0,
+        },
+    );
     h = feed_u32(h, d.number() as u32);
     h = feed_u32(h, d.rate() as u32);
     h = feed_u32(h, TAG_FXPK);
@@ -185,10 +190,14 @@ pub const fn compatibility(content: &[u8]) -> u32 {
     fnv1a(SCHEMA_HASH, content)
 }
 
-/// The compatibility number of an audio file (`MUSIC.OP3`, `MUSIC.OP2`, `MUSIC.SPK`) for device `d`: `CONTAINER_HASH` continued over
-/// that device's `audio_hash`. It does not depend on levels, tiles or the other devices, so a level change does not invalidate music.
-pub const fn audio_compatibility(d: Device) -> u32 {
-    feed_u32(CONTAINER_HASH, audio_hash(d))
+/// The compatibility number of a music file (`MUSIC.OP3`, `MUSIC.OP2`) for device `d`: `CONTAINER_HASH` continued over that
+/// device's `audio_hash`. It does not depend on levels, tiles or the other device, so a level change does not invalidate music.
+/// `None` for the speaker, which has no music file.
+pub const fn audio_compatibility(d: Device) -> Option<u32> {
+    match d.song_tag() {
+        Some(_) => Some(feed_u32(CONTAINER_HASH, audio_hash(d))),
+        None => None,
+    }
 }
 
 /// Everything the container reader can refuse.

@@ -42,12 +42,11 @@ Names follow the DOS 8.3 rule, upper case on disk.
 | `<WORLD>.FAP`, for example `LIGHT.FAP` | The world's levels (`LEVL`), backdrops (`BDRP`) and world sprites (`SPRT`) | When a level of that world starts |
 | `MUSIC.OP3` | One `OPL3` section per song | The one section for the song in play, when the song changes |
 | `MUSIC.OP2` | One `OPL2` section per song | As above, on an OPL2 machine |
-| `MUSIC.SPK` | One `SPKR` section per song | As above, on a PC speaker machine |
 
 All files use the container below (the same magic, header and directory), whatever their extension. The extension is a hint for people and for the build scripts; the reader trusts the header.
 
 - A **pack** is any such file. The reader asks for a section by tag and index and does not care which file holds it. The hybrid split above is the current plan (owner decision, 2026-10-29); moving a section to another file is a change to `fizz-bake`'s manifest, not to the format.
-- Song `n` is the `n`th song of its tag in each of the three music files, and the `n`th record of `MUSC` in `SHARED.FAP`. A song held in one section is the `n`th section; a song held as chunks (see [Audio sections](#audio-sections)) is a run of consecutive sections counted once. The baker refuses a music set where the three device files hold different song lists (a missing form is a placeholder, see [Target profiles](#target-profiles)).
+- Song `n` is the `n`th song of its tag in each of the two music files, and the `n`th record of `MUSC` in `SHARED.FAP`. A song held in one section is the `n`th section; a song held as chunks (see [Audio sections](#audio-sections)) is a run of consecutive sections counted once. The baker refuses a music set where the two device files hold different song lists (a missing form is a placeholder, see [Target profiles](#target-profiles)). **There is no music on the PC speaker** (owner decision, 2026-10-29): the speaker plays sound effects only, so there is no `MUSIC.SPK`, and a machine with neither OPL chip plays no music.
 - The Web build fetches the same names from its own `dist/web` directory, but has no `MUSIC.*` files.
 - The file names above are decided (owner, 2026-10-29). The stem of every file is stored in its header (see [Header](#header)), so a renamed or misplaced file is caught at load.
 
@@ -70,7 +69,7 @@ Everything is little-endian. A pack starts with a 32-byte header, followed by th
 | 20 | 4 | Checksum, `u32` (see [Checksums](#checksums)) |
 | 24 | 8 | Pack stem: the file name without its extension, ASCII, padded to 8 bytes with spaces or zero bytes (for example `SHARED  `). The baker writes spaces |
 
-The stem lets a reader tell that `LIGHT.FAP` was not renamed over `SHARED.FAP`, or that a file was copied from another place. A reader compares it with the stem it asked for, and a difference (including characters after the padding, or a space inside the stem) is refused with the stem message below, naming the file. The stem is upper case, 1 to 8 printable ASCII characters without spaces. For `MUSIC.OP3`, `MUSIC.OP2` and `MUSIC.SPK` the stem is `MUSIC`; the device is told apart by the compatibility number, which differs per device.
+The stem lets a reader tell that `LIGHT.FAP` was not renamed over `SHARED.FAP`, or that a file was copied from another place. A reader compares it with the stem it asked for, and a difference (including characters after the padding, or a space inside the stem) is refused with the stem message below, naming the file. The stem is upper case, 1 to 8 printable ASCII characters without spaces. For `MUSIC.OP3` and `MUSIC.OP2` the stem is `MUSIC`; the device is told apart by the compatibility number, which differs per device.
 
 ### Directory
 
@@ -89,7 +88,7 @@ The directory follows the header at the header size. Each entry is 24 bytes.
 
 Rules the reader enforces, each with its own error:
 
-- Entries are sorted by tag, comparing the four bytes in file order (so `BDRP` < `FXPK` < `LEVL` < `MUSC` < `OPL2` < `OPL3` < `SPKR` < `SPRT`), and entries with the same tag are in the order the baker emitted them. The index of a section is its position among the entries with the same tag, counted from 0.
+- Entries are sorted by tag, comparing the four bytes in file order (so `BDRP` < `FXPK` < `LEVL` < `MUSC` < `OPL2` < `OPL3` < `SPRT`), and entries with the same tag are in the order the baker emitted them. The index of a section is its position among the entries with the same tag, counted from 0.
 - Offsets are multiples of 16 and never fall in directory order: each section starts at or after the end of the one before it (so overlap is checked in one pass with no allocation) and after the end of the directory, and every `offset + stored length` is at most the total length. An empty section (a placeholder) may share its offset with the next one; no other two sections do.
 - The total length in the header equals the file's real length, and is a multiple of 16 (the last section is followed by zero padding).
 - Codec 0 (stored) needs stored length equal to decoded length. Any other codec needs the codec to be one the reader knows.
@@ -117,11 +116,11 @@ There are two kinds of number, because music should not be rebuilt when a level 
 
 1. `CONTAINER_HASH`: the format version, the header, directory entry and alignment sizes, and the codec numbers.
 2. `LEVEL_HASH`: the `LEVL` header and object sizes, the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`, and the object kind numbers.
-3. One audio hash per device (OPL3, OPL2, speaker): the audio header size, the no-loop marker, the device's tag, number and tick rate, and the `FXPK` tag, header and entry sizes. A pack that holds effects for all three devices depends on all three.
+3. One audio hash per device (OPL3, OPL2, speaker): the audio header size, the no-loop marker, the device's song tag (none for the speaker), number and tick rate, and the `FXPK` tag, header and entry sizes. A pack that holds effects for all three devices depends on all three.
 
 The content bytes are not known to `fizz-pack`, which cannot see the rules. `fizz-ep2` supplies them as `tiles::pack_content()`: the ASCII text `fizz-ep2-content`; the tile property table (256 flag bytes, then 256 slope bytes, then 256 switch-channel bytes, indexed by tile id, from `tiles::props()`); the named tile ids (`EMPTY`, `FILL`, `BLOCK`, `PLAT`, `SPIKE`, `CHOC`, `R45`, `L45`, `R22A`, `R22B`, `L22A`, `L22B`, `DOOR_R`, `DOOR_B`, `EXIT`, `WALLBG`, in that order); and the snack kind numbers (cheezie 0, chocolate 1, cookie 2). The compatibility number of a world or shared pack is `fizz_pack::compatibility(&pack_content())`. The tile property flags are in it (owner decision), so moving a `SOLID` or `SWITCHED` flag, a slope or a channel invalidates the packs, which is wanted: the flag changes how a baked level plays without changing a byte of it. Every new enum, table or constant that a baked record refers to by number must be added to `pack_content()` in the same change that introduces it; a unit test in `fizz-ep2` pins the layout and length of the bytes.
 
-**Audio files** (`MUSIC.OP3`, `MUSIC.OP2`, `MUSIC.SPK`): `audio_compatibility(device)`, FNV-1a 32 of `CONTAINER_HASH` continued over that device's audio hash. It does not include levels, tiles, content bytes or the other devices, so a level change does not invalidate music, and a change to the speaker layout does not invalidate the OPL files. (`SHARED.FAP` holds effects for all devices and so does depend on all three audio hashes, through `SCHEMA_HASH`.)
+**Music files** (`MUSIC.OP3`, `MUSIC.OP2`): `audio_compatibility(device)` (there is none for the speaker), FNV-1a 32 of `CONTAINER_HASH` continued over that device's audio hash. It does not include levels, tiles, content bytes or the other devices, so a level change does not invalidate music, and a change to the speaker effect layout does not invalidate the music files. (`SHARED.FAP` holds effects for all devices and so does depend on all three audio hashes, through `SCHEMA_HASH`.)
 
 **When it changes.**
 
@@ -160,10 +159,9 @@ A section is a payload plus its directory entry. The tags in version 1:
 | Tag | Content | Version 1 payload |
 | --- | --- | --- |
 | `LEVL` | One level: tiles, objects, spawn | Fully specified |
-| `FXPK` | The effect set of one device: an index, then one stream per effect | Layout fully specified; the record layout of the speaker streams is not |
+| `FXPK` | The effect set of one device (OPL3, OPL2 or speaker): an index, then one stream per effect | Index fully specified; the record layout of the speaker streams is **not yet specified** until the audio pack package |
 | `OPL3` | One OPL3 register stream (a song, or one chunk of one) | Fully specified |
 | `OPL2` | The same for an OPL2 | Fully specified |
-| `SPKR` | The same for the PC speaker | Outline; the record layout is **not yet specified** until the audio pack package |
 | `MUSC` | The song table: names and metadata | Outline; **Not yet specified** |
 | `SPRT` | Sprites | Outline; **Not yet specified** |
 | `BDRP` | Backdrops | Outline; **Not yet specified** |
@@ -226,18 +224,18 @@ The numeric values of `kind` and `sub` come from the enums in `fizz-ep2`, and th
 
 ### Audio sections
 
-`OPL3`, `OPL2` and `SPKR` hold timed register writes for one song of one device (or one chunk of a song). `FXPK` holds the effects of one device. A device section is chosen at load, so a machine decodes and keeps one device's form.
+`OPL3` and `OPL2` hold timed register writes for one song of one OPL device (or one chunk of a song); there is no speaker music. `FXPK` holds the effects of one device, including the speaker. A device section is chosen at load, so a machine decodes and keeps one device's form.
 
-**Tick rates.** OPL streams run at 560 Hz and the speaker stream at 140 Hz, as `fizz-sfx` and `fizz-music` do today.
+**Tick rates.** OPL streams run at 560 Hz and speaker effect streams at 140 Hz, as `fizz-sfx` and `fizz-music` do today.
 
-**Header, 16 bytes (all three tags).**
+**Header, 16 bytes (the song tags `OPL3` and `OPL2`).**
 
 | Offset | Size | Field |
 | --- | --- | --- |
 | 0 | 4 | `loop_start`, `u32`: the index of the first record of the loop, or 0xFFFFFFFF for a stream that plays once (an effect) |
 | 4 | 4 | `prelude_ticks`, `u32`: ticks from the first record to the record at `loop_start`; the whole stream's ticks for a stream that plays once |
 | 8 | 4 | `loop_ticks`, `u32`: ticks from the record at `loop_start` round to it again; 0 for a stream that plays once |
-| 12 | 2 | `rate`, `u16`: 560 or 140; the reader rejects another value for the tag |
+| 12 | 2 | `rate`, `u16`: 560; the reader rejects another value |
 | 14 | 1 | `chunk`, `u8`: the index of this section within its song, counted from 0; 0 for a song in one section |
 | 15 | 1 | `chunks`, `u8`: the number of sections the song is stored in; 1 for a song in one section. A reader rejects 0 and a `chunk` that is not below `chunks` |
 
@@ -248,7 +246,7 @@ The directory count is the number of records. The prelude (the one-time setup, i
 **Records, layout `I3`.** After the header, the records back to back: `reg` (`u8`), `val` (`u8`) and then `varint(wait << 1 | bank)`.
 
 - The varint is little-endian base 128: seven bits per byte, low group first, the high bit set on every byte but the last. The value is below 2^16 (`wait` is at most 0x7FFF, which is `MAX_WAIT` in `fizz-sfx`), so it takes one to three bytes and a record is three to five bytes (3.02 bytes on average over the lab songs).
-- `bank` is 0 or 1. On an `OPL2` section it is always 0; on `SPKR` there is no bank (see below).
+- `bank` is 0 or 1. On an `OPL2` section it is always 0.
 - `wait` is the number of ticks to wait after this write, as `OplStep` does. The encoding must be the shortest one: a longer encoding of the same value is a corrupt stream.
 - The decoded `I3` section is 568 KB over 9 lab songs against 751 KB as 4-byte records. A stepper reads `I3` directly and never expands it, so heap use equals the decoded length.
 
@@ -260,7 +258,7 @@ The directory count is the number of records. The prelude (the one-time setup, i
 - The baker refuses a stream with more than 16 writes in one tick, the cap the DOS audio service relies on. The nine lab songs all break it (34 to 129 writes in a tick), so they cannot be packed as they are; only Crater Fields complies. Lowering them is the job of the source tools, not of the baker.
 - Dropping redundant writes matters more for decoded memory than for compressed size: it removes 26.3% of the lab records but gains deflate only 3.9 to 4.7%.
 
-**`SPKR`.** The tick rate is 140 Hz and the payload is a list of speaker divisors. The record layout stays **unspecified** until the audio pack package (owner decision, 2026-10-29): it is a choice between one `u16` divisor per record with a varint wait and a divisor per tick, to be made by measurement. The 16-byte header, the directory, codec and loop rules above are expected to apply unchanged. Because the speaker has its own compatibility number, fixing the layout later does not invalidate the OPL files.
+**Speaker effects.** The speaker form of `FXPK` has a tick rate of 140 Hz and its payload is a list of speaker divisors. The record layout stays **unspecified** until the audio pack package (owner decision, 2026-10-29): it is a choice between one `u16` divisor per record with a varint wait and a divisor per tick, to be made by measurement. The `FXPK` index and the directory, codec and checksum rules apply unchanged. Because the speaker section lives in `SHARED.FAP`, fixing the layout later invalidates that file's number but not the music files.
 
 **Effects (`FXPK`).** The sound effects live in `SHARED.FAP` as one `FXPK` section per device holding every effect of that device, with an index. They are the 1st, 2nd and 3rd `FXPK` sections: OPL3, OPL2, speaker, in that order. Whole sets are used because the effects are tiny (about 100 bytes each) and one section per effect would spend a 24-byte directory entry, a 16-byte alignment and a checksum on each. A new tag was chosen over reusing `OPL3`, `OPL2` and `SPKR` with an index header because the tag then says what the payload is: a song reader can never be handed an effect set, a song's index among `OPL3` sections is not shifted by the effects, and the music files hold no `FXPK`. Decoded layout:
 
@@ -274,9 +272,9 @@ The directory count is the number of records. The prelude (the one-time setup, i
 | 8 | 16 * `count` | The index, one entry per effect in `fizz-sfx` order |
 | after | | The streams, back to back, each starting on a 4-byte boundary |
 
-An index entry is 16 bytes: `offset` (`u32`, from the start of the section to the effect's first record), `length` (`u32`, bytes of records), `records` (`u16`), reserved (`u16`, zero) and `ticks` (`u32`, the effect's total ticks). Entries are in ascending `offset` order with no overlap, every `offset + length` is at most the decoded length, and the streams are `I3` records for OPL (the speaker record layout is as unspecified as above). An effect has no audio header of its own: it plays once, as if `loop_start` were 0xFFFFFFFF. Unused effect slots of a device with no form for an effect are an entry with `records` 0 and `length` 0. The whole set is decoded once at start-up and stays resident (it is small), so the effect player indexes it directly. A device whose effects are not baked yet has a placeholder `FXPK` section. The reader for this layout is written in the audio pack package; the container, `fizz-pack`'s tag and size constants and the compatibility number already include it.
+An index entry is 16 bytes: `offset` (`u32`, from the start of the section to the effect's first record), `length` (`u32`, bytes of records), `records` (`u16`), reserved (`u16`, zero) and `ticks` (`u32`, the effect's total ticks). Entries are in ascending `offset` order with no overlap, every `offset + length` is at most the decoded length, and the streams are `I3` records for OPL (the speaker record layout is as unspecified as above). An effect has no audio header of its own: it plays once, as if `loop_start` were 0xFFFFFFFF. Unused effect slots of a device with no form for an effect are an entry with `records` 0 and `length` 0. DOS decodes only the section for the detected device, once at start-up, and it stays resident (it is small), so the effect player indexes it directly. A device whose effects are not baked yet has a placeholder `FXPK` section. The reader for this layout is written in the audio pack package; the container, `fizz-pack`'s tag and size constants and the compatibility number already include it.
 
-**Per-device sections.** The baker emits all three device forms of every song; DOS seeks to the section for the detected device, decodes it and ignores the rest. The OPL2 and OPL3 forms of one song overlap in content, and that overlap costs floppy space only. If it matters, the planned single-stream OPL3 with a skippable second bank (M4.5 `opl3-core-extras`) removes the duplicate structurally, and would be a new section version.
+**Per-device sections.** The baker emits both OPL forms of every song, and all three device forms of the effects; DOS seeks to the section for the detected device (`MUSIC.OP3` or `MUSIC.OP2` for a song, the matching `FXPK` for effects), decodes it and ignores the rest. A machine with neither chip decodes the speaker `FXPK` and no song. The OPL2 and OPL3 forms of one song overlap in content, and that overlap costs floppy space only. If it matters, the planned single-stream OPL3 with a skippable second bank (M4.5 `opl3-core-extras`) removes the duplicate structurally, and would be a new section version.
 
 ### `MUSC`
 
@@ -300,7 +298,7 @@ A pack is baked for one target, named in the header. The structure is the same; 
 | `LEVL` | Yes | Yes, byte-identical to Web |
 | `SPRT`, `BDRP` | Yes, possibly richer (**not yet specified**) | Yes, DOS form |
 | `MUSC` | Yes | Yes |
-| `OPL3`, `OPL2`, `SPKR`, `FXPK` | **None.** The Web plays the Undertone sources bundled in the page | Yes, one section per device |
+| `OPL3`, `OPL2` (music files), `FXPK` (effects, in `SHARED.FAP`) | **None.** The Web plays the Undertone sources bundled in the page | Yes: songs for the two OPL devices, effects for all three |
 | Audio files `MUSIC.*` | None | Yes |
 | Output directory | `dist/web` | `dist/dos` |
 
@@ -423,7 +421,7 @@ Decided by the owner on 2026-10-29 and no longer open: the file names, the DOS s
 These remain, each with the package that settles it:
 
 1. **Re-measure the compression figures** under the key-on rule, and check the rule against an OPL emulator (the audio pack package, with the baker's encoder).
-2. **The `SPKR` record layout**, and with it the speaker form of `FXPK` (the audio pack package).
+2. **The speaker record layout** of the speaker `FXPK` section (effects only; the audio pack package).
 3. **Chunk playback.** The chunk fields are specified; the double-buffered player, and whether any shipped song needs it, are for the audio pack package.
 4. **Sections not yet specified.** `SPRT`, `BDRP` and `MUSC`.
 5. **The level digest helper** (`fizz_ep2::level::digest`, FNV-1a 64) is for the level-source and baker packages; `fizz-pack` does not carry it.
