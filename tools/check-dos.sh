@@ -166,7 +166,7 @@ caps_check() {
   local prefix="$1" text="$2" none six
   printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
   for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
-    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS $kind avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
+    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
   done
   none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
   six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
