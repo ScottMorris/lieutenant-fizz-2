@@ -4,7 +4,7 @@ This manual is updated with every change a player can see or do, in the same pul
 
 ## What this is
 
-Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Paused and Options screens on the Web and on DOS; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
+Lieutenant Fizz 2 is a technical preview. Both the Web and the DOS versions play the first slice of the game: one small vertical maze with a red key, a red door, a chicken, a snack nook with a blue key and door, and an exit, using the pogo stick, the jump and the Fizz Blaster from Lieutenant Fizz 1 (see [The slice on DOS](#the-slice-on-dos) and [The Web slice](#the-web-slice)). There is no story, and the only menus are the Paused and Options screens on the Web and on DOS; the only sounds so far are the chicken's cluck and a looping placeholder song, on DOS with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and on the Web (see [Sound on the Web](#sound-on-the-web)). The two versions exist to prove that the game behaves identically on both.
 
 ## Running it
 
@@ -53,16 +53,46 @@ When the chicken clucks, its beak opens and its words float above its head for a
 
 Turning captions off hides only the words; the beak still opens.
 
+Other things Ben does raise a word where they happen, in the colours of Lieutenant Fizz 1:
+
+| Word | Colour | When |
+| --- | --- | --- |
+| `fzzt` | light cyan | A Fizz shot leaves the blaster |
+| `click - no fizz` | grey | You press Fizz with no shots left |
+| `fizzled` | light cyan | A shot stuns a chicken |
+| `bonk` | white | You land on a chicken |
+| `whoa!` | light red | Ben dies |
+| `ta-da!` | light green | You reach the exit |
+| `red gumdrop`, `blue gumdrop`, `green gumdrop` | red, blue, green | You pick up a key |
+| `clunk` | white | A door opens with its key, or Ben bumps his head |
+| `boing` | yellow | The pogo stick bounces off the ground |
+| `crunch` | yellow | Ben takes a snack |
+
+A jump has no word, but it has a sound. The same word is left out if it comes again within about a fifth of a second (so a fast run of shots does not pile up `fzzt`), at most six words show at once (a seventh replaces the first), and a word is left out if its spot is more than a tile outside the picture. Each word stays where it appeared while the view moves, rises a little and fades over about a second, on the Web and on DOS alike.
+
+### Sound effects
+
+Every one of those words has a sound that plays at the same moment, and so does the jump, as in Lieutenant Fizz 1: `fzzt` is a bright zap that falls, `fizzled` a short wobbling sputter, `bonk` a deep knock, `whoa!` a long falling cry, `ta-da!` a rising flourish that ends on a long bell-like note, the gumdrops three quick rising notes, `clunk` a low thud, `click - no fizz` a tiny high tick, `boing` a springy wobble, the jump a short rising chirp and `crunch` a noisy crackle with two quick notes. The chicken keeps its four clucks.
+
+- The sounds play whether the captions are on or off, and a word that is left out because it repeats too soon still has its sound.
+- When two things happen at once the sounds can overlap on the Web. On DOS the effects share one voice, so the newest sound cuts the one before it off, as in Lieutenant Fizz 1; for instance a snack taken as you leave the ground plays the snack's sound, not the jump's.
+- Holding the Fizz button with no shots left clicks once, when you press it.
+- The song does not stop or get quieter when you reach the exit; `ta-da!` plays over it.
+- On the Web, press `H` for the panel and use the list "Hear an effect" under the hint: it plays any of the fifteen sounds by itself, at full volume and in the middle, so you can hear each one. The arrow keys step through the list, and `Esc` gives the keyboard back to the game. DOS has no such list.
+- On DOS each sound is one voice and is a little thinner than on the Web: the layers, the noise and the bell tones are simpler, and on the PC speaker each is a plain beep with no volume.
+
+Nobody has listened to the new sounds yet: what is described here is what they are meant to be.
+
 ### Where a cluck comes from
 
-In the Enhanced way of playing, which is the only one on DOS in this version, a cluck sounds as if it comes from where the chicken is on the screen, as in Lieutenant Fizz 1. A chicken at the left of the picture is louder in your left ear and a chicken at the right is louder in your right, but never all the way: the far ear is still about a third as loud (ten decibels down), so the cluck does not vanish from one side. A chicken that is off the screen is quieter, getting softer as it gets further away and no softer than about 40 percent of the level (eight decibels down). What you hear depends on your sound:
+In the Enhanced way of playing, a cluck, and every other sound, comes from where it happens on the screen, as in Lieutenant Fizz 1. A chicken at the left of the picture is louder in your left ear and a chicken at the right is louder in your right, but never all the way: the far ear is still about a third as loud (ten decibels down), so the cluck does not vanish from one side. A sound that happens off the screen is quieter, getting softer as it gets further away and no softer than about 40 percent of the level (eight decibels down). A sound you make yourself, such as a jump, a shot or a snack, comes from near Ben, so it is close to the middle. What you hear depends on your sound:
 
-- **A Sound Blaster Pro 2, 16 or later (`FX ch14`):** the cluck is true stereo, panned and softened by the chicken's place. The cluck's place is chosen when it starts; it does not follow the chicken if it walks while the cluck sounds.
-- **An AdLib, or an older Sound Blaster (`FX ch5`):** the cluck is mono, so it cannot pan, but it is softer when the chicken is off the screen. A later Sound Blaster that you have chosen to play effects on AdLib plays the one voice in both speakers, softer at a distance.
-- **The PC speaker (`FX speaker`):** the speaker has no volume and one output, so a cluck is the same wherever the chicken is.
+- **A Sound Blaster Pro 2, 16 or later (`FX ch5+14`):** the sound is true stereo, panned and softened by its place. The place is chosen when the sound starts; it does not follow the chicken if it walks while a cluck sounds.
+- **An AdLib, or an older Sound Blaster (`FX ch5`):** the sound is mono, so it cannot pan, but it is softer when it happens off the screen. A later Sound Blaster that you have chosen to play effects on AdLib plays the one voice in both speakers, softer at a distance.
+- **The PC speaker (`FX speaker`):** the speaker has no volume and one output, so a sound is the same wherever it happens.
 - **No sound (`/NOSOUND`):** silent.
 
-On the Web the Options screen has a Placement row: Enhanced (the default) places each cluck as above, using the width of your window as the width of the view, so the same chicken is panned less in a wide window. Classic plays every cluck in the middle at full level, as the original game did. The page remembers your choice on this browser, if the browser allows it to, and `?audio=classic` or `?audio=enhanced` at the end of the page's address chooses for that visit, and the row then shows a `*` until you change it. DOS has no Classic setting yet; its Options screen will have one.
+On the Web the Options screen has a Placement row: Enhanced (the default) places each sound as above, using the width of your window as the width of the view, so the same chicken is panned less in a wide window. Classic plays every sound in the middle at full level, as the original game did. The page remembers your choice on this browser, if the browser allows it to, and `?audio=classic` or `?audio=enhanced` at the end of the page's address chooses for that visit, and the row then shows a `*` until you change it. DOS has no Classic setting yet; its Options screen will have one.
 
 Nobody has listened to this yet: the numbers behind these descriptions are checked, the sound is not.
 
@@ -75,7 +105,7 @@ On the Web, press `F` or use the Fullscreen row of the Options screen to fill th
 Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
 
 - `/LIVE` — you play the slice. Esc opens the pause menu (Resume, Options, Quit to DOS). The run ends when you choose Quit to DOS, or by itself after 30 seconds of real time (time spent in the menu counts), and then prints the final tick, the hash, and whether Ben moved from where he started.
-- `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 21 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
+- `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 28 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door, plays in the snack nook (snacks, a head bump, the pogo, the empty blaster, the blue key and door) and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
 - `/BENCH` — times your computer. It plays the same built-in run as fast as it can, with no waiting, and then prints how many microseconds each picture took for the game's rules, the drawing and the copy to the screen, next to the 16,667 microseconds that one tick at 60 a second allows. If the drawing figure is much larger than that, the game will run slower than 60 pictures a second on your machine. It also prints a line that times a short fixed loop of simple steps, which shows how fast your computer ran the test. It does not wait between pictures, so it is usually over sooner than `/REPLAY`, and it ends with `EXIT yes` when Ben got out. Add a number, as in `/BENCH 120`, to time only that many pictures from the start of the run; it is quicker, and it does not reach the exit.
 - `/PROBE` — looks at your computer and tells you what it found, without playing or drawing anything and without waiting for a key. It prints one line each for your screen (`vga`, `ega`, `cga` or a monochrome adapter), whether a mouse and a joystick are connected, what kind of music chip you have (`none`, `opl2`, `dualopl2` or `opl3`), your Sound Blaster (`none`, or its version and port), the `BLASTER` setting, whether you have a maths chip, your processor (`386`, `486` or `586` for a Pentium or later) and how much memory is free. It also prints a code for the start-up screen the game will show for your computer and how much memory the program holds, and ends with `EXIT yes`. Use it to see how the game sees your computer; the sound uses these results, and `/CHECK` shows them on a start-up screen.
 - `/CHECK` — shows a start-up check screen in text mode: what your computer has (screen, keyboard, mouse, joystick, sound, processor, maths chip, memory) and which sound the game would use. It only shows; there is nothing to change on it. Press Enter to go on and play (it then runs as `/LIVE`), or Esc to quit. Enter does nothing while the screen says something the game needs is missing (a VGA display or a maths chip). Each sound line is in one of three states: dim when that device is not on your computer, normal when it is there but not used, and bright (a white-on-blue bar in colour, an inverse bar on a monochrome screen) when the game will use it. It waits for a key, so use `/PROBE` or `/CHECKCELLS` in scripts.
@@ -124,7 +154,7 @@ If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it pri
 
 ### Choosing your sound on DOS
 
-The DOS version plays the chicken's cluck and, with an AdLib or a Sound Blaster, a looping song. The song is Crater Fields, Lieutenant Fizz 1's level music, used here as a placeholder to test the music; it is not an official Episode 2 track and it will be replaced. The PC speaker plays the cluck but never the music, so on a computer with no AdLib or Sound Blaster there is no music. The game works out how to play it from your computer and your choices, and `/LIVE`, `/REPLAY` and `/PROBE` print the answer as one line, such as `SOUND MUSIC opl3 FX ch14`. `MUSIC` is `off`, `opl2` (an AdLib or the music chip of an older Sound Blaster) or `opl3` (a Sound Blaster Pro 2, 16 or later). `FX`, the sound effects, is `off`, `ch5` (the AdLib chip), `ch14` (the Sound Blaster's second bank) or `speaker` (the PC speaker, which cannot play music). Music and effects are chosen separately. If you ask for something your computer does not have, the game falls back to the nearest thing it does have and adds a word saying why, such as `music-sb-to-adlib`; it never stops.
+The DOS version plays the sound effects (the chicken's cluck and the others in [Sound effects](#sound-effects)) and, with an AdLib or a Sound Blaster, a looping song. The song is Crater Fields, Lieutenant Fizz 1's level music, used here as a placeholder to test the music; it is not an official Episode 2 track and it will be replaced. The PC speaker plays the effects but never the music, so on a computer with no AdLib or Sound Blaster there is no music. The game works out how to play it from your computer and your choices, and `/LIVE`, `/REPLAY` and `/PROBE` print the answer as one line, such as `SOUND MUSIC opl3 FX ch5+14`. `MUSIC` is `off`, `opl2` (an AdLib or the music chip of an older Sound Blaster) or `opl3` (a Sound Blaster Pro 2, 16 or later). `FX`, the sound effects, is `off`, `ch5` (the AdLib chip), `ch5+14` (the Sound Blaster's pair of channels, 5 and 14) or `speaker` (the PC speaker, which cannot play music). Music and effects are chosen separately. If you ask for something your computer does not have, the game falls back to the nearest thing it does have and adds a word saying why, such as `music-sb-to-adlib`; it never stops.
 
 You can choose for one run with these options, which combine with the other options (`FIZZ2.EXE /MODERN /NOSOUND`) and work in any letter case:
 
@@ -148,15 +178,15 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins. A choice saved in `FIZZ2.CFG` (the file the sound choices use) is used when no option is given, and an option wins over the file. An option never changes the file.
 
-`/LIVE` and `/REPLAY` end with a line such as `FRAMES 635 TICKS 1268 RATE 30 MODE 30`: how many pictures were drawn, how many steps were taken, the rate in use at the end and the mode (`auto`, `30` or `60`). At 30 the first number is about half the second. `/BENCH` does not use the frame rate: it draws every step and times it.
+`/LIVE` and `/REPLAY` end with a line such as `FRAMES 841 TICKS 1681 RATE 30 MODE 30`: how many pictures were drawn, how many steps were taken, the rate in use at the end and the mode (`auto`, `30` or `60`). At 30 the first number is about half the second. `/BENCH` does not use the frame rate: it draws every step and times it.
 
 ### Hearing the cluck on DOS
 
-What you need depends on the `FX` word of the `SOUND` line. With `ch5` you need an AdLib or any Sound Blaster, with `ch14` a Sound Blaster Pro 2, 16 or later (the game switches its chip to the stereo mode and plays the cluck in stereo, as described under [Where a cluck comes from](#where-a-cluck-comes-from)), and with `speaker` only the PC speaker that every PC has. With `off`, or with no sound card and `/NOSOUND`, the cluck is silent. The game picks the best of these on its own unless you ask for another with the options above. When the game ends, or stops because something went wrong, it silences the chip and the speaker and puts the Sound Blaster back in its ordinary mode.
+What you need depends on the `FX` word of the `SOUND` line. With `ch5` you need an AdLib or any Sound Blaster, with `ch5+14` a Sound Blaster Pro 2, 16 or later (the game switches its chip to the stereo mode and plays the effects in stereo, as described under [Where a cluck comes from](#where-a-cluck-comes-from)), and with `speaker` only the PC speaker that every PC has. With `off`, or with no sound card and `/NOSOUND`, the effects are silent. In short, the effects play on the OPL3 pair, on OPL2 or on the PC speaker, whichever the computer has. The game picks the best of these on its own unless you ask for another with the options above. When the game ends, or stops because something went wrong, it silences the chip and the speaker and puts the Sound Blaster back in its ordinary mode.
 
-The music starts when the game starts and loops until it ends. The cluck keeps its two voices to itself, so the music never takes them. The music never changes the game: the same moves give the same `TICK` and `HASH` with the music on or off.
+The music starts when the game starts and loops until it ends. The effects keep their two voices to themselves, so the music never takes them. The music never changes the game: the same moves give the same `TICK` and `HASH` with the music on or off.
 
-The run prints one more line when it ends, such as `AUDIO WRITES 425 SPEAKER STEPS 0`. It counts what the game sent to the chip for the cluck and to the speaker, which is how a run with no ears can tell which of them played: a chip shows a number of writes (the stereo pair on a Sound Blaster Pro 2 or later shows about twice as many as channel 5 alone, because it plays the cluck on two channels), the speaker shows steps, and a silent run shows zero for both. A second line, such as `MUSIC SONG crater ARR opl3 TICKS 11833 WRITES 1530 LOOPS 0 HASH 32fd5cf1`, says which version of the song played (`opl2`, `opl3` or `off`) and counts what it sent to the chip, so a run with no ears can tell that the music played; `off` means it did not, and the counts are zero. Nobody has listened to the DOS music yet, on a real computer or in DOSBox. The sound does not change the game: the same moves give the same `TICK` and `HASH` with the sound on, off or on the speaker. The game's timer now runs at about 560 times a second, which the sound needs, and it still advances the DOS clock at its usual rate. Nobody has heard the cluck on a real computer yet. If you have no file, every choice is "Auto", which means the best the computer has. An option on the command line always wins over the file, and never changes it. If the file is damaged or from something else, the game uses Auto and the `SOUND` line says so (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects` or `cfg-framerate`). The file's layout is in [`DOS-CHECK.md`](DOS-CHECK.md#settings-file-and-flags).
+The run prints one more line when it ends, such as `AUDIO WRITES 5221 SPEAKER STEPS 0` (that is the built-in run on an AdLib: 5,221 on channel 5, 10,382 on the stereo pair and 1,213 speaker steps on the PC speaker). It counts what the game sent to the chip for the sound effects and to the speaker, which is how a run with no ears can tell which of them played: a chip shows a number of writes (the stereo pair on a Sound Blaster Pro 2 or later shows about twice as many as channel 5 alone, because it plays each effect on two channels), the speaker shows steps, and a silent run shows zero for both. A second line, such as `MUSIC SONG crater ARR opl3 TICKS 11833 WRITES 1530 LOOPS 0 HASH 32fd5cf1`, says which version of the song played (`opl2`, `opl3` or `off`) and counts what it sent to the chip, so a run with no ears can tell that the music played; `off` means it did not, and the counts are zero. Nobody has listened to the DOS music yet, on a real computer or in DOSBox. The sound does not change the game: the same moves give the same `TICK` and `HASH` with the sound on, off or on the speaker. The game's timer now runs at about 560 times a second, which the sound needs, and it still advances the DOS clock at its usual rate. Nobody has heard the effects on a real computer yet. If you have no file, every choice is "Auto", which means the best the computer has. An option on the command line always wins over the file, and never changes it. If the file is damaged or from something else, the game uses Auto and the `SOUND` line says so (`cfg-length`, `cfg-magic`, `cfg-version`, `cfg-music`, `cfg-effects` or `cfg-framerate`). The file's layout is in [`DOS-CHECK.md`](DOS-CHECK.md#settings-file-and-flags).
 
 ### Options on DOS
 
@@ -204,7 +234,7 @@ It has not been tried on a real computer: how long the save takes on a floppy di
 
 *Screenshot of the DOS build (commit 796602d) with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, a moment after the built-in run starts. The emulator scales the 320 by 200 picture up.*
 
-You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. The chicken's cluck plays (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and, with an AdLib or a Sound Blaster, so does a looping placeholder song; there is no other sound yet.
+You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. The sound effects play (see [Sound effects](#sound-effects) and [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and, with an AdLib or a Sound Blaster, so does a looping placeholder song.
 
 When you play with `/LIVE`, the DOS version waits for the screen to finish drawing before it shows each new picture, which keeps the picture from tearing. Nothing else about how it plays changes.
 
@@ -212,9 +242,9 @@ The small box in the top-left corner is the HUD, in Fizz 1's own letters. `Fizz`
 
 ### The level on DOS
 
-You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands. Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
+You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands behind a blue door; the gallery's right end is a snack nook (see [The snack nook](#the-snack-nook)). Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
 
-Tiles are told apart by colour: dark blue is the wall behind the rooms, dark grey and light grey are solid blocks you cannot pass, bright green is a one-way platform, bright red is spikes, brown is the red door and yellow is the exit.
+Tiles are told apart by colour: dark blue is the wall behind the rooms, dark grey and light grey are solid blocks you cannot pass, bright green is a one-way platform, bright red is spikes, brown is the red door and the blue door (each has its own colour of gumdrop and door picture) and yellow is the exit. Snacks and keys are small pictures that bob in place.
 
 ### Moves
 
@@ -235,6 +265,18 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 ### The red key and the door
 
 Walk onto the red key to pick it up; the key chip in the HUD fills in. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
+
+### The snack nook
+
+The gallery at the top is also a small playground, where the things Ben can do each have a place to happen. The exit is behind a blue door under a ceiling of blocks, so you have to go through the nook to reach it. Walk onto the gallery's right end and you will see a shelf of grey blocks four tiles up, with snacks on top of it and two cheezies hanging underneath.
+
+- **Snacks.** Cheezies are worth 1 point, a chocolate bar 2 and a cookie 5 (Fizz 1's points). Walking into one takes it. The score is worked out in the rules but not drawn yet. If you die, the snacks come back.
+- **Bumping your head.** Jump straight up under the shelf. You take the cheezie, and your head hits the shelf, which counts as a head bump (it happens once for each jump).
+- **Bouncing.** The shelf is too high to jump onto. Get on the pogo stick next to the right-hand wall, bounce a couple of times, then hold Jump as you land for the high bounce and steer left at the top: you land on the shelf and keep bouncing along it, collecting the cheezie, the chocolate bar, the cookie and the blue key at the left end.
+- **The blue door.** Drop off the left end of the shelf facing the blue door with the blue key. The door opens and the key is used up, just like the red one. The way to the exit is through it.
+- **An empty blaster.** You start with five Fizz shots. After the fifth, pressing Fizz again does nothing but make the "no Fizz" click that Fizz 1 has.
+
+The Web page and the DOS build show all of these as pictures, with their words (see [Captions](#captions)) and their sounds (see [Sound effects](#sound-effects)). The key chip in the HUD is the red key's only; the blue key has no chip.
 
 ### The chicken
 
@@ -317,10 +359,10 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 | Row | Choices | What it does |
 | --- | --- | --- |
 | Sound | On, Off | All sound, the same as `M` |
-| Music | On, Off | The tune only; the clucks stay |
-| Placement | Enhanced, Classic | Whether a cluck is panned and softened by where the chicken is |
+| Music | On, Off | The tune only; the sound effects stay |
+| Placement | Enhanced, Classic | Whether a sound is panned and softened by where it happens |
 | Motion | System, Reduced, Full | The shake and spin when Ben dies; System follows your device's setting |
-| Captions | On, Off | The words over a clucking chicken, the same as `V` |
+| Captions | On, Off | The words where things happen, the same as `V`; the sounds stay |
 | Keys | Keen, Modern | Which set of keys you play with |
 | Fullscreen | Off, On | The same as `F`; it is left out where the browser cannot go fullscreen |
 | Back | | Goes back one screen |
@@ -336,11 +378,11 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 
 ### Sound on the Web
 
-The chicken clucks at random, between one and a half and six seconds apart, while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. There is one tune, described under Music below.
+The chicken clucks at random, between one and a half and six seconds apart, while it is awake, in one of four ways: a low "buh" followed by a loud falling "gawk", a short single cluck, a quick double cluck, and "cluck, cluck". A stunned chicken is quiet. The other sounds (shots, snacks, keys, doors, jumps and the rest; see [Sound effects](#sound-effects)) play when they happen. There is one tune, described under Music below.
 
-A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; clucks before then are not played later. Press `M`, or use the Sound row of the Options screen, to turn the sound off and on. The row shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` mutes everything, the music as well as the clucks, and does nothing else in either set of keys. The page is silent while its tab is hidden, and when several chickens cluck at once the extra clucks are dropped so that the sound does not distort. A cluck comes from the side of the screen the chicken is on, as described under [Where a cluck comes from](#where-a-cluck-comes-from), and the Placement row of the Options screen chooses Enhanced or Classic.
+A browser does not let a page make sound until you have pressed a key or clicked on it, so you hear nothing until your first key press; sounds before then are not played later. Press `M`, or use the Sound row of the Options screen, to turn the sound off and on. The row shows which it is, and the page remembers your choice on this browser, if the browser allows it to. `M` mutes everything, the music as well as the clucks, and does nothing else in either set of keys. The page is silent while its tab is hidden, and when more than six sounds are playing at once the extra ones are dropped so that the sound does not distort (`whoa!` and `ta-da!` are never dropped). A sound comes from the side of the screen it happens on, as described under [Where a cluck comes from](#where-a-cluck-comes-from), and the Placement row of the Options screen chooses Enhanced or Classic.
 
-**Music.** The Web page plays a looping song called Crater Fields, from the moment of your first key press or click. It is Lieutenant Fizz 1's level song, used here as a placeholder to test the music, and it is not an official Episode 2 track; it will be replaced. It runs about a minute, then goes straight back to the start, and keeps playing when Ben dies, comes back or reaches the exit. The Music row of the Options screen turns just the music off and on (the clucks stay); the page remembers the choice on this browser, and music is on until you turn it off. A muted page plays no music either, and turning it on again starts the song from the beginning. The song is quieter than the cluck on purpose. Music is not part of the game: it never changes what happens or the `HASH`. DOS plays the same song with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)). Nobody has listened to the Web music in a real browser.
+**Music.** The Web page plays a looping song called Crater Fields, from the moment of your first key press or click. It is Lieutenant Fizz 1's level song, used here as a placeholder to test the music, and it is not an official Episode 2 track; it will be replaced. It runs about a minute, then goes straight back to the start, and keeps playing when Ben dies, comes back or reaches the exit. The Music row of the Options screen turns just the music off and on (the sound effects stay); the page remembers the choice on this browser, and music is on until you turn it off. A muted page plays no music either, and turning it on again starts the song from the beginning. The song is quieter than the sound effects on purpose. Music is not part of the game: it never changes what happens or the `HASH`. DOS plays the same song with an AdLib or a Sound Blaster (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)). Nobody has listened to the Web music in a real browser.
 
 ## The screen
 
@@ -354,9 +396,9 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
-- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values and the chicken's cluck and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place it by where the chicken is on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
+- **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values, the sound effects and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place each sound by where it happens on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
 - **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
-Episode 2 is planned to bring more sound: other effects and the real music (the placeholder song stands in for it); an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and a title screen. None of this is in the builds yet.
+Episode 2 is planned to bring more sound: designed effects and the real music (the placeholder song and the first-draft effects stand in for them); an overworld, an inner world and an underworld; more levels with keycards and doors; new gadgets beyond the pogo stick; new enemies; a lighthouse level; saves; and a title screen. None of this is in the builds yet.

@@ -6,7 +6,7 @@
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc opens the Paused screen (Resume, Options, Quit to DOS). The default when no mode is given
-//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,268 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,681 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
@@ -33,7 +33,7 @@
 //   FIZZ2.EXE /OPTIONS  a test mode: opens the Options screen at once over the slice's first frame; Esc leaves (menu.rs)
 //   FIZZ2.EXE /PANIC    starts the audio service (IRQ 0 hooked at 560 Hz, a cluck sounding) and panics, to show the clean-up list runs (exit 3)
 //
-// /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each `Event::Cluck` to the audio service and print an `AUDIO`
+// /LIVE and /REPLAY run the timer at 560 Hz through `audio::start`, hand each event that has a sound to the audio service and print an `AUDIO`
 // line with the register writes and speaker steps it made, and the music starts with the session: a `MUSIC` line next to it says what the
 // music wrote (the player's own tick count, the writes, the loops and the FNV-1a of every write); /BENCH keeps the 60 Hz timer unless it is
 // given /AUDIO.
@@ -59,14 +59,14 @@ use alloc::string::String;
 use core::fmt::{self, Write};
 use core::sync::atomic::{AtomicBool, Ordering};
 use fizz_dos_rt::{audio, dpmi, entry, env, fpu, irq, kbd, println, timer};
-use fizz_ep2::{Event, SLICE_SCRIPT, SLICE_TICKS, World, level};
+use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, frame_digest, key_to_buttons,
+    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, event_sound, frame_digest, key_to_buttons,
     menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
@@ -165,22 +165,22 @@ fn end_session(display: &mut DosDisplay) {
 /// Whether sound placement is Classic for this run (set once in `main` from `FIZZ2.CFG` and the switches; the program is single-threaded).
 static CLASSIC_PLACEMENT: AtomicBool = AtomicBool::new(false);
 
-/// Hands the clucks the last step emitted to the audio service, each with where its chicken is in the view the frame is drawn in
-/// (Enhanced), or centred at full volume (Classic). Positions are read after the step, with the camera the picture uses; the view
-/// and the placement are for sound only and have no effect on the rules.
+/// Hands the sounds the last step emitted to the audio service, each with where it happened in the view the frame is drawn in
+/// (Enhanced), or centred at full volume (Classic). Every event with a sound plays its effect (`fizz_slice_view::event_sound`: the
+/// table in `captions.rs` says which), whatever the Captions setting says. The service has one effect slot on its channel, so within a
+/// step the last event's effect is the one that starts and a later effect cuts an earlier one off, as in Fizz 1's DOS port (see
+/// `docs/SOUND.md`). Positions are read after the step, with the camera the picture uses; the view and the placement are for sound
+/// only and have no effect on the rules.
 fn play_events(world: &World, options: &DrawOptions) {
     for event in world.events() {
-        match *event {
-            Event::Cluck { variant, chicken } => {
-                let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
-                    Placement::CENTRE
-                } else {
-                    cluck_placement(world, chicken, VIEW_W, VIEW_H, options)
-                };
-                audio::cluck(variant, &place);
-            }
-            // The puff is drawn, not heard; the shot sound comes with the other effects in a later milestone.
-            Event::ShotEnd { .. } => {}
+        // A shot ending is drawn (the puff), not heard, so it gives no sound.
+        if let Some((id, place)) = event_sound(world, event, VIEW_W, VIEW_H, options) {
+            let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
+                Placement::CENTRE
+            } else {
+                place
+            };
+            audio::effect(id, &place);
         }
     }
 }
@@ -228,7 +228,7 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &dos_palette())
 }
 
-fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &Puffs) {
+fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &ViewFx) {
     render_slice_with(world, frame, options, puffs);
     let _ = present(display, frame);
 }
@@ -241,7 +241,7 @@ fn draw_slice_frame_synced(
     frame: &mut Frame,
     world: &fizz_ep2::World,
     options: &DrawOptions,
-    puffs: &Puffs,
+    puffs: &ViewFx,
 ) {
     render_slice_with(world, frame, options, puffs);
     let _ = display.wait_vretrace();
@@ -300,7 +300,7 @@ fn main() -> i32 {
                 return 1;
             }
             audio::music_start();
-            audio::cluck(0, &Placement::CENTRE);
+            audio::effect(0, &Placement::CENTRE);
             // Let the music write for a while (about 0.4 s of 560 Hz ticks), so the clean-up has sounding channels to key off.
             let until = timer::ticks().wrapping_add(200);
             while timer::ticks().wrapping_sub(until) > u32::MAX / 2 {}
@@ -322,7 +322,7 @@ fn help() -> i32 {
 }
 
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
-/// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 21 seconds; the screen shows it as it goes.
+/// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 28 seconds; the screen shows it as it goes.
 #[inline(never)]
 fn replay(options: &DrawOptions) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
@@ -349,7 +349,7 @@ fn replay(options: &DrawOptions) -> i32 {
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
-    let mut puffs = Puffs::new();
+    let mut puffs = ViewFx::new();
     let mut prev = Buttons::NONE;
     let mut run = 0usize;
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
@@ -373,7 +373,7 @@ fn replay(options: &DrawOptions) -> i32 {
             play_events(&world, options);
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
-            puffs.observe(&world);
+            puffs.observe(&world, VIEW_W, VIEW_H, options);
         }
         if due > 0 {
             drawing.maybe(world.tick.0, || {
@@ -421,6 +421,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     }
     let (cal_loops, cal_us) = bench::calibrate();
     let (world, r) = bench::run(&mut display, limit, options, false);
+    let caps = bench::captions(&mut display, options, false);
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -447,6 +448,7 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     for &(tick, digest) in &r.frames[..r.frame_count] {
         println!("BENCH FRAME {} {:016x}", tick, digest);
     }
+    print_captions("BENCH", &caps);
     println!("BENCH BUDGET {} us per tick at 60 Hz", bench::BUDGET_US);
     println!("BENCH HASH {:016x}", fizz_ep2::hash(&world).finish());
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
@@ -472,7 +474,7 @@ fn menushot() -> i32 {
     let mut frame = Frame::new();
     let mut hashes = [0u64; 2];
     for (i, show) in [view_menu::shot_options, view_menu::shot_paused].into_iter().enumerate() {
-        render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &Puffs::new());
+        render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &ViewFx::new());
         show(&mut view, &mut frame);
         let _ = present(&mut display, &frame);
         hashes[i] = frame_digest(&frame);
@@ -514,7 +516,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
     let mut world = level::world();
-    let mut puffs = Puffs::new();
+    let mut puffs = ViewFx::new();
     let mut applied = Applied::from_prefs(&start.prefs);
     let mut menus = Menus::new(start.file, start.prefs, probe, options_only);
     let mut quit = false;
@@ -565,7 +567,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
                 break;
             }
             fizz_ep2::step(&mut world, latch.frame());
-            puffs.observe(&world);
+            puffs.observe(&world, VIEW_W, VIEW_H, &applied.draw);
             play_events(&world, &applied.draw);
         }
         if opened {
@@ -616,6 +618,25 @@ fn clocks_to_us(clocks: u64) -> u64 {
     clocks * 1_000_000 / 1_193_182
 }
 
+/// The `CAPTIONS` lines of a bench: the same picture drawn with no captions and with all six slots full, and what the six cost.
+fn print_captions(prefix: &str, c: &bench::CaptionsReport) {
+    println!("{} CAPTIONS TICK {} FRAMES {} EACH", prefix, c.tick, c.frames);
+    for (name, s) in [
+        ("none DRAW", &c.none_draw),
+        ("six DRAW", &c.six_draw),
+        ("none DRAW+PRESENT", &c.none_total),
+        ("six DRAW+PRESENT", &c.six_total),
+    ] {
+        println!("{} CAPTIONS {} avg {} max {} units us", prefix, name, s.avg_us(), s.max_us());
+    }
+    println!(
+        "{} CAPTIONS COST six minus none: draw avg {} us, draw+present avg {} us",
+        prefix,
+        c.six_draw.avg_us().saturating_sub(c.none_draw.avg_us()),
+        c.six_total.avg_us().saturating_sub(c.none_total.avg_us())
+    );
+}
+
 fn print_pass(name: &str, r: &bench::Report) {
     for (section, s) in [
         ("STEP", &r.step),
@@ -662,6 +683,10 @@ fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
     let (world_on, on) = bench::run(&mut display, limit, options, true);
     let irq_on = audio::profile();
     let music_on = audio::music_report();
+    // Six captions on screen while effects play: the music is still running, so the chip has music and effects at once.
+    audio::set_profile(true);
+    let caps = bench::captions(&mut display, options, true);
+    let irq_caps = audio::profile();
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -713,6 +738,18 @@ fn bench_audio(limit: u64, options: &DrawOptions) -> i32 {
         "BENCH AUDIO HASH {:016x} {:016x}",
         fizz_ep2::hash(&world_off).finish(),
         fizz_ep2::hash(&world_on).finish()
+    );
+    print_captions("BENCH AUDIO", &caps);
+    let n = u64::from(irq_caps.count).max(1);
+    let tenths = clocks_to_us(u64::from(irq_caps.sum_clocks) * 10 / n);
+    println!(
+        "BENCH AUDIO CAPTIONS IRQ count {} avg {}.{} max {} discarded {} units us; MAX_WRITES_PER_TICK {} (music and effects together)",
+        irq_caps.count,
+        tenths / 10,
+        tenths % 10,
+        clocks_to_us(u64::from(irq_caps.max_clocks)),
+        irq_caps.bad,
+        irq_caps.max_tick_writes
     );
     println!("BENCH AUDIO NOTE DOSBox charges no time for ISA port I/O: the counts are exact, the 486 time is not measured");
     let exited = world_off.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED)

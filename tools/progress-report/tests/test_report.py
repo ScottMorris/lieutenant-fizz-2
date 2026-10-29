@@ -219,7 +219,7 @@ class RoadmapTests(unittest.TestCase):
 
     def test_milestones_are_listed_in_plan_order(self):
         road = gather.read_json(os.path.join(TOOL, "roadmap.json"))
-        self.assertEqual([m["id"] for m in road["milestones"]], ["m0", "m1", "m1_5", "m2", "m3", "m3_5", "m4", "m5", "m6"])
+        self.assertEqual([m["id"] for m in road["milestones"]], ["m0", "m1", "m1_5", "m2", "m3", "m3_5", "m4", "m4_5", "m5", "m6"])
 
 
 def fixture_data():
@@ -431,7 +431,7 @@ class DrawingTests(unittest.TestCase):
     def test_the_dos_transcript_matches_the_golden_file(self):
         self.assertIn("FPU CW 027F", flows.dos_transcript(self.D))
         D = copy.deepcopy(self.D)
-        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("0edebb797e63edff", "0" * 16)
+        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("e3d629fda94149ab", "0" * 16)
         with self.assertRaises(ValueError):
             flows.dos_transcript(D)
 

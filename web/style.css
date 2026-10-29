@@ -208,6 +208,28 @@ button:focus-visible {
   border-color: #8aa;
 }
 
+.audition {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: #8aa;
+  font-size: 13px;
+}
+
+.audition select {
+  font: inherit;
+  font-size: 13px;
+  color: #cfe8ff;
+  background: #1a1a33;
+  border: 1px solid #335;
+  padding: 3px 6px;
+}
+
+.audition select:focus-visible {
+  border-color: #8aa;
+}
+
 .note {
   margin: 0;
   color: #6c7f8f;

@@ -17,6 +17,7 @@
 //! | `=` | [`PLAT`] | a one-way platform: solid only when landed on from above |
 //! | `^` | [`SPIKE`] | spikes: lethal |
 //! | `D` | [`DOOR_R`] | the red door: solid until Ben opens it with the key |
+//! | `b` | [`DOOR_B`] | the blue door: solid until Ben opens it with the blue key |
 //! | `E` | [`EXIT`] | the exit |
 //!
 //! # The route
@@ -27,9 +28,22 @@
 //! ledges climb to the red door ([`DOOR`]) in the wall that divides the two shafts. With the key, walking into the door
 //! opens it; beyond it the right shaft climbs, again by ledges, to a gallery in the open air where the exit lies
 //! ([`EXIT_TILES`]). A short run of spikes on the ground floor ends any careless drop from the first ledges.
+//!
+//! # The snack nook
+//!
+//! The gallery is also the playground. Ben climbs onto its right end, and the blue cookie door ([`BLUE_DOOR`]) stands
+//! between him and the exit, under a lintel of blocks that runs to the top of the map, so nothing but the door lets him
+//! pass. Right of the door sits the snack nook: a shelf of blocks ([`SHELF`]) four tiles above the floor.
+//!
+//! - Under the shelf hang two cheezies ([`SNACKS`]). A jump from the floor reaches them and bumps Ben's head on the shelf,
+//!   which is the head-bump clunk.
+//! - On the shelf lie a cheezie, a chocolate and a cookie, and at its left end the blue key ([`KEY_BLUE`]). The shelf is
+//!   too high for a jump (3.5 tiles); the pogo with Jump held bounces 6.6 tiles, enough to land on it from the right, and
+//!   every pogo landing is a bounce.
+//! - Fizz Blaster ammo is five shots. Spending them against the right-hand wall and pressing Fire once more is the dud.
 
-use crate::tiles::{self, BLOCK, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
-use crate::world::World;
+use crate::tiles::{self, BLOCK, DOOR_B, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
+use crate::world::{SnackKind, World};
 use fizz_phys::TileMap;
 
 /// The level's width in tiles.
@@ -39,16 +53,16 @@ pub const H: usize = 48;
 
 /// The level as text, top row first (the comment on each row is its `y`).
 const ROWS: [&str; H] = [
-    "................................", // 47
-    "................................", // 46
-    "................................", // 45
-    "................................", // 44
-    "................................", // 43
-    "................................", // 42
-    "................................", // 41
-    "................................", // 40
-    "....................E...........", // 39
-    "....................E...........", // 38
+    "......................B........B", // 47
+    "......................B........B", // 46
+    "......................B........B", // 45
+    "......................B........B", // 44
+    "......................B........B", // 43
+    "......................B........B", // 42
+    "......................B.BBBBB..B", // 41
+    "......................b........B", // 40
+    "....................E.b........B", // 39
+    "....................E.b........B", // 38
     "#..............B===============#", // 37
     "###############Bwwwwwwwwwwwwwww#", // 36
     "###############Bwwwwwwwwwwwwwww#", // 35
@@ -99,6 +113,21 @@ pub const CHICKEN: (f64, f64, f64) = (8.0, 11.0, -1.0);
 pub const DOOR: [(i32, i32); 3] = [(15, 20), (15, 21), (15, 22)];
 /// The exit's tiles, on the gallery at the top of the right shaft.
 pub const EXIT_TILES: [(i32, i32); 2] = [(20, 38), (20, 39)];
+/// The blue door's tiles: column 22, rows 38 to 40, under the lintel of blocks that closes the gallery up to the map's top.
+pub const BLUE_DOOR: [(i32, i32); 3] = [(22, 38), (22, 39), (22, 40)];
+/// The shelf's tiles: row 41, columns 24 to 28. Its top is 42 tiles up, four above the gallery floor.
+pub const SHELF: [(i32, i32); 5] = [(24, 41), (25, 41), (26, 41), (27, 41), (28, 41)];
+/// The blue key's centre, at the left end of the shelf.
+pub const KEY_BLUE: (f64, f64) = (24.5, 42.7);
+/// The snacks, as `(kind, x, y)` with the centre in tiles. Two cheezies hang under the shelf, where a jump bumps the head
+/// to reach them; on the shelf, from its right end to its left, lie a cheezie, a chocolate and a cookie.
+pub const SNACKS: [(SnackKind, f64, f64); 5] = [
+    (SnackKind::Cheezie, 25.5, 40.2),
+    (SnackKind::Cheezie, 27.5, 40.2),
+    (SnackKind::Cheezie, 27.5, 42.7),
+    (SnackKind::Choc, 26.5, 42.7),
+    (SnackKind::Cookie, 25.5, 42.7),
+];
 
 /// The baked level: the shape `fizz-bake` will fill from a map file.
 pub struct LevelData {
@@ -118,6 +147,7 @@ const fn tile_of(letter: u8) -> u8 {
         b'=' => PLAT,
         b'^' => SPIKE,
         b'D' => DOOR_R,
+        b'b' => DOOR_B,
         b'E' => EXIT,
         _ => panic!("unknown tile letter"),
     }
@@ -155,10 +185,14 @@ pub fn map() -> TileMap {
     m
 }
 
-/// A fresh world on the slice level: Ben at the spawn, the key and the chicken in place, the red door closed.
+/// A fresh world on the slice level: Ben at the spawn, the keys, the snacks and the chicken in place, both doors closed.
 pub fn world() -> World {
     let mut w = World::new(map(), SPAWN);
     w.set_key(KEY.0, KEY.1);
+    w.set_key_blue(KEY_BLUE.0, KEY_BLUE.1);
+    for &(kind, x, y) in &SNACKS {
+        w.add_snack(kind, x, y);
+    }
     w.add_chicken(CHICKEN.0, CHICKEN.1, CHICKEN.2);
     w
 }
@@ -171,9 +205,9 @@ mod tests {
     fn the_level_is_32_by_48_and_the_bake_flips_the_rows() {
         let m = map();
         assert_eq!((m.w, m.h), (32, 48));
-        // The bottom text row is the solid floor, and the top one is open sky.
+        // The bottom text row is the solid floor, and the top one is open sky left of the door's lintel.
         assert!((0..32).all(|x| m.get(x, 0) == FILL));
-        assert!((0..32).all(|x| m.get(x, 47) == EMPTY));
+        assert!((0..22).all(|x| m.get(x, 47) == EMPTY));
     }
 
     #[test]
@@ -184,6 +218,9 @@ mod tests {
         let count = |t: u8| m.data.iter().filter(|&&v| v == t).count();
         assert_eq!(count(DOOR_R), DOOR.len());
         assert_eq!(count(EXIT), EXIT_TILES.len());
+        assert!(BLUE_DOOR.iter().all(|&(x, y)| m.get(x, y) == DOOR_B));
+        assert_eq!(count(DOOR_B), BLUE_DOOR.len());
+        assert!(SHELF.iter().all(|&(x, y)| m.get(x, y) == BLOCK));
         // Ben starts on the ground floor and the chicken on the long ledge, both on solid or one-way footing.
         assert_eq!(m.get(SPAWN.0 as i32, SPAWN.1 as i32 - 1), FILL);
         assert_eq!(m.get(CHICKEN.0 as i32, CHICKEN.1 as i32 - 1), PLAT);

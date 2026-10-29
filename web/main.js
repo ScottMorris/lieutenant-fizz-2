@@ -9,6 +9,7 @@ import init, { App } from "./pkg/fizz_present_web.js";
 import { AudioRoot } from "./audio.ts";
 import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
+import { EFFECT_NAMES } from "../assets/sfx/effects.ts";
 import { OptionsUi, ROW, ROW_OF, browserStorage, loadOptions, menuKeyFor, MENU_KEY, opensPaused, placementFromSearch, pullOptions, pushOptions, saveOptions } from "./options.ts";
 import { announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, sameHud } from "./hud.ts";
 
@@ -86,8 +87,8 @@ const hudStatus = document.getElementById("hud-status");
 const CAPTION_FONT_PX = 15;
 const CAPTION_REFERENCE_TILE_PX = 54;
 const TILE = 16;
-// The word sits this many view pixels above the chicken's feet: two Fizz 1 tiles, which is 32 here.
-const CAPTION_ANCHOR_ABOVE_FEET = 32;
+// A chicken's word sits 32 view pixels (two Fizz 1 tiles) above its feet and an event's on its point; the module says which
+// (`caption_anchor_above`).
 const CAPTION_POP = 0.2;
 // CSS `ease-out`, near enough.
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
@@ -172,7 +173,7 @@ function showCaptions(app) {
     // The anchor is the word's centre; lift is in word heights. It follows the chicken exactly, as in Fizz 1: never moved to stay
     // inside, so the layer's overflow clips it as the chicken leaves. The module drops it a tile outside the picture.
     const cx = app.caption_x(i) * scale;
-    const cy = (app.caption_y(i) - CAPTION_ANCHOR_ABOVE_FEET) * scale + (0.5 - lift) * h;
+    const cy = (app.caption_y(i) - app.caption_anchor_above(i)) * scale + (0.5 - lift) * h;
     el.style.opacity = String(opacity);
     el.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) scale(${size})`;
   });
@@ -327,6 +328,18 @@ async function main() {
   addEventListener("pointerdown", unlockSound);
   document.addEventListener("visibilitychange", () => sfx.sync());
 
+  // Audition: the H panel's list plays any effect by its id, on its own and centred, so the owner can hear each one. A change plays it, so
+  // the arrow keys step through them; the select keeps its keys (the game's key handler leaves a select alone) and Esc gives focus back.
+  const picker = document.getElementById("effect-picker");
+  const playButton = document.getElementById("effect-play");
+  EFFECT_NAMES.forEach((name, id) => picker.add(new Option(`${id}  ${name}`, String(id))));
+  const audition = () => {
+    unlockSound();
+    sfx.playEffect(Number(picker.value));
+  };
+  picker.addEventListener("change", audition);
+  playButton.addEventListener("click", audition);
+
   let layout = stored.keys;
   // Button bits held per physical key, so a release always undoes its own press even after a layout change.
   const held = new Map();
@@ -404,6 +417,11 @@ async function main() {
 
   const handle = (event, down) => {
     if (down) unlockSound();
+    // The audition list takes its own keys (arrows step through the effects); Esc hands the keyboard back to the game.
+    if (event.target === picker) {
+      if (down && event.code === "Escape") picker.blur();
+      return;
+    }
     const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
     if (event.code === "KeyM" && plain) {
       event.preventDefault();
@@ -464,9 +482,9 @@ async function main() {
     // A screen up holds the game: the module drops its pacer, so the first frame after it restarts the clock and nothing is caught up.
     if (ui.isOpen) app.hold();
     else app.frame(performance.now());
-    // Read after every frame: the module keeps the clucks of all the ticks the frame ran.
-    // Each cluck carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
-    for (let v = app.take_cluck(); v >= 0; v = app.take_cluck()) sfx.playCluck(v, app.cluck_pan(), app.cluck_gain());
+    // Read after every frame: the module keeps the effects of all the ticks the frame ran.
+    // Each effect carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
+    for (let id = app.take_effect(); id >= 0; id = app.take_effect()) sfx.playEffect(id, app.effect_pan(), app.effect_gain());
     draw(app, wasm.memory);
     showCaptions(app);
     showPlayHud(app);

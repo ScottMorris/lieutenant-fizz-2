@@ -23,9 +23,9 @@ DOS_CYCLES='fixed 26800' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos RTSMOKE.EXE > /
 [ "$status" = 125 ] || fail "a rejected cpu_cycles setting exited $status (expected 125)"
 echo "GUARD rejected cpu_cycles exit $status"
 
-# 1. The replay: /REPLAY plays the slice script (1,268 ticks, about 21 seconds). The lines that start with `TICK `, `FINAL ` or
+# 1. The replay: /REPLAY plays the slice script (1,681 ticks, about 28 seconds). The lines that start with `TICK `, `FINAL ` or
 # `EVENT ` equal the golden transcript, whatever it holds, and Ben must reach the exit. The BIOS tick counter runs at 18.2065 Hz,
-# so 1,268 ticks of 60.0011 Hz is about 385 of its ticks; the bound is two either side of that.
+# so 1,681 ticks of 60.0011 Hz is about 510 of its ticks; the bound is two either side of that.
 golden=crates/fizz-ep2/slice-replay.txt
 status=0
 out="$(tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
@@ -40,7 +40,7 @@ printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY did not reach the ex
 printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "FPU control word is not 027F"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not restored"
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-{ [ -n "$bios" ] && [ "$bios" -ge 383 ] && [ "$bios" -le 387 ]; } || fail "BIOS TICKS '$bios' is outside 383-387"
+{ [ -n "$bios" ] && [ "$bios" -ge 508 ] && [ "$bios" -le 512 ]; } || fail "BIOS TICKS '$bios' is outside 508-512"
 
 # 2. Live play of the slice with the default Keen keys: type Ctrl (jump), right, right, down, then Esc once the program is up.
 # MOVED means Ben is somewhere other than his spawn (a step changes x, a jump changes y). Movement only; autotype timing is not
@@ -131,7 +131,7 @@ status=0
 out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=120 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/BENCH exited $status"
-printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1268' || fail "no 'BENCH TICKS 1268' line"
+printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1681' || fail "no 'BENCH TICKS 1681' line"
 printf '%s\n' "$out" | grep -qx 'BENCH BUDGET 16667 us per tick at 60 Hz' || fail "no BENCH BUDGET line"
 printf '%s\n' "$out" | grep -qx "BENCH HASH $(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')" || fail "/BENCH ended on a different hash from $golden"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH did not reach the exit"
@@ -160,6 +160,21 @@ for section in STEP DRAW PRESENT TOTAL; do
     [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
   fi
 done
+# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
+# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
+caps_check() {
+  local prefix="$1" text="$2" none six
+  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
+  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
+    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
+  done
+  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
+  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
+  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
+  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
+  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
+}
+caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
 
 # 3b2. /BENCH /AUDIO: the same bench with the 560 Hz audio service, once without music and once with it (an OPL3 here). The picture and the
 # rules are untouched (the same final hash twice), the music writes only in the second pass and never more than 16 on a tick, and the
@@ -172,7 +187,7 @@ echo "$out"
 out="$(printf '%s\n' "$out" | tr -d '\r')"
 golden_hash="$(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')"
 printf '%s\n' "$out" | grep -qx "BENCH AUDIO HASH $golden_hash $golden_hash" || fail "/BENCH /AUDIO ended on a different hash from $golden"
-printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1268 1268' || fail "/BENCH /AUDIO did not run the whole script twice"
+printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1681 1681' || fail "/BENCH /AUDIO did not run the whole script twice"
 printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TIMER PIT divisor 2131 (559.9 Hz), ARR opl3' || fail "/BENCH /AUDIO is not at 560 Hz with the OPL3 arrangement"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH /AUDIO did not reach the exit"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH /AUDIO did not restore the vectors"
@@ -193,6 +208,14 @@ mline="$(printf '%s\n' "$out" | grep -E '^BENCH AUDIO on MUSIC TICKS [0-9]+ WRIT
 [ -n "$mline" ] || fail "/BENCH /AUDIO printed no 'on MUSIC' line"
 set -- $mline
 { [ "$8" -gt 0 ] && [ "${10}" -le 16 ]; } || fail "/BENCH /AUDIO music wrote $8 times, at most ${10} on a tick: $mline"
+# Six captions on screen while effects play over the music (the third pass): the same checks, and the interrupt's profile for it. The busiest
+# tick with music and effects together is at most 16 for the music and 22 for the pair's patch load (the OPL3 here), so 38.
+caps_check "BENCH AUDIO" "$out"
+cline="$(printf '%s\n' "$out" | grep -E '^BENCH AUDIO CAPTIONS IRQ count [0-9]+ avg [0-9]+\.[0-9] max [0-9]+ discarded [0-9]+ units us; MAX_WRITES_PER_TICK [0-9]+ \(music and effects together\)$' || true)"
+[ -n "$cline" ] || fail "/BENCH /AUDIO printed no 'CAPTIONS IRQ' line"
+cmax="$(printf '%s\n' "$cline" | sed -n 's/.*MAX_WRITES_PER_TICK \([0-9]*\) .*/\1/p')"
+{ [ "$cmax" -gt 0 ] && [ "$cmax" -le 38 ]; } || fail "/BENCH /AUDIO CAPTIONS: $cmax writes in a tick, over the 16 for the music plus 22 for the pair"
+echo "BENCH AUDIO CAPTIONS: $cline"
 
 # 3c. The probes: /PROBE under one DOSBox configuration after another. tools/dosrun.sh sets `sbtype = none`, so a variant that wants
 # a Sound Blaster appends an `[sblaster]` section (the later value wins); `nosound = true` still emulates the OPL. Each run must exit 0
@@ -245,10 +268,11 @@ probe_case 'machine cga' cga '' 'PROBE video cga'
 probe_case 'machine hercules' hercules '' 'PROBE video mdahercules'
 probe_case 'cputype 386' svga_s3 $'[cpu]\ncputype = 386' 'PROBE cpu 386'
 probe_case 'cputype pentium' svga_s3 $'[cpu]\ncputype = pentium' 'PROBE cpu 586'
-# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB.
+# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB (the third
+# fell to 96 KB when the sound data grew FIZZ2.EXE past 200,000 bytes, so its floor is 64; the program is what takes the difference).
 probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-16384'
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
-probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 100-1024'
+probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 64-1024'
 probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
 # 3d. The check screen: /CHECKCELLS draws it, reads the 4,000 bytes back from video memory (0xB8000, or 0xB0000 on a monochrome adapter)
 # and prints them as CELLROW lines. They must equal what the pure builder makes for the PROBE lines printed in the same run. This is the
@@ -312,10 +336,10 @@ musictest_case() {
   echo "MUSICTEST case $name ok ($got)"
 }
 musictest_case 'AdLib machine (OPL2 arrangement)' "$(sb none 'oplmode = opl2')" opl2 'SOUND MUSIC opl2 FX ch5'
-musictest_case 'SB16 (OPL3 arrangement)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch14'
+musictest_case 'SB16 (OPL3 arrangement)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch5+14'
 musictest_case 'SB16 with /ADLIB (OPL2 arrangement on an OPL3 chip)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5' /ADLIB
-musictest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
-musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch14' /MUSIC:OFF
+musictest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
+musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
 musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
 musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
@@ -337,7 +361,7 @@ replantest_case() {
   while read -r _ from _ to _ g0 _ opl _ gate _ changed _ m0 _ writes _ steps _ ticks _ music; do
     lines=$((lines + 1))
     tmusic="${to%%/*}" tfx="${to##*/}" fmusic="${from%%/*}" want=off
-    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch14 ]; then want=on; fi
+    if [ "$tmusic" = opl3 ] || [ "$tfx" = ch5+14 ]; then want=on; fi
     [ "$opl" = "$want" ] || fail "/REPLANTEST ($name): OPL3 is $opl after $from -> $to (expected $want)"
     [ "$ticks" -gt 0 ] || fail "/REPLANTEST ($name): the service stopped ticking after $from -> $to"
     if [ "$changed" = yes ]; then
@@ -401,11 +425,11 @@ SB16="$(sb sb16)"
 V2='FZ2C\x02\x02\x04\x02\x00'
 cfg_none
 sound_case 'no file, no card' '' 'SOUND MUSIC off FX speaker' /PROBE
-sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 sound_case '/NOSOUND' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 sound_case '/SPEAKER' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE /SPEAKER
 sound_case '/ADLIB' "$SB16" 'SOUND MUSIC opl2 FX ch5' /PROBE /ADLIB
-sound_case '/SB' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE /SB
+sound_case '/SB' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE /SB
 sound_case '/MUSIC:OFF /FX:ADLIB' "$SB16" 'SOUND MUSIC off FX ch5' /PROBE /MUSIC:OFF /FX:ADLIB
 sound_case 'lower case, later flag wins' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE /nosound /music:adlib /fx:speaker
 sound_case '/SB without a chip falls back' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE /SB
@@ -419,18 +443,18 @@ sound_case 'shortcut over file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 cfg_put 'FZ2C\x01\x01\x04\x00'
 sound_case 'file v1 still read' "$SB16" 'SOUND MUSIC off FX speaker' /PROBE
 cfg_put 'FZ2C\x02\x03\x03\x01\x00'
-sound_case 'file sb on sb16' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'file sb on sb16' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 sound_case 'file sb on no card' '' 'SOUND MUSIC off FX speaker music-sb-to-off fx-sb-to-speaker' /PROBE
 cfg_put 'junk'
-sound_case 'corrupt: length' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'corrupt: length' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put 'XZ2C\x02\x02\x02\x00\x00'
-sound_case 'corrupt: magic' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-magic' /PROBE
+sound_case 'corrupt: magic' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-magic' /PROBE
 cfg_put 'FZ2C\x07\x02\x02\x00\x00'
-sound_case 'corrupt: version' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-version' /PROBE
+sound_case 'corrupt: version' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-version' /PROBE
 cfg_put 'FZ2C\x02\x09\x04\x00\x00'
 sound_case 'corrupt: music byte only' "$SB16" 'SOUND MUSIC opl3 FX speaker cfg-music' /PROBE
 cfg_put 'FZ2C\x02\x02\x09\x00\x00'
-sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch14 cfg-effects' /PROBE
+sound_case 'corrupt: effects byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5+14 cfg-effects' /PROBE
 cfg_put 'FZ2C\x02\x02\x02\x05\x00'
 sound_case 'corrupt: frame-rate byte only' "$SB16" 'SOUND MUSIC opl2 FX ch5 cfg-framerate' /PROBE
 # Version 3 adds motion, placement, captions and keys (bytes 9 to 12); a bad value resets only its own field and has its own code.
@@ -445,9 +469,9 @@ sound_case 'corrupt: captions byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cf
 cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
 sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
 cfg_put 'FZ2C\x03\x02\x04\x02\x00'
-sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put ''
-sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 # /LIVE prints the line too (Esc opens Paused; Up and Enter choose Quit to DOS).
 cfg_put "$V2"
 status=0
@@ -511,12 +535,12 @@ printf "$V2" > "$cfgdir/FIZZ2.NEW"
 sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
 printf 'junk' > "$cfgdir/FIZZ2.NEW"
-sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length' /PROBE
+sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
 cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
 # And what it saved is what the next run reads.
-sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch14' /PROBE
+sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 
 # 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
 # of file and flags, and each run prints the SOUND line its settings give.
@@ -541,17 +565,19 @@ replay_case() {
   [ -n "$writes" ] && [ -n "$steps" ] || fail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
   case "${AUDIO:-}" in
     opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
-    # The three OPL paths, by how many writes the script's clucks cause. The attenuation of a distant source changes a value in a write the
+    # The three OPL paths, by how many writes the script's sounds cause. The attenuation of a distant source changes a value in a write the
     # effect makes anyway, never the count, so a path's count is a function of the path alone.
-    #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the clucks' records.
+    #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the effects' records.
     #   opl_or: channel 5 on an OPL3 in its own mode: the same plus 21 (OPL3 mode on, 0x104, and the second bank keyed off, and back).
-    #   opl_pair: channels 5 and 14: the OPL3's 41 start and stop writes and the clucks' records twice, less the chip-wide waveform-select
-    #     enable the right channel leaves to the left (one per cluck; the script has three). Also checked against the golden transcript.
+    #   opl_pair: channels 5 and 14: the OPL3's 41 start and stop writes and the effects' records twice, less the chip-wide waveform-select
+    #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
+    #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
+    #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
     opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes" ;;
     opl_or) [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
-      clucks="$(grep -c '^EVENT [0-9]* cluck ' "$golden")"
-      expected=$((41 + 2 * (CH5_WRITES - 20) - clucks))
+      starts="$(grep '^EVENT ' "$golden" | grep -v ' shotend ' | cut -d' ' -f2 | sort -u | wc -l)"
+      expected=$((41 + 2 * (CH5_WRITES - 20) - starts))
       { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
     speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
     # Effects on the speaker while music holds the chip: the chip is only keyed off at start and stop (no cluck reaches it).
@@ -571,40 +597,47 @@ replay_case() {
   if [ "$m_arr" = off ]; then
     { [ "$m_ticks" -eq 0 ] && [ "$m_writes" -eq 0 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): music is off and the line says '$music'"
   else
-    # About 21 s at 559.9 Hz is about 11,800 ticks of the player's own clock; loops stay 0 (the loop is 63 s).
-    { [ "$m_writes" -gt 0 ] && [ "$m_ticks" -ge 9000 ] && [ "$m_ticks" -le 14000 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): implausible '$music'"
+    # About 28 s at 559.9 Hz is about 15,700 ticks of the player's own clock; loops stay 0 (the loop is 63 s).
+    { [ "$m_writes" -gt 0 ] && [ "$m_ticks" -ge 12000 ] && [ "$m_ticks" -le 19000 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): implausible '$music'"
     host="$(cargo run -q -p fizz-music --example mline -- "$m_arr" "$m_ticks")"
     [ "$music" = "$host" ] || fail "/REPLAY ($name): '$music' differs from the host's '$host'"
     printf '%s\n' "$out" | grep -qE '^MUSIC DETAIL ORDER ok MAX_PER_TICK ([0-9]|1[0-6])$' || fail "/REPLAY ($name): bad MUSIC DETAIL line"
   fi
   local bios
   bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-  { [ -n "$bios" ] && [ "$bios" -ge 383 ] && [ "$bios" -le 387 ]; } || fail "/REPLAY ($name): BIOS TICKS '$bios' is outside 383-387"
+  { [ -n "$bios" ] && [ "$bios" -ge 508 ] && [ "$bios" -le 512 ]; } || fail "/REPLAY ($name): BIOS TICKS '$bios' is outside 508-512"
   echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
 AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
 AUDIO=silent replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
 AUDIO=opl2 replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
-AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch14' /SB
-AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch14'
+AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /SB
+AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch5+14'
 AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
-# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 836 writes either way.
-AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch14' /MUSIC:OFF
-AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch14' /MUSIC:ADLIB /FX:SB
+# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,382 writes either way.
+AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
+AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
 AUDIO=opl2 replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
 cfg_put "$V2"
 AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
-AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch14' /FX:SB
+AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /FX:SB
 cfg_put 'junk'
-AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch14 cfg-length'
+AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length'
 cfg_none
 
-# 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters): channel 5 on an
-# when music holds it, and silence 0.
+# 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
+# exact because the replay is deterministic and DOSBox runs at fixed cycles (twice in a row gave the same figures), and they count the
+# 61 effects the replay starts (62 sounding events, two of them on one tick) with the last one of a tick winning and a later one cutting
+# an earlier one off. They were 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
+#   5221: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,201 records of the effects.
+#   5242: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   10382: the OPL3 pair = 41 start and stop writes, twice the 5,201 records, less 61 enables (one per effect, left to channel 5).
+#   1213 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+#   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
   shift 3
@@ -613,9 +646,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-audio_count 'ch5 on an OPL2 (419)' "$(sb sb1)" '419 SPEAKER STEPS 0' /MODERN /ADLIB
-audio_count 'ch5 through the OR rule on an OPL3 (440)' "$SB16" '440 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-audio_count 'the OPL3 pair (836)' "$SB16" '836 SPEAKER STEPS 0' /SB
+audio_count 'ch5 on an OPL2 (5221)' "$(sb sb1)" '5221 SPEAKER STEPS 0' /MODERN /ADLIB
+audio_count 'ch5 through the OR rule on an OPL3 (5242)' "$SB16" '5242 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+audio_count 'the OPL3 pair (10382)' "$SB16" '10382 SPEAKER STEPS 0' /SB
+audio_count 'the PC speaker (1213 steps)' '' '0 SPEAKER STEPS 1213' /SPEAKER
 audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 
 # 3g. The frame rate: the simulation always steps at 60 Hz and only the drawing changes. /REPLAY prints `FRAMES <n> TICKS <t> RATE <hz> MODE
@@ -640,7 +674,7 @@ frames_replay() {
   line="$(frames_line "$out")"
   n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
   t="$(printf '%s\n' "$line" | sed -n 's/^FRAMES [0-9]* TICKS \([0-9]*\) .*/\1/p')"
-  [ "$t" = 1268 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1268)"
+  [ "$t" = 1681 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1681)"
   [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ] || fail "/REPLAY frames case '$name': '$line' (expected between $lo and $hi frames)"
   printf '%s\n' "$line" | grep -qE " RATE $rate MODE $mode\$" || fail "/REPLAY frames case '$name': '$line' (expected RATE $rate MODE $mode)"
   echo "FRAMES case $name ok ($line)"
@@ -667,14 +701,14 @@ frames_live() {
   echo "FRAMES live case $name ok ($line)"
 }
 cfg_none
-frames_replay '/FPS30' 26800 30 30 600 660 /FPS30
-frames_replay '/FPS60' 26800 60 60 1268 1270 /FPS60
-frames_replay 'default is Auto and stays at 60' 26800 60 auto 1268 1270
-frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 600 700
-frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 700 1270 /FPS60
-frames_replay '/FPSAUTO' 26800 60 auto 1268 1270 /FPSAUTO
-frames_replay 'last flag wins' 26800 30 30 600 660 /FPS60 /FPS30
-frames_replay 'combines with the sound flags' 26800 30 30 600 660 /NOSOUND /FPS30 /MODERN
+frames_replay '/FPS30' 26800 30 30 830 850 /FPS30
+frames_replay '/FPS60' 26800 60 60 1681 1683 /FPS60
+frames_replay 'default is Auto and stays at 60' 26800 60 auto 1681 1683
+frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 800 950
+frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1683 /FPS60
+frames_replay '/FPSAUTO' 26800 60 auto 1681 1683 /FPSAUTO
+frames_replay 'last flag wins' 26800 30 30 830 850 /FPS60 /FPS30
+frames_replay 'combines with the sound flags' 26800 30 30 830 850 /NOSOUND /FPS30 /MODERN
 # The file's byte, and a flag over it. V2 has frame byte 2 (60 Hz); F30 and FAUTO are the same file with 1 and 0.
 F30='FZ2C\x02\x02\x04\x01\x00'
 FAUTO='FZ2C\x02\x02\x04\x00\x00'

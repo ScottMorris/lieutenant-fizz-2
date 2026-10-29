@@ -54,7 +54,7 @@ jobs:
           DOS_TOOLCHAIN: /opt/dos-toolchain
       - name: Check the DOS build
         run: tools/check-dos.sh
-      # tools/build-web.sh runs `bun install --frozen-lockfile` for the page's one dependency, @liminal-hq/undertone 0.2.0 from the
+      # tools/build-web.sh runs `bun install --frozen-lockfile` for the page's one dependency, @liminal-hq/undertone 0.3.0 from the
       # public npm registry (no token), then bundles the page with `bun build`. That install is the build's only use of the network;
       # the bundle itself needs none. The package is 242 kB with no dependencies, so there is no cache step.
       - name: Build the Web presenter

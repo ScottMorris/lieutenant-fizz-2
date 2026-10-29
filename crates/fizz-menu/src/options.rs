@@ -85,7 +85,7 @@ impl Caps {
             auto_fx: match auto.fx {
                 FxPlan::Off => Device::None,
                 FxPlan::Ch5 => Device::AdLib,
-                FxPlan::Ch14 => Device::Sb,
+                FxPlan::Pair => Device::Sb,
                 FxPlan::Speaker => Device::Speaker,
             },
             rate,
@@ -623,7 +623,7 @@ mod tests {
                 SoundState::InUse,
                 SoundState::InUse,
                 MusicPlan::Opl3,
-                FxPlan::Ch14,
+                FxPlan::Pair,
             ),
             60,
         )

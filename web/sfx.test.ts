@@ -7,14 +7,15 @@
 // and gains Undertone schedules, which proves the mapping from `SfxVoice` to Undertone and the player's rules (first gesture,
 // mute, hidden tab, the cap). How a cluck sounds has not been listened to.
 import { describe, expect, test } from 'bun:test';
-import { CLUCK } from '../assets/sfx/cluck.ts';
-import { noteHz, isNoise } from '../assets/sfx/voice.ts';
+import { EFFECTS, EFFECT_NAMES } from '../assets/sfx/effects.ts';
+import { noteHz, isNoise, STEP_RATE, stepOffset, voiceHz, effectSeconds } from '../assets/sfx/voice.ts';
 import {
+  ALWAYS,
   AUDIO_KEY,
   MAX_SIMULTANEOUS,
   MUTE_KEY,
   Sfx,
-  cluckVoices,
+  effectVoices,
   parseAudioMode,
   type ContextLike,
   type StorageLike,
@@ -152,20 +153,21 @@ function setup(opts: { hidden?: () => boolean; storage?: StorageLike | null; sea
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('variant mapping', () => {
-  test('each variant maps to its own table entry and a bad value wraps', () => {
-    expect(CLUCK.length).toBe(4);
-    for (let v = 0; v < 4; v++) expect(cluckVoices(v)).toBe(CLUCK[v]);
-    expect(cluckVoices(4)).toBe(CLUCK[0]);
-    expect(cluckVoices(-1)).toBe(CLUCK[3]);
+  test('each id maps to its own table entry and a bad value wraps', () => {
+    expect(EFFECTS.length).toBe(15);
+    expect(EFFECT_NAMES.length).toBe(EFFECTS.length);
+    for (let v = 0; v < EFFECTS.length; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
+    expect(effectVoices(15)).toBe(EFFECTS[0]);
+    expect(effectVoices(-1)).toBe(EFFECTS[14]);
   });
 
-  test('every variant schedules one source per voice, at the voice pitch, kind and start', async () => {
+  test('every cluck variant schedules one source per voice, at the voice pitch, kind and start', async () => {
     for (let variant = 0; variant < 4; variant++) {
       const { ctx, sfx } = setup();
       sfx.unlock();
       await settle();
-      expect(sfx.playCluck(variant)).toBe(true);
-      const voices = CLUCK[variant];
+      expect(sfx.playEffect(variant)).toBe(true);
+      const voices = EFFECTS[variant];
       const noise = voices.filter((v) => isNoise(v.n));
       const tones = voices.filter((v) => !isNoise(v.n));
       expect(ctx.of('noise').length).toBe(noise.length);
@@ -188,8 +190,8 @@ describe('variant mapping', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
-    const filtered = CLUCK[1].filter((v) => v.lpf);
+    sfx.playEffect(1);
+    const filtered = EFFECTS[1].filter((v) => v.lpf);
     const voice = filtered.find((v) => v.lpenv)!;
     const filter = ctx.of('filter')[filtered.indexOf(voice)];
     const peaks = [...filter.frequency!.ramps.map((r) => r[0]), ...filter.frequency!.sets.map((s) => s[0])];
@@ -200,15 +202,114 @@ describe('variant mapping', () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    sfx.playCluck(1, -0.5);
-    expect(ctx.of('pan').length).toBe(CLUCK[1].length);
+    sfx.playEffect(1, -0.5);
+    expect(ctx.of('pan').length).toBe(EFFECTS[1].length);
+  });
+});
+
+describe('the effects after the cluck (ids 4 to 14)', () => {
+  /** Plays effect `id` centred on a fresh stand-in and returns what it scheduled. */
+  async function play(id: number, pan = 0, gain = 1) {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    expect(sfx.playEffect(id, pan, gain)).toBe(true);
+    return ctx;
+  }
+
+  for (let id = 4; id < EFFECTS.length; id++) {
+    const voices = EFFECTS[id];
+    describe(`${id} ${EFFECT_NAMES[id]}`, () => {
+      test('schedules one carrier per pitched voice, one modulator per FM voice and one source per noise voice', async () => {
+        const ctx = await play(id);
+        const tones = voices.filter((v) => !isNoise(v.n));
+        const fms = tones.filter((v) => v.fm);
+        expect(ctx.of('noise').length).toBe(voices.length - tones.length);
+        expect(ctx.of('osc').length).toBe(tones.length + fms.length);
+        // Every carrier starts at its voice's nudge, with the voice's exact pitch; an FM voice's modulator follows its carrier.
+        const oscs = ctx.of('osc');
+        let at = 0;
+        for (const v of tones) {
+          const carrier = oscs[at++];
+          expect(carrier.started).toBeCloseTo(v.nudge ?? 0, 6);
+          if (v.fm) {
+            const modulator = oscs[at++];
+            expect(modulator.started).toBeCloseTo(v.nudge ?? 0, 6);
+            expect(modulator.type).toBe(v.fm.wave ?? 'sine');
+          }
+        }
+      });
+
+      test('has a length the player knows, and a caption-free, loud-enough voice at the top', () => {
+        const seconds = effectSeconds(voices);
+        expect(seconds).toBeGreaterThan(0.04);
+        expect(seconds).toBeLessThan(0.9);
+        expect(Math.max(...voices.map((v) => v.g))).toBeGreaterThanOrEqual(0.2);
+      });
+
+      test('schedules these values, so a later Undertone that moves any shows up here', async () => {
+        const ctx = await play(id);
+        expect(schedule(ctx)).toMatchSnapshot();
+      });
+    });
+  }
+
+  test('pitch steps become the carrier pitch a 140 Hz frame at a time', async () => {
+    // Effect 4 (fzzt): the sine falls an octave from c7 to c6 in 80 ms, then holds.
+    const voice = EFFECTS[4].find((v) => v.steps)!;
+    const ctx = await play(4);
+    const carrier = ctx.of('osc')[0];
+    const times = carrier.frequency!.sets;
+    expect(times.length + carrier.frequency!.ramps.length).toBeGreaterThan(8);
+    const first = carrier.frequency!.sets[0][0];
+    expect(first).toBeCloseTo(voiceHz(voice) * 2 ** (stepOffset(voice, 0) / 12), 1);
+    expect(stepOffset(voice, 0)).toBe(12);
+    expect(stepOffset(voice, 10)).toBe(0);
+    expect(STEP_RATE).toBe(140);
+  });
+
+  test('FM depth is the Tone index over the harmonicity at the modulator, and the modulator runs at the ratio times the pitch', async () => {
+    // Effect 8 (ta-da!), its last voice: the long e6 bell at 2.76 times, index 1.2.
+    const ctx = await play(8);
+    const oscs = ctx.of('osc');
+    const bell = EFFECTS[8][4];
+    const carrier = oscs[oscs.length - 2];
+    const modulator = oscs[oscs.length - 1];
+    expect(carrier.frequency!.sets[0][0]).toBeCloseTo(noteHz('e6'), 3);
+    expect(modulator.frequency!.sets[0][0]).toBeCloseTo(noteHz('e6') * bell.fm!.ratio, 2);
+  });
+
+  test('a placed effect adds a panner to every voice, FM voices included', async () => {
+    const ctx = await play(8, -0.4, 0.7);
+    expect(ctx.of('pan').length).toBe(EFFECTS[8].length);
+  });
+
+  test('whoa! and ta-da! are heard even with the cap reached; others are not', async () => {
+    expect(ALWAYS).toEqual([7, 8]);
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playEffect(13)).toBe(true);
+    expect(sfx.playEffect(13)).toBe(false);
+    expect(sfx.playEffect(7)).toBe(true);
+    expect(sfx.playEffect(8)).toBe(true);
+    ctx.currentTime += 2;
+    expect(sfx.playEffect(13)).toBe(true);
+  });
+
+  test('the same effect played twice schedules the same values (no hidden state), noise sources aside', async () => {
+    for (let id = 4; id < EFFECTS.length; id++) {
+      const a = schedule(await play(id));
+      const b = schedule(await play(id));
+      expect(b).toEqual(a);
+    }
   });
 });
 
 describe('when a cluck is heard', () => {
   test('nothing is made or scheduled before unlock', () => {
     const { ctx, sfx } = setup();
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     expect(sfx.started).toBe(false);
     expect(ctx.nodes.length).toBe(0);
   });
@@ -222,14 +323,14 @@ describe('when a cluck is heard', () => {
     await settle();
     expect(made).toBe(1);
     expect(ctx.resumed).toBeGreaterThanOrEqual(1);
-    expect(sfx.playCluck(2)).toBe(true);
+    expect(sfx.playEffect(2)).toBe(true);
   });
 
   test('a context that is not running yet plays nothing', () => {
     const { sfx, ctx } = setup();
     sfx.unlock();
     expect(ctx.state).toBe('suspended');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
   });
 
   test('mute silences, is remembered and survives a new player', async () => {
@@ -239,14 +340,14 @@ describe('when a cluck is heard', () => {
     await settle();
     expect(sfx.toggleMute()).toBe(true);
     expect(storage.getItem(MUTE_KEY)).toBe('off');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     expect(ctx.nodes.length).toBe(0);
     const again = new Sfx({ createContext: () => ctx, isHidden: () => false, storage });
     expect(again.muted).toBe(true);
     expect(sfx.toggleMute()).toBe(false);
     expect(storage.getItem(MUTE_KEY)).toBe('on');
     await settle();
-    expect(sfx.playCluck(0)).toBe(true);
+    expect(sfx.playEffect(0)).toBe(true);
   });
 
   test('blocked storage does not break mute', () => {
@@ -273,21 +374,21 @@ describe('when a cluck is heard', () => {
     sfx.sync();
     await settle();
     expect(ctx.state).toBe('suspended');
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
     hidden = false;
     sfx.sync();
     await settle();
-    expect(sfx.playCluck(0)).toBe(true);
+    expect(sfx.playEffect(0)).toBe(true);
   });
 
   test('no more than the cap sound at once, and room returns as they end', async () => {
     const { ctx, sfx } = setup();
     sfx.unlock();
     await settle();
-    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playCluck(1)).toBe(true);
-    expect(sfx.playCluck(1)).toBe(false);
+    for (let i = 0; i < MAX_SIMULTANEOUS; i++) expect(sfx.playEffect(1)).toBe(true);
+    expect(sfx.playEffect(1)).toBe(false);
     ctx.currentTime += 1;
-    expect(sfx.playCluck(1)).toBe(true);
+    expect(sfx.playEffect(1)).toBe(true);
   });
 
   test('a browser with no audio leaves the player silent and unbroken', () => {
@@ -299,7 +400,7 @@ describe('when a cluck is heard', () => {
       storage: new Memory(),
     });
     sfx.unlock();
-    expect(sfx.playCluck(0)).toBe(false);
+    expect(sfx.playEffect(0)).toBe(false);
   });
 });
 
@@ -313,16 +414,16 @@ describe('placed clucks (Enhanced) and Classic', () => {
     expect(sfx.mode).toBe('enhanced');
     sfx.unlock();
     await settle();
-    sfx.playCluck(1);
+    sfx.playEffect(1);
     const centred = peakGain(ctx);
     expect(ctx.of('pan').length).toBe(0);
 
     const placed = setup();
     placed.sfx.unlock();
     await settle();
-    expect(placed.sfx.playCluck(1, 0.6, 0.5)).toBe(true);
+    expect(placed.sfx.playEffect(1, 0.6, 0.5)).toBe(true);
     const panners = placed.ctx.of('pan');
-    expect(panners.length).toBe(CLUCK[1].length);
+    expect(panners.length).toBe(EFFECTS[1].length);
     for (const p of panners) expect(p.pan!.sets[0][0]).toBeCloseTo(0.6, 6);
     expect(peakGain(placed.ctx)).toBeCloseTo(centred * 0.5, 6);
   });
@@ -332,23 +433,23 @@ describe('placed clucks (Enhanced) and Classic', () => {
       const { ctx, sfx } = setup();
       sfx.unlock();
       await settle();
-      sfx.playCluck(0, pan, 7);
+      sfx.playEffect(0, pan, 7);
       expect(ctx.of('pan')[0].pan!.sets[0][0]).toBeCloseTo(want, 6);
     }
     const base = setup();
     base.sfx.unlock();
     await settle();
-    base.sfx.playCluck(0);
+    base.sfx.playEffect(0);
     const over = setup();
     over.sfx.unlock();
     await settle();
-    over.sfx.playCluck(0, 0, 7);
+    over.sfx.playEffect(0, 0, 7);
     expect(peakGain(over.ctx)).toBeCloseTo(peakGain(base.ctx), 6);
     // Not a number: played centred at full level, never thrown.
     const bad = setup();
     bad.sfx.unlock();
     await settle();
-    expect(bad.sfx.playCluck(0, Number.NaN, Number.NaN)).toBe(true);
+    expect(bad.sfx.playEffect(0, Number.NaN, Number.NaN)).toBe(true);
     expect(bad.ctx.of('pan').length).toBe(0);
   });
 
@@ -356,14 +457,14 @@ describe('placed clucks (Enhanced) and Classic', () => {
     const base = setup();
     base.sfx.unlock();
     await settle();
-    base.sfx.playCluck(2);
+    base.sfx.playEffect(2);
 
     const { ctx, sfx } = setup();
     sfx.setMode('classic');
     expect(sfx.mode).toBe('classic');
     sfx.unlock();
     await settle();
-    expect(sfx.playCluck(2, -0.6, 0.4)).toBe(true);
+    expect(sfx.playEffect(2, -0.6, 0.4)).toBe(true);
     expect(ctx.of('pan').length).toBe(0);
     expect(peakGain(ctx)).toBeCloseTo(peakGain(base.ctx), 6);
   });
@@ -404,5 +505,67 @@ describe('placed clucks (Enhanced) and Classic', () => {
     mem.setItem(AUDIO_KEY, 'classic');
     expect(setup({ storage: mem, search: '?x=1&audio=enhanced' }).sfx.mode).toBe('enhanced');
     expect(setup({ storage: mem, search: '?audio=junk' }).sfx.mode).toBe('classic');
+  });
+});
+
+/** A compact record of what a cluck variant scheduled: per source node, in creation order, its kind, pitch sets and gain/filter automation. */
+function schedule(ctx: FakeContext) {
+  const round = (list: [number, number][]) => list.map(([v, t]) => [Number(v.toPrecision(6)), Number(t.toPrecision(6))]);
+  return ctx.nodes
+    .filter((n) => n.kind !== 'merger')
+    .map((n) => ({
+      kind: n.kind,
+      type: n.type,
+      freq: n.frequency ? { sets: round(n.frequency.sets), ramps: round(n.frequency.ramps) } : undefined,
+      gain: n.gain ? { sets: round(n.gain.sets), ramps: round(n.gain.ramps) } : undefined,
+    }));
+}
+
+describe('Undertone 0.3 scheduling pinned for the cluck', () => {
+  test('the short cluck (variant 1) schedules exactly these filter, gain and pitch values', async () => {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    sfx.playEffect(1);
+    const nodes = schedule(ctx);
+    // Voice 0 is the white-noise breath (lpf 3000 opening to 3000 + (lpenv - lpf)); voice 1 the square at 640 Hz (lpf 2200, start 12 ms).
+    const filters = nodes.filter((n) => n.kind === 'filter');
+    expect(filters.length).toBe(EFFECTS[1].filter((v) => v.lpf).length);
+    EFFECTS[1].filter((v) => v.lpf).forEach((v, i) => {
+      const f = filters[i].freq!;
+      expect(f.sets[0][0]).toBeCloseTo(v.lpf!, 3); // rests at lpf
+      if (v.lpenv && v.lpenv > v.lpf!) {
+        // Fizz 2 hands Undertone lpenv - lpf, which 0.2 and 0.3 both add to lpf: the filter peaks at lpenv, no higher.
+        const peak = Math.max(...f.sets.map((s) => s[0]), ...f.ramps.map((r) => r[0]));
+        expect(peak).toBeCloseTo(v.lpenv, 3);
+      }
+    });
+    // The whole schedule, so a later Undertone that moves any value shows up here.
+    expect(nodes).toMatchSnapshot();
+  });
+
+  test('the player builds no compressor or master bus of its own, so 0.3 dropping compressor makeup gain cannot change a cluck', async () => {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    for (let v = 0; v < 4; v++) sfx.playEffect(v);
+    expect(ctx.nodes.some((n) => n.kind === 'compressor')).toBe(false);
+  });
+
+  test('the noise breath is unseeded: each play draws new samples from Math.random, as in 0.2', async () => {
+    const buffers: Float32Array[] = [];
+    const { ctx, sfx } = setup();
+    ctx.createBuffer = (_c: number, length: number) => {
+      const data = new Float32Array(length);
+      buffers.push(data);
+      return { getChannelData: () => data };
+    };
+    sfx.unlock();
+    await settle();
+    sfx.playEffect(1);
+    sfx.playEffect(1);
+    expect(buffers.length).toBe(2);
+    expect(buffers[0].length).toBe(buffers[1].length);
+    expect(Array.from(buffers[0].slice(0, 32))).not.toEqual(Array.from(buffers[1].slice(0, 32)));
   });
 });

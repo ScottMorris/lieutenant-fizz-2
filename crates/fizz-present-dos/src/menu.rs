@@ -389,7 +389,7 @@ mod tests {
                 SoundState::InUse,
                 SoundState::InUse,
                 MusicPlan::Opl3,
-                FxPlan::Ch14,
+                FxPlan::Pair,
             ),
             60,
         )

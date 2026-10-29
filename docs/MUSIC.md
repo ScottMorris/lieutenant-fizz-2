@@ -21,7 +21,7 @@ tools/music/*.ts          the lowering to OPL streams (below)
 
 Crater Fields is A minor at 148 bpm: a lead, a bass, a square pad, and a kick, snare and hats. The builder lays it out as Intro 2 bars, A 8, B 8 (up five semitones, the pad arpeggiated), A 8 (the lead doubled an octave up), Breakdown 3, Build 1, A' 8 (up two semitones, arpeggio and octave) and a one-bar Fill, which is 39 bars and 63.24 seconds. The song loops from the end straight back to the start. The lead, bass, arpeggio and octave parts also get a quiet sine partner on the same note, panned the other way.
 
-Everything in `assets/music/` is pure, so it runs in Bun and in the browser bundle. The only dependency is `@liminal-hq/undertone` 0.2.0, as pinned.
+Everything in `assets/music/` is pure, so it runs in Bun and in the browser bundle. The only dependency is `@liminal-hq/undertone` 0.3.0, as pinned.
 
 ## Provenance
 
@@ -185,7 +185,7 @@ The stepper has run on the host and, through the DOS audio service below, in DOS
 
 **Channels.** OPL2 music writes channels 0-4 and 6-8, OPL3 music the 13 channels with the stereo bits in the stream; neither writes channel 5 or 14 (the generator refuses them and a `fizz-music` test steps two loops of each arrangement checking every register). The service never writes the music's registers on its own account. At exit and in the panic handler `stop` keys off every channel of both banks and the rhythm register and writes 0x105 = 0, which covers the music channels, so it does not call the player's `silence` (that is for a future pause).
 
-**Counters and the `MUSIC` line.** Music writes are not counted in `audio::register_writes`, so the `AUDIO` line still counts only the effects and the start and stop key-offs and the counts that tell the paths apart do not move (419, 440, 836 and 0 writes; see `tools/check-dos.sh`). The service counts its own: the music ticks (the player's own 560 Hz count, never wall time), writes, loops, the busiest tick, and an integer FNV-1a (`fizz_music::Fnv`) of every write's tick, bank, register and value as the stream authored it (before `route`). `/LIVE` and `/REPLAY` print them next to the `AUDIO` line:
+**Counters and the `MUSIC` line.** Music writes are not counted in `audio::register_writes`, so the `AUDIO` line still counts only the effects and the start and stop key-offs and the counts that tell the paths apart do not move (5,221, 5,242, 10,382 and 0 writes for the replay's 61 effects; they were 419, 440 and 836 for the three clucks of the shorter script before the sound effects; see `tools/check-dos.sh` and [SOUND.md](SOUND.md#cost-on-the-560-hz-tick)). The service counts its own: the music ticks (the player's own 560 Hz count, never wall time), writes, loops, the busiest tick, and an integer FNV-1a (`fizz_music::Fnv`) of every write's tick, bank, register and value as the stream authored it (before `route`). `/LIVE` and `/REPLAY` print them next to the `AUDIO` line:
 
 ```text
 MUSIC SONG crater ARR <opl2|opl3|off> TICKS <t> WRITES <w> LOOPS <k> HASH <fnv, 8 hexadecimal digits>

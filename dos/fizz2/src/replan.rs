@@ -54,7 +54,7 @@ fn name(plan: &Resolved) -> String {
     let fx = match plan.fx {
         FxPlan::Off => "off",
         FxPlan::Ch5 => "ch5",
-        FxPlan::Ch14 => "ch14",
+        FxPlan::Pair => "ch5+14",
         FxPlan::Speaker => "speaker",
     };
     let mut s = String::new();
@@ -87,7 +87,7 @@ pub fn replan_mode() -> i32 {
         let (w0, s0, t0) = (audio::profile().total_writes, audio::speaker_steps(), audio::service_ticks());
         // The cluck starts late in the dwell and lasts past its end, so the next replan comes while it is still sounding.
         wait(DWELL - CLUCK_LEAD);
-        audio::cluck(0, &Placement::CENTRE);
+        audio::effect(0, &Placement::CENTRE);
         wait(CLUCK_LEAD);
         let to = name(plan);
         let _ = writeln!(

@@ -19,7 +19,7 @@
 // - the level of a frame is the loudest live voice of the heard kind, so overlapping notes do not flutter the level;
 // - the output is records of register, value and wait (`OplRecord`) and a plain divisor list, not IMF bytes.
 
-import { STEP, isNoise, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
+import { STEP, isNoise, stepOffset, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
 import {
   EFFECT_CHANNEL,
   EFFECT_RATE,
@@ -34,12 +34,18 @@ import {
   type OplRecord,
   type Patch,
 } from './opl.ts';
-import { PATCHES, patchForEffect } from './patches.ts';
+import { PATCHES, fmPatch, patchForEffect } from './patches.ts';
 
 /** The PC speaker's timer clock, so a divisor is 1193180 / frequency. */
 export const PIT_CLOCK = 1_193_180;
 
 const NOISE_HZ: Record<string, number> = { white: 3500, pink: 1400, brown: 520 };
+
+/**
+ * The gain an effect's level is measured against is its loudest voice, but never less than this, so a quiet effect (a jump at 0.2)
+ * stays a little quieter on the chip than a loud one instead of every effect filling the channel. No cluck variant is below it.
+ */
+export const LEVEL_FLOOR = 0.25;
 
 interface Segment {
   voice: SfxVoice;
@@ -121,6 +127,8 @@ function successor(segments: Segment[], seg: Segment): Segment | undefined {
 
 /** The pitch of a voice at a time, moving toward the next note of its chain so a chain sweeps. */
 function pitch(segments: Segment[], seg: Segment, t: number): number {
+  // A voice with pitch steps is one note that moves: the steps are its pitch, a frame at a time (the chip's own rate).
+  if (seg.voice.steps) return seg.hz * 2 ** (stepOffset(seg.voice, t - seg.start) / 12);
   const next = successor(segments, seg);
   if (!next) return seg.hz;
   const u = Math.min(1, Math.max(0, (t - seg.start) / (next.start - seg.start)));
@@ -132,7 +140,7 @@ export function convertSfx(voices: readonly SfxVoice[]): Conversion {
   const segments = segmentsOf(voices);
   const seconds = Math.max(...segments.map((g) => g.start + g.length));
   const frames = Math.ceil(seconds * EFFECT_RATE) + 1;
-  const loudest = Math.max(...voices.map((v) => v.g));
+  const loudest = Math.max(LEVEL_FLOOR, ...voices.map((v) => v.g));
   const ticksPerFrame = IMF_RATE / EFFECT_RATE;
 
   // ---- OPL2: one channel, a patch for the voice being heard, its level and pitch moved every frame ----
@@ -154,7 +162,7 @@ export function convertSfx(voices: readonly SfxVoice[]): Conversion {
     }
     const tl = attenuation(loudness(segments, t, seg), loudest);
     const hz = seg.noise ? seg.hz * (0.55 + 0.9 * rand()) : pitch(segments, seg, t);
-    const patch = seg.noise ? PATCHES.noise : patchForEffect(seg.voice.w);
+    const patch = seg.noise ? PATCHES.noise : seg.voice.fm ? fmPatch(seg.voice) : patchForEffect(seg.voice.w);
     const continues =
       sounding !== undefined &&
       !seg.noise &&

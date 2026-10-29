@@ -26,6 +26,12 @@ export const SLICE_NAMES = [
   'ben_pogo2',
   'keyRed',
   'doorRed',
+  // The snack nook (items.ts `cheezie()`, `choc()`, `cookie()` and `gumdrop('b', 'B')`, tiles `doorTile('b')`).
+  'keyBlue',
+  'doorBlue',
+  'cheezie',
+  'choc',
+  'cookie',
   'bubble',
   // Fizz 1's soda can (items.ts `soda()`), the menus' cursor bullet.
   'soda',

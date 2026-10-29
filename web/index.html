@@ -34,6 +34,12 @@
         <div class="controls">
           <button id="open-options" type="button" title="Sound, music, placement, motion, captions and keys. Esc pauses the game and opens the same screens">Options (Esc)</button>
         </div>
+        <!-- Audition: plays one effect by its id, on its own, centred. Arrow keys on the list play each as they change. -->
+        <div class="audition">
+          <label for="effect-picker">Hear an effect</label>
+          <select id="effect-picker" title="Plays the sound on its own. Arrow keys change it and play it; Esc goes back to the game"></select>
+          <button id="effect-play" type="button" title="Plays the chosen effect again">Play</button>
+        </div>
         <pre id="hud">TICK 0
 HASH 0000000000000000
 AMMO 5
@@ -41,7 +47,7 @@ KEY  no
 DOOR shut
 DEATHS 0
 EXIT not yet</pre>
-        <p class="note">Press H (or the ? button) to hide this panel. A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. The chicken clucks, but a browser only allows sound after you press a key or click, so it starts then.</p>
+        <p class="note">Press H (or the ? button) to hide this panel. A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. Sounds play for the chicken, the shots, the snacks and the rest, but a browser only allows sound after you press a key or click, so it starts then.</p>
       </aside>
     </main>
     <script type="module" src="./main.js"></script>

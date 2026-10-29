@@ -105,9 +105,9 @@
   "track": "dos",
   "source": "standard output of FIZZ2.EXE /REPLAY in DOSBox, through tools/dosrun.sh",
   "shows": "The transcript FIZZ2.EXE printed during the grabbed replay run.",
-  "command": "python3 tools/progress-report/capture.py (capture-dos.sh)",
-  "commit": "796602d",
-  "date": "2026-10-28"
+  "command": "tools/check-dos.sh (the first /REPLAY output in its log, carriage returns removed; the grabs were not retaken)",
+  "commit": "m4/effects-content",
+  "date": "2026-10-29"
  },
  {
   "file": "dos-help.txt",

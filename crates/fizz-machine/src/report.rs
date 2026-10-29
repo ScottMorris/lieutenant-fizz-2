@@ -252,7 +252,7 @@ pub fn write_sound(
     let fx = match resolved.fx {
         FxPlan::Off => "off",
         FxPlan::Ch5 => "ch5",
-        FxPlan::Ch14 => "ch14",
+        FxPlan::Pair => "ch5+14",
         FxPlan::Speaker => "speaker",
     };
     write!(out, "SOUND MUSIC {music} FX {fx}")?;
@@ -288,7 +288,7 @@ mod tests {
         let mut opl2 = Probe::BARE;
         opl2.fm = FmKind::Opl2;
         let auto = Settings::default();
-        assert_eq!(sound(auto, &sb16, None), "SOUND MUSIC opl3 FX ch14");
+        assert_eq!(sound(auto, &sb16, None), "SOUND MUSIC opl3 FX ch5+14");
         assert_eq!(sound(auto, &opl2, None), "SOUND MUSIC opl2 FX ch5");
         assert_eq!(
             sound(auto, &Probe::BARE, None),

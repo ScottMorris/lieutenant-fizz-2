@@ -13,8 +13,8 @@ use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, ben_view_box, caption_view, cluck_placement,
-    draw_slice_puffs,
+    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, Puffs, ben_view_box, caption_view,
+    draw_slice_puffs, event_sound,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -43,10 +43,10 @@ pub const MAX_VIEW_H: usize = 416;
 /// Most ticks run for one displayed frame. Time beyond this is dropped, so a hidden tab does not cause a burst on return.
 const MAX_CATCH_UP: u32 = 5;
 
-/// Most cluck variants kept between two calls to [`App::take_cluck`]. A page that never drains them (a stalled script, say) must
-/// not grow the queue without bound; clucks past this are dropped, the newest first. One chicken clucks about once a second, so
+/// Most effects kept between two calls to [`App::take_effect`]. A page that never drains them (a stalled script, say) must
+/// not grow the queue without bound; effects past this are dropped, the newest first. One chicken clucks about once a second, so
 /// a page that drains each frame never gets near it.
-const MAX_PENDING_CLUCKS: usize = 32;
+const MAX_PENDING_EFFECTS: usize = 32;
 
 /// A clock of whole milliseconds fed by the time JavaScript pushes in.
 #[derive(Debug, Default)]
@@ -124,11 +124,11 @@ pub struct App {
     view_h: usize,
     indexed: Vec<u8>,
     rgba: Vec<u8>,
-    /// The cluck variants emitted since the page last drained them, oldest first, each with where its chicken was in the view at the
-    /// step that emitted it. `cluck_head` is the next one to hand out.
-    clucks: Vec<(u8, Placement)>,
-    cluck_head: usize,
-    /// The placement of the cluck `take_cluck` handed out last, which `cluck_pan` and `cluck_gain` read.
+    /// The effect ids emitted since the page last drained them (today only the cluck: ids 0 to 3, its variant), oldest first, each with where its chicken was in the view at the
+    /// step that emitted it. `effect_head` is the next one to hand out.
+    effects: Vec<(u8, Placement)>,
+    effect_head: usize,
+    /// The placement of the effect `take_effect` handed out last, which `effect_pan` and `effect_gain` read.
     taken: Placement,
     /// Whether the cluck captions are shown. The picture never carries them on the Web: the page draws them as text.
     captions: bool,
@@ -138,6 +138,8 @@ pub struct App {
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
     puffs: Puffs,
+    /// The event captions (fzzt, clunk and the rest): view state fed from the step events whether or not captions are shown.
+    event_captions: EventCaptions,
     /// The Paused and Options screens. While one is up `frame` does not step.
     menus: Menus,
 }
@@ -162,13 +164,14 @@ impl App {
             view_h: WEB_VIEW_H,
             indexed: vec![0; WEB_VIEW_W * WEB_VIEW_H],
             rgba: vec![0; WEB_VIEW_W * WEB_VIEW_H * 4],
-            clucks: Vec::with_capacity(MAX_PENDING_CLUCKS),
-            cluck_head: 0,
+            effects: Vec::with_capacity(MAX_PENDING_EFFECTS),
+            effect_head: 0,
             taken: Placement::CENTRE,
             captions: true,
             shake: true,
             live_captions: Vec::new(),
             puffs: Puffs::new(),
+            event_captions: EventCaptions::new(),
             menus: Menus::new(),
         }
     }
@@ -212,36 +215,36 @@ impl App {
         due
     }
 
-    /// The next cluck variant (0 to `CLUCK_VARIANTS - 1`) the rules emitted since the last call, oldest first, or -1 when there
-    /// are none left. Call it until it returns -1 after each [`App::frame`]. Each cluck is handed out once and none is lost when
+    /// The next effect id (0 to `fizz_sfx::EFFECT_COUNT - 1`: the cluck's variants, then fzzt, stun and the rest; see `captions.rs`) the rules emitted since the last call, oldest first, or -1 when there
+    /// are none left. Call it until it returns -1 after each [`App::frame`]. Each effect is handed out once and none is lost when
     /// a frame runs several ticks: the events are read after every step, because the rules clear them on the next one. It
-    /// allocates nothing. The page decides what a cluck sounds like; the rules and the replay transcript never see this.
+    /// allocates nothing. The page decides what an effect sounds like (`assets/sfx/effects.ts`); the rules and the replay transcript never see this.
     ///
-    /// A cluck that is returned has a place: read [`App::cluck_pan`] and [`App::cluck_gain`] straight after, before the next call.
-    pub fn take_cluck(&mut self) -> i32 {
-        let Some(&(variant, placement)) = self.clucks.get(self.cluck_head) else {
+    /// An effect that is returned has a place: read [`App::effect_pan`] and [`App::effect_gain`] straight after, before the next call.
+    pub fn take_effect(&mut self) -> i32 {
+        let Some(&(variant, placement)) = self.effects.get(self.effect_head) else {
             return -1;
         };
         self.taken = placement;
-        self.cluck_head += 1;
-        if self.cluck_head == self.clucks.len() {
-            self.clucks.clear();
-            self.cluck_head = 0;
+        self.effect_head += 1;
+        if self.effect_head == self.effects.len() {
+            self.effects.clear();
+            self.effect_head = 0;
         }
         i32::from(variant)
     }
 
-    /// The stereo position, from -1 (left) to 1 (right), of the cluck [`App::take_cluck`] returned last: where the chicken was in the
+    /// The stereo position, from -1 (left) to 1 (right), of the effect [`App::take_effect`] returned last: where the chicken was in the
     /// view when it clucked, with Fizz 1's pan width (0.6, so within +-0.6). The page hands it to an equal-power stereo panner. Classic
     /// sound ignores it and the page plays at 0.
-    pub fn cluck_pan(&self) -> f32 {
+    pub fn effect_pan(&self) -> f32 {
         f32::from(self.taken.pan) / 4096.0
     }
 
-    /// The distance loudness, 1 down to 0.4, of the cluck [`App::take_cluck`] returned last: 1 inside the view, falling by half a unit
+    /// The distance loudness, 1 down to 0.4, of the effect [`App::take_effect`] returned last: 1 inside the view, falling by half a unit
     /// per view-half beyond it. The pan and this are the pure `fizz_sfx::place` function's, the same one DOS uses, so a sound is placed
     /// the same way on both. They depend on the view size the page reported, and the rules never see them.
-    pub fn cluck_gain(&self) -> f32 {
+    pub fn effect_gain(&self) -> f32 {
         f32::from(self.taken.distance) / 4096.0
     }
 
@@ -251,27 +254,32 @@ impl App {
         self.world = fizz_ep2::level::world();
         self.latch = InputLatch::new();
         self.held = Buttons::NONE;
-        self.clucks.clear();
-        self.cluck_head = 0;
+        self.effects.clear();
+        self.effect_head = 0;
         self.taken = Placement::CENTRE;
         self.puffs.clear();
+        self.event_captions.clear();
     }
 
-    /// Queues the cluck variants the step that just ran emitted, and takes its shot ends for the puffs.
+    /// Queues the sound of every event the step that just ran emitted, and takes its shot ends for the puffs and its captions for the
+    /// caption list. Each event with a sound gets its effect id and where it sounds (`fizz_slice_view::event_sound`, the table in
+    /// `captions.rs`), whatever the Captions setting says. The page plays them in order, each its own sound, as Fizz 1 does.
     fn collect_events(&mut self) {
         let options = DrawOptions {
             captions: false,
             shake: self.shake,
         };
         for event in self.world.events() {
-            if let fizz_ep2::Event::Cluck { variant, chicken } = *event {
-                // The chicken's position after this step and the camera the picture is drawn with, in the view the page last set.
-                let place =
-                    cluck_placement(&self.world, chicken, self.view_w, self.view_h, &options);
-                queue_cluck(&mut self.clucks, variant, place);
+            // The camera is the one the picture is drawn with, in the view the page last set.
+            if let Some((id, place)) =
+                event_sound(&self.world, event, self.view_w, self.view_h, &options)
+            {
+                queue_effect(&mut self.effects, id, place);
             }
         }
         self.puffs.observe(&self.world);
+        self.event_captions
+            .observe(&self.world, self.view_w, self.view_h, &options);
     }
 
     /// Turns the cluck captions on or off (on by default). The beak still moves; only the text goes.
@@ -312,6 +320,14 @@ impl App {
     /// The x of caption `i`, the chicken's centre, in view pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
     pub fn caption_x(&self, i: usize) -> f64 {
         self.live_captions.get(i).map_or(0.0, |c| f64::from(c.x))
+    }
+
+    /// How many view pixels above caption `i`'s y the word rests: 32 (two Fizz 1 tiles) above a chicken's feet, 0 for an event
+    /// caption, whose y is the point the event happened at.
+    pub fn caption_anchor_above(&self, i: usize) -> f64 {
+        self.live_captions
+            .get(i)
+            .map_or(0.0, |c| if c.event { 0.0 } else { 32.0 })
     }
 
     /// The y of caption `i`, the chicken's feet, in canvas pixels (0 to `height`; it may lie up to a tile outside, and is not clamped).
@@ -392,6 +408,15 @@ impl App {
                     .iter()
                     .filter_map(|c| caption_view(&self.world, self.view_w, self.view_h, c)),
             );
+            self.live_captions.extend(self.event_captions.views(
+                &self.world,
+                self.view_w,
+                self.view_h,
+                &DrawOptions {
+                    captions: false,
+                    shake: self.shake,
+                },
+            ));
         }
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
         for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
@@ -468,10 +493,10 @@ impl App {
     }
 }
 
-/// Keeps `variant` for the page unless the queue is full.
-fn queue_cluck(clucks: &mut Vec<(u8, Placement)>, variant: u8, place: Placement) {
-    if clucks.len() < MAX_PENDING_CLUCKS {
-        clucks.push((variant, place));
+/// Keeps effect `id` for the page unless the queue is full.
+fn queue_effect(effects: &mut Vec<(u8, Placement)>, id: u8, place: Placement) {
+    if effects.len() < MAX_PENDING_EFFECTS {
+        effects.push((id, place));
     }
 }
 
@@ -804,6 +829,46 @@ mod tests {
     }
 
     #[test]
+    fn event_captions_reach_the_page_as_text_and_the_setting_gates_only_the_text() {
+        // Play to just after the first shot (the replay fires at tick 31): its "fzzt" is a caption on Ben's blaster.
+        let mut app = App::new();
+        let (mut prev, mut now_ms, mut tick) = (Buttons::NONE, 0.0, 0);
+        app.frame(now_ms);
+        'play: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                set_keys(&mut app, prev, held);
+                now_ms += FRAME_MS;
+                app.frame(now_ms);
+                prev = held;
+                tick += 1;
+                if tick == 33 {
+                    break 'play;
+                }
+            }
+        }
+        app.render();
+        let on = app.rgba.clone();
+        let words: Vec<String> = (0..app.caption_count())
+            .map(|i| app.caption_word(i))
+            .collect();
+        let i = words
+            .iter()
+            .position(|w| w == "fzzt")
+            .expect("a fzzt caption");
+        assert_eq!(app.caption_colour(i), "#55ffff");
+        assert_eq!(app.caption_anchor_above(i), 0.0);
+        assert!(app.caption_progress(i) > 0.0 && app.caption_progress(i) < 0.1);
+        // Off hides the text; the list still fills, so turning it back on shows the caption still alive.
+        app.set_captions(false);
+        app.render();
+        assert_eq!(app.caption_count(), 0);
+        assert_eq!(on, app.rgba, "the words are never in the picture");
+        app.set_captions(true);
+        app.render();
+        assert!(app.caption_count() >= 1);
+    }
+
+    #[test]
     fn the_app_draws_the_shot_end_puffs_a_reference_presenter_draws() {
         // A reference that feeds its own Puffs from the rules' events, as the DOS presenter does, must draw the same pixels
         // as the app does while a puff is alive, and the puff must show at the ticks the DOS bench samples.
@@ -974,7 +1039,7 @@ mod tests {
     fn drain(app: &mut App) -> Vec<u8> {
         let mut out = Vec::new();
         loop {
-            let v = app.take_cluck();
+            let v = app.take_effect();
             if v < 0 {
                 return out;
             }
@@ -1014,7 +1079,7 @@ mod tests {
                 now_ms += f64::from(per_frame) * FRAME_MS;
                 app.frame(now_ms);
                 got.extend(drain(&mut app));
-                assert_eq!(app.take_cluck(), -1, "already drained");
+                assert_eq!(app.take_effect(), -1, "already drained");
             }
             // The last frame can run past 1500 ticks, so compare the clucks both runs share.
             assert_eq!(
@@ -1045,9 +1110,9 @@ mod tests {
             now_ms += FRAME_MS;
             app.frame(now_ms);
         }
-        assert_eq!(app.take_cluck(), i32::from(first.1));
+        assert_eq!(app.take_effect(), i32::from(first.1));
         app.reset();
-        assert_eq!(app.take_cluck(), -1);
+        assert_eq!(app.take_effect(), -1);
     }
 
     #[test]
@@ -1063,11 +1128,11 @@ mod tests {
                 now_ms += FRAME_MS;
                 app.frame(now_ms);
                 loop {
-                    let v = app.take_cluck();
+                    let v = app.take_effect();
                     if v < 0 {
                         break;
                     }
-                    got.push((v, app.cluck_pan(), app.cluck_gain()));
+                    got.push((v, app.effect_pan(), app.effect_gain()));
                 }
             }
             (got, app.hash_hex())
@@ -1092,15 +1157,60 @@ mod tests {
     #[test]
     fn the_queue_is_bounded_and_every_variant_is_in_range() {
         let mut app = App::new();
-        for i in 0..(MAX_PENDING_CLUCKS as u8 * 2) {
-            queue_cluck(&mut app.clucks, i % 4, Placement::CENTRE);
+        for i in 0..(MAX_PENDING_EFFECTS as u8 * 2) {
+            queue_effect(&mut app.effects, i % 4, Placement::CENTRE);
         }
         let kept = drain(&mut app);
-        assert_eq!(kept.len(), MAX_PENDING_CLUCKS);
+        assert_eq!(kept.len(), MAX_PENDING_EFFECTS);
         assert_eq!(kept[..4], [0, 1, 2, 3], "the oldest are kept");
         for (_, v) in idle_clucks(3000) {
             assert!(v < fizz_ep2::CLUCK_VARIANTS);
         }
+    }
+
+    #[test]
+    fn every_sounding_event_of_the_replay_reaches_the_page_as_its_effect_in_order() {
+        // Drive the app's world through the slice script and queue each step's events as `frame` does; the page must be handed one
+        // effect per event but a shot ending, with the id `presentation` names, a pan within Fizz 1's width and a gain in 0.4 to 1.
+        let mut app = App::new();
+        app.world = fizz_ep2::level::world();
+        let mut want = Vec::new();
+        let mut got = Vec::new();
+        let mut prev = Buttons::NONE;
+        for &(frames, now) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..frames {
+                fizz_ep2::step(&mut app.world, InputFrame::from_transition(prev, now));
+                prev = now;
+                app.collect_events();
+                for e in app.world.events() {
+                    if let Some(id) = fizz_slice_view::presentation(e).effect {
+                        want.push(id);
+                    }
+                }
+                loop {
+                    let v = app.take_effect();
+                    if v < 0 {
+                        break;
+                    }
+                    assert!(app.effect_pan().abs() <= 0.6 + 1e-3);
+                    assert!((0.4 - 1e-3..=1.0).contains(&app.effect_gain()));
+                    got.push(u8::try_from(v).unwrap());
+                }
+            }
+        }
+        assert_eq!(got, want);
+        assert_eq!(
+            got.len(),
+            4 + 8 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + jumps(&got)
+        );
+        for id in 4..fizz_sfx::EFFECT_COUNT as u8 {
+            assert!(got.contains(&id), "effect {id} is never played");
+        }
+    }
+
+    /// How many jumps (effect 13) a list of effects has.
+    fn jumps(list: &[u8]) -> usize {
+        list.iter().filter(|&&id| id == 13).count()
     }
 
     #[test]

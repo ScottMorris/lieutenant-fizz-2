@@ -18,7 +18,9 @@ use fizz_hal::{Display, HalError, KeyCode};
 use fizz_sim::Buttons;
 
 pub use fizz_sfx::place::Placement;
-pub use fizz_slice_view::{DrawOptions, Puffs, VIEW_H, VIEW_W, cluck_placement};
+pub use fizz_slice_view::{
+    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound,
+};
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
 pub use hud::{Hud, HudValues};
@@ -53,26 +55,27 @@ pub fn render_slice(world: &fizz_ep2::World, frame: &mut Frame) {
         world,
         frame,
         &fizz_slice_view::DrawOptions::default(),
-        &Puffs::new(),
+        &ViewFx::new(),
     );
 }
 
 /// [`render_slice`] with the shared picture's options (the DOS `/NOCAPTIONS` switch sets `captions` false) and the shot-end
-/// puffs the caller has gathered with [`Puffs::observe`] after each step.
+/// puffs and captions the caller has gathered with [`ViewFx::observe`] after each step.
 pub fn render_slice_with(
     world: &fizz_ep2::World,
     frame: &mut Frame,
     options: &fizz_slice_view::DrawOptions,
-    puffs: &Puffs,
+    fx: &ViewFx,
 ) {
-    fizz_slice_view::draw_slice_puffs(
+    fizz_slice_view::draw_slice_captions(
         frame.pixels_mut(),
         WIDTH,
         HEIGHT,
         world,
         world.tick.0 as u32,
         options,
-        puffs,
+        &fx.puffs,
+        &fx.captions,
     );
     frame.draw_hud(HudValues {
         ammo: world.ammo,
@@ -133,6 +136,60 @@ pub fn present<D: Display>(display: &mut D, frame: &Frame) -> Result<(), HalErro
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The slice stepped to `ticks` with its fx fed as the DOS loop feeds them.
+    fn world_at(ticks: u64) -> (fizz_ep2::World, ViewFx) {
+        let mut world = fizz_ep2::level::world();
+        let mut fx = ViewFx::new();
+        let mut prev = Buttons::NONE;
+        'run: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                if world.tick.0 >= ticks {
+                    break 'run;
+                }
+                let input = fizz_sim::InputFrame::from_transition(prev, held);
+                fizz_ep2::step(&mut world, input);
+                prev = held;
+                fx.observe(&world, WIDTH, HEIGHT, &DrawOptions::default());
+            }
+        }
+        (world, fx)
+    }
+
+    #[test]
+    fn an_event_caption_is_pixels_in_the_dos_frame_and_the_option_hides_them() {
+        // Tick 40 is nine ticks after Ben's first shot, so "fzzt" is alive.
+        let (world, fx) = world_at(40);
+        let on_options = DrawOptions::default();
+        assert!(
+            fx.captions
+                .views(&world, WIDTH, HEIGHT, &on_options)
+                .count()
+                >= 1
+        );
+        let draw = |options: &DrawOptions, fx: &ViewFx| {
+            let mut f = Frame::new();
+            render_slice_with(&world, &mut f, options, fx);
+            f
+        };
+        let on = draw(&on_options, &fx);
+        let bare = draw(&on_options, &ViewFx::new());
+        assert_ne!(on.pixels(), bare.pixels(), "the word is drawn");
+        let off = DrawOptions {
+            captions: false,
+            ..DrawOptions::default()
+        };
+        assert_eq!(
+            draw(&off, &fx).pixels(),
+            draw(&off, &ViewFx::new()).pixels(),
+            "off hides the text"
+        );
+        // The word is light cyan (11) over a black (0) shadow.
+        let (a, b) = (on.pixels(), bare.pixels());
+        let differing = || (0..a.len()).filter(|&i| a[i] != b[i]);
+        assert!(differing().any(|i| a[i] == 11));
+        assert!(differing().all(|i| matches!(a[i], 0 | 11)));
+    }
 
     const ALL_KEYS: [KeyCode; 14] = [
         KeyCode::Up,

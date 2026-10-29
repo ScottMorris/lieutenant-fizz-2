@@ -4,7 +4,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ids and properties follow Fizz 1 `episodes/episode-1/game/src/tiles.rs` at commit `4bce036`, restricted to
-// the tiles the slice uses. Departure: the red door is a switched tile on [`DOOR_RED_CHANNEL`] rather than a solid tile
+// the tiles the slice uses. Departure: the red and blue doors are switched tiles, each on its own channel, rather than solid tiles
 // that Fizz 1 rewrites to empty space when it opens.
 
 use fizz_phys::TileProps;
@@ -38,6 +38,8 @@ pub const L22A: u8 = 10;
 pub const L22B: u8 = 11;
 /// The red door: solid while [`DOOR_RED_CHANNEL`] is on.
 pub const DOOR_R: u8 = 12;
+/// The blue door: solid while [`DOOR_BLUE_CHANNEL`] is on.
+pub const DOOR_B: u8 = 13;
 /// The exit: touching it ends the level.
 pub const EXIT: u8 = 17;
 /// Decorative interior wall behind a room. It is not solid.
@@ -47,6 +49,11 @@ pub const WALLBG: u8 = 30;
 pub const DOOR_RED_CHANNEL: u8 = 1;
 /// The red door's bit in `TileMap::switches`.
 pub const DOOR_RED_BIT: u32 = 1 << DOOR_RED_CHANNEL;
+
+/// The switch channel of the blue door. A set bit means the door is closed.
+pub const DOOR_BLUE_CHANNEL: u8 = 2;
+/// The blue door's bit in `TileMap::switches`.
+pub const DOOR_BLUE_BIT: u32 = 1 << DOOR_BLUE_CHANNEL;
 
 /// Whether a tile is lethal liquid. Fizz 1 also counts molten metal, which Episode 2 does not have yet.
 pub fn is_liquid(t: u8) -> bool {
@@ -61,6 +68,8 @@ pub fn props() -> TileProps {
     p.set_flags(PLAT, ONEWAY);
     p.set_flags(DOOR_R, SWITCHED);
     p.set_channel(DOOR_R, DOOR_RED_CHANNEL);
+    p.set_flags(DOOR_B, SWITCHED);
+    p.set_channel(DOOR_B, DOOR_BLUE_CHANNEL);
     for (t, s) in [
         (R45, SLOPE_R45),
         (L45, SLOPE_L45),

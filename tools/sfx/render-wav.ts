@@ -1,4 +1,4 @@
-// Renders the cluck variants to WAV files for listening: the rich source, an approximate OPL2 preview and the PC speaker.
+// Renders the sound effects to WAV files for listening: the rich source, an approximate OPL2 preview, the OPL3 pair and the PC speaker.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -23,8 +23,8 @@
 // - speaker: a square wave at the divisor's frequency, held for each 1/140 s step. A real speaker's cone and a case colour it.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { EFFECTS } from '../../assets/sfx/cluck.ts';
-import { isNoise, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
+import { EFFECTS } from '../../assets/sfx/effects.ts';
+import { isNoise, stepOffset, voiceHz, type SfxVoice } from '../../assets/sfx/voice.ts';
 import type { Conversion } from './convert.ts';
 import { convertAll } from './downmix.ts';
 import { OPL_CLOCK, IMF_RATE, EFFECT_RATE, type OplRecord } from './opl.ts';
@@ -143,6 +143,7 @@ export function renderRich(voices: readonly SfxVoice[]): Float32Array {
     const nState = [0, 0, 0, 0, 0, 0, 0];
     const filter = v.lpf ? new LowPass() : undefined;
     let phase = 0;
+    let modPhase = 0;
     for (let i = 0; i < count; i++) {
       const t = i / SR;
       const env = t < a ? t / a : Math.max(0, 1 - (t - a) / d);
@@ -157,8 +158,17 @@ export function renderRich(voices: readonly SfxVoice[]): Float32Array {
         }
         filter.set(cutoff);
       }
-      let x = noise ? noiseSample(v.n, rand, nState) : oscSample(v.w, phase);
-      phase += hz / SR;
+      // Pitch steps move the note a 140 Hz frame at a time; FM is phase modulation by a modulator at ratio times the pitch, with the
+      // index (Tone's: peak frequency swing over the carrier's frequency, so over the ratio as a phase swing) fading over `decay`.
+      const pitch = noise ? 0 : hz * 2 ** (stepOffset(v, t) / 12);
+      let swing = 0;
+      if (v.fm && !noise) {
+        const depth = v.fm.decay === undefined ? 1 : Math.max(0, 1 - t / v.fm.decay);
+        swing = (v.fm.index / v.fm.ratio) * depth * oscSample(v.fm.wave ?? 'sine', modPhase);
+        modPhase += (pitch * v.fm.ratio) / SR;
+      }
+      let x = noise ? noiseSample(v.n, rand, nState) : oscSample(v.w, phase + swing / (2 * Math.PI));
+      phase += pitch / SR;
       if (filter) x = filter.run(x);
       const j = start + i;
       if (j < out.length) out[j] += x * env * v.g;
@@ -411,16 +421,16 @@ if (import.meta.main) {
     writeFileSync(`${dir}/${name}`, bytes);
     console.log(`${dir}/${name}  ${bytes.length} bytes`);
   };
-  EFFECTS.cluck.forEach((voices, i) => {
+  EFFECTS.forEach((voices, i) => {
     const ticks = conv[i].opl.ticks;
-    write(`cluck-${i}-rich.wav`, wav(renderRich(voices), SR));
-    write(`cluck-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, ticks), OPL_CLOCK));
-    write(`cluck-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR));
+    write(`effect-${i}-rich.wav`, wav(renderRich(voices), SR));
+    write(`effect-${i}-opl2.wav`, wav(renderOpl(conv[i].opl.records, ticks), OPL_CLOCK));
+    write(`effect-${i}-speaker.wav`, wav(renderSpeaker(conv[i].speaker.divisors), SR));
     for (const [spot, x] of Object.entries(spots)) {
-      write(`cluck-${i}-opl3-pair-${spot}.wav`, wav(renderOplPair(streamWrites(i, 'at', x, 100, ...view), ticks), OPL_CLOCK, 2));
+      write(`effect-${i}-opl3-pair-${spot}.wav`, wav(renderOplPair(streamWrites(i, 'at', x, 100, ...view), ticks), OPL_CLOCK, 2));
     }
     // One distant source on the single-channel and the rich paths: the OPL2's distance attenuation, and the Web's pan and gain.
-    write(`cluck-${i}-opl2-distant.wav`, wav(renderOplMono(streamWrites(i, 'mono', 11), ticks), OPL_CLOCK));
-    write(`cluck-${i}-rich-distant.wav`, wav(renderRichPlaced(voices, 0.6, 0.4), SR, 2));
+    write(`effect-${i}-opl2-distant.wav`, wav(renderOplMono(streamWrites(i, 'mono', 11), ticks), OPL_CLOCK));
+    write(`effect-${i}-rich-distant.wav`, wav(renderRichPlaced(voices, 0.6, 0.4), SR, 2));
   });
 }

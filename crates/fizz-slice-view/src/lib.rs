@@ -77,8 +77,15 @@
 //! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
 //! 3.6 tiles, ramped and returned by the rules) is added to that centre before the clamp, so the view never leaves the map. The map's y-axis is flipped with `fizz_view::screen_y`.
 
+mod captions;
+pub use captions::*;
+
+use fizz_ep2::SnackKind;
 use fizz_ep2::World;
-use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE, WALLBG};
+use fizz_ep2::tiles::{
+    BLOCK, CHOC, DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE,
+    WALLBG,
+};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
     TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, pfont::draw_text, pfont::text_width,
@@ -458,6 +465,31 @@ pub fn draw_slice_puffs(
     options: &DrawOptions,
     puffs: &Puffs,
 ) {
+    draw_slice_captions(
+        frame,
+        w,
+        h,
+        world,
+        tick,
+        options,
+        puffs,
+        &EventCaptions::new(),
+    );
+}
+
+/// Draws `world` as [`draw_slice_puffs`] does, and the event captions `captions` holds after the chickens' own, when
+/// `options.captions` is on.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_slice_captions(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
+    captions: &EventCaptions,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -465,10 +497,12 @@ pub fn draw_slice_puffs(
     // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
 
-    let door_closed = map.switch(DOOR_RED_CHANNEL);
-    // The tile pass meets every visible tile, so it notes the closed doors for the sprites drawn after it; a view with more
-    // than `DOORS` of them falls back to looking for them again.
-    let mut doors = [(0, 0); DOORS];
+    let red_closed = map.switch(DOOR_RED_CHANNEL);
+    let blue_closed = map.switch(DOOR_BLUE_CHANNEL);
+    let door_closed = red_closed || blue_closed;
+    // The tile pass meets every visible tile, so it notes the closed doors (red or blue, by the last field) for the sprites
+    // drawn after it; a view with more than `DOORS` of them falls back to looking for them again.
+    let mut doors = [(0, 0, false); DOORS];
     let mut door_count = 0;
     // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
     draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
@@ -482,12 +516,14 @@ pub fn draw_slice_puffs(
         if colour != NO_COLOUR {
             return Some(colour);
         }
-        if t == DOOR_R {
-            if door_closed && door_count < DOORS {
-                doors[door_count] = (tx, ty);
+        if t == DOOR_R || t == DOOR_B {
+            let blue = t == DOOR_B;
+            let closed = if blue { blue_closed } else { red_closed };
+            if closed && door_count < DOORS {
+                doors[door_count] = (tx, ty, blue);
             }
-            door_count += usize::from(door_closed);
-            return Some(if door_closed { BROWN } else { BLUE });
+            door_count += usize::from(closed);
+            return Some(if closed { BROWN } else { BLUE });
         }
         None
     });
@@ -496,12 +532,12 @@ pub fn draw_slice_puffs(
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
     let phase = tick as usize;
 
-    if door_closed && let Some(door) = sprite("doorRed") {
+    if door_closed && let (Some(red), Some(blue)) = (sprite("doorRed"), sprite("doorBlue")) {
         if door_count <= DOORS {
             // The door art is one tile, so only the tiles the pass visited can show it.
-            for &(tx, ty) in &doors[..door_count] {
+            for &(tx, ty, is_blue) in &doors[..door_count] {
                 let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                blit_sprite(frame, w, h, door, sx, sy, false);
+                blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
             }
         } else {
             let col0 = cam_x.div_euclid(TILE_PX).max(0);
@@ -511,19 +547,43 @@ pub fn draw_slice_puffs(
             for row in row0..=row1 {
                 let ty = map_h - 1 - row;
                 for tx in col0..=col1 {
-                    if map.get(tx, ty) == DOOR_R {
+                    let t = map.get(tx, ty);
+                    let (is_door, is_blue) = (t == DOOR_R || t == DOOR_B, t == DOOR_B);
+                    if is_door && (if is_blue { blue_closed } else { red_closed }) {
                         let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                        blit_sprite(frame, w, h, door, sx, sy, false);
+                        blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
                     }
                 }
             }
         }
     }
 
+    // The items bob a pixel every 16 ticks, as the key does. Their sprites are anchored at the feet; an item's centre is half a
+    // sprite above them.
+    let bob = i32::from(phase / 16 % 2 == 1);
+    if !world.snacks.is_empty()
+        && let (Some(cheezie), Some(choc), Some(cookie)) =
+            (sprite("cheezie"), sprite("choc"), sprite("cookie"))
+    {
+        for sn in world.snacks.iter().filter(|sn| !sn.taken) {
+            let art = match sn.kind {
+                SnackKind::Cheezie => cheezie,
+                SnackKind::Choc => choc,
+                SnackKind::Cookie => cookie,
+            };
+            let (sx, sy) = at(sn.x, sn.y);
+            blit_sprite(frame, w, h, art, sx, sy + 8 - bob, false);
+        }
+    }
+
+    if let (Some((kx, ky)), Some(key)) = (world.key_blue_position(), sprite("keyBlue")) {
+        let (sx, sy) = at(kx, ky);
+        blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
+    }
+
     if let (Some((kx, ky)), Some(key)) = (world.key_position(), sprite("keyRed")) {
         // The sprite's anchor is its feet; the key's centre is half a sprite above them.
         let (sx, sy) = at(kx, ky);
-        let bob = i32::from(phase / 16 % 2 == 1);
         blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
     }
 
@@ -552,6 +612,9 @@ pub fn draw_slice_puffs(
     if options.captions {
         for c in &world.chickens {
             draw_caption(frame, w, h, c, &at);
+        }
+        for cap in captions.views(world, w, h, options) {
+            draw_caption_view(frame, w, h, &cap);
         }
     }
 }
@@ -722,6 +785,9 @@ pub struct CaptionView {
     /// The chicken's feet in frame pixels, which may lie outside the frame by up to [`CAPTION_REACH`]; presenters draw it there unclamped and let the edge clip it.
     pub x: i32,
     pub y: i32,
+    /// Whether this is an event caption ([`EventCaptions`]) rather than a chicken's: its `x` and `y` are then the centre of the
+    /// word's rest position, not a chicken's feet, so a presenter lifts it by nothing instead of [`CAPTION_ABOVE_FEET`].
+    pub event: bool,
 }
 
 /// The caption of chicken `c` in a `w` by `h` frame drawn from `world`, or `None` when it has none: no cluck yet, the
@@ -761,15 +827,20 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
         age,
         x,
         y,
+        event: false,
     })
 }
 
 /// Draws the chicken's caption as pixel text, the downscaled form for the 320 by 200 picture: the variant's word above its
 /// head, rising and fading with `cluck_age`. The Web page draws the same captions as DOM text instead.
 fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
-    let Some(cap) = caption_at(c, w, h, at) else {
-        return;
-    };
+    if let Some(cap) = caption_at(c, w, h, at) {
+        draw_caption_view(frame, w, h, &cap);
+    }
+}
+
+/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow.
+fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
     let age = cap.age;
     // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
     let colour = if age < CAPTION_TICKS / 2 {
@@ -784,7 +855,8 @@ fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at:
     let width = text_width(text);
     // Centred on the chicken, a little above its head, and not moved: the frame clips it per pixel.
     let left = cap.x - width / 2;
-    let top = cap.y - CAPTION_ABOVE_FEET - rise;
+    // A chicken's caption sits above its head; an event's is centred on its point (the glyph cell is 8 rows).
+    let top = cap.y - if cap.event { 4 } else { CAPTION_ABOVE_FEET } - rise;
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
     draw_text(frame, w, h, left, top, text, colour);
 }
@@ -940,7 +1012,7 @@ mod tests {
         (217, 0x5af507e1b680861b, 0x1b12c767752c9322),
         (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
         (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
-        (1094, 0xfdb0c73c8b23cb88, 0xfdb0c73c8b23cb88),
+        (1094, 0xa3bb18fc4d88b2b2, 0xa3bb18fc4d88b2b2),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
         0x3b51f05130991d1b,
@@ -1064,7 +1136,7 @@ mod tests {
         let mut seen = Vec::new();
         let mut old = Vec::new();
         play(|w| {
-            if [0, 150, 270, 400, 602, 700, 865, 1000, 1268].contains(&w.tick.0) {
+            if [0, 150, 270, 400, 602, 700, 865, 1000, 1268, 1450, 1681].contains(&w.tick.0) {
                 seen.push((w.tick.0, fnv(&picture(w, w.tick.0 as u32))));
                 old.push((w.tick.0, fnv(&picture(&without_clucks(w), w.tick.0 as u32))));
             }
@@ -1080,7 +1152,9 @@ mod tests {
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
-                (1268, 0x23afa9ef954ff4e0),
+                (1268, 0x66dbf1dcfba4c144),
+                (1450, 0xbc6e781fd07e5abe),
+                (1681, 0x95274a1a4dc480ff),
             ]
         );
         assert_eq!(
@@ -1095,7 +1169,9 @@ mod tests {
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
-                (1268, 0x23afa9ef954ff4e0),
+                (1268, 0x66dbf1dcfba4c144),
+                (1450, 0xbc6e781fd07e5abe),
+                (1681, 0x95274a1a4dc480ff),
             ]
         );
     }
@@ -1146,9 +1222,9 @@ mod tests {
 
     #[test]
     fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
-        // Each of the script's three shot ends gives a puff for ticks e..e+17 and no other tick.
-        let ends = [96u32, 106, 281];
-        let mut seen = [0u32; 3];
+        // Each of the script's eight shot ends gives a puff for ticks e..e+17 and no other tick.
+        let ends = [96u32, 106, 281, 1132, 1142, 1152, 1162, 1172];
+        let mut seen = [0u32; 8];
         let mut blank = Vec::new();
         play_puffs(|w, puffs| {
             let t = w.tick.0 as u32;
@@ -1180,7 +1256,7 @@ mod tests {
                 }
             }
         });
-        assert_eq!(seen, [PUFF_TICKS; 3]);
+        assert_eq!(seen, [PUFF_TICKS; 8]);
         // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
         // ends where its first three ticks leave no puff pixel in the frame (the picture is identical with and without the puff).
         let off_screen = 96..106;
@@ -1838,6 +1914,35 @@ mod tests {
         assert!(count(&closed, BROWN) > 0);
         assert_eq!(count(&open, BROWN), 0);
         assert_ne!(closed, open);
+    }
+
+    #[test]
+    fn the_nook_draws_its_snacks_key_and_door_and_hides_what_is_taken() {
+        let mut w = level::world();
+        w.ben.b.x = 26.0;
+        w.ben.b.y = 38.0;
+        let full = picture(&w, 0);
+        let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
+        // The blue door is drawn closed (its brown tile shows round the art), and a taken snack or key leaves the picture.
+        assert!(count(&full, BROWN) > 0, "the closed door");
+        for i in 0..w.snacks.len() {
+            let mut one = w.clone();
+            one.snacks[i].taken = true;
+            assert_ne!(picture(&one, 0), full, "snack {i} is drawn");
+        }
+        let mut no_key = w.clone();
+        no_key.flags.set(WorldFlags::KEY_BLUE);
+        assert_ne!(picture(&no_key, 0), full, "the blue key is drawn");
+        let mut open = w.clone();
+        open.map
+            .set_switch(fizz_ep2::tiles::DOOR_BLUE_CHANNEL, false);
+        open.flags.set(WorldFlags::DOOR_BLUE_OPEN);
+        let opened = picture(&open, 0);
+        assert!(
+            count(&opened, BROWN) < count(&full, BROWN),
+            "the open door has no brown tile"
+        );
+        assert_ne!(opened, full);
     }
 
     #[test]

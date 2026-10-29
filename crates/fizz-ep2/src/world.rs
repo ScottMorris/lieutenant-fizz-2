@@ -1,19 +1,20 @@
-// The slice's world: Ben, the chickens, the Fizz Blaster shots, the red key and door, death, respawn and the exit.
+// The slice's world: Ben, the chickens, the Fizz Blaster shots, the snacks, the red and blue keys and doors, death, respawn and the exit.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: the `Mode::Level` branch of
-// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the red door, the red key and the enemy contact rules),
-// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the other doors, keys and
-// items, switches and mirrors, targets, bosses, captions, sound, the camera and the score. Departures: the red door is a
-// switched tile (see `tiles.rs`), its open state and the key live in [`WorldFlags`], and a death respawns Ben in place
-// instead of reloading the level, so the open door survives it.
+// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the enemy contact rules),
+// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key, the
+// soda and the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
+// Departures: the red and blue doors are switched tiles (see `tiles.rs`), their open states and the keys live in
+// [`WorldFlags`], and a death respawns Ben in place instead of reloading the level, so an open door survives it (the snacks
+// come back, as they do when Fizz 1 reloads).
 
 use crate::ben::{Ben, FALL_DEATH_Y};
 use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
 use crate::shot::Shot;
-use crate::tiles::{DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
+use crate::tiles::{DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
 use alloc::vec::Vec;
 #[cfg_attr(test, allow(unused_imports))]
 use fizz_phys::fmath::FloatMath;
@@ -37,6 +38,68 @@ pub enum Event {
     /// logical pixels, y up from the map's bottom), rounded down. A respawn that clears the shots emits nothing. The slice
     /// has no enemy shots, so the event carries no owner.
     ShotEnd { x: i32, y: i32 },
+    /// A shot left the Fizz Blaster (Fizz 1's "fzzt"). `x` and `y` are where Fizz 1 puts the caption: the shot's start, half
+    /// a tile up. Positions of every event below are in sixteenths of a tile, y up, rounded down, like `ShotEnd`.
+    Fire { x: i32, y: i32 },
+    /// Fire was pressed with no ammo (Fizz 1's "click, no fizz").
+    Dud { x: i32, y: i32 },
+    /// Ben stomped an unstunned chicken (Fizz 1's "bonk"). `chicken` indexes [`World::chickens`]. Raised above the chicken.
+    Stomp { chicken: u8, x: i32, y: i32 },
+    /// A shot stunned an unstunned chicken (Fizz 1's "fizzled"). The shot also ends, so a [`Event::ShotEnd`] follows it.
+    Stun { chicken: u8, x: i32, y: i32 },
+    /// Ben died (Fizz 1's "whoa!"), at the point Fizz 1 raises it, 1.6 tiles above his feet.
+    Death { x: i32, y: i32 },
+    /// Ben picked up a key (Fizz 1's gumdrops). `colour` is Fizz 1's key order: 0 red, 1 blue, 2 green; the slice has the
+    /// red and the blue one.
+    Key { colour: u8, x: i32, y: i32 },
+    /// A door opened with the matching key (Fizz 1's "clunk"), above the door's tile.
+    DoorOpen { x: i32, y: i32 },
+    /// Ben touched the exit (Fizz 1's "ta-da!"). Raised once; the world freezes Ben afterwards.
+    Exit { x: i32, y: i32 },
+    /// The pogo bounced off the ground (Fizz 1's "boing").
+    Bounce { x: i32, y: i32 },
+    /// Ben's head hit a ceiling on a rise that counts, once per rise (Fizz 1's "clunk").
+    HeadBump { x: i32, y: i32 },
+    /// A ground jump started (Fizz 1's jump sound, which has no caption).
+    Jump { x: i32, y: i32 },
+    /// Ben took a snack, a cheezie, a chocolate or a cookie (Fizz 1's "crunch"), half a tile above the item's centre.
+    Snack { x: i32, y: i32 },
+}
+
+/// The snacks Fizz 1 scatters through its levels, with the points each is worth in its `tick_ben_contacts`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SnackKind {
+    /// A cheezie: 1 point.
+    Cheezie,
+    /// A chocolate: 2 points.
+    Choc,
+    /// A cookie: 5 points.
+    Cookie,
+}
+
+impl SnackKind {
+    /// The points Fizz 1 adds to the score for this snack.
+    pub const fn points(self) -> u32 {
+        match self {
+            SnackKind::Cheezie => 1,
+            SnackKind::Choc => 2,
+            SnackKind::Cookie => 5,
+        }
+    }
+}
+
+/// A snack lying in the level. The position is its centre in tiles; `taken` is the only part that changes, and it is hashed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Snack {
+    pub kind: SnackKind,
+    pub x: f64,
+    pub y: f64,
+    pub taken: bool,
+}
+
+/// A point in tiles as an event position: sixteenths of a tile, rounded down.
+fn sixteenths((x, y): (f64, f64)) -> (i32, i32) {
+    ((x * 16.0).floor() as i32, (y * 16.0).floor() as i32)
 }
 
 /// What a presenter needs to draw a chicken and its cluck: where it is, which way it faces, and how far into its last
@@ -66,6 +129,10 @@ impl WorldFlags {
     pub const DOOR_RED_OPEN: u32 = 2;
     /// Ben has touched the exit (Fizz 1's `won`).
     pub const EXIT_REACHED: u32 = 4;
+    /// Ben carries the blue key. A death drops it.
+    pub const KEY_BLUE: u32 = 8;
+    /// The blue door has been opened. It survives a death.
+    pub const DOOR_BLUE_OPEN: u32 = 16;
 
     pub const fn contains(self, bit: u32) -> bool {
         self.0 & bit == bit
@@ -93,12 +160,17 @@ pub struct World {
     pub deaths: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
-    /// What the last [`step`](World::step) emitted: clucks in chicken order, then shot ends from the last shot to the first.
+    /// The snacks lying in the level, in the order they were added. A death puts them all back (Fizz 1 reloads the level).
+    pub snacks: Vec<Snack>,
+    /// What the last [`step`](World::step) emitted: Ben's own events and his contacts first, then clucks in chicken order,
+    /// then the shots from the last to the first (a stun, then its shot end).
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
     /// Where the red key lies, as its centre, while it is in the world.
     key: Option<(f64, f64)>,
+    /// Where the blue key lies, as its centre, while it is in the world. A world with a blue key has a blue door.
+    key_blue: Option<(f64, f64)>,
     /// Where each chicken starts: `(x, y, dir)` as passed to [`Chicken::new`].
     chicken_spawns: Vec<(f64, f64, f64)>,
 }
@@ -116,9 +188,11 @@ impl World {
             deaths: 0,
             chickens: Vec::new(),
             shots: Vec::new(),
+            snacks: Vec::new(),
             events: Vec::new(),
             spawn,
             key: None,
+            key_blue: None,
             chicken_spawns: Vec::new(),
         }
     }
@@ -167,6 +241,49 @@ impl World {
         if self.key_in_world() { self.key } else { None }
     }
 
+    /// Lays the blue key with its centre at `(x, y)` and closes the blue door. A world without a blue key leaves the blue
+    /// door's switch alone, so it stays as Fizz 1's traces expect it.
+    pub fn set_key_blue(&mut self, x: f64, y: f64) {
+        self.key_blue = Some((x, y));
+        self.map.set_switch(DOOR_BLUE_CHANNEL, true);
+    }
+
+    /// Whether the blue key is lying in the world: not carried, and not spent on the door.
+    pub fn key_blue_in_world(&self) -> bool {
+        self.key_blue.is_some()
+            && !self.flags.contains(WorldFlags::KEY_BLUE)
+            && !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN)
+    }
+
+    /// The centre of the blue key while it is lying in the world, as [`World::key_position`] is for the red one.
+    pub fn key_blue_position(&self) -> Option<(f64, f64)> {
+        if self.key_blue_in_world() {
+            self.key_blue
+        } else {
+            None
+        }
+    }
+
+    /// Lays a snack with its centre at `(x, y)`.
+    pub fn add_snack(&mut self, kind: SnackKind, x: f64, y: f64) {
+        self.snacks.push(Snack {
+            kind,
+            x,
+            y,
+            taken: false,
+        });
+    }
+
+    /// Fizz 1's score for the snacks taken so far: 1 for a cheezie, 2 for a chocolate, 5 for a cookie. It is worked out from
+    /// the snacks, so it is not hashed on its own.
+    pub fn score(&self) -> u32 {
+        self.snacks
+            .iter()
+            .filter(|s| s.taken)
+            .map(|s| s.kind.points())
+            .sum()
+    }
+
     /// Advances the world by one tick (the level branch of Fizz 1's `step`).
     pub fn step(&mut self, input: InputFrame) {
         self.events.clear();
@@ -198,8 +315,30 @@ impl World {
         if !dead && self.flags.contains(WorldFlags::EXIT_REACHED) {
             return;
         }
-        self.ben
+        let f = self
+            .ben
             .tick(&self.map, &[], input, &mut self.ammo, &mut self.shots);
+        // Fizz 1's order inside `tick_ben_move`: the jump or bounce, the shot, then the head bump.
+        if let Some(p) = f.bounced {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Bounce { x, y });
+        }
+        if let Some(p) = f.jumped {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Jump { x, y });
+        }
+        if let Some(p) = f.fired {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Fire { x, y });
+        }
+        if let Some(p) = f.dud {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Dud { x, y });
+        }
+        if let Some(p) = f.bumped {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::HeadBump { x, y });
+        }
         if !dead {
             self.tick_ben_contacts();
         }
@@ -207,7 +346,12 @@ impl World {
 
     /// Kills Ben unless he is already dead.
     fn kill(&mut self) {
+        if self.ben.dead > 0.0 {
+            return;
+        }
         self.ben.kill();
+        let (x, y) = sixteenths((self.ben.b.x, self.ben.b.y + 1.6));
+        self.events.push(Event::Death { x, y });
     }
 
     /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the red door, the red key, then the chickens.
@@ -232,22 +376,41 @@ impl World {
                 }
                 if t == EXIT && !self.flags.contains(WorldFlags::EXIT_REACHED) {
                     self.flags.set(WorldFlags::EXIT_REACHED);
+                    let (x, y) = sixteenths((px, py + 2.0));
+                    self.events.push(Event::Exit { x, y });
                     return;
                 }
             }
         }
-        if self.flags.contains(WorldFlags::KEY_RED) {
+        // Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs.
+        for (tile, channel, key, open) in [
+            (
+                DOOR_R,
+                DOOR_RED_CHANNEL,
+                WorldFlags::KEY_RED,
+                WorldFlags::DOOR_RED_OPEN,
+            ),
+            (
+                DOOR_B,
+                DOOR_BLUE_CHANNEL,
+                WorldFlags::KEY_BLUE,
+                WorldFlags::DOOR_BLUE_OPEN,
+            ),
+        ] {
+            if !self.flags.contains(key) {
+                continue;
+            }
             let cx = if self.ben.face > 0.0 {
                 (px + pw + 0.1).floor() as i32
             } else {
                 (px - 0.1).floor() as i32
             };
-            if self.map.get(cx, (py + 0.2).floor() as i32) == DOOR_R
-                && self.map.switch(DOOR_RED_CHANNEL)
-            {
-                self.map.set_switch(DOOR_RED_CHANNEL, false);
-                self.flags.clear(WorldFlags::KEY_RED);
-                self.flags.set(WorldFlags::DOOR_RED_OPEN);
+            if self.map.get(cx, (py + 0.2).floor() as i32) == tile && self.map.switch(channel) {
+                self.map.set_switch(channel, false);
+                self.flags.clear(key);
+                self.flags.set(open);
+                let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
+                self.events.push(Event::DoorOpen { x, y });
             }
         }
         if die {
@@ -260,6 +423,26 @@ impl World {
             && self.ben.b.overlaps(kx - 0.4, ky - 0.4, 0.8, 0.8)
         {
             self.flags.set(WorldFlags::KEY_RED);
+            let (x, y) = sixteenths((kx, ky + 0.6));
+            self.events.push(Event::Key { colour: 0, x, y });
+        }
+
+        if let Some((kx, ky)) = self.key_blue
+            && self.key_blue_in_world()
+            && self.ben.b.overlaps(kx - 0.4, ky - 0.4, 0.8, 0.8)
+        {
+            self.flags.set(WorldFlags::KEY_BLUE);
+            let (x, y) = sixteenths((kx, ky + 0.6));
+            self.events.push(Event::Key { colour: 1, x, y });
+        }
+
+        for i in 0..self.snacks.len() {
+            let sn = self.snacks[i];
+            if !sn.taken && self.ben.b.overlaps(sn.x - 0.4, sn.y - 0.4, 0.8, 0.8) {
+                self.snacks[i].taken = true;
+                let (x, y) = sixteenths((sn.x, sn.y + 0.6));
+                self.events.push(Event::Snack { x, y });
+            }
         }
 
         for i in 0..self.chickens.len() {
@@ -280,6 +463,12 @@ impl World {
             if stomp {
                 self.chickens[i].stun = STOMP_STUN;
                 self.ben.b.vy = if self.ben.pogo { 20.0 } else { 12.0 };
+                let (x, y) = sixteenths((b.x + b.w / 2.0, b.y + b.h + 0.4));
+                self.events.push(Event::Stomp {
+                    chicken: i as u8,
+                    x,
+                    y,
+                });
                 continue;
             }
             if self.ben.inv <= 0.0 {
@@ -323,6 +512,12 @@ impl World {
                         }
                         gone = true;
                         self.chickens[j].stun = SHOT_STUN;
+                        let (x, y) = sixteenths((ex + ew / 2.0, ey + eh + 0.4));
+                        self.events.push(Event::Stun {
+                            chicken: j as u8,
+                            x,
+                            y,
+                        });
                         break;
                     }
                 }
@@ -346,8 +541,12 @@ impl World {
         self.deaths += 1;
         self.ben = Ben::new(self.spawn.0, self.spawn.1);
         self.flags.clear(WorldFlags::KEY_RED);
+        self.flags.clear(WorldFlags::KEY_BLUE);
         self.ammo = START_AMMO;
         self.shots.clear();
+        for s in &mut self.snacks {
+            s.taken = false;
+        }
         self.chickens = self
             .chicken_spawns
             .iter()
@@ -358,6 +557,12 @@ impl World {
             DOOR_RED_CHANNEL,
             !self.flags.contains(WorldFlags::DOOR_RED_OPEN),
         );
+        if self.key_blue.is_some() {
+            self.map.set_switch(
+                DOOR_BLUE_CHANNEL,
+                !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN),
+            );
+        }
     }
 
     /// Hashes the world in the order [`hash`] documents.
@@ -375,7 +580,10 @@ impl World {
 /// 4. `map.switches` (`u32`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
 ///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
-/// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits.
+/// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits;
+/// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. A snack's kind and position
+///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
+///    the [`WorldFlags`] word and in `map.switches` (bit 2).
 ///
 /// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
@@ -424,6 +632,10 @@ pub fn hash(w: &World) -> StateHash {
             h.write_f64(v);
         }
     }
+    h.write_u32(w.snacks.len() as u32);
+    for s in &w.snacks {
+        h.write_u8(u8::from(s.taken));
+    }
     h
 }
 
@@ -437,6 +649,7 @@ mod tests {
     use super::*;
     use crate::tiles;
     use fizz_phys::TileMap;
+    use fizz_sim::Buttons;
 
     extern crate std;
     use std::vec::Vec;
@@ -496,6 +709,9 @@ mod tests {
             vy: 0.0,
             life: 0.5,
         });
+        w.add_snack(SnackKind::Cheezie, 2.0, 3.0);
+        w.add_snack(SnackKind::Cookie, 3.0, 3.0);
+        w.snacks[1].taken = true;
         w
     }
 
@@ -529,6 +745,8 @@ mod tests {
         for v in [10.0, 11.0, 16.0, 0.0, 0.5] {
             f(&mut b, v);
         }
+        b.extend_from_slice(&2u32.to_le_bytes()); // snack count
+        b.extend_from_slice(&[0, 1]); // taken: the cheezie no, the cookie yes
         assert_eq!(hash(&w).finish(), fnv(&b));
     }
 
@@ -536,13 +754,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0x4763_4dcf_4449_e880);
+        assert_eq!(hash(&populated()).finish(), 0xff10_8a2f_9aab_52a5);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 28] = [
+        let edits: [fn(&mut World); 31] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -571,6 +789,12 @@ mod tests {
             |w| w.chickens[1].cluck_draws += 1,
             |w| w.shots[0].life += 1.0,
             |w| w.shots.clear(),
+            |w| w.snacks[0].taken = true,
+            |w| w.snacks[1].taken = false,
+            |w| {
+                w.flags
+                    .set(WorldFlags::KEY_BLUE | WorldFlags::DOOR_BLUE_OPEN)
+            },
         ];
         for (i, edit) in edits.iter().enumerate() {
             let mut w = populated();
@@ -743,7 +967,7 @@ mod tests {
             .iter()
             .filter_map(|e| match *e {
                 Event::ShotEnd { x, y } => Some((x, y)),
-                Event::Cluck { .. } => None,
+                _ => None,
             })
             .collect()
     }
@@ -892,5 +1116,223 @@ mod tests {
             more.iter().any(|&t| t != timers[0]),
             "ids give different streams"
         );
+    }
+
+    /// An empty arena with a solid floor under row 1 and, when `ceiling` is set, a solid ceiling at row 6, Ben at rest on
+    /// the floor and no chickens, so only Ben's own events can happen.
+    fn arena(ceiling: Option<i32>) -> World {
+        let mut map = TileMap::new(24, 14, tiles::props());
+        for x in 0..24 {
+            map.set(x, 0, tiles::BLOCK);
+            map.set(x, 1, tiles::BLOCK);
+            if let Some(row) = ceiling {
+                map.set(x, row, tiles::BLOCK);
+            }
+        }
+        let mut w = World::new(map, (10.0, 2.0));
+        for _ in 0..5 {
+            w.step(idle());
+        }
+        w
+    }
+
+    fn press(w: &mut World, prev: Buttons, held: Buttons) {
+        w.step(InputFrame::from_transition(prev, held));
+    }
+
+    fn kinds(w: &World) -> Vec<Event> {
+        w.events().to_vec()
+    }
+
+    #[test]
+    fn firing_raises_fire_and_an_empty_blaster_raises_dud() {
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::FIRE);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Fire { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        assert_eq!(w.ammo, START_AMMO - 1);
+        let Event::Fire { x, y } = w.events()[0] else {
+            panic!()
+        };
+        // Fizz 1: the shot starts 0.6 ahead of Ben's middle, 0.85 up, and the caption half a tile above that.
+        assert_eq!(
+            x,
+            ((w.ben.b.x + w.ben.b.w / 2.0 + 0.6) * 16.0).floor() as i32
+        );
+        assert_eq!(y, ((2.0 + 0.85 + 0.5) * 16.0).floor() as i32);
+
+        let mut w = arena(None);
+        w.ammo = 0;
+        press(&mut w, Buttons::NONE, Buttons::FIRE);
+        let Event::Dud { x, y } = w.events()[0] else {
+            panic!("a dud: {:?}", kinds(&w))
+        };
+        assert_eq!(w.events().len(), 1, "no Fire without ammo");
+        assert!(w.shots.is_empty());
+        assert_eq!(x, ((10.0 + 0.35) * 16.0).floor() as i32);
+        assert_eq!(y, ((2.0 + 1.6) * 16.0).floor() as i32);
+    }
+
+    #[test]
+    fn a_ground_jump_raises_jump_once_and_the_pogo_raises_bounce_instead() {
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Jump { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        let Event::Jump { x, y } = w.events()[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (160, 32));
+        for _ in 0..3 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            assert!(w.events().is_empty(), "airborne: {:?}", kinds(&w));
+        }
+
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::POGO);
+        let ev = kinds(&w);
+        assert!(matches!(ev[..], [Event::Bounce { .. }]), "{ev:?}");
+        let Event::Bounce { x, y } = ev[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (((10.0 + 0.35) * 16.0) as i32, 32));
+        // Each landing bounces again, and no jump sound goes with it.
+        let mut bounces = 0;
+        for _ in 0..120 {
+            press(&mut w, Buttons::POGO, Buttons::POGO);
+            for e in w.events() {
+                assert!(!matches!(e, Event::Jump { .. }));
+                bounces += usize::from(matches!(e, Event::Bounce { .. }));
+            }
+        }
+        assert!(bounces >= 2, "{bounces}");
+    }
+
+    #[test]
+    fn a_head_bump_is_raised_once_per_rise_under_a_ceiling() {
+        // Floor top at row 2; ceiling tile at row 6 leaves a 4-tile gap, which a 20.5 tiles/s jump (about 3.4 tiles) crosses
+        // only by Ben's 1.4 tile body: his head meets the ceiling.
+        let mut w = arena(Some(5));
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        let mut bumps = Vec::new();
+        for _ in 0..80 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            for e in w.events() {
+                if let Event::HeadBump { x, y } = *e {
+                    bumps.push((w.tick.0, x, y));
+                }
+            }
+        }
+        assert_eq!(bumps.len(), 1, "{bumps:?}");
+        let (_, x, y) = bumps[0];
+        assert_eq!(x, ((10.0 + w.ben.b.w / 2.0) * 16.0).floor() as i32);
+        assert!((16 * 5 - 24..=16 * 5).contains(&y), "head height {y}");
+        // Without a ceiling the same jump never bumps.
+        let mut w = arena(None);
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        for _ in 0..80 {
+            press(&mut w, Buttons::JUMP, Buttons::JUMP);
+            assert!(
+                !w.events()
+                    .iter()
+                    .any(|e| matches!(e, Event::HeadBump { .. }))
+            );
+        }
+    }
+
+    #[test]
+    fn contacts_raise_death_key_door_exit_stomp_and_stun() {
+        // Death: a spike under Ben kills him once, 1.6 tiles above his feet.
+        let mut w = arena(None);
+        w.map.set(10, 2, tiles::SPIKE);
+        w.step(idle());
+        let ev = kinds(&w);
+        assert!(matches!(ev[..], [Event::Death { .. }]), "{ev:?}");
+        let Event::Death { x, y } = ev[0] else {
+            panic!()
+        };
+        assert_eq!((x, y), (160, ((w.ben.b.y + 1.6) * 16.0).floor() as i32));
+        w.step(idle());
+        assert!(w.events().is_empty(), "dying is raised once");
+
+        // Exit: raised once, then the world freezes Ben.
+        let mut w = arena(None);
+        w.map.set(10, 2, tiles::EXIT);
+        w.step(idle());
+        assert!(
+            matches!(kinds(&w)[..], [Event::Exit { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        w.step(idle());
+        assert!(w.events().is_empty());
+
+        // Key: red, at the key's centre and 0.6 up.
+        let mut w = arena(None);
+        w.set_key(10.4, 2.7);
+        w.step(idle());
+        assert_eq!(
+            kinds(&w),
+            [Event::Key {
+                colour: 0,
+                x: (10.4f64 * 16.0).floor() as i32,
+                y: (3.3f64 * 16.0).floor() as i32
+            }]
+        );
+
+        // Stun: a shot in a chicken raises Stun before its ShotEnd.
+        let mut w = quiet();
+        w.chickens[0].cluck_timer = 100_000;
+        let (cx, cy) = (w.chickens[0].b.x + 0.5, w.chickens[0].b.y + 0.5);
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 5.0,
+        });
+        w.step(idle());
+        let ev = kinds(&w);
+        assert!(
+            matches!(
+                ev[..],
+                [Event::Stun { chicken: 0, .. }, Event::ShotEnd { .. }]
+            ),
+            "{ev:?}"
+        );
+        // A second shot through the stunned chicken stuns nothing.
+        w.shots.push(Shot {
+            x: cx,
+            y: cy,
+            vx: 0.0,
+            vy: 0.0,
+            life: 0.05,
+        });
+        w.step(idle());
+        assert!(!kinds(&w).iter().any(|e| matches!(e, Event::Stun { .. })));
+    }
+
+    #[test]
+    fn events_do_not_move_the_hash() {
+        // The same inputs with the event list ignored give the same hash whether or not anyone reads the events.
+        let (mut a, mut b) = (arena(Some(5)), arena(Some(5)));
+        for t in 0..90 {
+            let held = if t % 20 < 10 {
+                Buttons::JUMP | Buttons::FIRE
+            } else {
+                Buttons::FIRE
+            };
+            let f = InputFrame::from_transition(Buttons::NONE, held);
+            a.step(f);
+            b.events.clear();
+            b.step(f);
+            assert_eq!(hash(&a).finish(), hash(&b).finish());
+        }
     }
 }

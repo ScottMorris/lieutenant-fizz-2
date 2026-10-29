@@ -39,8 +39,8 @@ pub enum FxPlan {
     /// OPL2 channel 5, mono: no pan, the distance only (on an OPL3 in its own mode the OR rule puts it in both speakers).
     Ch5,
     /// The OPL3 pair: channel 5 (bank 0) is the left output and channel 14 (bank 1) the right, both playing the effect at the level
-    /// its place on screen gives each side. The name is the pair's second channel, kept so the `SOUND` line does not change.
-    Ch14,
+    /// its place on screen gives each side. The `SOUND` line prints it as `ch5+14`.
+    Pair,
     /// The PC speaker, through PIT channel 2.
     Speaker,
 }
@@ -145,7 +145,7 @@ pub fn resolve(settings: &Settings, probe: &Probe) -> Resolved {
     let fx = match settings.fx {
         FxChoice::Off => FxPlan::Off,
         FxChoice::Speaker => FxPlan::Speaker,
-        FxChoice::Auto if has_opl3 => FxPlan::Ch14,
+        FxChoice::Auto if has_opl3 => FxPlan::Pair,
         FxChoice::Auto if has_fm => FxPlan::Ch5,
         FxChoice::Auto => FxPlan::Speaker,
         FxChoice::AdLib if has_fm => FxPlan::Ch5,
@@ -153,7 +153,7 @@ pub fn resolve(settings: &Settings, probe: &Probe) -> Resolved {
             fx_reason = Some(Reason::FxAdlibToSpeaker);
             FxPlan::Speaker
         }
-        FxChoice::Sb if has_opl3 => FxPlan::Ch14,
+        FxChoice::Sb if has_opl3 => FxPlan::Pair,
         FxChoice::Sb if has_fm => {
             fx_reason = Some(Reason::FxSbToAdlib);
             FxPlan::Ch5
@@ -164,7 +164,7 @@ pub fn resolve(settings: &Settings, probe: &Probe) -> Resolved {
         }
     };
 
-    let uses_opl3 = music == MusicPlan::Opl3 || fx == FxPlan::Ch14;
+    let uses_opl3 = music == MusicPlan::Opl3 || fx == FxPlan::Pair;
     let uses_opl2 = music == MusicPlan::Opl2 || fx == FxPlan::Ch5;
     let opl = if uses_opl3 {
         OplMode::Opl3
@@ -269,16 +269,16 @@ mod tests {
                     assert!(
                         has_opl3
                             || (r.music != MusicPlan::Opl3
-                                && r.fx != FxPlan::Ch14
+                                && r.fx != FxPlan::Pair
                                 && r.opl != OplMode::Opl3),
                         "{ctx}"
                     );
                     // The chip mode is global: Opl3 exactly when an OPL3 serves music or effects as the Sound Blaster.
-                    let uses_opl3 = r.music == MusicPlan::Opl3 || r.fx == FxPlan::Ch14;
+                    let uses_opl3 = r.music == MusicPlan::Opl3 || r.fx == FxPlan::Pair;
                     assert_eq!(r.opl == OplMode::Opl3, uses_opl3, "{ctx}");
                     assert_eq!(
                         r.opl == OplMode::None,
-                        r.music == MusicPlan::Off && !matches!(r.fx, FxPlan::Ch5 | FxPlan::Ch14),
+                        r.music == MusicPlan::Off && !matches!(r.fx, FxPlan::Ch5 | FxPlan::Pair),
                         "{ctx}"
                     );
                     // An explicit Off or Speaker is honoured; Auto never gives silence while a device exists.
@@ -390,7 +390,7 @@ mod tests {
         );
         assert_eq!(
             (r.opl, r.music, r.fx),
-            (OplMode::Opl3, MusicPlan::Opl3, FxPlan::Ch14)
+            (OplMode::Opl3, MusicPlan::Opl3, FxPlan::Pair)
         );
         assert_eq!((r.music_reason, r.fx_reason), (None, None));
     }
@@ -458,7 +458,7 @@ mod tests {
         let r = plan(MusicChoice::AdLib, FxChoice::Sb, &sb16);
         assert_eq!(
             (r.opl, r.music, r.fx),
-            (OplMode::Opl3, MusicPlan::Opl2, FxPlan::Ch14)
+            (OplMode::Opl3, MusicPlan::Opl2, FxPlan::Pair)
         );
         assert_eq!(
             (r.states.adlib, r.states.sb),
