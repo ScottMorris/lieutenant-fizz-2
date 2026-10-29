@@ -81,3 +81,4 @@ P5 m4/effects-content: author the eleven effects after the cluck in Undertone (F
 - print the OPL3 effects pair as ch5+14 in the SOUND line (FxPlan::Ch14 renamed Pair), with check-dos, docs and the measured snapshot updated; no audio, count or hash change
 P5 m4/pair-label: print the OPL3 effects pair as ch5+14 in the SOUND line (FxPlan::Ch14 renamed Pair), with check-dos, docs and the measured snapshot updated; no audio, count or hash change
 - move stereo-authored effects and the proper FM-to-OPL downmix from M4 to M4.5 in the roadmap, chapters and SOUND.md, record the owner's Web listen of 2026-10-29; docs only
+- add two planned M4.5 ideas (one OPL3 stream with a skippable second bank; compact and compress music streams) and a note that the asset pack compresses from the start; docs only
