@@ -1,4 +1,4 @@
-// Plays the rules' sound events on the Web by effect id: the rich Undertone effects in assets/sfx/effects.ts (so far the chicken's cluck, ids 0 to 3).
+// Plays the rules' sound events on the Web by effect id: the rich Undertone effects in assets/sfx/effects.ts (the chicken's cluck, ids 0 to 3, and the eleven others, 4 to 14).
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -8,7 +8,7 @@
 // effect is a stack of those voices played once on the page's `AudioContext`.
 //
 // Browsers only let a page make sound after a user gesture, so nothing is created until `unlock()` runs from a key press or a
-// click. A cluck that arrives before then, while muted, while the tab is hidden or while the context is not running is dropped and
+// click. An effect that arrives before then, while muted, while the tab is hidden or while the context is not running is dropped and
 // never queued: sound that arrives late is worse than none. Nothing here touches the rules, so it cannot change a state hash.
 import * as Undertone from '@liminal-hq/undertone';
 import type { AudioContextLike } from '@liminal-hq/undertone';
@@ -124,7 +124,7 @@ export interface SfxOptions {
   storage?: StorageLike | null;
   /** The page's query string, for `?audio=classic`. The default is `location.search`. */
   search?: string;
-  /** The node the clucks end in, once the context exists (the audio root's sfx bus). Without it they go straight to the speakers. */
+  /** The node the effects end in, once the context exists (the audio root's sfx bus). Without it they go straight to the speakers. */
   destination?: () => unknown;
 }
 
@@ -251,7 +251,7 @@ export class Sfx {
 
   /**
    * Plays effect `id` now, if it can be heard: sound has been unlocked, is not muted, the tab is visible, the context is
-   * running and fewer than `MAX_SIMULTANEOUS` clucks are still sounding. Returns whether it was scheduled.
+   * running and fewer than `MAX_SIMULTANEOUS` effects are still sounding (whoa! and ta-da! are always played). Returns whether it was scheduled.
    *
    * `pan` is the stereo position from -1 (left) to 1 (right) and `gain` the distance loudness from 0 to 1, both from the presenter
    * (`App.effect_pan()` and `App.effect_gain()`). In Classic mode both are ignored and the cluck plays centred at full level. Each
