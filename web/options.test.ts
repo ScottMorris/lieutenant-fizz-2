@@ -223,14 +223,18 @@ describe('the look', () => {
     expect(css).toContain(`--plate-ink: ${PLATE_INK};`);
   });
 
-  test('the soda can is 16 by 16 with light magenta bubbles', () => {
+  test("the soda can is the DOS menu's soda sprite: 16 by 16, grape body, white bubbles", () => {
+    const sheet = JSON.parse(readFileSync(new URL('../assets/sprites/fizz1-slice.json', import.meta.url), 'utf8'));
+    const soda = sheet.sprites.find((s: { name: string }) => s.name === 'soda');
+    expect([...SODA_ROWS]).toEqual(soda.rows);
     expect(SODA_ROWS.length).toBe(16);
     expect(SODA_ROWS.every((r) => r.length === 16)).toBe(true);
-    expect(SODA_ROWS.join('').split('m').length - 1).toBe(2);
+    expect(SODA_ROWS.join('')).not.toContain('r');
     const svg = sodaSvg();
     expect(svg).toContain('viewBox="0 0 16 16"');
     expect(svg).toContain('fill="#ff55ff"');
     expect(svg).toContain('fill="#000000"');
+    expect(svg).not.toContain('#ff5555');
   });
 
   test('a screen reader hears the label and the value, without the override star', () => {

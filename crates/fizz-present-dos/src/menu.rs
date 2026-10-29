@@ -484,7 +484,7 @@ mod tests {
         let mut plain = Frame::new();
         assert!(view.draw_options(&screen, &sb16(), 0, &mut plain));
         let red = |f: &Frame| f.pixels().iter().filter(|&&p| p == LIGHT_RED).count();
-        // The soda can has a little light red of its own, so the message is judged by how much it adds.
+        // The grape soda can has no light red, but the message is still judged by how much it adds.
         let base = red(&plain);
         // Setting a message changes the next draw, and the note's words are replaced.
         view.set_message("Could not write FIZZ2.CFG");
@@ -668,14 +668,14 @@ mod tests {
         assert_eq!(
             got,
             [
-                0x9563_1aa6_e90a_86cc,
-                0x456a_aebf_2a8c_c2b2,
-                0xd11d_9ba0_81aa_bc5e,
-                0xa104_5f1a_f276_4205,
-                0x0a85_1dec_fc01_e01f,
-                0xdb8b_b7f5_5c8a_d0e8,
-                0xf473_5a24_dd61_7fab,
-                0xd4c7_dc93_a01c_c479,
+                0x1b59_b153_e899_1d85,
+                0x0c66_4c80_42e0_8d33,
+                0x2b2e_b204_2a59_495f,
+                0x7d60_35e9_33b4_c13c,
+                0x38dd_8393_74ce_d67e,
+                0x21fc_6064_1864_c1b5,
+                0x7108_4a30_779d_4122,
+                0x4109_da64_eaef_8268,
             ],
             "options rows"
         );
@@ -687,7 +687,7 @@ mod tests {
         view.open(&picture());
         let mut out = Frame::new();
         view.draw_paused(&PausedScreen::new(Platform::Dos), 0, &mut out);
-        assert_eq!(frame_digest(&out), 0x2c77_9963_608c_2ef4);
+        assert_eq!(frame_digest(&out), 0xb68d_9b2b_3dd9_33ad);
     }
 
     #[test]
@@ -710,7 +710,7 @@ mod tests {
         );
         assert_eq!(
             (star, missing),
-            (0x0740_4776_8265_6fc7, 0xb4b2_3065_14d6_21e1)
+            (0x8d29_ec8e_cdb6_e5d2, 0xe29a_fc82_e0a5_2b7c)
         );
     }
 
