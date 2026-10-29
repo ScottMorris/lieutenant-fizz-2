@@ -139,7 +139,7 @@ def values_of(data):
     vals["open.count"] = len(subject)
     big = [s for s in data.get("stacks", []) if len(s["numbers"]) > 1]
     if big:
-        s = max(big, key=lambda x: len(x["numbers"]))  # Milestone 0's stack of eight, which chapter 6 and the front page describe
+        s = big[0]  # the earliest stack, Milestone 0's stack of eight, which chapter 6 and the front page describe (stacks are sorted by landing time)
         vals.update({"stack.count": len(s["numbers"]), "stack.merge": s["mergeCommit"], "stack.numbers": ", ".join("#%d" % n for n in s["numbers"]),
                      "stack.when": "%s at %s" % (dr.day_label(s["landedAt"]), dr.hhmm(s["landedAt"])),
                      "stack.commits": sum(p["commitCount"] for p in data["prs"] if p["mergeCommit"] == s["mergeCommit"]),

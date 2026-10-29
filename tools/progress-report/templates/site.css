@@ -103,6 +103,8 @@ td{color:var(--text-2)}
 td.n,th.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 td.nw{white-space:nowrap}
 .toc td .sub{font-size:14px;margin-top:2px}
+.toc td:nth-child(2){width:58%;min-width:260px}
+.toc td:nth-child(5){white-space:normal}
 tr:last-child td{border-bottom:0}
 
 /* facts */
