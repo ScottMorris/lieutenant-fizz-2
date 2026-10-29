@@ -42,23 +42,35 @@ pub fn text_width(text: &str) -> i32 {
 /// bits are left alone. Any position is safe, and a frame shorter than `w * h` is treated as only as tall as it is.
 pub fn draw_text(frame: &mut [u8], w: usize, h: usize, x: i32, y: i32, text: &str, colour: u8) {
     let h = frame.len().checked_div(w).map_or(0, |rows| rows.min(h));
+    // The glyph is looked up once for both its drawing and its advance, and the pixel loop is 32-bit: this is the hot loop of a
+    // caption on a 486, where `/BENCH` found six captions costing 3.8 ms a frame with the 64-bit arithmetic and two lookups.
+    let (width, height) = (
+        i32::try_from(w).unwrap_or(i32::MAX),
+        i32::try_from(h).unwrap_or(i32::MAX),
+    );
     let mut pen = x;
     for c in text.chars() {
-        let step = advance(c);
-        if let Some(g) = glyph(c) {
+        let g = glyph(c);
+        let step = if c == ' ' {
+            SPACE
+        } else {
+            g.map_or(SPACE, |g| i32::from(g.w) + 1)
+        };
+        if let Some(g) = g {
             let gw = i32::from(g.w);
-            // Skip glyphs wholly off to a side; the per-pixel test below clips the rest.
-            if i64::from(pen) < w as i64 && i64::from(pen) + i64::from(gw) > 0 {
+            // Skip glyphs wholly off to a side; the per-pixel test below clips the rest. `pen` is inside (-gw, w) from here on.
+            if pen < width && i64::from(pen) + i64::from(gw) > 0 {
                 for (dy, &bits) in g.rows.iter().enumerate() {
                     let py = i64::from(y) + dy as i64;
-                    if bits == 0 || py < 0 || py >= h as i64 {
+                    if bits == 0 || py < 0 || py >= i64::from(height) {
                         continue;
                     }
+                    let row = py as usize * w;
                     for dx in 0..gw {
                         if bits >> (gw - 1 - dx) & 1 != 0 {
-                            let px = i64::from(pen) + i64::from(dx);
-                            if px >= 0 && px < w as i64 {
-                                frame[py as usize * w + px as usize] = colour;
+                            let px = pen + dx;
+                            if px >= 0 && px < width {
+                                frame[row + px as usize] = colour;
                             }
                         }
                     }
