@@ -5,11 +5,11 @@
     "": {
       "name": "lieutenant-fizz-2-web",
       "dependencies": {
-        "@liminal-hq/undertone": "0.2.0",
+        "@liminal-hq/undertone": "0.3.0",
       },
     },
   },
   "packages": {
-    "@liminal-hq/undertone": ["@liminal-hq/undertone@0.2.0", "", {}, "sha512-2y93+93xlz83H27fI5/q2ed4e6fJSpmjxhn2aJ0akUsJlW9vuh8YteqzE4iNOgf3nwAdpw1266dCbReofjjsJw=="],
+    "@liminal-hq/undertone": ["@liminal-hq/undertone@0.3.0", "", {}, "sha512-aCEYwXXEA0oaa3Tu4nKP7TQpsvB7FiJ7bZcaWjPfjrdunyHN4OOKqa9gp0TjX+1MMx4Oi6b/IVr903IIMtbV+g=="],
   }
 }

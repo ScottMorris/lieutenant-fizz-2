@@ -58,7 +58,7 @@ type Voice = ReturnType<typeof Undertone.stack>;
  * applied to each of its voices.
  *
  * `lpenv` differs from Fizz 1 on purpose. `SfxVoice` says the filter opens *to* `lpenv` Hz, as the WAV previews and the downmix
- * read it, but Undertone 0.2 adds its amount to `lpf`, so the amount handed over is `lpenv - lpf`.
+ * read it, but Undertone (0.2 and 0.3 alike) adds its amount to `lpf`, so the amount handed over is `lpenv - lpf`.
  */
 export function buildVoice(U: UndertoneLike, v: SfxVoice, pan = 0, gain = 1): Voice {
   let p = isNoise(v.n) ? U.sound(v.n) : U.note(v.hz ?? v.n).sound(v.w ?? 'triangle');

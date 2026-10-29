@@ -21,7 +21,7 @@ tools/music/*.ts          the lowering to OPL streams (below)
 
 Crater Fields is A minor at 148 bpm: a lead, a bass, a square pad, and a kick, snare and hats. The builder lays it out as Intro 2 bars, A 8, B 8 (up five semitones, the pad arpeggiated), A 8 (the lead doubled an octave up), Breakdown 3, Build 1, A' 8 (up two semitones, arpeggio and octave) and a one-bar Fill, which is 39 bars and 63.24 seconds. The song loops from the end straight back to the start. The lead, bass, arpeggio and octave parts also get a quiet sine partner on the same note, panned the other way.
 
-Everything in `assets/music/` is pure, so it runs in Bun and in the browser bundle. The only dependency is `@liminal-hq/undertone` 0.2.0, as pinned.
+Everything in `assets/music/` is pure, so it runs in Bun and in the browser bundle. The only dependency is `@liminal-hq/undertone` 0.3.0, as pinned.
 
 ## Provenance
 

@@ -5,6 +5,6 @@
   "license": "Apache-2.0 OR MIT",
   "type": "module",
   "dependencies": {
-    "@liminal-hq/undertone": "0.2.0"
+    "@liminal-hq/undertone": "0.3.0"
   }
 }
