@@ -389,6 +389,17 @@ fn replay_sounds(captions: bool) -> Vec<(u32, u8, fizz_sfx::place::Placement)> {
 }
 
 #[test]
+fn the_replay_fills_all_six_caption_slots_at_its_busiest() {
+    let mut most = 0;
+    play(|w, caps| {
+        most = most.max(caps.views(w, VIEW_W, VIEW_H, &opts()).count());
+    });
+    // Snacks, bounces, head-bumps and a key follow one another in the nook, so the list is full at least once. `/BENCH` draws the
+    // worst case (six of the widest words) at a fixed picture to time it.
+    assert_eq!(most, MAX_EVENT_CAPTIONS);
+}
+
+#[test]
 fn show_six_fills_every_slot_inside_the_view_with_the_widest_words() {
     let w = world_with_fire();
     let o = opts();

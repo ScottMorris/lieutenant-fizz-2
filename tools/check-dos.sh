@@ -268,10 +268,11 @@ probe_case 'machine cga' cga '' 'PROBE video cga'
 probe_case 'machine hercules' hercules '' 'PROBE video mdahercules'
 probe_case 'cputype 386' svga_s3 $'[cpu]\ncputype = 386' 'PROBE cpu 386'
 probe_case 'cputype pentium' svga_s3 $'[cpu]\ncputype = pentium' 'PROBE cpu 586'
-# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB.
+# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB (the third
+# fell to 96 KB when the sound data grew FIZZ2.EXE past 200,000 bytes, so its floor is 64; the program is what takes the difference).
 probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-16384'
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
-probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 100-1024'
+probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 64-1024'
 probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
 # 3d. The check screen: /CHECKCELLS draws it, reads the 4,000 bytes back from video memory (0xB8000, or 0xB0000 on a monochrome adapter)
 # and prints them as CELLROW lines. They must equal what the pure builder makes for the PROBE lines printed in the same run. This is the
