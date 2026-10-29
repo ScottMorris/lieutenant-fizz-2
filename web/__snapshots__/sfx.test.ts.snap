@@ -1,0 +1,333 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`Undertone 0.3 scheduling pinned for the cluck the short cluck (variant 1) schedules exactly these filter, gain and pitch values 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.07,
+          0.003,
+        ],
+        [
+          0,
+          0.023,
+        ],
+        [
+          0,
+          0.033,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": undefined,
+    "kind": "noise",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          3000,
+          0,
+        ],
+        [
+          3000,
+          0,
+        ],
+        [
+          3000,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.26,
+          0.014,
+        ],
+        [
+          0,
+          0.0515,
+        ],
+        [
+          0,
+          0.0635,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.012,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          640,
+          0.012,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.013,
+        ],
+        [
+          2398,
+          0.038,
+        ],
+        [
+          2200,
+          0.05,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.012,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.221,
+          0.039,
+        ],
+        [
+          0,
+          0.0765,
+        ],
+        [
+          0,
+          0.0885,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.037,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          517.84,
+          0.037,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.038,
+        ],
+        [
+          2398,
+          0.063,
+        ],
+        [
+          2200,
+          0.075,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.037,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.182,
+          0.064,
+        ],
+        [
+          0,
+          0.1015,
+        ],
+        [
+          0,
+          0.1135,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.062,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          419,
+          0.062,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.063,
+        ],
+        [
+          2398,
+          0.088,
+        ],
+        [
+          2200,
+          0.1,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.062,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.143,
+          0.089,
+        ],
+        [
+          0,
+          0.1265,
+        ],
+        [
+          0,
+          0.1385,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.087,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          339.03,
+          0.087,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.088,
+        ],
+        [
+          2398,
+          0.113,
+        ],
+        [
+          2200,
+          0.125,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.087,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+]
+`;

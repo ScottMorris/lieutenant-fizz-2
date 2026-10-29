@@ -406,3 +406,65 @@ describe('placed clucks (Enhanced) and Classic', () => {
     expect(setup({ storage: mem, search: '?audio=junk' }).sfx.mode).toBe('classic');
   });
 });
+
+/** A compact record of what a cluck variant scheduled: per source node, in creation order, its kind, pitch sets and gain/filter automation. */
+function schedule(ctx: FakeContext) {
+  const round = (list: [number, number][]) => list.map(([v, t]) => [Number(v.toPrecision(6)), Number(t.toPrecision(6))]);
+  return ctx.nodes
+    .filter((n) => n.kind !== 'merger')
+    .map((n) => ({
+      kind: n.kind,
+      type: n.type,
+      freq: n.frequency ? { sets: round(n.frequency.sets), ramps: round(n.frequency.ramps) } : undefined,
+      gain: n.gain ? { sets: round(n.gain.sets), ramps: round(n.gain.ramps) } : undefined,
+    }));
+}
+
+describe('Undertone 0.3 scheduling pinned for the cluck', () => {
+  test('the short cluck (variant 1) schedules exactly these filter, gain and pitch values', async () => {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    sfx.playCluck(1);
+    const nodes = schedule(ctx);
+    // Voice 0 is the white-noise breath (lpf 3000 opening to 3000 + (lpenv - lpf)); voice 1 the square at 640 Hz (lpf 2200, start 12 ms).
+    const filters = nodes.filter((n) => n.kind === 'filter');
+    expect(filters.length).toBe(CLUCK[1].filter((v) => v.lpf).length);
+    CLUCK[1].filter((v) => v.lpf).forEach((v, i) => {
+      const f = filters[i].freq!;
+      expect(f.sets[0][0]).toBeCloseTo(v.lpf!, 3); // rests at lpf
+      if (v.lpenv && v.lpenv > v.lpf!) {
+        // Fizz 2 hands Undertone lpenv - lpf, which 0.2 and 0.3 both add to lpf: the filter peaks at lpenv, no higher.
+        const peak = Math.max(...f.sets.map((s) => s[0]), ...f.ramps.map((r) => r[0]));
+        expect(peak).toBeCloseTo(v.lpenv, 3);
+      }
+    });
+    // The whole schedule, so a later Undertone that moves any value shows up here.
+    expect(nodes).toMatchSnapshot();
+  });
+
+  test('the player builds no compressor or master bus of its own, so 0.3 dropping compressor makeup gain cannot change a cluck', async () => {
+    const { ctx, sfx } = setup();
+    sfx.unlock();
+    await settle();
+    for (let v = 0; v < 4; v++) sfx.playCluck(v);
+    expect(ctx.nodes.some((n) => n.kind === 'compressor')).toBe(false);
+  });
+
+  test('the noise breath is unseeded: each play draws new samples from Math.random, as in 0.2', async () => {
+    const buffers: Float32Array[] = [];
+    const { ctx, sfx } = setup();
+    ctx.createBuffer = (_c: number, length: number) => {
+      const data = new Float32Array(length);
+      buffers.push(data);
+      return { getChannelData: () => data };
+    };
+    sfx.unlock();
+    await settle();
+    sfx.playCluck(1);
+    sfx.playCluck(1);
+    expect(buffers.length).toBe(2);
+    expect(buffers[0].length).toBe(buffers[1].length);
+    expect(Array.from(buffers[0].slice(0, 32))).not.toEqual(Array.from(buffers[1].slice(0, 32)));
+  });
+});

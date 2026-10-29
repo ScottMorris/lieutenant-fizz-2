@@ -11,12 +11,15 @@ import { levelSong } from '../assets/music/songs.ts';
 import { noteEvents, tickSeconds, type NoteEvent } from '../assets/music/events.ts';
 import { PART_PAN, partPanAt } from '../assets/music/types.ts';
 import { AudioRoot, MUSIC_BUS_GAIN, SFX_BUS_GAIN, type RootContext } from './audio.ts';
-import { MUSIC_KEY, Music, PANNED_MAKEUP, mirrorPan, partMakeup, undertonePan, type StorageLike } from './music.ts';
+import { MUSIC_KEY, Music, PANNED_MAKEUP, buildPartVoice, mirrorPan, partMakeup, undertonePan, type StorageLike } from './music.ts';
 import { Sfx } from './sfx.ts';
+import * as Undertone from '@liminal-hq/undertone';
 
 interface Param {
   value: number;
   sets: [number, number][];
+  /** Ramp targets in call order (linear and exponential both), kept so filter automation can be read back. */
+  ramps: [number, number][];
   setValueAtTime(v: number, t: number): void;
   linearRampToValueAtTime(v: number, t: number): void;
   exponentialRampToValueAtTime(v: number, t: number): void;
@@ -25,11 +28,16 @@ const param = (): Param => {
   const p: Param = {
     value: 0,
     sets: [],
+    ramps: [],
     setValueAtTime(v, t) {
       p.sets.push([v, t]);
     },
-    linearRampToValueAtTime() {},
-    exponentialRampToValueAtTime() {},
+    linearRampToValueAtTime(v, t) {
+      p.ramps.push([v, t]);
+    },
+    exponentialRampToValueAtTime(v, t) {
+      p.ramps.push([v, t]);
+    },
   };
   return p;
 };
@@ -48,7 +56,7 @@ class FakeContext {
   currentTime = 0;
   sampleRate = 44100;
   destination = { connect() {}, kind: 'destination' };
-  nodes: { kind: string; gain?: Param; pan?: Param; connectedTo?: unknown }[] = [];
+  nodes: { kind: string; gain?: Param; pan?: Param; frequency?: Param; connectedTo?: unknown }[] = [];
   voices: Voice[] = [];
   resumed = 0;
   suspended = 0;
@@ -476,5 +484,48 @@ describe('the cluck keeps working on the shared root', () => {
     expect(sfx.playCluck(0)).toBe(true);
     expect(ctx.voices.length).toBeGreaterThan(before);
     expect(ctx.nodes.some((n) => n.connectedTo === root.sfxBus)).toBe(true);
+  });
+});
+
+describe('the filter envelope (lpenv) under Undertone 0.3', () => {
+  /** Plays one part once through the real Undertone on the stand-in and returns the low-pass filters' frequency automation. */
+  function filtersFor(part: Parameters<typeof buildPartVoice>[1]) {
+    const ctx = new FakeContext();
+    buildPartVoice(Undertone, part).play({ ctx: ctx as never });
+    return ctx.nodes.filter((n) => n.kind === 'filter').map((n) => n.frequency!);
+  }
+  const peakOf = (f: Param) => Math.max(...f.ramps.map((r) => r[0]), ...f.sets.map((s) => s[0]));
+
+  test('lpenv is added to lpf: the filter rests at lpf and opens to lpf + lpenv, as music is written for', () => {
+    const [f] = filtersFor({ notes: 'c4', g: 0.3, lpf: 1000, lpenv: 1400, lpa: 0.001, lpd: 0.2, lps: 0.25, lpr: 0.08 });
+    // Rests at lpf, peaks at lpf + lpenv at the attack, falls to lpf + lpenv * lps over lpd, closes to lpf over lpr.
+    expect(f.sets[0][0]).toBe(1000);
+    expect(peakOf(f)).toBeCloseTo(2400, 6);
+    expect(f.ramps.some(([v]) => Math.abs(v - (1000 + 1400 * 0.25)) < 1e-6)).toBe(true);
+    expect(f.ramps[f.ramps.length - 1][0]).toBe(1000);
+  });
+
+  test('a part with lpf and no lpenv gets a flat filter', () => {
+    const [f] = filtersFor({ notes: 'c4', g: 0.3, lpf: 1200 });
+    expect(peakOf(f)).toBe(1200);
+  });
+
+  test('the level song opens each shaped part to lpf + lpenv, never to lpenv alone', () => {
+    const { ctx, root, music, run } = setup();
+    root.context();
+    music.sync();
+    run(2);
+    const filters = ctx.nodes.filter((n) => n.kind === 'filter' && n.frequency!.sets.length > 0).map((n) => n.frequency!);
+    expect(filters.length).toBeGreaterThan(0);
+    const parts = layout.song.streams.flat().filter((p) => p && p.lpf && p.lpenv);
+    const peaks = new Set(parts.map((p) => Math.round(p!.lpf! + p!.lpenv!)));
+    expect(peaks.size).toBeGreaterThan(0);
+    for (const f of filters) {
+      const peak = Math.round(peakOf(f));
+      const rest = Math.round(f.sets[0][0]);
+      // Either a plain filter (peak equals rest) or an enveloped one whose peak is a part's lpf + lpenv.
+      expect(peak === rest || peaks.has(peak)).toBe(true);
+    }
+    expect(filters.some((f) => Math.round(peakOf(f)) !== Math.round(f.sets[0][0]))).toBe(true);
   });
 });
