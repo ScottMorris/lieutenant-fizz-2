@@ -13,8 +13,8 @@ use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, Puffs, ben_view_box, caption_view, cluck_placement,
-    draw_slice_puffs,
+    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, Puffs, ben_view_box, caption_view,
+    cluck_placement, draw_slice_puffs,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -138,6 +138,8 @@ pub struct App {
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
     puffs: Puffs,
+    /// The event captions (fzzt, clunk and the rest): view state fed from the step events whether or not captions are shown.
+    event_captions: EventCaptions,
     /// The Paused and Options screens. While one is up `frame` does not step.
     menus: Menus,
 }
@@ -169,6 +171,7 @@ impl App {
             shake: true,
             live_captions: Vec::new(),
             puffs: Puffs::new(),
+            event_captions: EventCaptions::new(),
             menus: Menus::new(),
         }
     }
@@ -255,6 +258,7 @@ impl App {
         self.cluck_head = 0;
         self.taken = Placement::CENTRE;
         self.puffs.clear();
+        self.event_captions.clear();
     }
 
     /// Queues the cluck variants the step that just ran emitted, and takes its shot ends for the puffs.
@@ -272,6 +276,8 @@ impl App {
             }
         }
         self.puffs.observe(&self.world);
+        self.event_captions
+            .observe(&self.world, self.view_w, self.view_h, &options);
     }
 
     /// Turns the cluck captions on or off (on by default). The beak still moves; only the text goes.
@@ -312,6 +318,14 @@ impl App {
     /// The x of caption `i`, the chicken's centre, in view pixels (0 to `width`; it may lie up to a tile outside, and is not clamped).
     pub fn caption_x(&self, i: usize) -> f64 {
         self.live_captions.get(i).map_or(0.0, |c| f64::from(c.x))
+    }
+
+    /// How many view pixels above caption `i`'s y the word rests: 32 (two Fizz 1 tiles) above a chicken's feet, 0 for an event
+    /// caption, whose y is the point the event happened at.
+    pub fn caption_anchor_above(&self, i: usize) -> f64 {
+        self.live_captions
+            .get(i)
+            .map_or(0.0, |c| if c.event { 0.0 } else { 32.0 })
     }
 
     /// The y of caption `i`, the chicken's feet, in canvas pixels (0 to `height`; it may lie up to a tile outside, and is not clamped).
@@ -392,6 +406,15 @@ impl App {
                     .iter()
                     .filter_map(|c| caption_view(&self.world, self.view_w, self.view_h, c)),
             );
+            self.live_captions.extend(self.event_captions.views(
+                &self.world,
+                self.view_w,
+                self.view_h,
+                &DrawOptions {
+                    captions: false,
+                    shake: self.shake,
+                },
+            ));
         }
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
         for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
@@ -801,6 +824,46 @@ mod tests {
         assert!(app.door_open());
         assert!(!app.has_key(), "the door spent the key");
         assert_eq!(app.deaths(), 1);
+    }
+
+    #[test]
+    fn event_captions_reach_the_page_as_text_and_the_setting_gates_only_the_text() {
+        // Play to just after the first shot (the replay fires at tick 31): its "fzzt" is a caption on Ben's blaster.
+        let mut app = App::new();
+        let (mut prev, mut now_ms, mut tick) = (Buttons::NONE, 0.0, 0);
+        app.frame(now_ms);
+        'play: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                set_keys(&mut app, prev, held);
+                now_ms += FRAME_MS;
+                app.frame(now_ms);
+                prev = held;
+                tick += 1;
+                if tick == 33 {
+                    break 'play;
+                }
+            }
+        }
+        app.render();
+        let on = app.rgba.clone();
+        let words: Vec<String> = (0..app.caption_count())
+            .map(|i| app.caption_word(i))
+            .collect();
+        let i = words
+            .iter()
+            .position(|w| w == "fzzt")
+            .expect("a fzzt caption");
+        assert_eq!(app.caption_colour(i), "#55ffff");
+        assert_eq!(app.caption_anchor_above(i), 0.0);
+        assert!(app.caption_progress(i) > 0.0 && app.caption_progress(i) < 0.1);
+        // Off hides the text; the list still fills, so turning it back on shows the caption still alive.
+        app.set_captions(false);
+        app.render();
+        assert_eq!(app.caption_count(), 0);
+        assert_eq!(on, app.rgba, "the words are never in the picture");
+        app.set_captions(true);
+        app.render();
+        assert!(app.caption_count() >= 1);
     }
 
     #[test]

@@ -66,7 +66,7 @@ use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Placement, Puffs, VIEW_H, VIEW_W, cluck_placement, dos_palette, frame_digest, key_to_buttons,
+    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, cluck_placement, dos_palette, frame_digest, key_to_buttons,
     menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
@@ -240,7 +240,7 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &dos_palette())
 }
 
-fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &Puffs) {
+fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &ViewFx) {
     render_slice_with(world, frame, options, puffs);
     let _ = present(display, frame);
 }
@@ -253,7 +253,7 @@ fn draw_slice_frame_synced(
     frame: &mut Frame,
     world: &fizz_ep2::World,
     options: &DrawOptions,
-    puffs: &Puffs,
+    puffs: &ViewFx,
 ) {
     render_slice_with(world, frame, options, puffs);
     let _ = display.wait_vretrace();
@@ -361,7 +361,7 @@ fn replay(options: &DrawOptions) -> i32 {
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
-    let mut puffs = Puffs::new();
+    let mut puffs = ViewFx::new();
     let mut prev = Buttons::NONE;
     let mut run = 0usize;
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
@@ -385,7 +385,7 @@ fn replay(options: &DrawOptions) -> i32 {
             play_events(&world, options);
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
-            puffs.observe(&world);
+            puffs.observe(&world, VIEW_W, VIEW_H, options);
         }
         if due > 0 {
             drawing.maybe(world.tick.0, || {
@@ -484,7 +484,7 @@ fn menushot() -> i32 {
     let mut frame = Frame::new();
     let mut hashes = [0u64; 2];
     for (i, show) in [view_menu::shot_options, view_menu::shot_paused].into_iter().enumerate() {
-        render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &Puffs::new());
+        render_slice_with(&level::world(), &mut frame, &DrawOptions::default(), &ViewFx::new());
         show(&mut view, &mut frame);
         let _ = present(&mut display, &frame);
         hashes[i] = frame_digest(&frame);
@@ -526,7 +526,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
     let mut world = level::world();
-    let mut puffs = Puffs::new();
+    let mut puffs = ViewFx::new();
     let mut applied = Applied::from_prefs(&start.prefs);
     let mut menus = Menus::new(start.file, start.prefs, probe, options_only);
     let mut quit = false;
@@ -577,7 +577,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
                 break;
             }
             fizz_ep2::step(&mut world, latch.frame());
-            puffs.observe(&world);
+            puffs.observe(&world, VIEW_W, VIEW_H, &applied.draw);
             play_events(&world, &applied.draw);
         }
         if opened {

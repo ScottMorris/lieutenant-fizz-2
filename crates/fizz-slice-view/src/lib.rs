@@ -77,6 +77,9 @@
 //! logical pixels, so the map scrolls without sub-pixel shimmer. While Ben looks up or down the rules' `look_offset` (up to
 //! 3.6 tiles, ramped and returned by the rules) is added to that centre before the clamp, so the view never leaves the map. The map's y-axis is flipped with `fizz_view::screen_y`.
 
+mod captions;
+pub use captions::*;
+
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
 use fizz_ep2::tiles::{
@@ -462,6 +465,31 @@ pub fn draw_slice_puffs(
     options: &DrawOptions,
     puffs: &Puffs,
 ) {
+    draw_slice_captions(
+        frame,
+        w,
+        h,
+        world,
+        tick,
+        options,
+        puffs,
+        &EventCaptions::new(),
+    );
+}
+
+/// Draws `world` as [`draw_slice_puffs`] does, and the event captions `captions` holds after the chickens' own, when
+/// `options.captions` is on.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_slice_captions(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
+    captions: &EventCaptions,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -584,6 +612,9 @@ pub fn draw_slice_puffs(
     if options.captions {
         for c in &world.chickens {
             draw_caption(frame, w, h, c, &at);
+        }
+        for cap in captions.views(world, w, h, options) {
+            draw_caption_view(frame, w, h, &cap);
         }
     }
 }
@@ -754,6 +785,9 @@ pub struct CaptionView {
     /// The chicken's feet in frame pixels, which may lie outside the frame by up to [`CAPTION_REACH`]; presenters draw it there unclamped and let the edge clip it.
     pub x: i32,
     pub y: i32,
+    /// Whether this is an event caption ([`EventCaptions`]) rather than a chicken's: its `x` and `y` are then the centre of the
+    /// word's rest position, not a chicken's feet, so a presenter lifts it by nothing instead of [`CAPTION_ABOVE_FEET`].
+    pub event: bool,
 }
 
 /// The caption of chicken `c` in a `w` by `h` frame drawn from `world`, or `None` when it has none: no cluck yet, the
@@ -793,15 +827,20 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
         age,
         x,
         y,
+        event: false,
     })
 }
 
 /// Draws the chicken's caption as pixel text, the downscaled form for the 320 by 200 picture: the variant's word above its
 /// head, rising and fading with `cluck_age`. The Web page draws the same captions as DOM text instead.
 fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
-    let Some(cap) = caption_at(c, w, h, at) else {
-        return;
-    };
+    if let Some(cap) = caption_at(c, w, h, at) {
+        draw_caption_view(frame, w, h, &cap);
+    }
+}
+
+/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow.
+fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
     let age = cap.age;
     // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
     let colour = if age < CAPTION_TICKS / 2 {
@@ -816,7 +855,8 @@ fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at:
     let width = text_width(text);
     // Centred on the chicken, a little above its head, and not moved: the frame clips it per pixel.
     let left = cap.x - width / 2;
-    let top = cap.y - CAPTION_ABOVE_FEET - rise;
+    // A chicken's caption sits above its head; an event's is centred on its point (the glyph cell is 8 rows).
+    let top = cap.y - if cap.event { 4 } else { CAPTION_ABOVE_FEET } - rise;
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
     draw_text(frame, w, h, left, top, text, colour);
 }

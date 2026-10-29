@@ -13,7 +13,7 @@
 // counts periods of the timer as it is, not of the 60 Hz one.
 use fizz_dos_rt::timer;
 use fizz_ep2::{SLICE_SCRIPT, World};
-use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, Puffs, frame_digest, present, render_slice_with};
+use fizz_present_dos::{DIGEST_TICKS, DrawOptions, Frame, VIEW_H, VIEW_W, ViewFx, frame_digest, present, render_slice_with};
 use fizz_sim::{Buttons, InputFrame};
 
 use crate::hal::DosDisplay;
@@ -140,7 +140,7 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
     let mut world = fizz_ep2::level::world();
     let mut frame = Frame::new();
     let (mut step, mut draw, mut copy, mut total) = (Stat::default(), Stat::default(), Stat::default(), Stat::default());
-    let mut puffs = Puffs::new();
+    let mut puffs = ViewFx::new();
     let mut prev = Buttons::NONE;
     let mut digests = [(0, 0); DIGEST_TICKS.len()];
     let mut frame_count = 0;
@@ -151,7 +151,7 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
             }
             let t0 = sw.now();
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
-            puffs.observe(&world);
+            puffs.observe(&world, VIEW_W, VIEW_H, options);
             let t1 = sw.now();
             render_slice_with(&world, &mut frame, options, &puffs);
             let t2 = sw.now();

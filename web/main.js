@@ -86,8 +86,8 @@ const hudStatus = document.getElementById("hud-status");
 const CAPTION_FONT_PX = 15;
 const CAPTION_REFERENCE_TILE_PX = 54;
 const TILE = 16;
-// The word sits this many view pixels above the chicken's feet: two Fizz 1 tiles, which is 32 here.
-const CAPTION_ANCHOR_ABOVE_FEET = 32;
+// A chicken's word sits 32 view pixels (two Fizz 1 tiles) above its feet and an event's on its point; the module says which
+// (`caption_anchor_above`).
 const CAPTION_POP = 0.2;
 // CSS `ease-out`, near enough.
 const easeOut = (t) => 1 - (1 - t) * (1 - t);
@@ -172,7 +172,7 @@ function showCaptions(app) {
     // The anchor is the word's centre; lift is in word heights. It follows the chicken exactly, as in Fizz 1: never moved to stay
     // inside, so the layer's overflow clips it as the chicken leaves. The module drops it a tile outside the picture.
     const cx = app.caption_x(i) * scale;
-    const cy = (app.caption_y(i) - CAPTION_ANCHOR_ABOVE_FEET) * scale + (0.5 - lift) * h;
+    const cy = (app.caption_y(i) - app.caption_anchor_above(i)) * scale + (0.5 - lift) * h;
     el.style.opacity = String(opacity);
     el.style.transform = `translate(${cx - w / 2}px, ${cy - h / 2}px) scale(${size})`;
   });
