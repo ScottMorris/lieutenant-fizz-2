@@ -64,14 +64,17 @@ pub const VARIANTS: usize = ${n};
 ${oplStatics.join('\n\n')}
 
 /// The OPL2 records of each variant: writes to channel 5 timed in 560 Hz ticks.
+#[rustfmt::skip]
 pub(crate) static OPL: [&[OplStep]; VARIANTS] = [${list('OPL')}];
 
 /// The length of each variant's OPL2 chunk in 560 Hz ticks.
+#[rustfmt::skip]
 pub(crate) static OPL_TICKS: [u32; VARIANTS] = [${conv.map((c) => c.opl.ticks).join(', ')}];
 
 ${speakerStatics.join('\n\n')}
 
 /// The PC speaker divisors of each variant, one per 140 Hz frame; 0 is gate off.
+#[rustfmt::skip]
 pub(crate) static SPEAKER: [&[u16]; VARIANTS] = [${list('SPEAKER')}];
 `;
 }

@@ -1,4 +1,4 @@
-// Generated OPL and PC speaker data for the sound effects (the chicken's cluck is ids 0 to 3), and two small steppers a DOS interrupt handler can drive.
+// Generated OPL and PC speaker data for the sound effects (the chicken's cluck is ids 0 to 3, and eleven more follow), and two small steppers a DOS interrupt handler can drive.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT

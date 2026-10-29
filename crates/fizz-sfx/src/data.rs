@@ -2055,9 +2055,11 @@ static OPL_14: [OplStep; 118] = [
 ];
 
 /// The OPL2 records of each variant: writes to channel 5 timed in 560 Hz ticks.
+#[rustfmt::skip]
 pub(crate) static OPL: [&[OplStep]; VARIANTS] = [&OPL_0, &OPL_1, &OPL_2, &OPL_3, &OPL_4, &OPL_5, &OPL_6, &OPL_7, &OPL_8, &OPL_9, &OPL_10, &OPL_11, &OPL_12, &OPL_13, &OPL_14];
 
 /// The length of each variant's OPL2 chunk in 560 Hz ticks.
+#[rustfmt::skip]
 pub(crate) static OPL_TICKS: [u32; VARIANTS] = [212, 88, 188, 200, 100, 112, 88, 336, 432, 220, 116, 56, 252, 84, 136];
 
 /// Effect 0 (cluck 0 (buh-GAWK)): 48 frames (96 bytes), 343 ms.
@@ -2184,4 +2186,5 @@ static SPEAKER_14: [u16; 24] = [
 ];
 
 /// The PC speaker divisors of each variant, one per 140 Hz frame; 0 is gate off.
+#[rustfmt::skip]
 pub(crate) static SPEAKER: [&[u16]; VARIANTS] = [&SPEAKER_0, &SPEAKER_1, &SPEAKER_2, &SPEAKER_3, &SPEAKER_4, &SPEAKER_5, &SPEAKER_6, &SPEAKER_7, &SPEAKER_8, &SPEAKER_9, &SPEAKER_10, &SPEAKER_11, &SPEAKER_12, &SPEAKER_13, &SPEAKER_14];
