@@ -49,8 +49,10 @@ export const PUFF_NAMES = ['puff0', 'puff1', 'puff2', 'puff3'];
  * The Fizz 2 recolour: Fizz 1 draws Ben's shots and puffs in cyan, and Fizz 2's Fizz colour is light magenta (EGA 13, "grape",
  * `crates/fizz-view/src/theme.rs`). The letters below are swapped, by sprite name, after the Fizz 1 grid is read and before it is
  * written, so re-running the exporter gives the same committed file. Light cyan `c` becomes light magenta `m`; cyan `C` and light
- * blue `b` (the shot's body and the puff's core) become magenta `M`. Fizz 1's soda can (`soda()` in sprites/items.ts) has two
- * light cyan bubble pixels and takes the same swap when it joins the slice.
+ * blue `b` (the shot's body and the puff's core) become magenta `M`. Fizz 1's soda can (`soda()` in sprites/items.ts) is recoloured
+ * as a whole: its light red body `r` becomes light magenta `m` (grape), and its two light cyan bubble pixels `c` become white `W`,
+ * because light magenta bubbles would vanish on a light magenta body. The grey rim `L`, the white band and highlight `W` and
+ * the black outline `k` are kept.
  */
 export const FIZZ_RECOLOUR: Record<string, Record<string, string>> = {
   bubble: { c: 'm', b: 'M' },
@@ -58,7 +60,7 @@ export const FIZZ_RECOLOUR: Record<string, Record<string, string>> = {
   puff1: { c: 'm', C: 'M' },
   puff2: { c: 'm', C: 'M' },
   puff3: { c: 'm', C: 'M' },
-  soda: { c: 'm' },
+  soda: { r: 'm', c: 'W' },
 };
 
 /** Applies [`FIZZ_RECOLOUR`] to a sprite's rows, leaving every other letter alone. */

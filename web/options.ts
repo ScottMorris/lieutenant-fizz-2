@@ -251,29 +251,30 @@ export const PLATE = ['#ff55ff', '#ff77ff', '#ff99ff'] as const;
 export const PLATE_INK = '#1a001a';
 
 /**
- * Fizz 1's soda can (`soda()` in episodes/episode-1/src/sprites/items.ts) before its outline: a red body with a grey rim top and
- * bottom, a white band and highlight, and two bubbles. The bubbles are light magenta here, the Fizz accent; Fizz 1's are cyan.
+ * Fizz 1's soda can (`soda()` in episodes/episode-1/src/sprites/items.ts) as the DOS menu draws it: the `soda` sprite of
+ * assets/sprites/fizz1-slice.json after the Fizz 2 recolour, outline included. A grape (light magenta) body with a grey rim top and
+ * bottom, a white band and highlight, and two white bubbles. options.test.ts keeps this equal to the sprite data.
  */
 export const SODA_ROWS = [
   '................',
-  '................',
-  '.....LLLLLL.....',
-  '.....rrrrrr.....',
-  '.....rWrrrr.....',
-  '.....rrrrrr.....',
-  '.....rrrrrr.....',
-  '.....WWWWWW.....',
-  '.....WWWWWW.....',
-  '.....rrrrrr.....',
-  '.....rrrrrr.....',
-  '.....rrrrmr.....',
-  '.....rrrmrr.....',
-  '.....rrrrrr.....',
-  '.....LLLLLL.....',
-  '................',
+  '.....kkkkkk.....',
+  '....kLLLLLLk....',
+  '....kmmmmmmk....',
+  '....kmWmmmmk....',
+  '....kmmmmmmk....',
+  '....kmmmmmmk....',
+  '....kWWWWWWk....',
+  '....kWWWWWWk....',
+  '....kmmmmmmk....',
+  '....kmmmmmmk....',
+  '....kmmmmWmk....',
+  '....kmmmWmmk....',
+  '....kmmmmmmk....',
+  '....kLLLLLLk....',
+  '.....kkkkkk.....',
 ] as const;
 
-const SODA_COLOURS: Record<string, string> = { k: '#000000', r: '#ff5555', L: '#aaaaaa', W: '#ffffff', m: '#ff55ff' };
+const SODA_COLOURS: Record<string, string> = { k: '#000000', m: '#ff55ff', L: '#aaaaaa', W: '#ffffff' };
 
 /** The can as a 16 by 16 SVG of square pixels with a black outline round it, like the HUD's key. */
 export function sodaSvg(rows: readonly string[] = SODA_ROWS): string {
