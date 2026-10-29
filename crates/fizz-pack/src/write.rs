@@ -9,9 +9,10 @@
 // the container does not care which encoder made a stream. Every function here is a pure function of its input, so the bytes are
 // reproducible.
 
-use crate::level::{LEVEL_HEADER_LEN, OBJECT_LEN, ObjectRec, padded_name_len};
+use crate::level::{LEVEL_HEADER_LEN, NAME_MAX, OBJECT_LEN, ObjectRec, padded_name_len};
 use crate::pack::{
     ALIGN, CODEC_DEFLATE, CODEC_STORED, ENTRY_LEN, FORMAT_VERSION, HEADER_LEN, MAGIC, checksum,
+    fnv, stem_bytes,
 };
 use alloc::vec;
 use alloc::vec::Vec;
@@ -196,23 +197,26 @@ struct Section {
     decoded_len: u32,
 }
 
-/// Builds a pack. Sections are written in a stable order sorted by tag (insertion order within a tag, which is the section's index),
+/// Builds a pack. Sections are written in a stable order sorted by tag (bytewise tag order; insertion order within a tag, which is the section's index),
 /// each on a 16-byte boundary with zero padding, and the header carries the total length and checksum. Nothing depends on time,
 /// addresses or hash order, so the same calls give the same bytes.
 pub struct PackWriter {
     target: u8,
     flags: u8,
     compat: u32,
+    stem: [u8; 8],
     sections: Vec<Section>,
 }
 
 impl PackWriter {
-    /// A writer for `target` (`TARGET_WEB` or `TARGET_DOS`) whose header carries compatibility number `compat`.
-    pub fn new(target: u8, compat: u32) -> Self {
+    /// A writer for `target` (`TARGET_WEB` or `TARGET_DOS`) whose header carries compatibility number `compat` and pack stem `stem`
+    /// (for example `"SHARED"`).
+    pub fn new(target: u8, compat: u32, stem: &str) -> Self {
         PackWriter {
             target,
             flags: 0,
             compat,
+            stem: stem_bytes(stem),
             sections: Vec::new(),
         }
     }
@@ -227,6 +231,11 @@ impl PackWriter {
             data.to_vec(),
             data.len() as u32,
         )
+    }
+
+    /// Adds a placeholder: present in the directory and empty (decoded length 0, count 0).
+    pub fn add_placeholder(&mut self, tag: u32, version: u8) -> &mut Self {
+        self.add_stored(tag, version, 0, &[])
     }
 
     /// Adds a section compressed with `deflate` when that is smaller than the data, else stored.
@@ -269,7 +278,7 @@ impl PackWriter {
 
     /// Lays out and returns the pack file.
     pub fn finish(mut self) -> Vec<u8> {
-        self.sections.sort_by_key(|s| s.tag); // stable
+        self.sections.sort_by_key(|s| s.tag.swap_bytes()); // bytewise tag order; stable
         let dir_end = HEADER_LEN + self.sections.len() * ENTRY_LEN;
         let mut offsets = Vec::new();
         let mut at = dir_end;
@@ -278,6 +287,7 @@ impl PackWriter {
             offsets.push(at);
             at += s.stored.len();
         }
+        let at = at.next_multiple_of(ALIGN); // the file length is a multiple of 16
         let mut f = vec![0u8; at];
         f[..4].copy_from_slice(&MAGIC);
         f[4..6].copy_from_slice(&FORMAT_VERSION.to_le_bytes());
@@ -287,6 +297,7 @@ impl PackWriter {
         f[10..12].copy_from_slice(&(self.sections.len() as u16).to_le_bytes());
         f[12..16].copy_from_slice(&self.compat.to_le_bytes());
         f[16..20].copy_from_slice(&(at as u32).to_le_bytes());
+        f[24..32].copy_from_slice(&self.stem);
         for (i, (s, &off)) in self.sections.iter().zip(&offsets).enumerate() {
             let e = HEADER_LEN + i * ENTRY_LEN;
             f[e..e + 4].copy_from_slice(&s.tag.to_le_bytes());
@@ -296,6 +307,7 @@ impl PackWriter {
             f[e + 16] = s.codec;
             f[e + 17] = s.version;
             f[e + 18..e + 20].copy_from_slice(&s.count.to_le_bytes());
+            f[e + 20..e + 24].copy_from_slice(&fnv(&s.stored).to_le_bytes());
             f[off..off + s.stored.len()].copy_from_slice(&s.stored);
         }
         seal(&mut f);
@@ -320,16 +332,16 @@ pub struct LevelSpec<'a> {
     pub floor_solid: bool,
     pub spawn_x_bits: u64,
     pub spawn_y_bits: u64,
-    /// At most 255 bytes.
+    /// At most 48 bytes of printable ASCII.
     pub name: &'a str,
     pub objects: &'a [ObjectRec],
     /// Exactly `width * height` bytes.
     pub tiles: &'a [u8],
 }
 
-/// Encodes a `LEVL` section (panics if the name is over 255 bytes or the tile count is not `width * height`).
+/// Encodes a `LEVL` section (panics if the name is over 48 bytes or the tile count is not `width * height`).
 pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
-    assert!(l.name.len() <= 255 && l.objects.len() <= 65535);
+    assert!(l.name.len() <= NAME_MAX && l.objects.len() <= 65535);
     assert_eq!(l.tiles.len(), usize::from(l.width) * usize::from(l.height));
     let mut v =
         Vec::with_capacity(LEVEL_HEADER_LEN + 256 + l.objects.len() * OBJECT_LEN + l.tiles.len());
@@ -339,9 +351,9 @@ pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
     v.push(u8::from(l.floor_solid));
     v.push(l.name.len() as u8);
     v.extend_from_slice(&(l.objects.len() as u16).to_le_bytes());
-    v.extend_from_slice(&[0; 4]);
     v.extend_from_slice(&l.spawn_x_bits.to_le_bytes());
     v.extend_from_slice(&l.spawn_y_bits.to_le_bytes());
+    v.extend_from_slice(&[0; 4]);
     v.extend_from_slice(l.name.as_bytes());
     v.resize(LEVEL_HEADER_LEN + padded_name_len(l.name.len()), 0);
     for o in l.objects {
