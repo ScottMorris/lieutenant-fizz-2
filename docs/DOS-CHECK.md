@@ -17,6 +17,7 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 - [Rendering the cells to pictures](#rendering-the-cells-to-pictures)
 - [Memory floor](#memory-floor)
 - [The golden file](#the-golden-file)
+- [Bench: six captions and effects](#bench-six-captions-and-effects)
 - [Not verified](#not-verified)
 
 ## Status
@@ -211,6 +212,8 @@ The planner's runs gave 3,696, 1,648, 624, 112 and 102 free pages for the same m
 
 The value comes from a ladder. `/REPLAY` was run in DOSBox at `memsize` 4, 3, 2 and 1 (DOSBox's smallest), and each run printed the same transcript, the final hash (`2145503c0d3b625f` when the ladder was run; the golden has changed since) and `EXIT yes` as the 16 MB run, with the sound interrupt not yet present. So the slice has no memory floor above DOSBox's minimum. At `memsize = 1` CWSDPMI serves extended memory from what DOS leaves (about 410 KB), and after the program has loaded and taken its 256 KB heap block 168 KB (42 pages) is still free, so the slice needs nothing beyond what the program already holds. One megabyte free is a margin for what the next milestones add (the audio buffers and a level's pack), and it still warns a 2 MB machine, which has about 208 KB free. A DOSBox ladder cannot see the speed cost of paging on a real machine, and CWSDPMI's swap file was never created in any run. `tools/check-dos.sh` repeats the `/REPLAY` at `memsize = 1` and compares its transcript with the golden file. Raise the value when the audio service or the packs land and the ladder is run again.
 
+The program has grown since: with the sound effects `FIZZ2.EXE` is 201,216 bytes, and the `/PROBE` memory ladder in `tools/check-dos.sh` reads 96 KB free at `memsize = 2` (its floor went from 100 to 64) and 56 KB at `memsize = 1`, still above the 40 KB floor of that case; `/REPLAY` at `memsize = 1` still ends on the golden transcript.
+
 When the constant changed from its first value of 4,096, the golden cells for the low-memory machine changed with it (the case is now 512 KB, so it still shows the warning), and `BLESS=1 cargo test -p fizz-machine --test golden` regenerated the file.
 
 ## The golden file
@@ -223,8 +226,37 @@ A test compares the screen with the file. When the change is intended, regenerat
 BLESS=1 cargo test -p fizz-machine --test golden
 ```
 
+## Bench: six captions and effects
+
+`/BENCH` times the whole replay (1,681 ticks, unpaced) and then, with the same stopwatch, one busy picture: the world at tick 1190 (Ben in the snack nook, with the HUD, a shot puff or two and the chicken in view), drawn 120 times with no captions on show and 120 times with all six caption slots full. The six are the six widest words (`EventCaptions::show_six`: `click - no fizz`, the three gumdrops, `fizzled` and `crunch`), spread in two rows over the picture, always drawn whatever the Captions setting says. The world does not move between pictures, so the only difference between the two cases is the words. `/BENCH /AUDIO` repeats it as a third pass with the 560 Hz service running and an effect requested every sixth picture (ta-da!, boing, whoa!, crunch, key in turn) over the music.
+
+Figures from `tools/check-dos.sh` under DOSBox Staging at a fixed 26,800 cycles a millisecond (about a 486DX2-66 by the project's reckoning), in microseconds, against the 16,667 of a 60 Hz tick:
+
+| | None | Six captions | Six cost |
+| --- | --- | --- | --- |
+| Draw, average (`/BENCH`) | 3,003 | 6,203 | 3,200 |
+| Draw and copy to the screen, average (`/BENCH`) | 3,603 | 6,802 | 3,199 |
+| Draw, average (`/BENCH /AUDIO`, effects over music) | 3,386 | 6,934 | 3,548 |
+| Draw and copy, average (`/BENCH /AUDIO`) | 4,116 | 7,554 | 3,438 |
+| The whole replay's average per tick (`/BENCH`): step 131, draw 2,952, copy 599 | | | total 3,682 |
+
+So six captions at once cost about 3.2 ms, nearly 20% of a tick and a bit more than the whole of the rest of the drawing, because every word is drawn twice (a black shadow and then the word) a pixel at a time. A picture with six captions is about 6.8 ms of the 16.7 ms tick in all, so a machine of that class still holds 60 Hz with them. Before `draw_text` looked each glyph up once and used 32-bit arithmetic the six cost 3.8 ms; a faster word (a clip test once for a glyph that lies wholly inside the picture, or a row mask for the whole of a word) is a possible next step if the cost matters on a slower machine. The replay itself fills all six slots at its busiest, in the snack nook (a `fizz-slice-view` test pins that), so the worst case is reached in play.
+
+The `/BENCH /AUDIO` figures with effects playing:
+
+| Pass | Interrupts | Average | Largest | Most register writes in one tick |
+| --- | --- | --- | --- | --- |
+| Effects only (the replay) | 3,914 | 116.4 us | 1,504 us | 22 |
+| Effects and music (the replay) | 3,941 | 128.1 us | 1,507 us | 28 |
+| Effects over music, six captions drawn | 876 | 175.6 us | 1,510 us | 22 |
+
+The writes are the exact figure: the music is held to 16 in any tick, the pair's patch load is 22, and the most one tick ever made together stays at or under 16 + 22 = 38 (`tools/check-dos.sh` requires that). The pass with music and effects together made at most 28 writes in a tick here, and the figure is a property of where the music and the effects fall on the same tick, so it is not a limit and it moves when either changes. The microseconds are DOSBox's, not a 486's.
+
+**DOSBox-only.** DOSBox charges no time for ISA port I/O, so the interrupt's microseconds leave out the roughly 43 port accesses of each register write (about 26 us each at the chip's documented settling times: a 22-write patch tick would add about 0.6 ms on the pair, a 38-write one about 1.0 ms of the 1.79 ms between interrupts). Everything in the tables comes from DOSBox at a fixed cycle count, which treats every simple instruction alike and so hides what a 486 spends on 32-bit multiplies, cache misses and the VGA's slow ISA writes. The write counts and the shape of the cost (six captions double the drawing) hold; the milliseconds on a real 486 are unmeasured.
+
 ## Not verified
 
+- The cost of six captions and of the effects' register writes on a real 486: the figures in the bench section are DOSBox's, with no time charged for port I/O.
 - Every probe method on real hardware. The DOSBox results above are from DOSBox Staging 0.83 only, and the pure crate takes their outcomes as input.
 - Real-hardware reads at base+2 on an OPL3 (the probe does not touch that port once the OPL3 test has passed, so DOSBox's answer there was not seen), and the OPL3 status test on clones: OPL4, ESS and Yamaha parts, and the FM of an AWE or ViBRA.
 - A monochrome VGA, and a missing x87: DOSBox always emulates one, so the no-x87 path is exercised with forced values only.
