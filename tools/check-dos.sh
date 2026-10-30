@@ -802,7 +802,7 @@ AUDIO=opl par replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode =
 AUDIO=opl par replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or par replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker par replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
-# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,382 writes either way.
+# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,296 writes either way.
 AUDIO=opl_pair par replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
 AUDIO=opl_pair par replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
 AUDIO=opl2 par replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
@@ -816,11 +816,16 @@ cfg_none
 # 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
 # exact because the replay is deterministic and DOSBox runs at fixed cycles (twice in a row gave the same figures), and they count the
 # 61 effects the replay starts (62 sounding events, two of them on one tick) with the last one of a tick winning and a later one cutting
-# an earlier one off. They were 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
-#   5221: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,201 records of the effects.
-#   5242: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
-#   10382: the OPL3 pair = 41 start and stop writes, twice the 5,201 records, less 61 enables (one per effect, left to channel 5).
-#   1213 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+# an earlier one off. Boing (9 bounces) and jump (22 jumps) became Fizz 1's own voices (a chain of short notes), which moved the counts from
+# 5221, 5242, 10382 and 1213 speaker steps to the figures below. The boing is one record fewer (186 to 185) and 4 OPL ticks shorter, the jump
+# the same 57 records and 4 ticks shorter, so the channel 5 total falls by 43 records (the pair, which writes them twice, by 86), the OPL3 OR rule keeps
+# its 21 more, and the speaker lists are longer (boing 42 to 56 frames, jump 12 to 14), which adds 89 steps net of the cuts. A host model
+# of the replay (the golden's starts, the last of a tick winning, the next start cutting the effect) gives -43 records and +90 steps (1,300 for the new data, 2 under) from the
+# old data to the new, which these match. They were 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
+#   5178: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,158 records of the effects (5,201 before boing and jump were Fizz 1's).
+#   5199: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   10296: the OPL3 pair = 41 start and stop writes, twice the 5,158 records, less 61 enables (one per effect, left to channel 5).
+#   1302 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
 #   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
@@ -830,10 +835,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-par audio_count 'ch5 on an OPL2 (5221)' "$(sb sb1)" '5221 SPEAKER STEPS 0' /MODERN /ADLIB
-par audio_count 'ch5 through the OR rule on an OPL3 (5242)' "$SB16" '5242 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-par audio_count 'the OPL3 pair (10382)' "$SB16" '10382 SPEAKER STEPS 0' /SB
-par audio_count 'the PC speaker (1213 steps)' '' '0 SPEAKER STEPS 1213' /SPEAKER
+par audio_count 'ch5 on an OPL2 (5178)' "$(sb sb1)" '5178 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (5199)' "$SB16" '5199 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (10296)' "$SB16" '10296 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1302 steps)' '' '0 SPEAKER STEPS 1302' /SPEAKER
 par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 par_wait
 
