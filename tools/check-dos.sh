@@ -71,9 +71,8 @@ esac
 
 # Provisional: the 1.44 MB floppy leaves roughly 1.1 MB for the EXE on a FreeDOS-bootable disk. A tracked metric, not a design limit.
 BUDGET=1100000
-# The DOS build's rustc warnings. Two stand today (the runtime's memset and memcpy signatures); a build may not add any, and the day a
-# fix lands this drops to 0.
-WARNING_BUDGET=2
+# The DOS build's rustc warnings. None stand (the runtime's memset and memcpy now have C's signatures); a build may not add any.
+WARNING_BUDGET=0
 
 fail() { echo "check-dos: FAIL: $*" >&2; exit 1; }
 

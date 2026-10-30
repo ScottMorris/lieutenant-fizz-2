@@ -16,6 +16,7 @@
 // clocks on a 486, and runs under 8 bytes skip straight to bytes. LLVM keeps `esi` for itself on this target, so `memcpy` swaps
 // the source pointer in and out of it around the string instruction.
 use core::arch::asm;
+use core::ffi::c_void;
 
 /// Runs shorter than this are filled a byte at a time: the dword path would spend its set-up on the alignment and the tail.
 const BYTE_RUN: usize = 8;
@@ -23,9 +24,9 @@ const BYTE_RUN: usize = 8;
 /// # Safety
 /// `dest` must be valid for `n` bytes of writes.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn memset(dest: *mut u8, c: i32, n: usize) -> *mut u8 {
+pub unsafe extern "C" fn memset(dest: *mut c_void, c: i32, n: usize) -> *mut c_void {
     let byte = c as u8;
-    let mut p = dest;
+    let mut p = dest.cast::<u8>();
     let mut left = n;
     if left >= BYTE_RUN {
         let head = (p as usize).wrapping_neg() & 3;
@@ -46,9 +47,9 @@ pub unsafe extern "C" fn memset(dest: *mut u8, c: i32, n: usize) -> *mut u8 {
 /// # Safety
 /// `dest` must be valid for `n` bytes of writes, `src` for `n` bytes of reads, and the two must not overlap.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn memcpy(dest: *mut u8, src: *const u8, n: usize) -> *mut u8 {
-    let mut d = dest;
-    let mut s = src;
+pub unsafe extern "C" fn memcpy(dest: *mut c_void, src: *const c_void, n: usize) -> *mut c_void {
+    let mut d = dest.cast::<u8>();
+    let mut s = src.cast::<u8>();
     let mut left = n;
     if left >= BYTE_RUN {
         let head = (d as usize).wrapping_neg() & 3;
