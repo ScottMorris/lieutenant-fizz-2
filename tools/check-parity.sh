@@ -4,7 +4,10 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: tools/check-parity.sh
+# usage: tools/check-parity.sh [--quick]
+#
+#   --quick  reuse the DOS transcript that tools/check-dos.sh left in dist/dos-replay.txt when it is newer than dist/dos/FIZZ2.EXE, instead of
+#            running the 28-second DOS /REPLAY again. The comparison is the same; only the run is shared. Without that file it runs as usual.
 #
 # The golden file, crates/fizz-ep2/slice-replay.txt, drives every comparison: its first line is the header each platform must
 # print, and the lines that start with `TICK `, `FINAL ` or `EVENT ` (carriage returns removed) must be identical on native, Web
@@ -13,6 +16,12 @@
 # DOS leg needs the toolchain from tools/setup-dos.sh; without it the script fails unless PARITY_SKIP_DOS=1 is set, which skips
 # DOS and prints `PARITY partial (DOS skipped)`.
 set -euo pipefail
+quick=0
+case "${1:-}" in
+  --quick) quick=1 ;;
+  "") ;;
+  *) echo "check-parity: unknown argument $1" >&2; exit 2 ;;
+esac
 cd "$(dirname "$0")/.."
 
 golden=crates/fizz-ep2/slice-replay.txt
@@ -69,9 +78,14 @@ if [ ! -d vendor/djgpp ] && [ ! -d "${DOS_TOOLCHAIN:-/nonexistent}/djgpp" ]; the
 else
   [ -d vendor/djgpp ] || tools/setup-dos.sh
   [ -f dist/dos/FIZZ2.EXE ] || tools/build-dos.sh
-  status=0
-  tools/dosrun.sh dist/dos "FIZZ2.EXE /REPLAY" > "$scratch/dos.txt" || status=$?
-  [ "$status" = 0 ] || { cat "$scratch/dos.txt" >&2; fail "DOS /REPLAY exited $status"; }
+  if [ "$quick" = 1 ] && [ dist/dos-replay.txt -nt dist/dos/FIZZ2.EXE ]; then
+    echo "check-parity: reusing the DOS /REPLAY transcript from tools/check-dos.sh (dist/dos-replay.txt)"
+    cp dist/dos-replay.txt "$scratch/dos.txt"
+  else
+    status=0
+    tools/dosrun.sh dist/dos "FIZZ2.EXE /REPLAY" > "$scratch/dos.txt" || status=$?
+    [ "$status" = 0 ] || { cat "$scratch/dos.txt" >&2; fail "DOS /REPLAY exited $status"; }
+  fi
   compare dos "$scratch/dos.txt"
 fi
 

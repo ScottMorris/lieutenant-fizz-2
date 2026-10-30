@@ -5,17 +5,120 @@
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
-# usage: tools/check-dos.sh      (after tools/setup-dos.sh)
+# usage: tools/check-dos.sh [--groups <list>|all] [--list]      (after tools/setup-dos.sh)
+#
+#   --groups <list>  run the named groups, a comma list such as `audio,menu`; `base` always runs. The default, and `all`, run every group,
+#                    which is the full gate. tools/ci-scope.sh chooses the list for a pull request from the paths it touches.
+#   --list           print the groups with a line about each and exit (nothing is built).
+#
+# The groups (each case belongs to exactly one; docs/DOS-CHECK.md has the detail):
+#   base          always: the build (no more warnings than WARNING_BUDGET), the cpu_cycles guard, the default /REPLAY against the golden
+#                 (EXIT, FPU CW, VECTORS RESTORED, BIOS TICKS), a plain /PANIC, /PROBE with no card and with an SB16, the size line
+#   input         the keyboard layouts: live play with the Keen keys and with /MODERN, and the keys each layout ignores
+#   view          /NOCAPTIONS, /BENCH (step, draw and present figures, frame digests, captions) and the frame rate at 30 and 60 Hz
+#   audio         /PANIC with an OPL3, /BENCH /AUDIO, /MUSICTEST, /REPLANTEST, every per-device /REPLAY with its AUDIO and MUSIC lines
+#                 and the exact AUDIO WRITES counts
+#   config-sound  /? and /HELP, the SOUND line under every FIZZ2.CFG form and flag, /CFGTEST (save, read back, crash safety)
+#   menu          /MENUSHOT, and the Paused and Options screens played with typed keys (OPTIONS SAVED and the file's bytes)
+#   machine       /PROBE under the ladder of DOSBox configurations, /CHECKCELLS, the memsize ladder and the replay at memsize 1
+#   pack          reserved for the pack-loading cases; it has none yet
+#
+# CHECK_DOS_JOBS=<n> (default 1) runs the independent 28-second /REPLAY cases n at a time, each in its own copy of the program directory
+# and its own DOSBox scratch directory; their output is printed in order at a barrier and nothing is skipped. The cases that type keys
+# or time themselves never run beside another case.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+ALL_GROUPS="base input view audio config-sound menu machine pack"
+
+list_groups() {
+  cat <<'LIST'
+base          always runs: build, warnings, guard, default /REPLAY, plain /PANIC, two /PROBE cases, size
+input         keyboard layouts (Keen keys, /MODERN)
+view          /NOCAPTIONS, /BENCH, frame rate at 30 and 60 Hz
+audio         OPL3 /PANIC, /BENCH /AUDIO, /MUSICTEST, /REPLANTEST, per-device /REPLAY, AUDIO WRITES counts
+config-sound  help, SOUND lines under FIZZ2.CFG and flags, /CFGTEST
+menu          /MENUSHOT, Paused and Options screens
+machine       /PROBE ladder, /CHECKCELLS, memsize ladder
+pack          pack loading (no cases yet)
+LIST
+}
+
+SELECTED=all
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --list) list_groups; exit 0 ;;
+    --groups) [ $# -ge 2 ] || { echo "check-dos: --groups needs a list" >&2; exit 2; }; SELECTED="$2"; shift 2 ;;
+    --groups=*) SELECTED="${1#--groups=}"; shift ;;
+    -h|--help) sed -n '/^# usage/,/^set -e/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 0 ;;
+    *) echo "check-dos: unknown argument $1 (try --list)" >&2; exit 2 ;;
+  esac
+done
+if [ "$SELECTED" != all ]; then
+  IFS=, read -r -a picked <<< "$SELECTED"
+  for g in "${picked[@]}"; do
+    case " $ALL_GROUPS " in *" $g "*) ;; *) echo "check-dos: unknown group '$g' (try --list)" >&2; exit 2 ;; esac
+  done
+  case ",$SELECTED," in *,all,*) SELECTED=all ;; esac
+fi
+# group <name>: true when the group was asked for. `base` always runs.
+group() { [ "$1" = base ] || [ "$SELECTED" = all ] || case ",$SELECTED," in *",$1,"*) true ;; *) false ;; esac; }
+case ",$SELECTED," in
+  ,all,) echo "check-dos: groups: $ALL_GROUPS" ;;
+  *,base,*) echo "check-dos: groups: $SELECTED" ;;
+  *) echo "check-dos: groups: base,$SELECTED" ;;
+esac
+
 # Provisional: the 1.44 MB floppy leaves roughly 1.1 MB for the EXE on a FreeDOS-bootable disk. A tracked metric, not a design limit.
 BUDGET=1100000
+# The DOS build's rustc warnings. Two stand today (the runtime's memset and memcpy signatures); a build may not add any, and the day a
+# fix lands this drops to 0.
+WARNING_BUDGET=2
 
 fail() { echo "check-dos: FAIL: $*" >&2; exit 1; }
 
-tools/build-dos.sh
+# Independent cases run in parallel when CHECK_DOS_JOBS is above 1: `par <function> <args>` snapshots the config directory into a copy of
+# its own, runs the case in a background subshell with that copy as $cfgdir and keeps its output; `par_wait` is the barrier that prints
+# the outputs in dispatch order and fails if any case failed. With one job `par` simply calls the function, which is today's behaviour.
+JOBS="${CHECK_DOS_JOBS:-1}"
+parroot="$(mktemp -d "${TMPDIR:-/tmp}/fizz2-par.XXXXXX")"
+cfgdir=
+trap 'rm -rf "$parroot" ${cfgdir:+"$cfgdir"}' EXIT
+par_pids=()
+par_ids=()
+par_n=0
+par() {
+  if [ "$JOBS" -le 1 ]; then "$@"; return; fi
+  par_n=$((par_n + 1))
+  local d="$parroot/$par_n"
+  mkdir -p "$d"
+  cp -R "$cfgdir/." "$d/"
+  while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do sleep 0.2; done
+  ( cfgdir="$d"; "$@" ) > "$parroot/$par_n.out" 2>&1 &
+  par_pids+=("$!")
+  par_ids+=("$par_n")
+}
+par_wait() {
+  local i bad=0
+  for i in "${!par_pids[@]}"; do
+    wait "${par_pids[$i]}" || bad=1
+    cat "$parroot/${par_ids[$i]}.out"
+  done
+  par_pids=()
+  par_ids=()
+  [ "$bad" = 0 ] || fail "a parallel case failed (its output is above)"
+}
 
+build_log="$parroot/build.log"
+tools/build-dos.sh 2>&1 | tee "$build_log"
+warnings="$(grep -E '^warning: ' "$build_log" | grep -vcE 'generated [0-9]+ warnings?' || true)"
+echo "WARNINGS $warnings (budget $WARNING_BUDGET)"
+[ "$warnings" -le "$WARNING_BUDGET" ] || fail "the DOS build has $warnings warnings, over the budget of $WARNING_BUDGET"
+
+# The scratch copy of the program directory that the config, sound and replay cases run in, so a FIZZ2.CFG a case writes or plants never
+# reaches dist/dos. It is made here because the parallel cases copy it.
+cfgdir="$(mktemp -d "${TMPDIR:-/tmp}/fizz2-cfg.XXXXXX")"
+cp dist/dos/*.EXE "$cfgdir"/
 # 0. The guard: a CPU setting DOSBox rejects must fail the run (status 125) instead of being replaced by its default. The form
 # `fixed 26800` is the one that went unnoticed once: DOSBox Staging 0.83 logs it as invalid and runs at 3,000 cycles.
 status=0
@@ -30,6 +133,8 @@ golden=crates/fizz-ep2/slice-replay.txt
 status=0
 out="$(tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
 echo "$out"
+# Kept for tools/check-parity.sh --quick, which reuses this run as its DOS leg (the same command on the same executable).
+printf '%s\n' "$out" > dist/dos-replay.txt
 [ "$status" = 0 ] || fail "/REPLAY exited $status"
 got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
 want="$(tr -d '\r' < "$golden" | grep -E '^(TICK|FINAL|EVENT) ')"
@@ -42,6 +147,7 @@ printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not rest
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
 { [ -n "$bios" ] && [ "$bios" -ge 508 ] && [ "$bios" -le 512 ]; } || fail "BIOS TICKS '$bios' is outside 508-512"
 
+if group input; then
 # 2. Live play of the slice with the default Keen keys: type Ctrl (jump), right, right, down, then Esc once the program is up.
 # MOVED means Ben is somewhere other than his spawn (a step changes x, a jump changes y). Movement only; autotype timing is not
 # tied to ticks.
@@ -64,6 +170,9 @@ echo "$out"
 [ "$status" = 0 ] || fail "/LIVE (Keen) exited $status"
 printf '%s\n' "$out" | grep -qx 'MOVED no' || fail "the Keen layout moved on modern-only keys"
 
+fi
+
+if group view; then
 # 2c. /NOCAPTIONS is a switch, not a mode: it combines with /MODERN, and the program still runs live and ends cleanly.
 status=0
 out="$(DOS_AUTOTYPE='-w 2 -p 0.2 z right right down esc up enter' tools/dosrun.sh dist/dos FIZZ2.EXE /NOCAPTIONS /MODERN)" || status=$?
@@ -72,11 +181,14 @@ echo "$out"
 printf '%s\n' "$out" | grep -qx 'MOVED yes' || fail "/NOCAPTIONS did not leave /MODERN live"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/NOCAPTIONS did not restore the vectors"
 
+fi
+
 # 3. Panic: the clean-up list runs and the exit status is 3, not a hang.
 status=0
 DOS_TIMEOUT=30 tools/dosrun.sh dist/dos FIZZ2.EXE /PANIC > /dev/null || status=$?
 [ "$status" = 3 ] || fail "/PANIC status $status (expected 3)"
 echo "PANIC exit $status"
+if group audio; then
 # 3a. The same with an OPL3 in its own mode, a cluck sounding and the music playing when the panic comes (the audio service is up): the
 # clean-up list silences the chip (every channel of both banks, so the music's too) and puts the timer back, and the exit is still a
 # status 3, not a hang. The music must have written something before the panic, or the case proves nothing about it.
@@ -87,6 +199,9 @@ panic_writes="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^MUSIC PANIC WRITE
 { [ -n "$panic_writes" ] && [ "$panic_writes" -gt 0 ]; } || fail "/PANIC on an OPL3: the music had written '$panic_writes' times before the panic"
 echo "PANIC (OPL3, music running: $panic_writes music writes) exit $status"
 
+fi
+
+if group config-sound; then
 # 3a. The help: /?, /HELP and -? print the screen the switch table writes (crates/fizz-machine/tests/help.txt, which a host test keeps
 # equal to the table) and exit 0. It wins over every other switch, so `/? /LIVE` prints the help and does not play (the run ends at once and
 # prints none of /LIVE's lines), and it hooks nothing, so none of the platform lines appear. An unknown switch prints one line and exits 2.
@@ -119,6 +234,25 @@ out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /MUSIC:FOO)" || s
 printf '%s\n' "$out" | grep -qF 'unknown switch /MUSIC:FOO' || fail "a bad sound value was not named"
 echo "HELP unknown switch exit 2"
 
+CYCLES=26800
+# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
+# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
+caps_check() {
+  local prefix="$1" text="$2" none six
+  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
+  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
+    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
+  done
+  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
+  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
+  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
+  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
+  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
+}
+
+fi
+
+if group view; then
 # 3b. The bench: /BENCH plays the script once without pacing and times the step, the drawing and the copy to the screen with
 # the PIT. DOSBox runs a fixed 26,800 cycles per millisecond (about a 486DX2-66) on its normal core; the setting is the plain
 # number, because the form `fixed 26800` is refused (see 0). The figures are DOSBox's, not a 486's: the bounds are loose sanity
@@ -126,7 +260,6 @@ echo "HELP unknown switch exit 2"
 # 60 Hz even in the emulator) and the numbers go in the log. /BENCH also times a loop of `dec`/`jnz` (two instructions per loop),
 # and the rate that implies must match the configured cycles: DOSBox's normal core charges one cycle per simple instruction.
 # Measured at 3,000, 12,000, 26,800 and 80,000 cycles per millisecond the rate came out within 1% each time; the bound here is 10%.
-CYCLES=26800
 status=0
 out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=120 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
@@ -160,22 +293,11 @@ for section in STEP DRAW PRESENT TOTAL; do
     [ "$avg" -lt 16667 ] || fail "BENCH STEP average $avg us is over the 60 Hz tick budget"
   fi
 done
-# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
-# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
-caps_check() {
-  local prefix="$1" text="$2" none six
-  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
-  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
-    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
-  done
-  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
-  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
-  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
-  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
-  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
-}
 caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
 
+fi
+
+if group audio; then
 # 3b2. /BENCH /AUDIO: the same bench with the 560 Hz audio service, once without music and once with it (an OPL3 here). The picture and the
 # rules are untouched (the same final hash twice), the music writes only in the second pass and never more than 16 on a tick, and the
 # interrupt's figures are present. The microseconds are DOSBox's, which charges no time for ISA port I/O: the write and status-read counts
@@ -217,11 +339,13 @@ cmax="$(printf '%s\n' "$cline" | sed -n 's/.*MAX_WRITES_PER_TICK \([0-9]*\) .*/\
 { [ "$cmax" -gt 0 ] && [ "$cmax" -le 38 ]; } || fail "/BENCH /AUDIO CAPTIONS: $cmax writes in a tick, over the 16 for the music plus 22 for the pair"
 echo "BENCH AUDIO CAPTIONS: $cline"
 
+fi
+
 # 3c. The probes: /PROBE under one DOSBox configuration after another. tools/dosrun.sh sets `sbtype = none`, so a variant that wants
 # a Sound Blaster appends an `[sblaster]` section (the later value wins); `nosound = true` still emulates the OPL. Each run must exit 0
 # with the platform lines, print the PROBE lines the case expects (exact lines; `PROBE free_kb a-b` is a range), and print the CELLS
 # hash the host computes from those same lines with the default settings. /PROBE needs no key; the interactive /CHECK is never run here.
-cargo build -q -p fizz-machine --example cells-hash
+if group base || group machine; then cargo build -q -p fizz-machine --example cells-hash; fi
 probe_case() {
   local name="$1" machine="$2" conf="$3"
   shift 3
@@ -252,11 +376,12 @@ probe_case() {
 sb() { printf '[sblaster]\nsbtype = %s\n%s\n' "$1" "${2:-}"; }
 probe_case 'no sound card' svga_s3 '' 'PROBE video vga' 'PROBE mouse yes' 'PROBE joystick no' 'PROBE fm none' 'PROBE dsp none' \
   'PROBE blaster none' 'PROBE x87 yes' 'PROBE cpu 486'
+probe_case 'sb16' svga_s3 "$(sb sb16)" 'PROBE fm opl3' 'PROBE dsp 4.05 220' 'PROBE blaster A220 I7 D1 H5 T6'
+if group machine; then
 probe_case 'sb1' svga_s3 "$(sb sb1)" 'PROBE fm opl2' 'PROBE dsp 1.05 220' 'PROBE blaster A220 I7 D1 T1'
 probe_case 'sb2' svga_s3 "$(sb sb2)" 'PROBE fm opl2' 'PROBE dsp 2.01 220' 'PROBE blaster A220 I7 D1 T3'
 probe_case 'sbpro1' svga_s3 "$(sb sbpro1)" 'PROBE fm dualopl2' 'PROBE dsp 3.00 220' 'PROBE blaster A220 I7 D1 T2'
 probe_case 'sbpro2' svga_s3 "$(sb sbpro2)" 'PROBE fm opl3' 'PROBE dsp 3.02 220' 'PROBE blaster A220 I7 D1 T4'
-probe_case 'sb16' svga_s3 "$(sb sb16)" 'PROBE fm opl3' 'PROBE dsp 4.05 220' 'PROBE blaster A220 I7 D1 H5 T6'
 probe_case 'sb16 at 240' svga_s3 "$(sb sb16 'sbbase = 240')" 'PROBE fm opl3' 'PROBE dsp 4.05 240' 'PROBE blaster A240 I7 D1 H5 T6'
 probe_case 'sb16, oplmode opl2' svga_s3 "$(sb sb16 'oplmode = opl2')" 'PROBE fm opl2' 'PROBE dsp 4.05 220'
 probe_case 'sb16, oplmode none' svga_s3 "$(sb sb16 'oplmode = none')" 'PROBE fm none' 'PROBE dsp 4.05 220'
@@ -274,6 +399,9 @@ probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-1
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
 probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 64-1024'
 probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
+fi
+
+if group machine; then
 # 3d. The check screen: /CHECKCELLS draws it, reads the 4,000 bytes back from video memory (0xB8000, or 0xB0000 on a monochrome adapter)
 # and prints them as CELLROW lines. They must equal what the pure builder makes for the PROBE lines printed in the same run. This is the
 # only way the check screen is exercised here: the interactive /CHECK waits for a key and is never run by a script.
@@ -304,14 +432,21 @@ cells_case 'machine hercules' hercules ''
 # A test (crates/fizz-machine/tests/no-check-in-scripts.rs) fails if any script or workflow runs the interactive /CHECK.
 
 # The slice's memory floor: the replay must still play, with the same transcript, on DOSBox's smallest memory size (1 MB).
-status=0
-out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
-[ "$status" = 0 ] || fail "/REPLAY at memsize 1 exited $status"
-got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
-[ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
-printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
-echo "REPLAY at memsize 1 ok"
+replay_memsize1() {
+  local status=0 out got
+  out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
+  [ "$status" = 0 ] || fail "/REPLAY at memsize 1 exited $status"
+  got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
+  [ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
+  echo "REPLAY at memsize 1 ok"
+}
+par replay_memsize1
+par_wait
 
+fi
+
+if group audio; then
 # 3d0. /MUSICTEST: two loops of the music through the real chip writes with no timer. The MUSIC line must equal the host's `writes_for` and
 # `count_loops` for the arrangement the plan names, byte for byte: exact write count and FNV-1a, so the DOS stepper, the port path and the
 # data in the executable agree with the generated tables. The OPL3 enable must precede the first write (ORDER ok). An OPL2 stream on an
@@ -391,6 +526,9 @@ replantest_case 'SBPro2' "$(sb sbpro2)"
 replantest_case 'AdLib only' "$(sb none 'oplmode = opl2')"
 replantest_case 'no sound card' ''
 
+fi
+
+if group menu; then
 # 3d0c. /MENUSHOT: draws the Options and Paused screens over the slice's first frame and prints the hash of each finished frame. The DOS
 # build's drawing must give the pixels the portable code does, so the two lines equal the ones the host's `menushot` example prints.
 status=0
@@ -402,15 +540,15 @@ dos_shots="$(printf '%s\n' "$out" | tr -d '\r' | grep '^MENUSHOT ' || true)"
 [ "$dos_shots" = "$host_shots" ] || fail "/MENUSHOT hashes differ from the host's: DOS '$dos_shots', host '$host_shots'"
 echo "MENUSHOT ok ($(printf '%s' "$dos_shots" | tr '\n' ' '))"
 
+fi
+
 # 3d. The sound settings: FIZZ2.CFG and the flags. Each case runs in a scratch copy of the program directory, so the file a case writes or
 # plants never reaches dist/dos. /PROBE prints the `SOUND` line the same way /REPLAY and /LIVE do and needs no key. Flags win over the
 # file, the file over Auto, per field; flags never write the file; and a missing file is Auto with no message.
-cfgdir="$(mktemp -d "${TMPDIR:-/tmp}/fizz2-cfg.XXXXXX")"
-trap 'rm -rf "$cfgdir"' EXIT
-cp dist/dos/*.EXE "$cfgdir"/
 cfg_none() { rm -f "$cfgdir/FIZZ2.CFG"; }
 cfg_put() { printf "$1" > "$cfgdir/FIZZ2.CFG"; }
 cfg_hex() { od -An -tx1 -v "$cfgdir/FIZZ2.CFG" | tr -d ' \n'; }
+frames_line() { printf '%s\n' "$1" | tr -d '\r' | grep -E '^FRAMES [0-9]+ TICKS [0-9]+ RATE [0-9]+ MODE [a-z0-9]+$' || true; }
 sound_case() {
   local name="$1" conf="$2" expect="$3" mode="$4" out status=0 line
   shift 4
@@ -423,6 +561,7 @@ sound_case() {
 SB16="$(sb sb16)"
 # V2 is a version 2 file (music, effects, frame rate): music AdLib, effects Speaker, 60 Hz.
 V2='FZ2C\x02\x02\x04\x02\x00'
+if group config-sound; then
 cfg_none
 sound_case 'no file, no card' '' 'SOUND MUSIC off FX speaker' /PROBE
 sound_case 'no file, sb16' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
@@ -542,8 +681,22 @@ cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 
+fi
+
+if group audio; then
 # 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
 # of file and flags, and each run prints the SOUND line its settings give.
+# The channel-5 write count the opl2 case finds, which the OR-rule and pair cases are measured against. With parallel cases it arrives in a
+# file; a case that needs it waits for the file (the opl2 case is dispatched before every case that reads it).
+ch5_get() {
+  local n=0
+  while [ ! -s "$parroot/ch5-writes" ]; do
+    n=$((n + 1))
+    [ "$n" -le 400 ] || fail "/REPLAY: the channel 5 write count never arrived from the opl2 case"
+    sleep 0.5
+  done
+  CH5_WRITES="$(cat "$parroot/ch5-writes")"
+}
 replay_case() {
   local name="$1" conf="$2" expect="$3" out status=0 got_lines
   shift 3
@@ -573,9 +726,10 @@ replay_case() {
     #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
     #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
     #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
-    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes" ;;
-    opl_or) [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
+    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; printf '%s' "$writes" > "$parroot/ch5-writes" ;;
+    opl_or) ch5_get; [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
+      ch5_get
       starts="$(grep '^EVENT ' "$golden" | grep -v ' shotend ' | cut -d' ' -f2 | sort -u | wc -l)"
       expected=$((41 + 2 * (CH5_WRITES - 20) - starts))
       { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
@@ -609,24 +763,24 @@ replay_case() {
   echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
-AUDIO=speaker replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
-AUDIO=silent replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
-AUDIO=opl2 replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
-AUDIO=opl_pair replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /SB
-AUDIO=opl_pair replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch5+14'
-AUDIO=opl replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
-AUDIO=opl replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
-AUDIO=opl_or replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
-AUDIO=speaker replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
+AUDIO=speaker par replay_case 'no file, no card' '' 'SOUND MUSIC off FX speaker'
+AUDIO=silent par replay_case '/NOSOUND, sb16' "$SB16" 'SOUND MUSIC off FX off' /NOSOUND
+AUDIO=opl2 par replay_case '/ADLIB /MODERN, opl2 (channel 5)' "$(sb sb1)" 'SOUND MUSIC opl2 FX ch5' /MODERN /ADLIB
+AUDIO=opl_pair par replay_case '/SB, sb16 (OPL3 pair, channels 5 and 14)' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /SB
+AUDIO=opl_pair par replay_case 'auto, sbpro2 (OPL3 pair, channels 5 and 14)' "$(sb sbpro2)" 'SOUND MUSIC opl3 FX ch5+14'
+AUDIO=opl par replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
+AUDIO=opl par replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
+AUDIO=opl_or par replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
+AUDIO=speaker par replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
 # Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,382 writes either way.
-AUDIO=opl_pair replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
-AUDIO=opl_pair replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
-AUDIO=opl2 replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
+AUDIO=opl_pair par replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
+AUDIO=opl_pair par replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
+AUDIO=opl2 par replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
 cfg_put "$V2"
-AUDIO=speaker_chip replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
-AUDIO=opl_pair replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /FX:SB
+AUDIO=speaker_chip par replay_case 'file v2, sb16 (music on AdLib, effects on the speaker)' "$SB16" 'SOUND MUSIC opl2 FX speaker'
+AUDIO=opl_pair par replay_case 'file v2 with a flag over it' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /FX:SB
 cfg_put 'junk'
-AUDIO=opl_pair replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length'
+AUDIO=opl_pair par replay_case 'corrupt file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length'
 cfg_none
 
 # 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
@@ -646,12 +800,16 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-audio_count 'ch5 on an OPL2 (5221)' "$(sb sb1)" '5221 SPEAKER STEPS 0' /MODERN /ADLIB
-audio_count 'ch5 through the OR rule on an OPL3 (5242)' "$SB16" '5242 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-audio_count 'the OPL3 pair (10382)' "$SB16" '10382 SPEAKER STEPS 0' /SB
-audio_count 'the PC speaker (1213 steps)' '' '0 SPEAKER STEPS 1213' /SPEAKER
-audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
+par audio_count 'ch5 on an OPL2 (5221)' "$(sb sb1)" '5221 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (5242)' "$SB16" '5242 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (10382)' "$SB16" '10382 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1213 steps)' '' '0 SPEAKER STEPS 1213' /SPEAKER
+par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
+par_wait
 
+fi
+
+if group view; then
 # 3g. The frame rate: the simulation always steps at 60 Hz and only the drawing changes. /REPLAY prints `FRAMES <n> TICKS <t> RATE <hz> MODE
 # <auto|30|60>` after the platform lines. At 30 Hz the screen is drawn on every second tick, so n is about t/2 (the first frame is
 # drawn before tick 1, so a 60 Hz run draws t+1); the TICK, FINAL and EVENT lines are the golden's whatever the rate. The default is Auto
@@ -660,7 +818,6 @@ audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 # cycles, so 20.8 ms, 125%, at 4,500) and Auto ends at 30. The file's frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag
 # wins over it, the last flag wins, and no flag writes the file.
 FRAMES_SLOW=4500
-frames_line() { printf '%s\n' "$1" | tr -d '\r' | grep -E '^FRAMES [0-9]+ TICKS [0-9]+ RATE [0-9]+ MODE [a-z0-9]+$' || true; }
 frames_replay() {
   local name="$1" cycles="$2" rate="$3" mode="$4" lo="$5" hi="$6" out status=0 line n t
   shift 6
@@ -701,14 +858,15 @@ frames_live() {
   echo "FRAMES live case $name ok ($line)"
 }
 cfg_none
-frames_replay '/FPS30' 26800 30 30 830 850 /FPS30
-frames_replay '/FPS60' 26800 60 60 1681 1683 /FPS60
-frames_replay 'default is Auto and stays at 60' 26800 60 auto 1681 1683
-frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 800 950
-frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1683 /FPS60
-frames_replay '/FPSAUTO' 26800 60 auto 1681 1683 /FPSAUTO
-frames_replay 'last flag wins' 26800 30 30 830 850 /FPS60 /FPS30
-frames_replay 'combines with the sound flags' 26800 30 30 830 850 /NOSOUND /FPS30 /MODERN
+par frames_replay '/FPS30' 26800 30 30 830 850 /FPS30
+par frames_replay '/FPS60' 26800 60 60 1681 1683 /FPS60
+par frames_replay 'default is Auto and stays at 60' 26800 60 auto 1681 1683
+par frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 800 950
+par frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1683 /FPS60
+par frames_replay '/FPSAUTO' 26800 60 auto 1681 1683 /FPSAUTO
+par frames_replay 'last flag wins' 26800 30 30 830 850 /FPS60 /FPS30
+par frames_replay 'combines with the sound flags' 26800 30 30 830 850 /NOSOUND /FPS30 /MODERN
+par_wait
 # The file's byte, and a flag over it. V2 has frame byte 2 (60 Hz); F30 and FAUTO are the same file with 1 and 0.
 F30='FZ2C\x02\x02\x04\x01\x00'
 FAUTO='FZ2C\x02\x02\x04\x00\x00'
@@ -730,6 +888,9 @@ cfg_none
 frames_live 'no file, /FPS30' 30 30 /FPS30
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with /FPS30 created FIZZ2.CFG"
 
+fi
+
+if group menu; then
 # 3h. The Options screen in play. Esc in /LIVE opens Paused (Resume, Options, Quit to DOS), and Options is inside it; the world is held
 # while either is up, a change applies at once and FIZZ2.CFG is written when Options is left with something changed. Keys are typed
 # through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys,
@@ -800,6 +961,10 @@ t="$(printf '%s\n' "$OUT" | sed -n 's/^LIVE TICKS \([0-9]*\) .*/\1/p')"
 [ -z "$(saved_line)" ] || fail "a run left in Paused saved"
 echo "OPTIONS case a menu left open ends at the cap ok (LIVE TICKS $t)"
 cfg_none
+
+fi
+
+par_wait
 
 # 4. Size.
 size="$(wc -c < dist/dos/FIZZ2.EXE | tr -d ' ')"

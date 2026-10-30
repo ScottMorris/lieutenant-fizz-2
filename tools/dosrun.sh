@@ -90,6 +90,11 @@ sbtype = none
 [speaker]
 pcspeaker = off
 
+[joystick]
+# DOSBox's default (auto) attaches any gamepad-like device the host has, even a UPS's HID interface, and then /PROBE sees a joystick the
+# case did not ask for. A case that wants one appends its own [joystick] section through DOS_CONF (the later value wins).
+joysticktype = none
+
 [autoexec]
 mount c "$DIR"
 mount d "$WORK"
