@@ -28,6 +28,10 @@ export interface SfxVoice {
   lpd?: number;
   lps?: number;
   lpr?: number;
+  /** A high-pass cutoff in Hz (Fizz 1's `hpf`), for a noise burst that keeps only its top. */
+  hpf?: number;
+  /** Seconds a pitched voice takes to glide down an octave to its note (Fizz 1's `slide`, Undertone's `.slide()`): it starts an octave above and falls. */
+  slide?: number;
   nudge?: number;
   /** An exact pitch in Hz, used in place of `n`. */
   hz?: number;

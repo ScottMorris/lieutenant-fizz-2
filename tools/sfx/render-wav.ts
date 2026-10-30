@@ -160,7 +160,9 @@ export function renderRich(voices: readonly SfxVoice[]): Float32Array {
       }
       // Pitch steps move the note a 140 Hz frame at a time; FM is phase modulation by a modulator at ratio times the pitch, with the
       // index (Tone's: peak frequency swing over the carrier's frequency, so over the ratio as a phase swing) fading over `decay`.
-      const pitch = noise ? 0 : hz * 2 ** (stepOffset(v, t) / 12);
+      // A slide starts an octave above the note and falls to it over `slide` seconds (Fizz 1's, as Undertone's `.slide()` does).
+      const slid = v.slide && t < v.slide ? 2 ** (1 - t / v.slide) : 1;
+      const pitch = noise ? 0 : hz * slid * 2 ** (stepOffset(v, t) / 12);
       let swing = 0;
       if (v.fm && !noise) {
         const depth = v.fm.decay === undefined ? 1 : Math.max(0, 1 - t / v.fm.decay);

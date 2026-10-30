@@ -48,11 +48,14 @@ pub const EFFECT_PLINK: u8 = 11;
 pub const EFFECT_BOING: u8 = 12;
 pub const EFFECT_JUMP: u8 = 13;
 pub const EFFECT_CRUNCH: u8 = 14;
-/// Two alternates, kept in the table and played by no event: the first Fizz 2 boing (Undertone FM) and Fizz 1's own four-note jump. To hear
-/// one in the game, change the id in `presentation` below (`Event::Bounce` to `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FIZZ1`);
-/// docs/SOUND.md says more.
+/// Three alternates, kept in the table and played by no event: the first Fizz 2 boing, jump and fzzt (Undertone FM and pitch steps), which
+/// Fizz 1's own voices replaced at 12, 13 and 4. To hear one in the game, change the id in `presentation` below (`Event::Bounce` to
+/// `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FM`, `Event::Fire` to `EFFECT_FZZT_FM`); docs/SOUND.md says more.
 pub const EFFECT_BOING_FM: u8 = 15;
-pub const EFFECT_JUMP_FIZZ1: u8 = 16;
+pub const EFFECT_JUMP_FM: u8 = 16;
+/// Effect 17 is reserved for the can pickup sound, which another change adds; it is a silent placeholder until then.
+pub const EFFECT_RESERVED: u8 = 17;
+pub const EFFECT_FZZT_FM: u8 = 18;
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -98,6 +98,8 @@ export function buildVoice(U: UndertoneLike, v: SfxVoice, pan = 0, gain = 1): Vo
       .lps(v.lps ?? 0)
       .lpr(v.lpr ?? 0.05);
   }
+  if (v.hpf) p = p.hpf(v.hpf);
+  if (v.slide) p = p.slide(v.slide);
   if (v.nudge) p = p.nudge(v.nudge);
   return p;
 }
