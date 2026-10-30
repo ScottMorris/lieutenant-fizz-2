@@ -129,8 +129,9 @@ pub const CONTAINER_HASH: u32 = {
     h
 };
 
-/// The hash of the non-audio sections: the `LEVL` header and object sizes, the object kind numbers and the `LEVL`, `SPRT`, `MUSC`
-/// and `BDRP` tags.
+/// The hash of the non-audio sections: the `LEVL` header, object, rule and string sizes, the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`,
+/// the object kind numbers, and then the rule and string limits, the cue codes, the trigger, op and flag numbers and the string
+/// charset extras (in the order of the `feed_u32` calls below).
 pub const LEVEL_HASH: u32 = {
     let mut h = fnv(b"fizz-pack-level");
     h = feed_u32(h, crate::level::LEVEL_HEADER_LEN as u32);
@@ -146,6 +147,37 @@ pub const LEVEL_HASH: u32 = {
     h = feed_u32(h, crate::level::KIND_GADGET as u32);
     h = feed_u32(h, crate::level::KIND_SWITCH as u32);
     h = feed_u32(h, crate::level::KIND_ENEMY as u32);
+    // The rule and string records (amended into LEVL version 1 before any pack shipped).
+    h = feed_u32(h, crate::level::RULE_LEN as u32);
+    h = feed_u32(h, crate::level::STRING_LEN as u32);
+    h = feed_u32(h, crate::level::MAX_RULES as u32);
+    h = feed_u32(h, crate::level::MAX_STRINGS as u32);
+    h = feed_u32(h, crate::level::STRING_TEXT_MAX as u32);
+    h = feed_u32(h, crate::level::MIN_PERIOD);
+    h = feed_u32(h, crate::level::STYLE_COUNT as u32);
+    h = feed_u32(h, crate::level::CUE_NONE as u32);
+    h = feed_u32(h, crate::level::CUE_LEVEL_BASE as u32);
+    h = feed_u32(h, crate::level::TRIGGER_LOCK as u32);
+    h = feed_u32(h, crate::level::TRIGGER_START as u32);
+    h = feed_u32(h, crate::level::TRIGGER_ENTER as u32);
+    h = feed_u32(h, crate::level::TRIGGER_TAKE as u32);
+    h = feed_u32(h, crate::level::TRIGGER_SHOOT as u32);
+    h = feed_u32(h, crate::level::TRIGGER_STOMP as u32);
+    h = feed_u32(h, crate::level::TRIGGER_STUN as u32);
+    h = feed_u32(h, crate::level::TRIGGER_TIME as u32);
+    h = feed_u32(h, crate::level::OP_NONE as u32);
+    h = feed_u32(h, crate::level::OP_ON as u32);
+    h = feed_u32(h, crate::level::OP_OFF as u32);
+    h = feed_u32(h, crate::level::OP_TOGGLE as u32);
+    h = feed_u32(h, crate::level::FLAG_REPEAT as u32);
+    h = feed_u32(h, crate::level::FLAG_GUARD as u32);
+    h = feed_u32(h, crate::level::FLAG_GUARD_ON as u32);
+    h = feed_u32(h, crate::level::SUBJECT_ANY as u32);
+    let mut i = 0;
+    while i < crate::level::STRING_EXTRAS.len() {
+        h = feed_u32(h, crate::level::STRING_EXTRAS[i]);
+        i += 1;
+    }
     h
 };
 
