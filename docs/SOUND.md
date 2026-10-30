@@ -381,6 +381,29 @@ One mapping differs from Fizz 1. `SfxVoice.lpenv` is the cutoff the filter opens
 
 Tests: `bun test web/sfx.test.ts` runs the real Undertone against a recording stand-in for `AudioContext` and checks the mapping, the first-gesture rule, mute, the hidden tab, the cap, the panner and gain of a placed cluck, Classic, and the remembered choice and the query. `python3 tools/check-web-sfx.py` (Chromium, after `tools/build-web.sh`) injects the same kind of stand-in before the built page loads and checks that the cluck at tick 197 schedules variant 2's oscillators after a key press and nothing before one, and that `M` mutes and the choice survives a reload. Both prove what the page asks the browser to play; neither hears it.
 
+## The screen mix
+
+When a screen holds the game, the music changes character: it is muffled and quieter, and it comes back when the game resumes. This is Fizz 1's screen-driven mix, not a duck under sound effects (neither Fizz 1 nor Fizz 2 ducks the music under an effect; see [MUSIC.md](MUSIC.md)). It is global and follows the screen, so it cannot depend on which effect plays.
+
+**What plays, on the Web.** Opening Paused or Options closes a low-pass filter on the music to 900 Hz and lowers its gain to 0.7 over 0.18 s; closing the last screen opens both again over 0.35 s. It closes fast so the muffle is there as the menu appears, and opens slowly so the music comes back instead of snapping. Paused to Options (and back) is the same mix, so nothing moves. The cutoff glides exponentially (pitch-like) and the gain linearly, both arriving together. Each change starts from where the last glide had got to, so toggling quickly never jumps and never gets stuck; it is the pattern of Fizz 1: `cancelScheduledValues`, then `setValueAtTime` at the current value, then the ramp (no `cancelAndHoldAtTime`, which Firefox lacks). The filter's Q is 0 dB, flat at the cutoff with no ring, and open means the context's Nyquist frequency, where a biquad low-pass is transparent (at 20 kHz it is not). While the context is suspended (the page muted or hidden) the change is made at once with no ramp, so it is already in place when sound returns.
+
+**The table.** The names and numbers live in one place, `MIX` in `web/mix.ts`, and the DOS side should take the same names and numbers (a cutoff in Hz, a gain as a linear multiplier, and the two ramp times).
+
+| Screen | Cutoff | Gain | Where it comes from |
+| --- | --- | --- | --- |
+| `play` | open (Nyquist) | 1 | the music as it is |
+| `pause` | 900 Hz | 0.7 | Fizz 1's pause |
+| `options` | 900 Hz | 0.7 | Fizz 1 muffles everything opened from Pause |
+| `card` | 2,200 Hz | 0.8 | Fizz 1's cleared and game-over cards; reserved, nothing asks for it yet |
+
+Ramps: 0.18 s to close (a lower cutoff, or a lower gain at the same cutoff), 0.35 s to open. A later screen is one more line in `MIX` and one place that names it (`web/main.js` reads the screen each frame and calls `AudioRoot.setScreen`).
+
+**Music only.** The mix sits on the music's way to the limiter (`music bus -> low-pass -> mix gain -> limiter`). The effects bus has no filter and no automation, so a menu sound or a cluck during a pause is unfiltered. The music is what a screen should recede behind; an effect is a message and should stay clear. The Mute and Motion settings do not change it: a filter ramp is sound, not movement, and a muted page simply suspends the context. The rules, the replay and every hash are untouched.
+
+**Not built.** The `card` row is a table entry only: Fizz 2 has no cleared or game-over card. Fizz 1's dialogue mix (open, gain 0.7) and its cinematic mix (open, gain 0.85) are not listed, because there are no dialogue or cinematic screens. Fizz 1's phone variant of the pause (1,400 Hz, for small speakers) is not built either. Classic placement does not turn the mix off here, as it does in Fizz 1. DOS has no screen mix yet: an OPL has no mixer, so it would be a carrier level change on the music channels, staggered across ticks so no tick overruns its write budget. Nobody has listened to this; the numbers are Fizz 1's and were tuned there, not here.
+
+Tests: `bun test web/mix.test.ts` records the filter and gain automation (open, close, rapid toggling, suspended context, the effects bus untouched), and `python3 tools/check-web-sfx.py` observes the same automation in the built page when Esc opens Paused and Options and when they close.
+
 ## Music
 
 Music has its own document, [MUSIC.md](MUSIC.md). In short: the song is an Undertone source (Fizz 1's "Crater Fields", a placeholder) that a builder lays out and a script lists note by note. The Web plays it through a music bus beside the effects bus and a limiter (#75). A generator lowers the song to OPL2 and OPL3 register streams (#76), a stepper plays them (PR #79, in review) and the DOS audio service steps them at 560 Hz beside the effects (the stack's top PR, in review); until those merge, `main` plays music on the Web only.

@@ -20,6 +20,8 @@
 #   5. the audition list in the H panel (web/index.html, web/main.js): all 15 effects in id order, silent before a key, and each choice
 #      schedules exactly that effect's oscillators (a carrier and a modulator for an FM voice) and noise bursts, centred; Play repeats
 #      it and a muted page plays nothing. The music is turned off first and the stand-in's clock is moved on between effects.
+#   6. the screen mix (web/mix.ts, web/audio.ts): opening Paused and Options schedules the music's low-pass to 900 Hz and its mix gain to 0.7
+#      over 0.18 s (cancel, set, ramp), and closing opens it again over 0.35 s; the effects bus is never automated.
 # The stand-in's clock stays at 0, so only the first fraction of a second of the song is scheduled: bar 1's first beat.
 # This proves what the page asks the browser to play. It does not hear anything: the sound has not been listened to.
 import functools
@@ -50,9 +52,13 @@ START_LATENCY = 0.1  # seconds: Undertone's loop starts its pattern this long af
 # Replaces AudioContext before the page's scripts run and records what is scheduled into window.__audio.
 STUB = """
 (() => {
-  const log = { made: 0, resumed: 0, suspended: 0, state: 'none', osc: [], noise: 0, noiseStarts: [], panners: 0, limiters: 0 };
+  const log = { made: 0, resumed: 0, suspended: 0, state: 'none', osc: [], noise: 0, noiseStarts: [], panners: 0, limiters: 0, filters: 0, lpf: [], mixGains: [] };
   window.__audio = log;
   const param = (onSet) => ({ value: 0, setValueAtTime(v, t) { if (onSet) onSet(v, t); }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+  // A parameter that also records its automation (kind, value, time) into `list`: the screen mix's filter cutoff and gain.
+  const rec = (list) => ({ value: 0,
+    cancelScheduledValues(t) { list.push(['cancel', null, t]); }, setValueAtTime(v, t) { list.push(['set', v, t]); },
+    linearRampToValueAtTime(v, t) { list.push(['lin', v, t]); }, exponentialRampToValueAtTime(v, t) { list.push(['exp', v, t]); } });
   const node = (extra = {}) => ({ connect() {}, start() {}, stop() {}, ...extra });
   window.AudioContext = class {
     constructor() { log.made++; Object.defineProperty(log, 'ctx', { value: this, enumerable: false }); this.state = 'suspended'; log.state = this.state; this.currentTime = 0; this.sampleRate = 44100; this.destination = node(); }
@@ -61,8 +67,8 @@ STUB = """
     createDynamicsCompressor() { log.limiters++; return node({ threshold: param(), knee: param(), ratio: param(), attack: param(), release: param() }); }
     createOscillator() { const o = { type: 'sine', hz: null }; log.osc.push(o);
       return node({ type: 'sine', frequency: param((v) => { if (o.hz === null) o.hz = v; }), start(t) { o.type = this.type; o.t = t; } }); }
-    createGain() { return node({ gain: param() }); }
-    createBiquadFilter() { return node({ type: 'lowpass', frequency: param(), Q: param() }); }
+    createGain() { const l = []; log.mixGains.push(l); return node({ gain: rec(l) }); }
+    createBiquadFilter() { const first = log.filters++ === 0; return node({ type: 'lowpass', frequency: first ? rec(log.lpf) : param(), Q: param() }); }
     createStereoPanner() { log.panners++; return node({ pan: param() }); }
     createChannelMerger() { return node(); }
     createBufferSource() { log.noise++; return node({ buffer: null, loop: false, playbackRate: param(), start(t) { log.noiseStarts.push(t); } }); }
@@ -284,6 +290,32 @@ def main(argv):
         time.sleep(0.5)
         a = page.audio()
         check(len(a["osc"]) > 0 and page.stored("music") == "on", "the Music option turns the song back on, from bar 1")
+        # 6. The screen mix. The stand-in's clock is moved on by hand so each change starts from a settled value.
+        page.js("localStorage.clear()")
+        page.load()
+        page.key("ShiftLeft")
+        time.sleep(0.5)
+        check(page.audio()["lpf"] == [], "playing, the screen mix has scheduled nothing: the music is open")
+        page.js("__audio.ctx.currentTime = 5")
+        page.open_options()  # Paused, then Options: one close, because both rows are the same mix
+        time.sleep(0.4)
+        a = page.audio()
+        lpf = a["lpf"]
+        check([c[0] for c in lpf] == ["cancel", "set", "exp"] and abs(lpf[2][1] - 900) < 1e-6 and abs(lpf[2][2] - 5.18) < 1e-6,
+              "opening Paused and Options closes the music's low-pass to 900 Hz over 0.18 s (cancel, set, ramp)")
+        mix = a["mixGains"][2]  # the gains made first are the music bus, the sfx bus, then the mix
+        check(a["mixGains"][0] == [] and a["mixGains"][1] == [] and [c[0] for c in mix] == ["cancel", "set", "lin"] and abs(mix[2][1] - 0.7) < 1e-6 and abs(mix[2][2] - 5.18) < 1e-6,
+              "and the mix gain to 0.7 over 0.18 s (the music and effects buses are not automated)")
+        page.js("__audio.ctx.currentTime = 10")
+        page.close_options()
+        time.sleep(0.4)
+        a = page.audio()
+        opening = a["lpf"][3:]
+        check([c[0] for c in opening] == ["cancel", "set", "exp"] and abs(opening[1][1] - 900) < 1e-6 and abs(opening[2][2] - 10.35) < 1e-6 and opening[2][1] > 20000,
+              "closing the screens opens the low-pass again from 900 Hz to open over 0.35 s")
+        mix = a["mixGains"][2]
+        check(len(mix) == 6 and a["mixGains"][1] == [] and abs(mix[5][1] - 1) < 1e-6 and abs(mix[5][2] - 10.35) < 1e-6, "and the mix gain back to 1 over 0.35 s")
+        page.js("localStorage.clear()")
         # A muted page does not start the song at its first key. The mute is the old fizz2-sound key, which the page migrates.
         page.js("localStorage.clear()")
         page.js("localStorage.setItem('fizz2-sound', 'off')")

@@ -482,6 +482,8 @@ async function main() {
     // A screen up holds the game: the module drops its pacer, so the first frame after it restarts the clock and nothing is caught up.
     if (ui.isOpen) app.hold();
     else app.frame(performance.now());
+    // The screen mix: the music is muffled and lowered under Paused and Options, and comes back on resume (web/mix.ts). Music only.
+    audio.setScreen(["play", "pause", "options"][app.menu_screen()] ?? "play");
     // Read after every frame: the module keeps the effects of all the ticks the frame ran.
     // Each effect carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
     for (let id = app.take_effect(); id >= 0; id = app.take_effect()) sfx.playEffect(id, app.effect_pan(), app.effect_gain());
