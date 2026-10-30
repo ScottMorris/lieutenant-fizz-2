@@ -1,0 +1,70 @@
+{
+  "set": "ep2-hud-keys",
+  "note": "Provisional: the key tray of the HUD, one 7 by 7 mini key per kind (red gumdrop with a dot, blue with a bar, green with a plus, gold USB stick), so a key is told apart by its mark as well as its colour. Drawn by hand; the Web tray draws the same grids.",
+  "sprites": [
+    {
+      "name": "hudkey_red",
+      "w": 7,
+      "h": 7,
+      "anchor": [0, 0],
+      "source": "drawn",
+      "rows": [
+        "..kkk..",
+        ".krrrk.",
+        "krrrrrk",
+        "krrkrrk",
+        "krrrrrk",
+        "krrrrrk",
+        ".kkkkk."
+      ]
+    },
+    {
+      "name": "hudkey_blue",
+      "w": 7,
+      "h": 7,
+      "anchor": [0, 0],
+      "source": "drawn",
+      "rows": [
+        "..kkk..",
+        ".kbbbk.",
+        "kbbbbbk",
+        "kbkkkbk",
+        "kbbbbbk",
+        "kbbbbbk",
+        ".kkkkk."
+      ]
+    },
+    {
+      "name": "hudkey_green",
+      "w": 7,
+      "h": 7,
+      "anchor": [0, 0],
+      "source": "drawn",
+      "rows": [
+        "..kkk..",
+        ".kgggk.",
+        "kggkggk",
+        "kgkkkgk",
+        "kggkggk",
+        "kgggggk",
+        ".kkkkk."
+      ]
+    },
+    {
+      "name": "hudkey_gold",
+      "w": 7,
+      "h": 7,
+      "anchor": [0, 0],
+      "source": "drawn",
+      "rows": [
+        "..kkk..",
+        "..kLk..",
+        ".kkkkk.",
+        ".kyyyk.",
+        ".kyyyk.",
+        ".kNNNk.",
+        ".kkkkk."
+      ]
+    }
+  ]
+}
