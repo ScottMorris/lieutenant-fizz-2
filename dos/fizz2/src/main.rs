@@ -397,7 +397,7 @@ fn replay(options: &DrawOptions) -> i32 {
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
     println!("EXIT {}", if exited { "yes" } else { "no" });
     println!("FPU CW {:04X}", cw);
-    println!("BIOS TICKS {}", bios_end.wrapping_sub(session.bios_start));
+    println!("BIOS TICKS {}", timer::bios_elapsed(session.bios_start, bios_end));
     println!("VECTORS RESTORED {}", if restored { "yes" } else { "no" });
     drawing.print(world.tick.0);
     0
