@@ -389,7 +389,7 @@ Channel allocation is settled and shared with effects. OPL2 music uses channels 
 
 ## The IMF lab (private)
 
-How the lab's 5-byte OPL3 stream relates to IMF, `OplStep` and the proposed OPX form is in [OPL-STREAMS.md](OPL-STREAMS.md).
+The stream format for OPL and speaker effects and music, the proposed OPX, is specified in [OPX.md](OPX.md).
 
 The IMF lab is the owner's private IMF transcription lab. It is not in this repository and is not public. It holds the Fizz 1 and Fizz 2 songs and the OPL engines that play them, and it is where the effect discovery track runs. This repository never changes it.
 

@@ -54,7 +54,7 @@ Run `bun tools/music/generate.ts` to rewrite the three files and `bun tools/musi
 
 ### The streams
 
-The formats these streams belong to (IMF, the lab's 5-byte stream, `OplStep`, the pack's compact form) and their conversions are in [OPL-STREAMS.md](OPL-STREAMS.md).
+The stream format these songs are stored in (the proposed OPX, version 0.1) and how it relates to `OplStep`, IMF, DRO and VGM is in [OPX.md](OPX.md).
 
 A stream is a list of 4-byte records in the layout of `fizz_sfx::OplStep`: the register's low byte, the value, then a little-endian 16-bit field whose top bit is the register bank (0 for registers 0x000 to 0x0FF, 1 for 0x100 to 0x1FF) and whose low 15 bits are the 560 Hz ticks to wait after the write. A stream is a prelude followed by the loop. The one-time setup plays once, before the loop point: the waveform enable, the rhythm-mode switch, the drum instruments, the drum channels' pitch and output bits, and the instrument of the first note of each channel. The player jumps back to the record `loop_start` at the end and never repeats the prelude. The tail of the loop carries whatever instrument or pitch the first notes of the next pass need that the last notes changed, and the generator replays two passes to prove that the second sets every note up as the first did.
 
