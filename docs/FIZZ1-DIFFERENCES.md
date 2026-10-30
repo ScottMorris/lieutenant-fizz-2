@@ -19,6 +19,13 @@ Each entry says what Fizz 1 does, what Fizz 2 does, why, and what to look at in 
 
 ## Small departures that are already in the game
 
+### Doors, keys and death
+
+- **Fizz 1:** a key and its door are hard-wired in the rules (a red door tile that a red key rewrites to empty space), and dying reloads the level, so every door is shut again and every key is back.
+- **Fizz 2:** the door is a switched tile on a channel, and which key opens which channel is a lock rule in the level data (`crates/fizz-ep2/src/rules.rs`). Dying resets the level exactly as starting it would: the channels go back to the level's start state, the keys come back and leave Ben's hands, the snacks come back. An earlier build of Fizz 2 kept an opened door open through a death; it does not any more, which is closer to Fizz 1's reload.
+- **Why:** owner decision, 2026-10-30: a death always resets the level, so a puzzle that closes a door behind the player cannot be left unwinnable by dying.
+- **Review:** checkpoints, if levels get them, would need to say which of this they keep.
+
 ### Ammo on a respawn
 
 - **Fizz 1:** dying does not refill the Fizz Blaster.

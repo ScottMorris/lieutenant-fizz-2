@@ -91,6 +91,8 @@ RULES=(
   'crates/fizz-hal/*;input,menu;crates/fizz-hal/src/lib.rs'
   'crates/fizz-ep2/src/world.rs;view,audio;crates/fizz-ep2/src/world.rs'
   'crates/fizz-ep2/src/replay.rs;view,audio;crates/fizz-ep2/src/replay.rs'
+  'crates/fizz-ep2/src/rules.rs;view,audio;crates/fizz-ep2/src/rules.rs'
+  'crates/fizz-ep2/src/cues.rs;view,audio;crates/fizz-ep2/src/cues.rs'
   'crates/fizz-ep2/*;view;crates/fizz-ep2/src/ben.rs'
   'crates/fizz-phys/*;view;crates/fizz-phys/src/lib.rs'
   'crates/fizz-sim/*;view;crates/fizz-sim/src/lib.rs'

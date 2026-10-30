@@ -266,7 +266,7 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 
 ### The red key and the door
 
-Walk onto the red key to pick it up; its socket in the HUD's key tray fills in, with a white ring for a moment. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
+Walk onto the red key to pick it up; its socket in the HUD's key tray fills in, with a white ring for a moment. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open until you die: dying starts the level again, so the door is shut and the key is back where it first lay (whether you were carrying it or had already used it).
 
 ![The DOS build in the snack nook, a moment after Ben took the blue key: the HUD's second socket is filled with the blue key inside a white ring, with +8 over the score, Fizz 5 and Deaths 1.](img/dos-hud-key.png)  ![The Web build a moment after Ben took the blue key: the HUD panel's second key socket is filled and ringed, +8 over the score.](images/web-hud-key.png)
 
@@ -316,7 +316,7 @@ The level is a tall room split into a left shaft and a right shaft by a wall. Yo
 - **The chicken** walks the long third ledge. It is a placeholder for the real art. Touching it from the side or from below kills you. Landing on its head from above stuns it for three seconds and bounces you. A Fizz Blaster shot stuns it for six seconds. While it is stunned you can walk through it.
 - **The red key** lies at the far left end of that ledge. Walk over it to pick it up. The `KEY` line reads `carried` while you have it.
 - **The spikes** on the ground floor kill you if you land or walk on them. So does falling out of the bottom of the level.
-- **The red door** is in the wall between the shafts, high up. Walk into it while carrying the key and it opens and the key is used up. `DOOR` reads `open`. An open door stays open for good, even if you die later.
+- **The red door** is in the wall between the shafts, high up. Walk into it while carrying the key and it opens and the key is used up. `DOOR` reads `open`. It stays open until you die; dying starts the level again, so the door is shut and the key is back where it began.
 - **The exit** is in a gallery at the top of the right shaft. Reaching it sets `EXIT` to `reached` and stops you in place. Press Restart to play again.
 
 ### Moving, jumping, the pogo stick and the blaster
@@ -347,7 +347,7 @@ The keys for each action are in the table under Controls, in both the Keen and t
 
 ### Death and respawn on the Web
 
-You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. A key you were carrying goes back to where it first lay, unless the door is already open, in which case it is gone. The chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies, and Ben spins as he falls. The Motion row of the Options screen chooses Full, Reduced or System (follow your device's setting); Reduced keeps the screen still and Ben's fall flat, in the flickering pose without the spin. Until you choose, Motion is System, which follows your device's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake and the spin change only the picture, never what happens in the game.
+You die on spikes, on a chicken that is not stunned, and by falling out of the bottom. Ben falls over for about a second and a half, then starts again at the bottom of the left shaft with five shots. `DEATHS` counts how many times this has happened. Dying starts the level again from the beginning: the doors you opened are shut, every key is back where it first lay, the snacks and soda cans are back, and the chicken starts again as well. The screen gives a small sideways shake for a third of a second when Ben dies, and Ben spins as he falls. The Motion row of the Options screen chooses Full, Reduced or System (follow your device's setting); Reduced keeps the screen still and Ben's fall flat, in the flickering pose without the spin. Until you choose, Motion is System, which follows your device's reduced-motion setting (Reduced if it asks for less motion), and after you choose it remembers your choice on this browser, if the browser allows it to. The shake and the spin change only the picture, never what happens in the game.
 
 ### The Web heads-up text
 

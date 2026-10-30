@@ -20,6 +20,7 @@ pub mod chicken;
 pub mod cues;
 pub mod level;
 pub mod replay;
+pub mod rules;
 pub mod shot;
 pub mod tiles;
 pub mod world;

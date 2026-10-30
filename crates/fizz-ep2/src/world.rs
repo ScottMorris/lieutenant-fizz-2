@@ -7,17 +7,20 @@
 // `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the soda cans, and the enemy contact rules),
 // `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key,
 // the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
-// Departures: the red and blue doors are switched tiles (see `tiles.rs`), their open states and the keys live in
-// [`WorldFlags`], and a death respawns Ben in place instead of reloading the level, so an open door survives it (the snacks
-// come back, as they do when Fizz 1 reloads).
+// Departures: the red and blue doors are switched tiles (see `tiles.rs`) and the key that opens each is a lock rule of the level
+// (see `rules.rs`), the keys and the spent-key marks live in [`WorldFlags`], and a death respawns Ben in place instead of
+// reloading the level. The respawn is nevertheless a reload in effect: it restores the level's start switches and puts the keys
+// and the snacks back, as Fizz 1's reload does.
 
 use crate::ben::{Ben, FALL_DEATH_Y};
 use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
+use crate::rules::{KEY_BLUE as KEY_BLUE_COLOUR, KEY_RED as KEY_RED_COLOUR, RuleTable};
 use crate::shot::Shot;
-use crate::tiles::{DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, SPIKE, is_liquid};
+use crate::tiles::{EXIT, SPIKE, is_liquid};
 use alloc::vec::Vec;
 #[cfg_attr(test, allow(unused_imports))]
 use fizz_phys::fmath::FloatMath;
+use fizz_phys::tilemap::SWITCHED;
 use fizz_phys::{STEP, TileMap};
 use fizz_sim::{InputFrame, StateHash, Tick};
 
@@ -155,14 +158,23 @@ pub struct WorldFlags(pub u32);
 impl WorldFlags {
     /// Ben carries the red key (Fizz 1's `keys_red`). A death drops it.
     pub const KEY_RED: u32 = 1;
-    /// The red door has been opened. It survives a death.
-    pub const DOOR_RED_OPEN: u32 = 2;
+    /// The red key has been spent on its lock. A death clears it, and the key lies in the world again.
+    pub const KEY_RED_USED: u32 = 2;
     /// Ben has touched the exit (Fizz 1's `won`).
     pub const EXIT_REACHED: u32 = 4;
     /// Ben carries the blue key. A death drops it.
     pub const KEY_BLUE: u32 = 8;
-    /// The blue door has been opened. It survives a death.
-    pub const DOOR_BLUE_OPEN: u32 = 16;
+    /// The blue key has been spent on its lock. A death clears it, and the key lies in the world again.
+    pub const KEY_BLUE_USED: u32 = 16;
+
+    /// The flag for Ben carrying the key of `colour` and the one for that key being spent, or `None` for a colour with neither.
+    pub const fn key_bits(colour: u8) -> Option<(u32, u32)> {
+        match colour {
+            KEY_RED_COLOUR => Some((WorldFlags::KEY_RED, WorldFlags::KEY_RED_USED)),
+            KEY_BLUE_COLOUR => Some((WorldFlags::KEY_BLUE, WorldFlags::KEY_BLUE_USED)),
+            _ => None,
+        }
+    }
 
     pub const fn contains(self, bit: u32) -> bool {
         self.0 & bit == bit
@@ -197,6 +209,10 @@ pub struct World {
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
+    /// The switch channels that are on when the level starts, and again after every death.
+    start_switches: u32,
+    /// The level's rules; only locks so far.
+    rules: RuleTable,
     /// Where the red key lies, as its centre, while it is in the world.
     key: Option<(f64, f64)>,
     /// Where the blue key lies, as its centre, while it is in the world. A world with a blue key has a blue door.
@@ -206,10 +222,12 @@ pub struct World {
 }
 
 impl World {
-    /// A world on `map` with Ben at rest at `spawn`, the lower-left corner of his body. The red door starts closed.
-    pub fn new(mut map: TileMap, spawn: (f64, f64)) -> Self {
-        map.set_switch(DOOR_RED_CHANNEL, true);
+    /// A world on `map` with Ben at rest at `spawn`, the lower-left corner of his body, and no rules. The map's switch word is
+    /// the level's start state (a death restores it); [`World::set_switches`] changes it.
+    pub fn new(map: TileMap, spawn: (f64, f64)) -> Self {
         World {
+            start_switches: map.switches,
+            rules: RuleTable::new(),
             tick: Tick::ZERO,
             map,
             ben: Ben::new(spawn.0, spawn.1),
@@ -230,6 +248,36 @@ impl World {
     /// Where Ben starts and respawns, the lower-left corner of his body.
     pub fn spawn(&self) -> (f64, f64) {
         self.spawn
+    }
+
+    /// Sets the start state of the switch channels, now and after every death: a set bit is a channel that starts on (for a
+    /// door, closed).
+    pub fn set_switches(&mut self, bits: u32) {
+        self.start_switches = bits;
+        self.map.switches = bits;
+    }
+
+    /// The switch channels that were on when the level started.
+    pub fn start_switches(&self) -> u32 {
+        self.start_switches
+    }
+
+    /// Gives the world its rules, replacing any it had.
+    pub fn set_rules(&mut self, rules: RuleTable) {
+        self.rules = rules;
+    }
+
+    /// The level's rules.
+    pub fn rules(&self) -> &RuleTable {
+        &self.rules
+    }
+
+    /// Whether the door that the lock for key `colour` opens is open now: the lock's channel is off. `false` for a level with no
+    /// such lock.
+    pub fn lock_open(&self, colour: u8) -> bool {
+        self.rules
+            .lock_channel(colour)
+            .is_some_and(|c| !self.map.switch(c))
     }
 
     /// Adds a chicken at Fizz 1's spawn point `(x, y)`, walking in direction `dir` (1 or -1).
@@ -267,7 +315,7 @@ impl World {
     pub fn key_in_world(&self) -> bool {
         self.key.is_some()
             && !self.flags.contains(WorldFlags::KEY_RED)
-            && !self.flags.contains(WorldFlags::DOOR_RED_OPEN)
+            && !self.flags.contains(WorldFlags::KEY_RED_USED)
     }
 
     /// The centre of the red key while it is lying in the world, for presenters that draw it. `None` once Ben carries it or
@@ -276,18 +324,16 @@ impl World {
         if self.key_in_world() { self.key } else { None }
     }
 
-    /// Lays the blue key with its centre at `(x, y)` and closes the blue door. A world without a blue key leaves the blue
-    /// door's switch alone, so it stays as Fizz 1's traces expect it.
+    /// Lays the blue key with its centre at `(x, y)`.
     pub fn set_key_blue(&mut self, x: f64, y: f64) {
         self.key_blue = Some((x, y));
-        self.map.set_switch(DOOR_BLUE_CHANNEL, true);
     }
 
     /// Whether the blue key is lying in the world: not carried, and not spent on the door.
     pub fn key_blue_in_world(&self) -> bool {
         self.key_blue.is_some()
             && !self.flags.contains(WorldFlags::KEY_BLUE)
-            && !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN)
+            && !self.flags.contains(WorldFlags::KEY_BLUE_USED)
     }
 
     /// The centre of the blue key while it is lying in the world, as [`World::key_position`] is for the red one.
@@ -400,7 +446,42 @@ impl World {
         self.events.push(Event::Death { x, y });
     }
 
-    /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the red door, the red key, then the chickens.
+    /// The lock phase. Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs; here the level's
+    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile on
+    /// the lock's channel and that channel is on (the door is closed): the channel goes off, the key is spent and the door opens.
+    fn tick_locks(&mut self) {
+        let (px, py, pw) = (self.ben.b.x, self.ben.b.y, self.ben.b.w);
+        for i in 0..self.rules.len() {
+            let Some(lock) = self.rules.lock_at(i) else {
+                continue;
+            };
+            let Some((key, used)) = WorldFlags::key_bits(lock.colour) else {
+                continue;
+            };
+            if !self.flags.contains(key) {
+                continue;
+            }
+            let cx = if self.ben.face > 0.0 {
+                (px + pw + 0.1).floor() as i32
+            } else {
+                (px - 0.1).floor() as i32
+            };
+            let t = self.map.get(cx, (py + 0.2).floor() as i32);
+            let props = &self.map.props;
+            if props.flags(t) & SWITCHED != 0
+                && props.channel(t) == lock.channel
+                && self.map.switch(lock.channel)
+            {
+                self.map.set_switch(lock.channel, false);
+                self.flags.clear(key);
+                self.flags.set(used);
+                let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
+                self.events.push(Event::DoorOpen { x, y });
+            }
+        }
+    }
+
+    /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the locks (the doors), the keys, then the snacks and the chickens.
     fn tick_ben_contacts(&mut self) {
         let (px, py, pw, ph) = (self.ben.b.x, self.ben.b.y, self.ben.b.w, self.ben.b.h);
         let mut die = py < FALL_DEATH_Y;
@@ -428,37 +509,7 @@ impl World {
                 }
             }
         }
-        // Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs.
-        for (tile, channel, key, open) in [
-            (
-                DOOR_R,
-                DOOR_RED_CHANNEL,
-                WorldFlags::KEY_RED,
-                WorldFlags::DOOR_RED_OPEN,
-            ),
-            (
-                DOOR_B,
-                DOOR_BLUE_CHANNEL,
-                WorldFlags::KEY_BLUE,
-                WorldFlags::DOOR_BLUE_OPEN,
-            ),
-        ] {
-            if !self.flags.contains(key) {
-                continue;
-            }
-            let cx = if self.ben.face > 0.0 {
-                (px + pw + 0.1).floor() as i32
-            } else {
-                (px - 0.1).floor() as i32
-            };
-            if self.map.get(cx, (py + 0.2).floor() as i32) == tile && self.map.switch(channel) {
-                self.map.set_switch(channel, false);
-                self.flags.clear(key);
-                self.flags.set(open);
-                let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
-                self.events.push(Event::DoorOpen { x, y });
-            }
-        }
+        self.tick_locks();
         if die {
             self.kill();
             return;
@@ -585,14 +636,23 @@ impl World {
         }
     }
 
-    /// Puts Ben back at the spawn after a death (Fizz 1's `on_death`, which hands the reload to the shell). The key is
-    /// dropped and lies where it began unless the door is already open; the open door stays open; the chickens and the
-    /// ammo start over.
+    /// Puts Ben back at the spawn after a death (Fizz 1's `on_death`, which hands the reload to the shell) and resets the level
+    /// exactly as starting it the first time would: the switch channels go back to the level's start state (a door that was
+    /// opened closes), the keys leave Ben's hands and the spent marks are cleared (every key lies where it began), the snacks
+    /// come back, and the chickens and the ammo start over. Rules that act on the start of a level (timers, start rules) will
+    /// re-arm here when they exist; the locks hold no state of their own.
     fn respawn(&mut self) {
         self.deaths += 1;
         self.ben = Ben::new(self.spawn.0, self.spawn.1);
-        self.flags.clear(WorldFlags::KEY_RED);
-        self.flags.clear(WorldFlags::KEY_BLUE);
+        self.map.switches = self.start_switches;
+        for bit in [
+            WorldFlags::KEY_RED,
+            WorldFlags::KEY_BLUE,
+            WorldFlags::KEY_RED_USED,
+            WorldFlags::KEY_BLUE_USED,
+        ] {
+            self.flags.clear(bit);
+        }
         self.ammo = START_AMMO;
         self.shots.clear();
         for s in &mut self.snacks {
@@ -604,16 +664,6 @@ impl World {
             .enumerate()
             .map(|(id, &(x, y, dir))| Chicken::new(x, y, dir, id as u32, self.tick.0))
             .collect();
-        self.map.set_switch(
-            DOOR_RED_CHANNEL,
-            !self.flags.contains(WorldFlags::DOOR_RED_OPEN),
-        );
-        if self.key_blue.is_some() {
-            self.map.set_switch(
-                DOOR_BLUE_CHANNEL,
-                !self.flags.contains(WorldFlags::DOOR_BLUE_OPEN),
-            );
-        }
     }
 
     /// Hashes the world in the order [`hash`] documents.
@@ -845,7 +895,7 @@ mod tests {
             |w| w.snacks[1].taken = false,
             |w| {
                 w.flags
-                    .set(WorldFlags::KEY_BLUE | WorldFlags::DOOR_BLUE_OPEN)
+                    .set(WorldFlags::KEY_BLUE | WorldFlags::KEY_BLUE_USED)
             },
         ];
         for (i, edit) in edits.iter().enumerate() {

@@ -45,12 +45,14 @@
 //!   shots go, between Ben and the wall he shoots at, so the player who has spent them walks into a refill ([`SNACKS`], the
 //!   last two entries). The other lies at the right end of the shelf, where the pogo lands.
 
+use crate::rules::{self, Rule, RuleError, RuleTable};
 use crate::tiles::{self, BLOCK, DOOR_B, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use crate::world::{SnackKind, World};
 use fizz_pack::level::{
     KIND_CHICKEN, KIND_ENEMY, KIND_GADGET, KIND_KEY_BLUE, KIND_KEY_RED, KIND_SNACK, KIND_SWITCH,
+    MAX_STRINGS, STRING_TEXT_MAX, STYLE_COUNT,
 };
-use fizz_pack::{LevelView, ObjectRec};
+use fizz_pack::{LevelView, ObjectRec, RuleRec, StringRec};
 use fizz_phys::TileMap;
 use fizz_sim::StateHash;
 
@@ -292,6 +294,10 @@ pub enum SourceError {
     ReservedKind,
     /// Any other malformed object record (an unknown kind, or fields that must be zero).
     BadObject,
+    /// A rule the rules cannot build: a trigger that has no phase yet, or a lock that breaks the lock shape.
+    Rule(RuleError),
+    /// A string whose length is 0 or over 30, or whose style is not one of the seven, or more than 32 strings.
+    BadString,
 }
 
 /// A level as the rules build a world from it: the same content a `LEVL` section holds, borrowed so a `const` can own it.
@@ -310,6 +316,10 @@ pub struct LevelSource<'a> {
     pub spawn: (f64, f64),
     /// In construction order: keys, then snacks, then chickens, same-kind objects in source order.
     pub objects: &'a [Object],
+    /// The level's rules in rule order (the order the sim evaluates them). Only locks (trigger 1) can be built so far.
+    pub rules: &'a [RuleRec],
+    /// The level's own caption words. Carried and fingerprinted; nothing draws them yet.
+    pub strings: &'a [StringRec],
 }
 
 /// The slice's objects in the order the world is built (and so the order of the hash): both keys, the seven snacks and soda
@@ -362,6 +372,28 @@ pub const SLICE_OBJECTS: [Object; 10] = [
     },
 ];
 
+/// The slice's rules: the red door's lock, then the blue door's. The order is the order the sim evaluates them, which is the
+/// order Fizz 1 tries the door colours. Each is trigger 1 (subject = key colour), slot A switching the door's channel off, with
+/// the middle cell of the door's tiles as the event cell.
+pub const SLICE_RULES: [RuleRec; 2] = [
+    RuleRec {
+        trigger: fizz_pack::level::TRIGGER_LOCK,
+        subject: rules::KEY_RED,
+        op: fizz_pack::level::OP_OFF,
+        channel: tiles::DOOR_RED_CHANNEL,
+        cell_a: (15, 21),
+        ..RuleRec::EMPTY
+    },
+    RuleRec {
+        trigger: fizz_pack::level::TRIGGER_LOCK,
+        subject: rules::KEY_BLUE,
+        op: fizz_pack::level::OP_OFF,
+        channel: tiles::DOOR_BLUE_CHANNEL,
+        cell_a: (22, 39),
+        ..RuleRec::EMPTY
+    },
+];
+
 /// The slice as a [`LevelSource`]: the data every world build goes through. Channels 1 and 2 (the red and blue doors) start
 /// on, which is closed.
 pub const SLICE_SOURCE: LevelSource<'static> = LevelSource {
@@ -373,11 +405,13 @@ pub const SLICE_SOURCE: LevelSource<'static> = LevelSource {
     floor_solid: false,
     spawn: SPAWN,
     objects: &SLICE_OBJECTS,
+    rules: &SLICE_RULES,
+    strings: &[],
 };
 
 /// Checks what the pack cannot: the tile list has `w * h` bytes, the objects come in ascending kind order, there is at most
-/// one key of each colour and every chicken direction is 1 or -1. (A snack's kind and the reserved object kinds are
-/// excluded by the [`Object`] type.)
+/// one key of each colour, every chicken direction is 1 or -1, every rule can be built (see [`Rule::from_rec`]) and every string
+/// has a length and a style the pack accepts. (A snack's kind and the reserved object kinds are excluded by the [`Object`] type.)
 pub fn validate(src: &LevelSource) -> Result<(), SourceError> {
     if src.w == 0 || src.h == 0 || src.tiles.len() != usize::from(src.w) * usize::from(src.h) {
         return Err(SourceError::BadSize);
@@ -403,12 +437,26 @@ pub fn validate(src: &LevelSource) -> Result<(), SourceError> {
             _ => {}
         }
     }
+    RuleTable::from_recs(src.rules, src.w, src.h).map_err(SourceError::Rule)?;
+    check_strings(src.strings)
+}
+
+fn check_strings(strings: &[StringRec]) -> Result<(), SourceError> {
+    if strings.len() > MAX_STRINGS {
+        return Err(SourceError::BadString);
+    }
+    for s in strings {
+        if s.len == 0 || usize::from(s.len) > STRING_TEXT_MAX || s.style >= STYLE_COUNT {
+            return Err(SourceError::BadString);
+        }
+    }
     Ok(())
 }
 
 /// The digest of a level: FNV-1a 64 (the state hash's function) over, little-endian and in this order, `w` and `h` as `u16`,
 /// the tile bytes, `switches` as `u32`, `floor_solid` as one byte, the bits of the spawn x and y, then for each object its
-/// record fields `kind`, `sub`, `flags` (`u16`), `channel` (`u32`) and the bits of `x`, `y` and `p`. The name is not
+/// record fields `kind`, `sub`, `flags` (`u16`), `channel` (`u32`) and the bits of `x`, `y` and `p`; then the rule count (one
+/// byte) and each rule's 32-byte record, then the string count (one byte) and each string's 32-byte record. The name is not
 /// included. A baked level and the `const` level are the same level when their digests agree.
 pub fn digest(src: &LevelSource) -> u64 {
     let mut h = StateHash::new();
@@ -434,6 +482,18 @@ pub fn digest(src: &LevelSource) -> u64 {
         h.write_u64(r.y_bits);
         h.write_u64(r.p_bits);
     }
+    h.write_u8(src.rules.len() as u8);
+    for r in src.rules {
+        for b in r.to_bytes() {
+            h.write_u8(b);
+        }
+    }
+    h.write_u8(src.strings.len() as u8);
+    for s in src.strings {
+        for b in s.to_bytes() {
+            h.write_u8(b);
+        }
+    }
     h.finish()
 }
 
@@ -443,6 +503,7 @@ fn build(
     (switches, floor_solid): (u32, bool),
     spawn: (f64, f64),
     objects: impl Iterator<Item = Object>,
+    rules: RuleTable,
 ) -> World {
     let mut m = TileMap::new(i32::from(w), i32::from(h), tiles::props());
     m.data.copy_from_slice(tile_bytes);
@@ -456,8 +517,9 @@ fn build(
             Object::Chicken { x, y, dir } => world.add_chicken(x, y, dir),
         }
     }
-    // `World::new` and `set_key_blue` still set the door channels; the level has the last word.
-    world.map.switches = switches;
+    // The level's switches are its start state, and the state every death restores.
+    world.set_switches(switches);
+    world.set_rules(rules);
     world
 }
 
@@ -470,11 +532,14 @@ pub fn world_from(src: &LevelSource) -> Result<World, SourceError> {
         (src.switches, src.floor_solid),
         src.spawn,
         src.objects.iter().copied(),
+        RuleTable::from_recs(src.rules, src.w, src.h).map_err(SourceError::Rule)?,
     ))
 }
 
 /// A fresh world built from a `LEVL` section the pack reader has accepted. Refuses object kinds 5 to 7, an unknown snack
-/// kind, a bad chicken direction and a second key of a colour.
+/// kind, a bad chicken direction, a second key of a colour, and every rule that is not a well-formed lock: the triggers 2 to 8
+/// (start, enter, take, shoot, stomp, stun and time) have no phase in the sim yet and fail with `SourceError::Rule(RuleError::Trigger)`.
+/// The level's strings are checked by the reader and not used yet.
 pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
     let mut objects = alloc::vec::Vec::with_capacity(view.object_count());
     let (mut red, mut blue) = (false, false);
@@ -491,12 +556,18 @@ pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
         }
         objects.push(o);
     }
+    let (w, h) = (view.width() as u16, view.height() as u16);
+    let mut rules = RuleTable::new();
+    for r in view.rules() {
+        rules.push(Rule::from_rec(&r, w, h).map_err(SourceError::Rule)?);
+    }
     Ok(build(
-        (view.width() as u16, view.height() as u16),
+        (w, h),
         view.tiles(),
         (view.switches(), view.floor_solid()),
         view.spawn(),
         objects.into_iter(),
+        rules,
     ))
 }
 
@@ -574,6 +645,20 @@ mod tests {
             w.add_snack(kind, x, y);
         }
         w.add_chicken(CHICKEN.0, CHICKEN.1, CHICKEN.2);
+        // Before levels were data, `World::new` set channel 1 and `set_key_blue` channel 2, and the doors were hard-wired.
+        w.set_switches(0b110);
+        let mut rules = RuleTable::new();
+        rules.push(Rule::lock(
+            rules::KEY_RED,
+            tiles::DOOR_RED_CHANNEL,
+            (15, 21),
+        ));
+        rules.push(Rule::lock(
+            rules::KEY_BLUE,
+            tiles::DOOR_BLUE_CHANNEL,
+            (22, 39),
+        ));
+        w.set_rules(rules);
         w
     }
 
@@ -591,6 +676,8 @@ mod tests {
         assert_eq!(a.key_position(), b.key_position());
         assert_eq!(a.key_blue_position(), b.key_blue_position());
         assert_eq!(a.spawn(), b.spawn());
+        assert_eq!(a.rules(), b.rules());
+        assert_eq!(a.start_switches(), b.start_switches());
     }
 
     #[test]
@@ -603,8 +690,22 @@ mod tests {
 
     #[test]
     fn the_slice_digest_is_pinned() {
-        assert_eq!(digest(&SLICE_SOURCE), 0x4326_f908_3ff9_bde6);
+        // Moved from 0x4326_f908_3ff9_bde6 on purpose: the digest now covers the rules (the two locks) and the strings (none).
+        assert_eq!(digest(&SLICE_SOURCE), 0x44cc_83fb_5218_552f);
     }
+
+    fn one_string(style: u8) -> &'static [StringRec] {
+        std::boxed::Box::leak(std::boxed::Box::new([StringRec::new(style, "hi")]))
+    }
+
+    const SWAPPED_RULES: [RuleRec; 2] = [SLICE_RULES[1], SLICE_RULES[0]];
+    const MOVED_CELL_RULES: [RuleRec; 2] = [
+        RuleRec {
+            cell_a: (15, 20),
+            ..SLICE_RULES[0]
+        },
+        SLICE_RULES[1],
+    ];
 
     /// The slice source with `edit` applied to owned copies of its tiles and objects.
     fn changed(edit: impl FnOnce(&mut Vec<u8>, &mut Vec<Object>, &mut LevelSource)) -> u64 {
@@ -644,6 +745,18 @@ mod tests {
             "the order of two snacks is part of the level"
         );
         assert_ne!(changed(|_, _, s| s.switches = 0b010), base);
+        assert_ne!(changed(|_, _, s| s.rules = &SLICE_RULES[..1]), base);
+        assert_ne!(
+            changed(|_, _, s| s.rules = &SWAPPED_RULES),
+            base,
+            "the order of two rules is part of the level"
+        );
+        assert_ne!(changed(|_, _, s| s.rules = &MOVED_CELL_RULES), base);
+        assert_ne!(changed(|_, _, s| s.strings = one_string(0)), base);
+        assert_ne!(
+            changed(|_, _, s| s.strings = one_string(2)),
+            changed(|_, _, s| s.strings = one_string(0)),
+        );
         assert_ne!(changed(|_, _, s| s.floor_solid = true), base);
         assert_ne!(changed(|_, _, s| s.spawn.0 = 2.5), base);
         assert_eq!(
@@ -696,16 +809,19 @@ mod tests {
             spawn_y_bits: src.spawn.1.to_bits(),
             name: src.name,
             objects: &recs,
-            rules: &[],
-            strings: &[],
+            rules: src.rules,
+            strings: src.strings,
             tiles: src.tiles,
         })
     }
 
     #[test]
-    fn the_slice_levl_is_ten_objects_and_1904_bytes() {
-        assert_eq!(encoded(&SLICE_SOURCE).len(), 32 + 16 + 32 * 10 + 32 * 48);
-        assert_eq!(encoded(&SLICE_SOURCE).len(), 1904);
+    fn the_slice_levl_is_ten_objects_two_locks_and_1968_bytes() {
+        assert_eq!(
+            encoded(&SLICE_SOURCE).len(),
+            32 + 16 + 32 * (10 + 2) + 32 * 48
+        );
+        assert_eq!(encoded(&SLICE_SOURCE).len(), 1968);
     }
 
     #[test]
@@ -717,6 +833,9 @@ mod tests {
             .objects()
             .map(|r| Object::from_rec(&r).unwrap())
             .collect();
+        let rules: Vec<RuleRec> = view.rules().collect();
+        let strings: Vec<StringRec> = view.strings().collect();
+        assert_eq!(rules, SLICE_RULES);
         let src = LevelSource {
             name: SLICE.name,
             w: view.width() as u16,
@@ -726,6 +845,8 @@ mod tests {
             floor_solid: view.floor_solid(),
             spawn: view.spawn(),
             objects: &objects,
+            rules: &rules,
+            strings: &strings,
         };
         assert_eq!(digest(&src), digest(&SLICE_SOURCE));
         let w = world_from_view(&view).unwrap();
@@ -733,6 +854,98 @@ mod tests {
         let mut t = String::new();
         crate::replay::replay_from(&mut t, w).unwrap();
         assert_eq!(t, include_str!("../slice-replay.txt"));
+    }
+
+    #[test]
+    fn validate_refuses_rules_and_strings_the_rules_cannot_build() {
+        let with = |rules: &[RuleRec], strings: &[StringRec]| {
+            validate(&LevelSource {
+                rules,
+                strings,
+                ..SLICE_SOURCE
+            })
+        };
+        assert_eq!(with(&SLICE_RULES, &[]), Ok(()));
+        let start = RuleRec {
+            trigger: fizz_pack::level::TRIGGER_START,
+            op: fizz_pack::level::OP_ON,
+            channel: 1,
+            cell_a: (1, 1),
+            ..RuleRec::EMPTY
+        };
+        assert_eq!(
+            with(&[start], &[]),
+            Err(SourceError::Rule(RuleError::Trigger))
+        );
+        let green = RuleRec {
+            subject: rules::KEY_GREEN,
+            ..SLICE_RULES[0]
+        };
+        assert_eq!(
+            with(&[green], &[]),
+            Err(SourceError::Rule(RuleError::LockColour))
+        );
+        let long = StringRec {
+            len: 31,
+            ..StringRec::new(0, "x")
+        };
+        let styled = StringRec {
+            style: 7,
+            ..StringRec::new(0, "x")
+        };
+        assert_eq!(with(&[], &[long]), Err(SourceError::BadString));
+        assert_eq!(with(&[], &[styled]), Err(SourceError::BadString));
+        assert_eq!(with(&[], &[StringRec::new(6, "ok")]), Ok(()));
+    }
+
+    #[test]
+    fn the_view_loader_refuses_triggers_that_have_no_phase_yet() {
+        use fizz_pack::level::{OP_ON, TRIGGER_ENTER, TRIGGER_START, TRIGGER_TIME};
+        let build = |rules: &[RuleRec]| {
+            let bytes = encode_level(&LevelSpec {
+                width: SLICE_SOURCE.w,
+                height: SLICE_SOURCE.h,
+                switches: SLICE_SOURCE.switches,
+                floor_solid: false,
+                spawn_x_bits: SPAWN.0.to_bits(),
+                spawn_y_bits: SPAWN.1.to_bits(),
+                name: "t",
+                objects: &[],
+                rules,
+                strings: &[],
+                tiles: SLICE_SOURCE.tiles,
+            });
+            let view = LevelView::with_count(&bytes, 0).unwrap();
+            world_from_view(&view).map(|w| w.rules().len())
+        };
+        let on = RuleRec {
+            op: OP_ON,
+            channel: 1,
+            cell_a: (1, 1),
+            ..RuleRec::EMPTY
+        };
+        assert_eq!(build(&SLICE_RULES), Ok(2));
+        let (x0, y0, x1, y1) = (1, 1, 2, 2);
+        let (u0, u1) = RuleRec::union_rect(x0, y0, x1, y1);
+        for rec in [
+            RuleRec {
+                trigger: TRIGGER_START,
+                ..on
+            },
+            RuleRec {
+                trigger: TRIGGER_ENTER,
+                u0,
+                u1,
+                ..on
+            },
+            RuleRec {
+                trigger: TRIGGER_TIME,
+                u0: 10,
+                ..on
+            },
+        ] {
+            assert_eq!(build(&[rec]), Err(SourceError::Rule(RuleError::Trigger)));
+        }
     }
 
     #[test]
