@@ -58,7 +58,7 @@ id: parity
 kind: diagram
 track: shared
 title: One script, three platforms, one hash
-alt: Diagram of the 1,757-tick slice script running natively, as WebAssembly under Node and Bun, and as FIZZ2.EXE in DOSBox, all three producing transcripts equal to the golden file that ends with hash e3d629fda94149ab.
+alt: Diagram of the 1,757-tick slice script running natively, as WebAssembly under Node and Bun, and as FIZZ2.EXE in DOSBox, all three producing transcripts equal to the golden file that ends with the hash of the day (a08501a57d509e8a on this edition's tree).
 caption: Native, Web and DOS replay the same slice script to the same final hash.
 at: figure parity
 thumb: svg

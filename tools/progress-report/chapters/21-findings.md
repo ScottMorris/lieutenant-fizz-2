@@ -53,7 +53,7 @@ These are the open questions of `docs/ARCHITECTURE.md`; the one about Fizz 1's p
 - **x87 cost on a 486DX.** The rules are `f64`, and the 560 Hz audio interrupt adds work. DOSBox at `cycles=max` hides what they cost; until a cycle estimate exists, the 486 budget is unknown.
 - **DOSBox as the only DOS.** Every DOS result comes from one emulator, one DPMI host and its built-in DOS.
 - **The Web page played only by scripts.** Parity is proved on the module under Node and Bun, and the page's key handling has been driven by headless Chromium through the DevTools protocol; no person has played it in a browser.
-- **Sound nobody has heard on DOS or on hardware.** The cluck and the eleven effects after it exist on Web and DOS and have been checked by what is scheduled or written; the owner has listened on the Web and not on real sound hardware.
+- **Sound nobody has heard on DOS or on hardware.** The cluck and the effects after it exist on Web and DOS and have been checked by what is scheduled or written; the owner has listened on the Web and chose Fizz 1's jump, pogo and fizz shot after listening on both platforms, and nobody has reported listening to the menu mix, the can's sound or real sound hardware.
 - **Mirrored code.** `fizz-hal` and `fizz-dos-rt` mirror Desk; swapping in the real crates later may move behaviour the parity gate does not cover, such as timing and clean-up.
 - **The skeleton's rules were throwaway.** Milestone 0's parity result covered `fizz-hello`, which is deleted; the slice's rules start over with Fizz 1's traces, which exercise one slice of Fizz 1's rules and leave out ladders, vines, wall kicks and moving platforms.
 
