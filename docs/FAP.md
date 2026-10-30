@@ -214,7 +214,7 @@ The numeric values of `kind` and `sub` come from the enums in `fizz-ep2`, and th
 
 **Tiles.** After the objects, `w * h` bytes, one tile id each, in `TileMap` order: row-major, row 0 (the bottom) first. A reader copies them into the map with `copy_from_slice`. The tile ids are those of `fizz-ep2::tiles`. A tile id outside the table is a corrupt level.
 
-**Length.** The decoded length is `32 + pad8(name_len) + 32 * object_count + w * h`. The reader checks that the decoded length equals it exactly. For the slice (32 by 48, eight objects, a 16-byte name) that is 1,840 bytes.
+**Length.** The decoded length is `32 + pad8(name_len) + 32 * object_count + w * h`. The reader checks that the decoded length equals it exactly. For the slice (32 by 48, ten objects: the two keys, seven snacks and soda cans, and the chicken; a 16-byte name) that is 1,904 bytes.
 
 **Construction order.** The baker writes objects in the order the world is built: red key, blue key, snacks in source order, then the chicken. The reader applies them in record order. Objects of the same kind keep their source order, because the state hash indexes snacks and chickens by position.
 
@@ -332,7 +332,7 @@ The exact wording is final only once `tools/check-dos.sh` has a negative case fo
 
 - **Machine floor.** The stated minimum is a 4 MB machine with about 2 MB free (owner decision, 2026-10-29). Fizz 1 was a 4 MB-class game that needed 1 MB free and refused to start below it, because its sound handler faulted on pages the DPMI host had swapped out when DOSBox ran with `memsize` 2 and 1. 1 to 2 MB machines are not a design target; DOSBox's `memsize` 1 is only its smallest setting. Fizz 2 only warns when memory is below its floor, as the code does today, and carries on; nothing in the pack format adds a fallback for such machines.
 - **Free memory.** The DOSBox ladder reads about 2,256 KB free at `memsize` 4 and about 208 KB at `memsize` 2, and after the load about 96 KB at `memsize` 2 and about 56 KB at `memsize` 1 (after the 256 KB heap and the executable). A decoded section, its stored bytes (while decoding) and the decoder's working tables must all fit what the floor machine has.
-- **Levels.** A level is small (the slice's decoded section is 1,840 bytes; a Fizz 1-sized level of 192 by 28 tiles is about 6 KB). The tiles are copied into the `TileMap`, so the section buffer is freed once the world is built.
+- **Levels.** A level is small (the slice's decoded section is 1,904 bytes; a Fizz 1-sized level of 192 by 28 tiles is about 6 KB). The tiles are copied into the `TileMap`, so the section buffer is freed once the world is built.
 - **Audio, locked memory.** The decoded buffer that the sound interrupt reads must be **locked** (unpageable) memory, locked with the DPMI lock call before the first interrupt can read it and unlocked when the buffer is released. A paged-out page under an interrupt is the failure Fizz 1 hit. The stored bytes are read only by the main loop and need no lock, and can be freed as soon as the decode finishes, so what stays resident is the decoded length.
 - **Limit.** The default per-section decoded limit is **96 KB** (owner decision, 2026-10-29), for audio sections. The baker takes the limit as a parameter, checks decoded plus stored length against free memory in its report, and a section over the limit is an error at bake time, not a surprise at play time. `fizz-pack` has the default as `SECTION_LIMIT` and `PackView::check_limit`. The largest early-experiment section, the earlier `I3` layout of sunrise-psy for OPL2 (measured with that layout, to be re-measured on OPX), is 61,720 bytes decoded and about 11.9 KB stored, so every early-experiment song fits one section.
 - **Segment sections.** For a very long song, past the limit or the `u16` write count, the song is stored as OPX segments (see [Audio sections](#audio-sections)): a prelude and loop segments decoded in order, double buffered from the main loop. This is kept as an option and is not routine. Both buffers are locked.
@@ -357,7 +357,7 @@ pack SHARED
 target dos
 format 1
 abi 1a2b3c4d
-section LEVL 0 stored 1052 decoded 1840 codec 1 fnv_stored 0a1b2c3d fnv_decoded 4e5f6071 count 8
+section LEVL 0 stored 1052 decoded 1904 codec 1 fnv_stored 0a1b2c3d fnv_decoded 4e5f6071 count 10
 file length 3472 checksum 89abcdef
 ```
 
@@ -379,8 +379,8 @@ The numbers above are an example of the shape, not real values. `check` also dec
 
 The hand-written slice level in `crates/fizz-ep2/src/level.rs` stays in the code permanently as the test oracle (owner decision, 2026-10-29). Two things need proving, because the state hash of `fizz-ep2` covers the switches, the snack count and which snacks are taken, and not the tiles, the snack positions or the kinds. A baked level with one wrong tile could still match the golden hash.
 
-1. **Same digest.** `fizz_ep2::level::digest(&LevelSource)` is FNV-1a 64 (offset basis 0xcbf29ce484222325, prime 0x100000001b3) over, in this order and little-endian: `w`, `h` (as `u16`), the tile bytes, `switches` (`u32`), `floor_solid` (`u8`), the bits of the spawn x and y, then for each object in order `kind`, `sub`, `flags`, `channel` and the bits of `x`, `y` and `p`. The name is not included. The digest of the baked script equals the digest of `const SLICE`.
-2. **Same starting world.** `world_from_pack(view)` and `level::world()` give an equal `hash()`, and equal tiles and snack data field by field.
+1. **Same digest.** `fizz_ep2::level::digest(&LevelSource)` is FNV-1a 64 (offset basis 0xcbf29ce484222325, prime 0x100000001b3) over, in this order and little-endian: `w`, `h` (as `u16`), the tile bytes, `switches` (`u32`), `floor_solid` (`u8`), the bits of the spawn x and y, then for each object in order `kind`, `sub`, `flags`, `channel` and the bits of `x`, `y` and `p`. The name is not included. The function is `fizz_sim::StateHash` (same basis and prime), fed the fields in that order; the digest of `SLICE_SOURCE` is pinned as a literal in a test of `fizz-ep2`. The digest of the baked script equals the digest of `const SLICE`.
+2. **Same starting world.** `level::world_from_view(view)` and `level::world()` give an equal `hash()`, and equal tiles, switches, snacks, chickens, keys and spawn. `level::world()` is `level::world_from(&SLICE_SOURCE)`; a test keeps the old hand-written calls as an oracle and compares the two worlds field by field.
 3. **Same transcript everywhere.** A replay from the pack matches `crates/fizz-ep2/slice-replay.txt` byte for byte on native, Web and DOS (`tools/check-parity.sh`).
 
 Construction order (keys, then snacks, then the chicken, with same-kind objects in file order) is part of the digest and has its own test. The digest is computed from the decoded `LEVL` bytes as well as from the source, so the codec is inside the proof.
@@ -409,5 +409,5 @@ These remain, each with the package that settles it:
 2. **The speaker record layout** of the speaker `FXPK` section (effects only; the audio pack package).
 3. **Segment playback.** The `F1` segment extension is specified; the double-buffered player, and whether any shipped song needs it, are for the audio pack package.
 4. **Sections not yet specified.** `SPRT`, `BDRP` and `MUSC`.
-5. **The level digest helper** (`fizz_ep2::level::digest`, FNV-1a 64) is for the level-source and baker packages; `fizz-pack` does not carry it.
+5. **The level digest helper** (`fizz_ep2::level::digest`, FNV-1a 64) exists in `fizz-ep2`; `fizz-pack` does not carry it, and the baker will use it.
 6. **Floppy image tooling**: a separate package after the loaders.

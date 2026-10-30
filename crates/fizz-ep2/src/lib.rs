@@ -25,6 +25,6 @@ pub mod world;
 
 pub use ben::{Ben, BenFlags};
 pub use chicken::{CLUCK_VARIANTS, Chicken};
-pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay};
+pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay, replay_from};
 pub use shot::Shot;
 pub use world::{ChickenView, Event, SODA_AMMO, Snack, SnackKind, World, WorldFlags, hash, step};

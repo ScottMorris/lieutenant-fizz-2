@@ -96,6 +96,17 @@ impl SnackKind {
         }
     }
 
+    /// The kind with this pack number, or `None` for a number no kind has.
+    pub const fn from_number(n: u8) -> Option<SnackKind> {
+        match n {
+            0 => Some(SnackKind::Cheezie),
+            1 => Some(SnackKind::Choc),
+            2 => Some(SnackKind::Cookie),
+            3 => Some(SnackKind::Soda),
+            _ => None,
+        }
+    }
+
     /// The points Fizz 1 adds to the score for this snack.
     pub const fn points(self) -> u32 {
         match self {
@@ -214,6 +225,11 @@ impl World {
             key_blue: None,
             chicken_spawns: Vec::new(),
         }
+    }
+
+    /// Where Ben starts and respawns, the lower-left corner of his body.
+    pub fn spawn(&self) -> (f64, f64) {
+        self.spawn
     }
 
     /// Adds a chicken at Fizz 1's spawn point `(x, y)`, walking in direction `dir` (1 or -1).

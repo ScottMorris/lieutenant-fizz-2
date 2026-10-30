@@ -271,7 +271,11 @@ pub fn write_final(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Res
 /// Writes transcript v1 of the slice script: a hash at tick 0, every 60th tick, and the final tick, with an `EVENT` line
 /// for every event in between.
 pub fn replay(out: &mut impl core::fmt::Write) -> core::fmt::Result {
-    let mut w = level::world();
+    replay_from(out, level::world())
+}
+
+/// Writes the same transcript as [`replay`] for a world the caller built, for example from a level read out of a pack.
+pub fn replay_from(out: &mut impl core::fmt::Write, mut w: World) -> core::fmt::Result {
     let mut prev = Buttons::NONE;
     write_start(out, &w)?;
     for &(frames, now) in SLICE_SCRIPT {
