@@ -99,7 +99,8 @@ fn the_table_maps_every_event_as_the_plan_says() {
         assert_eq!(at(key).effect, Some(9));
         assert_eq!(cap(key), Some(word));
     }
-    assert_eq!(at(Event::DoorOpen { x, y }).effect, Some(10));
+    assert_eq!(at(Event::DoorOpen { x, y }).effect, Some(19));
+    assert_eq!(at(Event::HeadBump { x, y }).effect, Some(10));
     assert_eq!(cap(Event::DoorOpen { x, y }), Some("clunk"));
     assert_eq!(cap(Event::HeadBump { x, y }), Some("clunk"));
     assert_eq!(at(Event::Bounce { x, y }).effect, Some(12));
@@ -456,9 +457,10 @@ fn show_six_fills_every_slot_inside_the_view_with_the_widest_words() {
 
 #[test]
 fn the_effect_ids_are_the_sound_tables_order() {
-    // Eleven effects follow the cluck's four variants, then the alternates (boing (FM), jump (FM)), soda and the alternate fzzt (FM), which
-    // no event but the soda plays, and every id the table hands out is one the sound data has.
-    assert_eq!(EFFECT_FZZT_FM as usize + 1, fizz_sfx::EFFECT_COUNT);
+    // Eleven effects follow the cluck's four variants, then the alternates (boing (FM), jump (FM)), soda, the alternate fzzt (FM), which
+    // no event plays, and the door, which only a door plays, and every id the table hands out is one the sound data has.
+    assert_eq!(EFFECT_DOOR as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_DOOR, EFFECT_FZZT_FM + 1);
     assert_eq!(EFFECT_BOING_FM, EFFECT_CRUNCH + 1);
     assert_eq!(EFFECT_JUMP_FM, EFFECT_BOING_FM + 1);
     assert_eq!(EFFECT_SODA, EFFECT_JUMP_FM + 1);
@@ -511,13 +513,13 @@ fn every_event_in_the_replay_but_a_shot_ending_plays_one_effect() {
         EFFECT_JUMP => "jump",
         EFFECT_CRUNCH => "snack",
         EFFECT_SODA => "can",
+        EFFECT_DOOR => "dooropen",
         _ => "?",
     };
     for ((tick, id, _), (want_tick, want_name)) in got.iter().zip(&want) {
         assert_eq!(tick, want_tick);
         let name = name_of(*id);
-        let ok = name == *want_name
-            || (name == "clunk" && matches!(*want_name, "dooropen" | "headbump"));
+        let ok = name == *want_name || (name == "clunk" && *want_name == "headbump");
         assert!(
             ok,
             "tick {tick}: effect {id} ({name}) for a {want_name} event"
@@ -532,13 +534,13 @@ fn the_replay_plays_these_effects_this_often() {
     for (_, id, _) in replay_sounds(true) {
         count[usize::from(id)] += 1;
     }
-    // The five clucks (variant 0 twice, the others once each), then fzzt, fizzled, bonk, whoa!, ta-da!, the keys, clunks (two doors and four
+    // The five clucks (variant 0 twice, the others once each), then fzzt, fizzled, bonk, whoa!, ta-da!, the keys, the door sound (two doors), clunks (four
     // head-bumps), click, boings, jumps and crunches.
     assert_eq!(count[..4], [2, 1, 1, 1]);
     assert_eq!(
         count[4..],
-        [13, 1, 1, 1, 1, 3, 6, 1, 9, count[13], 5, 0, 0, 2, 0],
-        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda and fzzt (FM), which no event but the soda plays"
+        [13, 1, 1, 1, 1, 3, 4, 1, 9, count[13], 5, 0, 0, 2, 0, 2],
+        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda, fzzt (FM) and door, which no event but the soda and the doors play"
     );
     assert!(count[13] >= 20, "the route jumps a lot: {}", count[13]);
 }
