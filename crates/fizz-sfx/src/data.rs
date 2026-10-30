@@ -1868,14 +1868,14 @@ static OPL_12: [OplStep; 185] = [
     OplStep::new(0, 0xb5, 0x0e, 12),
 ];
 
-/// Effect 13 (jump): 57 records (228 bytes), 80 ticks, 143 ms.
+/// Effect 13 (jump): 57 records (228 bytes), 84 ticks, 150 ms.
 #[rustfmt::skip]
 static OPL_13: [OplStep; 57] = [
     OplStep::new(0, 0x01, 0x20, 4),
     OplStep::new(0, 0x2a, 0x21, 0),
     OplStep::new(0, 0x2d, 0x21, 0),
     OplStep::new(0, 0x4a, 0x1a, 0),
-    OplStep::new(0, 0x4d, 0x05, 0),
+    OplStep::new(0, 0x4d, 0x04, 0),
     OplStep::new(0, 0x6a, 0xf0, 0),
     OplStep::new(0, 0x6d, 0xf0, 0),
     OplStep::new(0, 0x8a, 0x0c, 0),
@@ -1883,51 +1883,51 @@ static OPL_13: [OplStep; 57] = [
     OplStep::new(0, 0xea, 0x00, 0),
     OplStep::new(0, 0xed, 0x00, 0),
     OplStep::new(0, 0xc5, 0x08, 2),
-    OplStep::new(0, 0xa5, 0x91, 0),
+    OplStep::new(0, 0xa5, 0x8f, 0),
     OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x05, 1),
+    OplStep::new(0, 0xa5, 0xbb, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x07, 1),
+    OplStep::new(0, 0xa5, 0xe9, 0),
+    OplStep::new(0, 0xb5, 0x2f, 3),
+    OplStep::new(0, 0x4d, 0x08, 1),
+    OplStep::new(0, 0xa5, 0x0d, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x0a, 1),
-    OplStep::new(0, 0xa5, 0xbf, 0),
-    OplStep::new(0, 0xb5, 0x2f, 3),
-    OplStep::new(0, 0x4d, 0x10, 1),
-    OplStep::new(0, 0xa5, 0xf0, 0),
-    OplStep::new(0, 0xb5, 0x2f, 3),
-    OplStep::new(0, 0x4d, 0x06, 1),
-    OplStep::new(0, 0xa5, 0x12, 0),
+    OplStep::new(0, 0xa5, 0x26, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0a, 1),
-    OplStep::new(0, 0xa5, 0x2d, 0),
+    OplStep::new(0, 0x4d, 0x0c, 1),
+    OplStep::new(0, 0xa5, 0x41, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0f, 1),
-    OplStep::new(0, 0xa5, 0x49, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x16, 1),
-    OplStep::new(0, 0xa5, 0x67, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0b, 1),
-    OplStep::new(0, 0xa5, 0x86, 0),
+    OplStep::new(0, 0x4d, 0x0e, 1),
+    OplStep::new(0, 0xa5, 0x5d, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x10, 1),
-    OplStep::new(0, 0xa5, 0xa6, 0),
+    OplStep::new(0, 0xa5, 0x7a, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x13, 1),
+    OplStep::new(0, 0xa5, 0x99, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x16, 1),
-    OplStep::new(0, 0xa5, 0xc9, 0),
+    OplStep::new(0, 0xa5, 0xb9, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0d, 1),
-    OplStep::new(0, 0xa5, 0xdb, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x11, 1),
-    OplStep::new(0, 0xa5, 0xdb, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x16, 1),
+    OplStep::new(0, 0x4d, 0x19, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x1d, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x21, 1),
+    OplStep::new(0, 0xa5, 0xdb, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x27, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x2e, 1),
+    OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 2),
-    OplStep::new(0, 0xb5, 0x12, 16),
+    OplStep::new(0, 0xb5, 0x12, 20),
 ];
 
 /// Effect 14 (crunch): 118 records (472 bytes), 136 ticks, 243 ms.
@@ -2244,14 +2244,14 @@ static OPL_15: [OplStep; 186] = [
     OplStep::new(0, 0xb5, 0x0e, 28),
 ];
 
-/// Effect 16 (jump (FM)): 57 records (228 bytes), 84 ticks, 150 ms.
+/// Effect 16 (jump (Fizz 1)): 57 records (228 bytes), 80 ticks, 143 ms.
 #[rustfmt::skip]
 static OPL_16: [OplStep; 57] = [
     OplStep::new(0, 0x01, 0x20, 4),
     OplStep::new(0, 0x2a, 0x21, 0),
     OplStep::new(0, 0x2d, 0x21, 0),
     OplStep::new(0, 0x4a, 0x1a, 0),
-    OplStep::new(0, 0x4d, 0x04, 0),
+    OplStep::new(0, 0x4d, 0x05, 0),
     OplStep::new(0, 0x6a, 0xf0, 0),
     OplStep::new(0, 0x6d, 0xf0, 0),
     OplStep::new(0, 0x8a, 0x0c, 0),
@@ -2259,51 +2259,51 @@ static OPL_16: [OplStep; 57] = [
     OplStep::new(0, 0xea, 0x00, 0),
     OplStep::new(0, 0xed, 0x00, 0),
     OplStep::new(0, 0xc5, 0x08, 2),
-    OplStep::new(0, 0xa5, 0x8f, 0),
+    OplStep::new(0, 0xa5, 0x91, 0),
     OplStep::new(0, 0xb5, 0x2f, 3),
-    OplStep::new(0, 0x4d, 0x05, 1),
-    OplStep::new(0, 0xa5, 0xbb, 0),
+    OplStep::new(0, 0x4d, 0x0a, 1),
+    OplStep::new(0, 0xa5, 0xbf, 0),
     OplStep::new(0, 0xb5, 0x2f, 3),
-    OplStep::new(0, 0x4d, 0x07, 1),
-    OplStep::new(0, 0xa5, 0xe9, 0),
+    OplStep::new(0, 0x4d, 0x10, 1),
+    OplStep::new(0, 0xa5, 0xf0, 0),
     OplStep::new(0, 0xb5, 0x2f, 3),
-    OplStep::new(0, 0x4d, 0x08, 1),
-    OplStep::new(0, 0xa5, 0x0d, 0),
+    OplStep::new(0, 0x4d, 0x06, 1),
+    OplStep::new(0, 0xa5, 0x12, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x0a, 1),
-    OplStep::new(0, 0xa5, 0x26, 0),
+    OplStep::new(0, 0xa5, 0x2d, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0c, 1),
-    OplStep::new(0, 0xa5, 0x41, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x0e, 1),
-    OplStep::new(0, 0xa5, 0x5d, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x10, 1),
-    OplStep::new(0, 0xa5, 0x7a, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x13, 1),
-    OplStep::new(0, 0xa5, 0x99, 0),
+    OplStep::new(0, 0x4d, 0x0f, 1),
+    OplStep::new(0, 0xa5, 0x49, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x16, 1),
-    OplStep::new(0, 0xa5, 0xb9, 0),
+    OplStep::new(0, 0xa5, 0x67, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x19, 1),
+    OplStep::new(0, 0x4d, 0x0b, 1),
+    OplStep::new(0, 0xa5, 0x86, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x10, 1),
+    OplStep::new(0, 0xa5, 0xa6, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x16, 1),
+    OplStep::new(0, 0xa5, 0xc9, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x0d, 1),
+    OplStep::new(0, 0xa5, 0xdb, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x11, 1),
+    OplStep::new(0, 0xa5, 0xdb, 0),
+    OplStep::new(0, 0xb5, 0x32, 3),
+    OplStep::new(0, 0x4d, 0x16, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x1d, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x21, 1),
-    OplStep::new(0, 0xa5, 0xdb, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
     OplStep::new(0, 0x4d, 0x27, 1),
     OplStep::new(0, 0xa5, 0xdb, 0),
-    OplStep::new(0, 0xb5, 0x32, 3),
-    OplStep::new(0, 0x4d, 0x2e, 1),
-    OplStep::new(0, 0xa5, 0xdb, 0),
     OplStep::new(0, 0xb5, 0x32, 2),
-    OplStep::new(0, 0xb5, 0x12, 20),
+    OplStep::new(0, 0xb5, 0x12, 16),
 ];
 
 /// The OPL2 records of each variant: writes to channel 5 timed in 560 Hz ticks.
@@ -2312,7 +2312,7 @@ pub(crate) static OPL: [&[OplStep]; VARIANTS] = [&OPL_0, &OPL_1, &OPL_2, &OPL_3,
 
 /// The length of each variant's OPL2 chunk in 560 Hz ticks.
 #[rustfmt::skip]
-pub(crate) static OPL_TICKS: [u32; VARIANTS] = [212, 88, 188, 200, 100, 112, 88, 336, 432, 220, 116, 56, 248, 80, 136, 252, 84];
+pub(crate) static OPL_TICKS: [u32; VARIANTS] = [212, 88, 188, 200, 100, 112, 88, 336, 432, 220, 116, 56, 248, 84, 136, 252, 80];
 
 /// Effect 0 (cluck 0 (buh-GAWK)): 48 frames (96 bytes), 343 ms.
 #[rustfmt::skip]
@@ -2425,11 +2425,10 @@ static SPEAKER_12: [u16; 56] = [
     5978, 0, 6024, 0, 6075, 6088, 6088, 0,
 ];
 
-/// Effect 13 (jump): 14 frames (28 bytes), 100 ms.
+/// Effect 13 (jump): 12 frames (24 bytes), 86 ms.
 #[rustfmt::skip]
-static SPEAKER_13: [u16; 14] = [
-    0, 3445, 3279, 0, 2969, 2826, 2689, 0, 2436, 0, 2206, 2152,
-    2152, 0,
+static SPEAKER_13: [u16; 12] = [
+    0, 3453, 3293, 3141, 2996, 2858, 2726, 0, 2480, 0, 2256, 0,
 ];
 
 /// Effect 14 (crunch): 24 frames (48 bytes), 171 ms.
@@ -2448,10 +2447,11 @@ static SPEAKER_15: [u16; 42] = [
     5537, 0, 5892, 0, 6310, 0,
 ];
 
-/// Effect 16 (jump (FM)): 12 frames (24 bytes), 86 ms.
+/// Effect 16 (jump (Fizz 1)): 14 frames (28 bytes), 100 ms.
 #[rustfmt::skip]
-static SPEAKER_16: [u16; 12] = [
-    0, 3453, 3293, 3141, 2996, 2858, 2726, 0, 2480, 0, 2256, 0,
+static SPEAKER_16: [u16; 14] = [
+    0, 3445, 3279, 0, 2969, 2826, 2689, 0, 2436, 0, 2206, 2152,
+    2152, 0,
 ];
 
 /// The PC speaker divisors of each variant, one per 140 Hz frame; 0 is gate off.
