@@ -86,7 +86,7 @@ pub enum SnackKind {
 pub const SODA_AMMO: u32 = 5;
 
 impl SnackKind {
-    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie, 3 soda can (not listed in `tiles::pack_content()`, which names the three snacks).
+    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie, 3 soda can (all four are listed in `tiles::pack_content()`).
     pub const fn number(self) -> u8 {
         match self {
             SnackKind::Cheezie => 0,
