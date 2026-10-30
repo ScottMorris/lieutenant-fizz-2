@@ -36,7 +36,8 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 tools/check.sh                                   # host gate, run before every PR
 cargo run -p fizz-ep2 --example replay            # native transcript
 tools/setup-dos.sh                               # links vendor/ from $DOS_TOOLCHAIN when absent
-tools/check-dos.sh                               # build FIZZ2.EXE and check it in headless DOSBox
+tools/check-dos.sh                               # build FIZZ2.EXE and check it in headless DOSBox (full gate; --groups base,audio for a part, --list names them)
+tools/ci-scope.sh                                # which check groups this branch's paths need (CI runs these on a PR, everything on main)
 tools/build-web.sh                               # build dist/web (needs the pinned wasm-bindgen CLI)
 tools/check-parity.sh                            # native, Web and DOS transcripts must match: PARITY ok <hash>
 python3 tools/progress-report/build.py --check   # build and check the progress archive in dist/progress-report (--offline: gh snapshot)

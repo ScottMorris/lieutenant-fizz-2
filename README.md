@@ -78,12 +78,14 @@ The Web and DOS checks need more:
 ```bash
 cargo install wasm-bindgen-cli --version 0.2.125 --locked   # once, for tools/build-web.sh
 DOS_TOOLCHAIN=/path/to/toolchain tools/setup-dos.sh         # once, links vendor/
-tools/check-dos.sh                                          # builds FIZZ2.EXE and checks it in headless DOSBox
+tools/check-dos.sh                                          # builds FIZZ2.EXE and checks it in headless DOSBox (the full gate)
+tools/check-dos.sh --groups base,audio                      # only some check groups (--list names them)
+tools/ci-scope.sh                                           # the groups a pull request needs, from the paths it changes
 tools/build-web.sh                                          # builds dist/web (needs Bun, to bundle Undertone)
 tools/check-parity.sh                                       # prints PARITY ok <hash> when native, Web and DOS agree
 ```
 
-`DOS_TOOLCHAIN` is a directory holding `djgpp/`, `dosbox/` and `cwsdpmi/`, such as `/opt/dos-toolchain` in the pinned `ci-dos` image that CI uses. To try the Web page, serve `dist/web` with any static file server. [`docs/PLATFORM.md`](docs/PLATFORM.md) lists every command and what was not verified.
+`DOS_TOOLCHAIN` is a directory holding `djgpp/`, `dosbox/` and `cwsdpmi/`, such as `/opt/dos-toolchain` in the pinned `ci-dos` image that CI uses. CI runs the `base` DOS checks plus the groups a pull request's paths can affect (chosen by `tools/ci-scope.sh`), and the full gate on `main`, every night and on a manual run; [`docs/DOS-CHECK.md`](docs/DOS-CHECK.md#check-groups-and-what-a-pull-request-runs) has the groups and the path rules. To try the Web page, serve `dist/web` with any static file server. [`docs/PLATFORM.md`](docs/PLATFORM.md) lists every command and what was not verified.
 
 ## Progress archive
 
