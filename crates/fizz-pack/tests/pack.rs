@@ -19,12 +19,13 @@ const COMPAT: u32 = compatibility(b"tiles v1");
 const STEM: &str = "SHARED";
 
 // Pinned schema numbers, computed independently in Python (FNV-1a 32 over the same feeds).
+// LEVEL and SCHEMA moved when the LEVL rule and string records were amended in (they were 0xEB2F_AD5D and 0xD59D_3505).
 const PIN_CONTAINER: u32 = 0x6F16_BA34;
-const PIN_LEVEL: u32 = 0xEB2F_AD5D;
+const PIN_LEVEL: u32 = 0x76AA_52BB;
 const PIN_AUDIO_OPL3: u32 = 0xB899_1606;
 const PIN_AUDIO_OPL2: u32 = 0x8D24_DCC8;
 const PIN_AUDIO_SPKR: u32 = 0x5A80_96D0;
-const PIN_SCHEMA: u32 = 0xD59D_3505;
+const PIN_SCHEMA: u32 = 0x25E8_1944;
 const PIN_COMPAT_OPL3: u32 = 0x2E1A_73F9;
 
 fn expect() -> Expect<'static> {
@@ -74,6 +75,8 @@ fn level_bytes() -> Vec<u8> {
         spawn_y_bits: 2.0f64.to_bits(),
         name: "Slice",
         objects: &objects,
+        rules: &[],
+        strings: &[],
         tiles: &tiles,
     })
 }
@@ -187,7 +190,7 @@ fn level_view_refuses_wrong_sizes_and_fields() {
     bad[8] = 2;
     assert_eq!(LevelView::new(&bad).unwrap_err(), LevelError::BadField);
     let mut bad = b.clone();
-    bad[29] = 1;
+    bad[30] = 1;
     assert_eq!(LevelView::new(&bad).unwrap_err(), LevelError::BadField);
     // A width and height that would multiply far past the data.
     let mut huge = b.clone();
@@ -211,6 +214,8 @@ fn level_with_no_objects_and_a_long_name() {
         spawn_y_bits: 0,
         name: &name,
         objects: &[],
+        rules: &[],
+        strings: &[],
         tiles: &[7, 8],
     });
     let v = LevelView::new(&b).unwrap();
@@ -631,10 +636,23 @@ fn level_count_must_match_the_directory() {
 #[test]
 fn level_layout_is_the_spec_layout() {
     let b = level_bytes();
-    // Spawn at 12 and 20, the reserved word at 28.
+    // Spawn at 12 and 20, the rule and string counts at 28 and 29, the reserved word at 30.
     assert_eq!(b[12..20], 11.7f64.to_le_bytes());
     assert_eq!(b[20..28], 2.0f64.to_le_bytes());
+    assert_eq!(b[28..32], [0; 4]); // no rules, no strings, reserved zero
+}
+
+#[test]
+fn level_without_rules_or_strings_keeps_the_old_bytes() {
+    // The fixture's FNV-1a 32 was computed by an independent Python encoder of the layout before rules and strings existed, so a
+    // level with neither is byte-identical to what the encoder wrote before the amendment.
+    let b = level_bytes();
+    assert_eq!(b.len(), 164);
+    assert_eq!(fnv(&b), 0x89F7_4BCC);
     assert_eq!(b[28..32], [0; 4]);
+    let v = LevelView::new(&b).unwrap();
+    assert_eq!((v.rule_count(), v.string_count()), (0, 0));
+    assert_eq!((v.rules().count(), v.strings().count()), (0, 0));
 }
 
 #[test]

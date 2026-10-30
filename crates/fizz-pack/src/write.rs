@@ -9,7 +9,10 @@
 // the container does not care which encoder made a stream. Every function here is a pure function of its input, so the bytes are
 // reproducible.
 
-use crate::level::{LEVEL_HEADER_LEN, NAME_MAX, OBJECT_LEN, ObjectRec, padded_name_len};
+use crate::level::{
+    LEVEL_HEADER_LEN, MAX_RULES, MAX_STRINGS, NAME_MAX, OBJECT_LEN, ObjectRec, RULE_LEN, RuleRec,
+    STRING_LEN, StringRec, padded_name_len,
+};
 use crate::pack::{
     ALIGN, CODEC_DEFLATE, CODEC_STORED, ENTRY_LEN, FORMAT_VERSION, HEADER_LEN, MAGIC, checksum,
     fnv, stem_bytes,
@@ -335,16 +338,28 @@ pub struct LevelSpec<'a> {
     /// At most 48 bytes of printable ASCII.
     pub name: &'a str,
     pub objects: &'a [ObjectRec],
+    /// At most 32 rules; empty for a level without rules.
+    pub rules: &'a [RuleRec],
+    /// At most 32 strings; empty for a level without strings.
+    pub strings: &'a [StringRec],
     /// Exactly `width * height` bytes.
     pub tiles: &'a [u8],
 }
 
-/// Encodes a `LEVL` section (panics if the name is over 48 bytes or the tile count is not `width * height`).
+/// Encodes a `LEVL` section (panics if the name is over 48 bytes, there are more than 32 rules or strings, or the tile count is not
+/// `width * height`). It does not validate the records; `LevelView::new` does.
 pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
     assert!(l.name.len() <= NAME_MAX && l.objects.len() <= 65535);
+    assert!(l.rules.len() <= MAX_RULES && l.strings.len() <= MAX_STRINGS);
     assert_eq!(l.tiles.len(), usize::from(l.width) * usize::from(l.height));
-    let mut v =
-        Vec::with_capacity(LEVEL_HEADER_LEN + 256 + l.objects.len() * OBJECT_LEN + l.tiles.len());
+    let mut v = Vec::with_capacity(
+        LEVEL_HEADER_LEN
+            + 256
+            + l.objects.len() * OBJECT_LEN
+            + l.rules.len() * RULE_LEN
+            + l.strings.len() * STRING_LEN
+            + l.tiles.len(),
+    );
     v.extend_from_slice(&l.width.to_le_bytes());
     v.extend_from_slice(&l.height.to_le_bytes());
     v.extend_from_slice(&l.switches.to_le_bytes());
@@ -353,7 +368,9 @@ pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
     v.extend_from_slice(&(l.objects.len() as u16).to_le_bytes());
     v.extend_from_slice(&l.spawn_x_bits.to_le_bytes());
     v.extend_from_slice(&l.spawn_y_bits.to_le_bytes());
-    v.extend_from_slice(&[0; 4]);
+    v.push(l.rules.len() as u8);
+    v.push(l.strings.len() as u8);
+    v.extend_from_slice(&[0; 2]);
     v.extend_from_slice(l.name.as_bytes());
     v.resize(LEVEL_HEADER_LEN + padded_name_len(l.name.len()), 0);
     for o in l.objects {
@@ -364,6 +381,12 @@ pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
         v.extend_from_slice(&o.x_bits.to_le_bytes());
         v.extend_from_slice(&o.y_bits.to_le_bytes());
         v.extend_from_slice(&o.p_bits.to_le_bytes());
+    }
+    for r in l.rules {
+        v.extend_from_slice(&r.to_bytes());
+    }
+    for s in l.strings {
+        v.extend_from_slice(&s.to_bytes());
     }
     v.extend_from_slice(l.tiles);
     v

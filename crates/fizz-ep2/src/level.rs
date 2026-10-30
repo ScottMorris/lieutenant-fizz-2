@@ -696,6 +696,8 @@ mod tests {
             spawn_y_bits: src.spawn.1.to_bits(),
             name: src.name,
             objects: &recs,
+            rules: &[],
+            strings: &[],
             tiles: src.tiles,
         })
     }
@@ -745,6 +747,8 @@ mod tests {
                 spawn_y_bits: SPAWN.1.to_bits(),
                 name: "t",
                 objects,
+                rules: &[],
+                strings: &[],
                 tiles: SLICE_SOURCE.tiles,
             });
             let view = LevelView::with_count(&bytes, objects.len() as u16).unwrap();
