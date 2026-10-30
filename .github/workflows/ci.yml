@@ -1,5 +1,10 @@
 # Runs tools/check.sh on every pull request and push to main, and the DOS and Web parity checks in the pinned ci-dos image.
 #
+# The `parity` job runs a slice of the DOS gate on a pull request and the whole of it everywhere else. tools/ci-scope.sh reads the paths
+# the pull request changes and names the groups of tools/check-dos.sh they can affect (`base` always, plus any of input, view, audio,
+# config-sound, menu, machine, pack; a path nobody has classified, or one that can change what runs, selects `all`). Pushes to main, the
+# nightly schedule and a manual run (workflow_dispatch) always run `all`, so main is verified in full whatever the pull requests ran.
+#
 # (c) Copyright 2026 Liminal HQ, Scott Morris
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
@@ -9,13 +14,20 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+  # The full gate once a night on main (scheduled runs use the default branch), so a drift that no pull request's paths pointed at
+  # is still caught within a day. A failed run on main or on the schedule is the same red CI run the owner is already told about.
+  schedule:
+    - cron: '17 5 * * *'
 
 permissions:
   contents: read
 
+# A new push to a pull request cancels that pull request's earlier run. Every other run (main, the schedule, a manual run) has a group of
+# its own, so nothing on main is ever cancelled or replaced by a newer run.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -34,9 +46,28 @@ jobs:
     # and CWSDPMI (under /opt/dos-toolchain), but no Node and no wasm-bindgen CLI.
     container: ghcr.io/liminal-hq/ci-dos@sha256:93d129b5c910b2a2d5de38ae7235e9dc8b311d302c1c57992f060b036a74dc4e
     steps:
+      # The full history, so the scope step can diff the pull request against its base.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Trust the workspace
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # Which groups of DOS checks this run needs. The reasons (a rule for each changed path) go to the log; the groups to the next steps.
+      - name: Choose the DOS check groups
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            groups="$(tools/ci-scope.sh --base "origin/$BASE_REF")"
+          else
+            groups=all
+            echo "ci-scope: a $EVENT run always runs the full gate"
+          fi
+          echo "groups=$groups" >> "$GITHUB_OUTPUT"
+          echo "DOS check groups: $groups"
+          echo "DOS check groups: \`$groups\`" >> "$GITHUB_STEP_SUMMARY"
       # The CLI must match the `wasm-bindgen` crate in Cargo.lock; tools/build-web.sh fails if they drift, so update both together.
       # The image's CARGO_HOME is /usr/local/cargo, so `cargo install` writes to /usr/local/cargo/bin, which is already on the PATH.
       - name: Cache the wasm-bindgen CLI
@@ -52,8 +83,13 @@ jobs:
         run: tools/setup-dos.sh
         env:
           DOS_TOOLCHAIN: /opt/dos-toolchain
+      # The independent 28-second /REPLAY cases run four at a time (CHECK_DOS_JOBS); the cases that type keys or time themselves never
+      # share the machine with another case.
       - name: Check the DOS build
-        run: tools/check-dos.sh
+        env:
+          CHECK_DOS_JOBS: 4
+          GROUPS_TO_RUN: ${{ steps.scope.outputs.groups }}
+        run: tools/check-dos.sh --groups "$GROUPS_TO_RUN"
       # tools/build-web.sh runs `bun install --frozen-lockfile` for the page's one dependency, @liminal-hq/undertone 0.3.0 from the
       # public npm registry (no token), then bundles the page with `bun build`. That install is the build's only use of the network;
       # the bundle itself needs none. The package is 242 kB with no dependencies, so there is no cache step.
@@ -61,8 +97,12 @@ jobs:
         run: tools/build-web.sh
       - name: Test the Web sound player
         run: bun test web
+      # On a slice run the DOS leg reuses the /REPLAY transcript the DOS step just made (same executable, same comparison).
       - name: Check parity
-        run: tools/check-parity.sh
+        env:
+          GROUPS_TO_RUN: ${{ steps.scope.outputs.groups }}
+        run: |
+          if [ "$GROUPS_TO_RUN" = all ]; then tools/check-parity.sh; else tools/check-parity.sh --quick; fi
       - name: Check the sprite grids and generated data
         run: |
           bun tools/sprites/emit-rust.ts --check
