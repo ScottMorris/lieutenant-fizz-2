@@ -108,13 +108,15 @@ fn the_table_maps_every_event_as_the_plan_says() {
     assert_eq!(cap(Event::Jump { x, y }), None);
     assert_eq!(at(Event::Snack { x, y }).effect, Some(14));
     assert_eq!(cap(Event::Snack { x, y }), Some("crunch"));
+    assert_eq!(at(Event::Can { x, y }).effect, Some(17));
+    assert_eq!(cap(Event::Can { x, y }), Some("fsssht"));
     assert_eq!(at(Event::ShotEnd { x, y }).effect, None);
 }
 
 #[test]
 fn the_replay_raises_these_captions_on_these_ticks() {
     let got = timeline();
-    // The fire events at 1129 and 1149 are dropped: the same word came 10 ticks before each.
+    // The fire events at 1129 and 1149 are dropped: the same word came 10 ticks before each. After the can at 1190 the blaster fires five more times, and the ones at 1205 and 1225 are dropped the same way.
     let want: &[(u32, &str)] = &[
         (31, "fzzt"),
         (61, "fzzt"),
@@ -129,27 +131,32 @@ fn the_replay_raises_these_captions_on_these_ticks() {
         (1139, "fzzt"),
         (1159, "fzzt"),
         (1169, "click \u{2014} no fizz"),
-        (1192, "crunch"),
-        (1196, "clunk"),
-        (1260, "crunch"),
-        (1264, "clunk"),
-        (1351, "boing"),
-        (1379, "boing"),
-        (1407, "boing"),
-        (1447, "crunch"),
-        (1452, "boing"),
-        (1472, "crunch"),
-        (1480, "boing"),
-        (1500, "crunch"),
-        (1503, "blue gumdrop"),
-        (1508, "boing"),
-        (1539, "clunk"),
-        (1548, "boing"),
-        (1553, "clunk"),
-        (1565, "boing"),
-        (1570, "clunk"),
-        (1582, "boing"),
-        (1588, "ta-da!"),
+        (1190, "fsssht"),
+        (1195, "fzzt"),
+        (1215, "fzzt"),
+        (1235, "fzzt"),
+        (1274, "crunch"),
+        (1278, "clunk"),
+        (1336, "crunch"),
+        (1340, "clunk"),
+        (1427, "boing"),
+        (1455, "boing"),
+        (1483, "boing"),
+        (1522, "fsssht"),
+        (1523, "crunch"),
+        (1528, "boing"),
+        (1548, "crunch"),
+        (1556, "boing"),
+        (1576, "crunch"),
+        (1579, "blue gumdrop"),
+        (1584, "boing"),
+        (1615, "clunk"),
+        (1624, "boing"),
+        (1629, "clunk"),
+        (1641, "boing"),
+        (1646, "clunk"),
+        (1658, "boing"),
+        (1664, "ta-da!"),
     ];
     assert_eq!(got, want);
 }
@@ -449,8 +456,13 @@ fn show_six_fills_every_slot_inside_the_view_with_the_widest_words() {
 
 #[test]
 fn the_effect_ids_are_the_sound_tables_order() {
-    // Eleven effects follow the cluck's four variants, and every id the table hands out is one the sound data has.
-    assert_eq!(EFFECT_CRUNCH as usize + 1, fizz_sfx::EFFECT_COUNT);
+    // Eleven effects follow the cluck's four variants, then the alternates (boing (FM), jump (FM)), soda and the alternate fzzt (FM), which
+    // no event but the soda plays, and every id the table hands out is one the sound data has.
+    assert_eq!(EFFECT_FZZT_FM as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_BOING_FM, EFFECT_CRUNCH + 1);
+    assert_eq!(EFFECT_JUMP_FM, EFFECT_BOING_FM + 1);
+    assert_eq!(EFFECT_SODA, EFFECT_JUMP_FM + 1);
+    assert_eq!(EFFECT_FZZT_FM, EFFECT_SODA + 1);
     assert_eq!(EFFECT_CLUCK, 0);
     assert_eq!(fizz_ep2::CLUCK_VARIANTS, EFFECT_FZZT);
     let ids = [
@@ -498,6 +510,7 @@ fn every_event_in_the_replay_but_a_shot_ending_plays_one_effect() {
         EFFECT_BOING => "bounce",
         EFFECT_JUMP => "jump",
         EFFECT_CRUNCH => "snack",
+        EFFECT_SODA => "can",
         _ => "?",
     };
     for ((tick, id, _), (want_tick, want_name)) in got.iter().zip(&want) {
@@ -519,13 +532,13 @@ fn the_replay_plays_these_effects_this_often() {
     for (_, id, _) in replay_sounds(true) {
         count[usize::from(id)] += 1;
     }
-    // The four clucks (variants 0 to 3, once each), then fzzt, fizzled, bonk, whoa!, ta-da!, the keys, clunks (two doors and four
+    // The five clucks (variant 0 twice, the others once each), then fzzt, fizzled, bonk, whoa!, ta-da!, the keys, clunks (two doors and four
     // head-bumps), click, boings, jumps and crunches.
-    assert_eq!(count[..4], [1, 1, 1, 1]);
+    assert_eq!(count[..4], [2, 1, 1, 1]);
     assert_eq!(
         count[4..],
-        [8, 1, 1, 1, 1, 3, 6, 1, 9, count[13], 5],
-        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch"
+        [13, 1, 1, 1, 1, 3, 6, 1, 9, count[13], 5, 0, 0, 2, 0],
+        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda and fzzt (FM), which no event but the soda plays"
     );
     assert!(count[13] >= 20, "the route jumps a lot: {}", count[13]);
 }

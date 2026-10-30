@@ -11,7 +11,7 @@ import { Music } from "./music.ts";
 import { Sfx } from "./sfx.ts";
 import { EFFECT_NAMES } from "../assets/sfx/effects.ts";
 import { OptionsUi, ROW, ROW_OF, browserStorage, loadOptions, menuKeyFor, MENU_KEY, opensPaused, placementFromSearch, pullOptions, pushOptions, saveOptions } from "./options.ts";
-import { announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, sameHud } from "./hud.ts";
+import { KEY_KINDS, announcement, hudScale, hudSide, hudView, keyPixelSize, keySvg, parseHud, sameHud } from "./hud.ts";
 
 // Button bits match `fizz_sim::Buttons`.
 const UP = 1;
@@ -77,7 +77,12 @@ const captionLayer = document.getElementById("caption-layer");
 const playHud = document.getElementById("play-hud");
 const hudFizz = document.getElementById("hud-fizz");
 const hudDeaths = document.getElementById("hud-deaths");
-const hudKey = document.getElementById("hud-key");
+const hudScoreLead = document.getElementById("hud-score-lead");
+const hudScoreRest = document.getElementById("hud-score-rest");
+const hudScoreWord = document.getElementById("hud-score-word");
+const hudScorePop = document.getElementById("hud-score-pop");
+const hudTray = document.getElementById("hud-tray");
+const hudSockets = {};
 const hudStatus = document.getElementById("hud-status");
 
 // Cluck captions follow Fizz 1's Web text (design/melting/engine.js, `cap`): 15 px bold italic, centred, rising from half a line to
@@ -211,13 +216,25 @@ function measureHud() {
 }
 
 function showPlayHud(app) {
-  const now = { ammo: app.ammo(), key: app.has_key(), deaths: app.deaths() };
+  const now = parseHud(app.hud_view());
   if (sameHud(hudShown, now)) return;
   const view = hudView(now);
   if (hudFizz.textContent !== view.fizz) hudFizz.textContent = view.fizz;
   hudFizz.toggleAttribute("data-out", view.fizzOut);
+  if (hudScoreLead.textContent !== view.scoreLead) hudScoreLead.textContent = view.scoreLead;
+  if (hudScoreRest.textContent !== view.scoreRest) hudScoreRest.textContent = view.scoreRest;
+  // For a second after a snack its points stand in the place of the word Score.
+  hudScorePop.textContent = view.pop;
+  hudScoreWord.style.visibility = view.pop === "" ? "visible" : "hidden";
   if (hudDeaths.textContent !== view.deaths) hudDeaths.textContent = view.deaths;
-  hudKey.dataset.carried = String(view.key);
+  for (const s of view.sockets) {
+    const el = hudSockets[s.kind];
+    el.hidden = !s.shown;
+    el.dataset.held = String(s.held);
+    el.dataset.ring = String(s.ring);
+    el.querySelector(".pips").replaceChildren(...Array.from({ length: s.pips }, () => document.createElement("i")));
+    el.querySelector(".cnt").textContent = s.digit;
+  }
   // Told once, and only for what matters (hud.ts `announcement`). The text is cleared first so the same words twice, such as two
   // Fizz running out, are announced again.
   const said = announcement(hudShown, now);
@@ -282,9 +299,19 @@ function setPanel(open) {
 }
 
 async function main() {
-  // Both drawings of the key are in the chip; CSS shows the one that matches data-carried.
-  hudKey.innerHTML = `<span class="off">${keySvg(false)}</span><span class="on">${keySvg(true)}</span>`;
-  hudKey.dataset.carried = "false";
+  // The tray has a socket for each kind of key; both drawings of the key are in it and CSS shows the one that matches data-held.
+  // The page shows only the sockets of the kinds the level has (the module says which).
+  for (const kind of KEY_KINDS) {
+    const el = document.createElement("span");
+    el.className = "sock";
+    el.dataset.kind = kind;
+    el.dataset.held = "false";
+    el.dataset.ring = "false";
+    el.hidden = true;
+    el.innerHTML = `<span class="key off">${keySvg(kind, false)}</span><span class="key on">${keySvg(kind, true)}</span><span class="pips"></span><span class="cnt"></span>`;
+    hudTray.append(el);
+    hudSockets[kind] = el;
+  }
   new ResizeObserver(measureHud).observe(playHud);
   fitView();
   addEventListener("resize", scheduleFit);
@@ -482,6 +509,8 @@ async function main() {
     // A screen up holds the game: the module drops its pacer, so the first frame after it restarts the clock and nothing is caught up.
     if (ui.isOpen) app.hold();
     else app.frame(performance.now());
+    // The screen mix: the music is muffled and lowered under Paused and Options, and comes back on resume (web/mix.ts). Music only.
+    audio.setScreen(["play", "pause", "options"][app.menu_screen()] ?? "play");
     // Read after every frame: the module keeps the effects of all the ticks the frame ran.
     // Each effect carries its place in the view (pan -1 to 1 and gain 0.4 to 1) from the same function DOS uses; Classic mode ignores it.
     for (let id = app.take_effect(); id >= 0; id = app.take_effect()) sfx.playEffect(id, app.effect_pan(), app.effect_gain());

@@ -79,6 +79,8 @@
 
 mod captions;
 pub use captions::*;
+pub mod hud;
+pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
@@ -562,14 +564,19 @@ pub fn draw_slice_captions(
     // sprite above them.
     let bob = i32::from(phase / 16 % 2 == 1);
     if !world.snacks.is_empty()
-        && let (Some(cheezie), Some(choc), Some(cookie)) =
-            (sprite("cheezie"), sprite("choc"), sprite("cookie"))
+        && let (Some(cheezie), Some(choc), Some(cookie), Some(soda)) = (
+            sprite("cheezie"),
+            sprite("choc"),
+            sprite("cookie"),
+            sprite("soda"),
+        )
     {
         for sn in world.snacks.iter().filter(|sn| !sn.taken) {
             let art = match sn.kind {
                 SnackKind::Cheezie => cheezie,
                 SnackKind::Choc => choc,
                 SnackKind::Cookie => cookie,
+                SnackKind::Soda => soda,
             };
             let (sx, sy) = at(sn.x, sn.y);
             blit_sprite(frame, w, h, art, sx, sy + 8 - bob, false);
@@ -1012,7 +1019,7 @@ mod tests {
         (217, 0x5af507e1b680861b, 0x1b12c767752c9322),
         (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
         (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
-        (1094, 0xa3bb18fc4d88b2b2, 0xa3bb18fc4d88b2b2),
+        (1094, 0x49aad29e3e60055a, 0x49aad29e3e60055a),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
         0x3b51f05130991d1b,
@@ -1152,8 +1159,8 @@ mod tests {
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
-                (1268, 0x66dbf1dcfba4c144),
-                (1450, 0xbc6e781fd07e5abe),
+                (1268, 0xaee3ec7a8fed2406),
+                (1450, 0xace0d5524423fa9f),
                 (1681, 0x95274a1a4dc480ff),
             ]
         );
@@ -1169,8 +1176,8 @@ mod tests {
                 (700, 0xe28008760a025065),
                 (865, 0x1e0d93372eb50e10),
                 (1000, 0x1881c1623a3ec20c),
-                (1268, 0x66dbf1dcfba4c144),
-                (1450, 0xbc6e781fd07e5abe),
+                (1268, 0xaee3ec7a8fed2406),
+                (1450, 0xace0d5524423fa9f),
                 (1681, 0x95274a1a4dc480ff),
             ]
         );
@@ -1222,9 +1229,11 @@ mod tests {
 
     #[test]
     fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
-        // Each of the script's eight shot ends gives a puff for ticks e..e+17 and no other tick.
-        let ends = [96u32, 106, 281, 1132, 1142, 1152, 1162, 1172];
-        let mut seen = [0u32; 8];
+        // Each of the script's thirteen shot ends gives a puff for ticks e..e+17 and no other tick.
+        let ends = [
+            96u32, 106, 281, 1132, 1142, 1152, 1162, 1172, 1203, 1213, 1223, 1233, 1243,
+        ];
+        let mut seen = [0u32; 13];
         let mut blank = Vec::new();
         play_puffs(|w, puffs| {
             let t = w.tick.0 as u32;
@@ -1256,7 +1265,7 @@ mod tests {
                 }
             }
         });
-        assert_eq!(seen, [PUFF_TICKS; 8]);
+        assert_eq!(seen, [PUFF_TICKS; 13]);
         // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
         // ends where its first three ticks leave no puff pixel in the frame (the picture is identical with and without the puff).
         let off_screen = 96..106;

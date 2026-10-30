@@ -28,6 +28,10 @@ export interface SfxVoice {
   lpd?: number;
   lps?: number;
   lpr?: number;
+  /** A high-pass cutoff in Hz (Fizz 1's `hpf`), for a noise burst that keeps only its top. */
+  hpf?: number;
+  /** Seconds a pitched voice takes to glide down an octave to its note (Fizz 1's `slide`, Undertone's `.slide()`): it starts an octave above and falls. */
+  slide?: number;
   nudge?: number;
   /** An exact pitch in Hz, used in place of `n`. */
   hz?: number;
@@ -115,6 +119,50 @@ export function curve(c: Curve): SfxVoice[] {
       v.lps = 0.3;
       v.lpr = 0.012;
     }
+    return v;
+  });
+}
+
+/** The shapes of Fizz 1's Enhanced pitch curves that `chain` reproduces: a straight rise, and a swing that fades to nothing. */
+export type ChainShape = 'rise' | 'wobble';
+
+export interface Chain {
+  /** The starting note name; its frequency is the curve's base pitch. */
+  from: string;
+  shape: ChainShape;
+  /** Rise: the travel in semitones. Wobble: the size of the swing in semitones. */
+  semitones: number;
+  seconds: number;
+  wave: Wave;
+  gain: number;
+  lpf?: number;
+  /** Swings a second, for the wobble shape (Fizz 1's default is 8). */
+  rate?: number;
+}
+
+/**
+ * Fizz 1's `curveVoices` (episode-1 `enhanced-sfx.ts`), unchanged: a curve as a run of short notes, one every 25 ms, each at the next
+ * pitch on the shape, with a 2 ms attack, 37.5 ms decay, 12 ms release, and the gain easing down by 55 percent along the curve. Not
+ * `curve` above, which eases by 45 percent, adds a filter envelope and only rises or falls in a straight line.
+ */
+export function chain(c: Chain): SfxVoice[] {
+  const base = noteHz(c.from);
+  const count = Math.max(2, Math.ceil(c.seconds / STEP));
+  return Array.from({ length: count }, (_, step): SfxVoice => {
+    const u = step / (count - 1);
+    const offset =
+      c.shape === 'rise' ? c.semitones * u : c.semitones * (1 - u) * Math.sin(2 * Math.PI * (c.rate ?? 8) * c.seconds * u);
+    const v: SfxVoice = {
+      n: c.from,
+      hz: round(base * 2 ** (offset / 12), 3),
+      w: c.wave,
+      a: 0.002,
+      d: STEP * 1.5,
+      r: 0.012,
+      g: round(c.gain * (1 - 0.55 * u), 4),
+      nudge: round(step * STEP, 4),
+    };
+    if (c.lpf) v.lpf = c.lpf;
     return v;
   });
 }

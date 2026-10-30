@@ -13,8 +13,8 @@ use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, Puffs, ben_view_box, caption_view,
-    draw_slice_puffs, event_sound,
+    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, HudAnim, Puffs, ben_view_box,
+    caption_view, draw_slice_puffs, event_sound,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -140,6 +140,8 @@ pub struct App {
     puffs: Puffs,
     /// The event captions (fzzt, clunk and the rest): view state fed from the step events whether or not captions are shown.
     event_captions: EventCaptions,
+    /// The HUD's score count-up, `+N` and key rings, fed from the step like the puffs. Motion Reduced is the shake being off.
+    hud: HudAnim,
     /// The Paused and Options screens. While one is up `frame` does not step.
     menus: Menus,
 }
@@ -172,6 +174,7 @@ impl App {
             live_captions: Vec::new(),
             puffs: Puffs::new(),
             event_captions: EventCaptions::new(),
+            hud: HudAnim::new(),
             menus: Menus::new(),
         }
     }
@@ -259,6 +262,7 @@ impl App {
         self.taken = Placement::CENTRE;
         self.puffs.clear();
         self.event_captions.clear();
+        self.hud = HudAnim::new();
     }
 
     /// Queues the sound of every event the step that just ran emitted, and takes its shot ends for the puffs and its captions for the
@@ -278,6 +282,7 @@ impl App {
             }
         }
         self.puffs.observe(&self.world);
+        self.hud.observe(&self.world, !self.shake);
         self.event_captions
             .observe(&self.world, self.view_w, self.view_h, &options);
     }
@@ -465,6 +470,18 @@ impl App {
 
     pub fn deaths(&self) -> u32 {
         self.world.deaths
+    }
+
+    /// What the HUD shows now, as the integers the page draws it from (`fizz_slice_view::HudView`): the Fizz count, the score shown
+    /// (counting up after a snack), the points of the snack just taken (0 for none), the deaths, and then for each of the four key
+    /// kinds (red, blue, green, gold) three numbers: whether the level has the kind, how many Ben holds and whether its ring shows.
+    pub fn hud_view(&self) -> Vec<i32> {
+        let v = self.hud.view(&self.world);
+        let mut out = vec![v.fizz as i32, v.score as i32, v.pop as i32, v.deaths as i32];
+        for k in &v.keys {
+            out.extend([i32::from(k.in_level), i32::from(k.held), i32::from(k.ring)]);
+        }
+        out
     }
 
     /// Where Ben's sprite lies in the view now: left, top, width and height in view pixels (the view is [`App::width`] by
@@ -869,6 +886,39 @@ mod tests {
     }
 
     #[test]
+    fn the_hud_view_hands_the_page_the_shared_model() {
+        let mut app = App::new();
+        // Fizz 5, score 0, no pop, deaths 0; the red and blue sockets are in the level, empty, and green and gold are not.
+        assert_eq!(
+            app.hud_view(),
+            [5, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        // A snack and the red key: the pop shows at once, the score counts up a point every two ticks, the red socket rings.
+        app.collect_events();
+        app.world.snacks[0].taken = true;
+        app.world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
+        let points = app.world.snacks[0].kind.points() as i32;
+        app.world.tick = app.world.tick.next();
+        app.collect_events();
+        let v = app.hud_view();
+        assert_eq!((v[1], v[2]), (0, points));
+        assert_eq!(&v[4..7], &[1, 1, 1]);
+        app.world.tick = app.world.tick.next();
+        app.collect_events();
+        assert_eq!(app.hud_view()[1], 1.min(points));
+        // Reduced Motion (the shake off) jumps the score and shows no ring.
+        let mut still = App::new();
+        still.set_shake(false);
+        still.collect_events();
+        still.world.snacks[0].taken = true;
+        still.world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
+        still.world.tick = still.world.tick.next();
+        still.collect_events();
+        let v = still.hud_view();
+        assert_eq!((v[1], v[2], v[6]), (points, points, 0));
+    }
+
+    #[test]
     fn the_app_draws_the_shot_end_puffs_a_reference_presenter_draws() {
         // A reference that feeds its own Puffs from the rules' events, as the DOS presenter does, must draw the same pixels
         // as the app does while a puff is alive, and the puff must show at the ticks the DOS bench samples.
@@ -1201,11 +1251,16 @@ mod tests {
         assert_eq!(got, want);
         assert_eq!(
             got.len(),
-            4 + 8 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + jumps(&got)
+            5 + 13 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + 2 + jumps(&got)
         );
-        for id in 4..fizz_sfx::EFFECT_COUNT as u8 {
+        // Every effect an event plays (4 to 14, and 17 the soda); the others (15 boing (FM), 16 jump (FM), 18 fzzt (FM)) are alternates no event plays.
+        for id in (4..=14).chain([17]) {
             assert!(got.contains(&id), "effect {id} is never played");
         }
+        assert!(
+            !got.iter().any(|id| matches!(*id, 15 | 16 | 18)),
+            "the alternates are not wired to events"
+        );
     }
 
     /// How many jumps (effect 13) a list of effects has.

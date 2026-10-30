@@ -19,7 +19,7 @@
 #   6. the mouse: hovering selects a row, clicking steps it, clicking an arrow steps it that way, and the panel's "Options (Esc)" button opens
 #      the screen;
 #   7. prefers-reduced-motion stops the plate shimmer and the bobbing can;
-#   8. the golden replay, with Paused and Options opened and changed in the middle of it, ends on the golden hash (e3d629fda94149ab);
+#   8. the golden replay, with Paused and Options opened and changed in the middle of it, ends on the golden hash (a08501a57d509e8a);
 #   9. the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS and EXIT.
 # With --shots DIR it also saves screenshots of Paused, Options and the override note.
 import functools
@@ -43,7 +43,7 @@ spec.loader.exec_module(capture)
 
 KEYS = {"Escape": (27, "Escape"), "Pause": (19, "Pause"), "ArrowDown": (40, "ArrowDown"), "ArrowUp": (38, "ArrowUp"), "ArrowLeft": (37, "ArrowLeft"),
         "ArrowRight": (39, "ArrowRight"), "Enter": (13, "Enter"), "KeyM": (77, "m"), "KeyV": (86, "v"), "KeyH": (72, "h")}
-GOLDEN_FINAL = "e3d629fda94149ab"
+GOLDEN_FINAL = "a08501a57d509e8a"
 NOTE = "* set by a switch; changing it applies to this run"
 
 PROBE = """

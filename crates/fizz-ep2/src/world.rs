@@ -1,12 +1,12 @@
-// The slice's world: Ben, the chickens, the Fizz Blaster shots, the snacks, the red and blue keys and doors, death, respawn and the exit.
+// The slice's world: Ben, the chickens, the Fizz Blaster shots, the snacks and soda cans, the red and blue keys and doors, death, respawn and the exit.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: the `Mode::Level` branch of
-// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the enemy contact rules),
-// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key, the
-// soda and the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
+// `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the soda cans, and the enemy contact rules),
+// `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key,
+// the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
 // Departures: the red and blue doors are switched tiles (see `tiles.rs`), their open states and the keys live in
 // [`WorldFlags`], and a death respawns Ben in place instead of reloading the level, so an open door survives it (the snacks
 // come back, as they do when Fizz 1 reloads).
@@ -64,9 +64,12 @@ pub enum Event {
     Jump { x: i32, y: i32 },
     /// Ben took a snack, a cheezie, a chocolate or a cookie (Fizz 1's "crunch"), half a tile above the item's centre.
     Snack { x: i32, y: i32 },
+    /// Ben took a soda can, a refill for the Fizz Blaster (Fizz 1's "fsssht"), half a tile above the can's centre.
+    Can { x: i32, y: i32 },
 }
 
-/// The snacks Fizz 1 scatters through its levels, with the points each is worth in its `tick_ben_contacts`.
+/// The items Fizz 1 scatters through its levels that Ben takes by touch, other than the keys: the snacks, with the points each
+/// is worth in its `tick_ben_contacts`, and the soda can, which is worth none and refills the Fizz Blaster.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SnackKind {
     /// A cheezie: 1 point.
@@ -75,15 +78,21 @@ pub enum SnackKind {
     Choc,
     /// A cookie: 5 points.
     Cookie,
+    /// A soda can (Fizz 1's `ItemKind::Soda`): no points, [`SODA_AMMO`] more shots.
+    Soda,
 }
 
+/// The shots one soda can adds (Fizz 1: `self.game.ammo += 5`). Fizz 1 puts no cap on the ammo, and neither does this.
+pub const SODA_AMMO: u32 = 5;
+
 impl SnackKind {
-    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie.
+    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie, 3 soda can (not listed in `tiles::pack_content()`, which names the three snacks).
     pub const fn number(self) -> u8 {
         match self {
             SnackKind::Cheezie => 0,
             SnackKind::Choc => 1,
             SnackKind::Cookie => 2,
+            SnackKind::Soda => 3,
         }
     }
 
@@ -93,6 +102,7 @@ impl SnackKind {
             SnackKind::Cheezie => 1,
             SnackKind::Choc => 2,
             SnackKind::Cookie => 5,
+            SnackKind::Soda => 0,
         }
     }
 }
@@ -273,6 +283,17 @@ impl World {
         }
     }
 
+    /// Whether the level has a red key at all, lying, carried or spent on its door. Level data, so it never changes after the
+    /// level is built; a presenter's key tray has one socket for each kind the level has.
+    pub fn level_has_red_key(&self) -> bool {
+        self.key.is_some()
+    }
+
+    /// Whether the level has a blue key at all, as [`World::level_has_red_key`] is for the red one.
+    pub fn level_has_blue_key(&self) -> bool {
+        self.key_blue.is_some()
+    }
+
     /// Lays a snack with its centre at `(x, y)`.
     pub fn add_snack(&mut self, kind: SnackKind, x: f64, y: f64) {
         self.snacks.push(Snack {
@@ -450,7 +471,12 @@ impl World {
             if !sn.taken && self.ben.b.overlaps(sn.x - 0.4, sn.y - 0.4, 0.8, 0.8) {
                 self.snacks[i].taken = true;
                 let (x, y) = sixteenths((sn.x, sn.y + 0.6));
-                self.events.push(Event::Snack { x, y });
+                if sn.kind == SnackKind::Soda {
+                    self.ammo += SODA_AMMO;
+                    self.events.push(Event::Can { x, y });
+                } else {
+                    self.events.push(Event::Snack { x, y });
+                }
             }
         }
 
@@ -590,7 +616,8 @@ impl World {
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
 ///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
 /// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits;
-/// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. A snack's kind and position
+/// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. The soda cans are in this list too, in the order the level
+///    added them, so a taken can is hashed like a taken snack (the ammo it gave is in `ammo`, step 3). A snack's kind and position
 ///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
 ///    the [`WorldFlags`] word and in `map.switches` (bit 2).
 ///
@@ -1343,5 +1370,86 @@ mod tests {
             b.step(f);
             assert_eq!(hash(&a).finish(), hash(&b).finish());
         }
+    }
+
+    #[test]
+    fn a_soda_can_gives_five_shots_with_no_cap_and_raises_can_not_snack() {
+        // Fizz 1: `ItemKind::Soda => { self.game.ammo += 5; cap(.., Fsssht) }`; there is no ceiling on the ammo.
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Soda, 10.4, 2.7);
+        w.ammo = 0;
+        w.step(idle());
+        assert_eq!(w.ammo, SODA_AMMO);
+        assert_eq!(SODA_AMMO, 5);
+        assert_eq!(
+            kinds(&w),
+            [Event::Can {
+                x: (10.4f64 * 16.0).floor() as i32,
+                y: (3.3f64 * 16.0).floor() as i32,
+            }]
+        );
+        assert!(w.snacks[0].taken);
+        assert_eq!(w.score(), 0, "a can is worth no points");
+        // Taken once: standing in it again gives nothing.
+        w.step(idle());
+        assert_eq!(w.ammo, SODA_AMMO);
+        assert!(w.events().is_empty());
+        // A full blaster takes cans too, and goes past its starting five.
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Soda, 10.4, 2.7);
+        w.add_snack(SnackKind::Soda, 10.6, 2.7);
+        w.step(idle());
+        assert_eq!(w.ammo, START_AMMO + 2 * SODA_AMMO);
+    }
+
+    #[test]
+    fn cans_and_snacks_raise_their_events_in_list_order_on_the_same_tick() {
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Cookie, 10.4, 2.7);
+        w.add_snack(SnackKind::Soda, 10.5, 2.7);
+        w.add_snack(SnackKind::Cheezie, 10.6, 2.7);
+        w.step(idle());
+        let ev = kinds(&w);
+        assert!(
+            matches!(
+                ev[..],
+                [Event::Snack { .. }, Event::Can { .. }, Event::Snack { .. }]
+            ),
+            "{ev:?}"
+        );
+        assert_eq!(w.score(), 6);
+        assert_eq!(w.ammo, START_AMMO + SODA_AMMO);
+    }
+
+    #[test]
+    fn a_death_puts_the_cans_back_and_the_ammo_at_five() {
+        // A death puts the cans back, like the snacks (Fizz 1 reloads the level and its items), and the slice starts the blaster over at five.
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Soda, 20.4, 2.7);
+        w.snacks[0].taken = true;
+        w.ammo = 12;
+        w.ben.kill();
+        for _ in 0..100 {
+            w.step(idle());
+        }
+        assert_eq!(w.deaths, 1);
+        assert_eq!((w.ammo, w.snacks[0].taken), (START_AMMO, false));
+    }
+
+    #[test]
+    fn a_taken_can_is_hashed_like_a_taken_snack() {
+        let mut a = arena(None);
+        a.add_snack(SnackKind::Soda, 20.4, 2.7);
+        a.add_snack(SnackKind::Cheezie, 21.4, 2.7);
+        let mut b = a.clone();
+        assert_eq!(a.hash(), b.hash());
+        b.snacks[0].taken = true;
+        assert_ne!(a.hash(), b.hash(), "the can's taken byte is hashed");
+        // The kind is level data: it is not hashed, only whether the item has been taken.
+        let mut c = a.clone();
+        c.snacks[0].kind = SnackKind::Cookie;
+        assert_eq!(a.hash(), c.hash());
+        // A can is one more snack-list byte, and the count.
+        assert_ne!(arena(None).hash(), a.hash());
     }
 }

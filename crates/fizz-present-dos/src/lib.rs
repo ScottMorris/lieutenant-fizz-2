@@ -77,11 +77,7 @@ pub fn render_slice_with(
         &fx.puffs,
         &fx.captions,
     );
-    frame.draw_hud(HudValues {
-        ammo: world.ammo,
-        key: world.flags.contains(fizz_ep2::WorldFlags::KEY_RED),
-        deaths: world.deaths,
-    });
+    frame.draw_hud(fx.hud.view(world));
     if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
         let text = "LEVEL CLEAR";
         let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
@@ -136,6 +132,7 @@ pub fn present<D: Display>(display: &mut D, frame: &Frame) -> Result<(), HalErro
 #[cfg(test)]
 mod tests {
     use super::*;
+    extern crate std;
 
     /// The slice stepped to `ticks` with its fx fed as the DOS loop feeds them.
     fn world_at(ticks: u64) -> (fizz_ep2::World, ViewFx) {
@@ -347,6 +344,135 @@ mod tests {
         world.deaths -= 1;
         render_slice(&world, &mut frame);
         assert_eq!(frame.hud_renders(), 3);
+    }
+
+    /// The HUD box's pixels (palette indices, `hud::W` by `hud::H`) of the frame `render_slice_with` makes at `ticks` of the slice.
+    fn hud_pixels(ticks: u64, options: &DrawOptions) -> std::vec::Vec<u8> {
+        let (world, fx) = world_at_with(ticks, options);
+        let mut f = Frame::new();
+        render_slice_with(&world, &mut f, options, &fx);
+        (0..hud::H)
+            .flat_map(|y| (0..hud::W).map(move |x| (x, y)))
+            .map(|(x, y)| f.pixels()[(hud::Y + y) * WIDTH + hud::X + x])
+            .collect()
+    }
+
+    fn fnv(bytes: &[u8]) -> u64 {
+        bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &b| {
+            (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3)
+        })
+    }
+
+    fn world_at_with(ticks: u64, options: &DrawOptions) -> (fizz_ep2::World, ViewFx) {
+        let mut world = fizz_ep2::level::world();
+        let mut fx = ViewFx::new();
+        let mut prev = Buttons::NONE;
+        'run: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                if world.tick.0 >= ticks {
+                    break 'run;
+                }
+                let input = fizz_sim::InputFrame::from_transition(prev, held);
+                fizz_ep2::step(&mut world, input);
+                prev = held;
+                fx.observe(&world, WIDTH, HEIGHT, options);
+            }
+        }
+        (world, fx)
+    }
+
+    #[test]
+    fn the_replay_counts_the_snacks_up_in_the_pixels() {
+        // Find the first tick a snack is taken by playing the script.
+        let full = DrawOptions::default();
+        let reduced = DrawOptions {
+            shake: false,
+            ..DrawOptions::default()
+        };
+        let mut taken_at = None;
+        let mut world = fizz_ep2::level::world();
+        let mut prev = Buttons::NONE;
+        'run: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                fizz_ep2::step(
+                    &mut world,
+                    fizz_sim::InputFrame::from_transition(prev, held),
+                );
+                prev = held;
+                if world.score() > 0 {
+                    taken_at = Some(world.tick.0);
+                    break 'run;
+                }
+            }
+        }
+        let at = taken_at.expect("the script takes a snack");
+        // Full: the +N appears with the pickup and the score settles later; Reduced shows the new score at once.
+        let before = hud_pixels(at - 1, &full);
+        let just = hud_pixels(at, &full);
+        let later = hud_pixels(at + 6, &full);
+        let jump = hud_pixels(at, &reduced);
+        assert_ne!(before, just, "the +N appears");
+        assert_ne!(just, later, "the score counts up");
+        assert_ne!(jump, just, "reduced motion jumps the score");
+        let (world, fx) = world_at_with(at + 6, &full);
+        assert_eq!(fx.hud.view(&world).pop, world.score());
+        // One tick short of the second snack (62 ticks on in the replay), when the first pop has just ended.
+        let (world, fx) = world_at_with(at + 61, &full);
+        assert_eq!(fx.hud.view(&world).score, world.score());
+        assert_eq!(fx.hud.view(&world).pop, 0);
+    }
+
+    #[test]
+    fn pinned_digests_of_the_hud_box() {
+        // The box at the start, at a snack pickup with the red key just taken, and with every value large. Pinned so a layout or
+        // art change is a deliberate edit; docs/PLATFORM.md notes the old box (72 by 27, Fizz, Deaths and one key chip).
+        let digest = |v: hud::HudValues| {
+            let mut pic = std::vec![0u8; WIDTH * HEIGHT];
+            Hud::new().draw(v, &mut pic, WIDTH);
+            fnv(&pic)
+        };
+        let key = |in_level, held, ring| fizz_slice_view::KeySlot {
+            in_level,
+            held,
+            ring,
+        };
+        let mut v = hud::HudValues {
+            fizz: 5,
+            score: 0,
+            pop: 0,
+            deaths: 0,
+            keys: [
+                key(true, 0, false),
+                key(true, 0, false),
+                key(false, 0, false),
+                key(false, 0, false),
+            ],
+        };
+        let start = digest(v);
+        v.fizz = 4;
+        v.score = 3;
+        v.pop = 3;
+        v.keys[0] = key(true, 1, true);
+        let pickup = digest(v);
+        v.fizz = 0;
+        v.score = 99_999;
+        v.pop = 0;
+        v.deaths = 99;
+        v.keys = [
+            key(true, 3, false),
+            key(true, 2, false),
+            key(true, 1, false),
+            key(true, 5, false),
+        ];
+        let stress = digest(v);
+        assert_eq!(
+            [start, pickup, stress],
+            [
+                0x7506_01d8_0e12_3dba,
+                0x77b5_e6a4_bc4e_7891,
+                0x9a6a_8ecf_c05d_ef9c
+            ]
+        );
     }
 
     #[test]

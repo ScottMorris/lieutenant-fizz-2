@@ -3,7 +3,7 @@ id: parity
 n: 5
 title: The parity gate
 date: 2026-10-27
-summary: The same final hash on native, Web and DOS, first for Milestone 0's 600-tick marker script and now for the slice's 1,681 ticks, the three numeric rules that make it possible, and the script and CI job that enforce it.
+summary: The same final hash on native, Web and DOS, first for Milestone 0's 600-tick marker script and now for the slice's 1,757 ticks, the three numeric rules that make it possible, and the script and CI job that enforce it.
 prs: [7]
 ---
 The state hash is the arbiter between the platforms. After every tick the rules hash their state in a fixed order with FNV-1a, and a test locks the order. A replay prints transcript version 1: a header line, a `TICK` line at tick 0 and after every 60 ticks, a `FINAL` line and, since the cluck, `EVENT` lines (the cluck, the shot end and, since Milestone 4, the sound and caption events such as `fire`, `jump`, `stomp` and `exit`; adding them changed no `TICK` or `FINAL` line). Milestone 0 hashed a marker's tick, `x`, `y`, `vx`, `vy` and `heading` as the bits of an `f64` and its `dashes` as a `u32`; its replay of `M0_SCRIPT` printed `M0 REPLAY 1` and ended `FINAL TICK {{m0.finalTick}} HASH {{m0.final}}` on all three platforms. The slice replaced it, and the gate now compares the slice's golden file, `crates/fizz-ep2/slice-replay.txt`, which begins `SLICE REPLAY 1` and ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`; [chapter 8](chapter:rules) lists the fields it hashes.
@@ -58,7 +58,7 @@ id: parity
 kind: diagram
 track: shared
 title: One script, three platforms, one hash
-alt: Diagram of the 1,681-tick slice script running natively, as WebAssembly under Node and Bun, and as FIZZ2.EXE in DOSBox, all three producing transcripts equal to the golden file that ends with hash e3d629fda94149ab.
+alt: Diagram of the 1,757-tick slice script running natively, as WebAssembly under Node and Bun, and as FIZZ2.EXE in DOSBox, all three producing transcripts equal to the golden file that ends with hash e3d629fda94149ab.
 caption: Native, Web and DOS replay the same slice script to the same final hash.
 at: figure parity
 thumb: svg

@@ -69,7 +69,8 @@ use crate::{cleanup, irq, port, timer};
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering};
 use fizz_machine::{FxPlan, MusicPlan, OplMode, Resolved, Stream, enable_writes, route};
-use fizz_music::{Card, Fnv, MusicPlayer, Write};
+pub use fizz_music::Mix;
+use fizz_music::{Audit, Card, Fnv, MAX_MIX_WRITES, MixState, MusicPlayer, Write};
 use fizz_sfx::place::Placement;
 use fizz_sfx::{EFFECT_CHANNEL, OplPair, OplPlayer, SpeakerPlayer, SpeakerStep};
 
@@ -127,6 +128,10 @@ static PROF_COUNT: AtomicU32 = AtomicU32::new(0);
 /// the handler's, and the handler then reads the other's half-read count.
 static PROF_BAD: AtomicU32 = AtomicU32::new(0);
 
+/// The mix the program wants (`Mix::to_u8`): the screen's. Read by the handler each tick and by `Service::new` (so a new device starts
+/// with the offset). `start` and `stop` put it back to `Play`.
+static MIX_WANT: AtomicU8 = AtomicU8::new(0);
+
 /// Writes in the buffer the music steps into: the most any tick of a stream carries (`fizz_music::MAX_WRITES_PER_TICK`).
 const MUSIC_BUF: usize = 16;
 /// Status reads in one OPL write: six after the register, 35 after the data.
@@ -144,6 +149,12 @@ struct Service {
     music_ticks: u32,
     music_writes: u32,
     music_max: u32,
+    /// The screen mix: the shadow of the authored operator levels and the ramp (see `fizz_music::MixState`).
+    mixer: MixState,
+    mix_writes: u32,
+    mix_max: u32,
+    /// The most writes (music and mix) one music step made.
+    step_max: u32,
     opl_player: Option<OplPlayer>,
     pair: Option<OplPair>,
     speaker: Option<SpeakerPlayer>,
@@ -166,6 +177,10 @@ static SERVICE: IrqCell = IrqCell(UnsafeCell::new(Service {
     music_ticks: 0,
     music_writes: 0,
     music_max: 0,
+    mixer: MixState::new(Mix::Play),
+    mix_writes: 0,
+    mix_max: 0,
+    step_max: 0,
     opl_player: None,
     pair: None,
     speaker: None,
@@ -246,6 +261,10 @@ impl Service {
             music_ticks: 0,
             music_writes: 0,
             music_max: 0,
+            mixer: MixState::new(Mix::from_u8(MIX_WANT.load(Ordering::Relaxed))),
+            mix_writes: 0,
+            mix_max: 0,
+            step_max: 0,
             opl_player: None,
             pair: None,
             speaker: None,
@@ -263,7 +282,7 @@ impl Service {
     }
 
     /// Steps the music one 560 Hz tick: its due writes (at most 16) go to the chip, hashed as the stream authored them.
-    fn step_music(&mut self) {
+    fn step_music(&mut self, fx_busy: bool) {
         let (opl, stream) = (self.opl, self.stream);
         let Some(player) = self.music.as_mut() else {
             return;
@@ -275,9 +294,22 @@ impl Service {
                 let ok = stream == Stream::Opl2 || OPL3_ON.load(Ordering::Relaxed);
                 MUSIC_ORDER.store(if ok { 1 } else { 2 }, Ordering::Relaxed);
             }
-            opl_raw(w.bank, w.reg, route(opl, stream, w.bank, w.reg, w.val));
+            // The screen mix: the level the chip gets has the offset; the hash below is of the authored value.
+            let val = self.mixer.observe(*w);
+            opl_raw(w.bank, w.reg, route(opl, stream, w.bank, w.reg, val));
             self.fnv.write(self.music_ticks, *w);
         }
+        // Level changes for the mix: at most two a tick, never past the 16 writes of a music tick, and none while an effect plays
+        // (the ramp still moves; the writes catch up afterwards).
+        let room = if fx_busy { 0 } else { (MUSIC_BUF - n).min(MAX_MIX_WRITES) };
+        let mut lv = [Write::default(); MAX_MIX_WRITES];
+        let m = self.mixer.step(&mut lv[..room]);
+        for w in &lv[..m] {
+            opl_raw(w.bank, w.reg, w.val);
+        }
+        self.mix_writes = self.mix_writes.wrapping_add(m as u32);
+        self.mix_max = self.mix_max.max(m as u32);
+        self.step_max = self.step_max.max((n + m) as u32);
         self.music_writes = self.music_writes.wrapping_add(n as u32);
         self.music_max = self.music_max.max(n as u32);
         self.music_ticks = self.music_ticks.wrapping_add(1);
@@ -322,7 +354,9 @@ impl Service {
         if MUSIC_REQ.swap(false, Ordering::Relaxed) {
             self.begin_music();
         }
-        self.step_music();
+        self.mixer.set(Mix::from_u8(MIX_WANT.load(Ordering::Relaxed)));
+        let busy = self.opl_player.is_some() || self.pair.is_some();
+        self.step_music(busy);
         let opl = self.opl;
         if let Some(player) = self.opl_player.as_mut() {
             let more = player.tick(&mut |bank, reg, val| opl_write(bank, reg, route(opl, Stream::Opl2, bank, reg, val)));
@@ -417,6 +451,7 @@ fn reset(plan: &Resolved) {
     unsafe { *SERVICE.0.get() = Service::new(plan) };
     PENDING.store(0, Ordering::Relaxed);
     MUSIC_REQ.store(false, Ordering::Relaxed);
+    MIX_WANT.store(0, Ordering::Relaxed);
     MUSIC_WANTED.store(false, Ordering::Relaxed);
     SERVICE_TICKS.store(0, Ordering::Relaxed);
     WRITES.store(0, Ordering::Relaxed);
@@ -648,10 +683,80 @@ pub fn music_test(plan: &Resolved) -> Result<(), irq::Error> {
         a.prelude_ticks + 2 * a.loop_ticks + 1
     });
     for _ in 0..ticks {
-        state.step_music();
+        state.step_music(false);
     }
     stop();
     Ok(())
+}
+
+/// Chooses the screen mix for the music: `Play` as authored, `Pause` or `Options` quieter and duller (see `fizz_music::mix`), `Card`
+/// reserved. The handler takes it up on its next tick and ramps to it; a device switch (`replan`) starts the new device with it already
+/// in force. Effects are not touched. A no-op when the service is not running, and nothing sounds different with no OPL music.
+pub fn set_mix(mix: Mix) {
+    if ACTIVE.load(Ordering::Relaxed) {
+        MIX_WANT.store(mix.to_u8(), Ordering::Relaxed);
+    }
+}
+
+/// What `/MIXTEST` found.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct MixReport {
+    /// The ticks of each phase: playing, paused, playing again.
+    pub phases: [u32; 3],
+    /// Level writes made for the mix over the run, the most in one tick, and the most writes (music and mix) of any tick's music step.
+    pub writes: u32,
+    pub max_per_tick: u32,
+    pub max_total: u32,
+    /// The shadow audited at the end of the pause and at the end of the run.
+    pub paused: Audit,
+    pub resumed: Audit,
+    /// The FNV-1a of the music's authored writes in the run that switched, and in the same run with the mix left at `Play`.
+    pub hash: u32,
+    pub reference: u32,
+}
+
+/// `/MIXTEST`: steps the plan's music for `phases[0]` ticks, switches to `Pause`, steps `phases[1]` ticks, switches back and steps
+/// `phases[2]`, as fast as the machine allows through the real port-write path (no timer, no hook), auditing the shadow at the end of
+/// the pause and of the run. Then it steps the same total with the mix left at `Play` for the reference hash.
+pub fn mix_test(plan: &Resolved, phases: [u32; 3]) -> Result<MixReport, irq::Error> {
+    reset(plan);
+    if !cleanup::register(stop) {
+        return Err(irq::Error::CleanupFull);
+    }
+    chip_up(plan);
+    ACTIVE.store(true, Ordering::Release);
+    let mut report = MixReport {
+        phases,
+        ..MixReport::default()
+    };
+    // SAFETY: no tick hook is set, so nothing else reads the cell.
+    let state = unsafe { &mut *SERVICE.0.get() };
+    state.begin_music();
+    for (i, &ticks) in phases.iter().enumerate() {
+        state.mixer.set(if i == 1 { Mix::Pause } else { Mix::Play });
+        for _ in 0..ticks {
+            state.step_music(false);
+        }
+        match i {
+            1 => report.paused = state.mixer.audit(),
+            2 => report.resumed = state.mixer.audit(),
+            _ => {}
+        }
+    }
+    report.writes = state.mix_writes;
+    report.max_per_tick = state.mix_max;
+    report.max_total = state.step_max;
+    report.hash = state.fnv.value();
+    // The same run with the mix at Play throughout: the authored writes, and so their hash, must be the same.
+    silence_chip(CHIP.load(Ordering::Relaxed));
+    *state = Service::new(plan);
+    state.begin_music();
+    for _ in 0..phases[0] + phases[1] + phases[2] {
+        state.step_music(false);
+    }
+    report.reference = state.fnv.value();
+    stop();
+    Ok(report)
 }
 
 /// Plays effect `id` (an index into `fizz_sfx`'s tables: the cluck's variants are ids 0 to 3) from where `placement` puts its source, on the plan's device at the next tick,
@@ -680,6 +785,7 @@ pub fn stop() {
         opl_write(1, 0x05, 0x00);
     }
     speaker_off();
+    MIX_WANT.store(0, Ordering::Relaxed);
     cleanup::forget(stop);
 }
 

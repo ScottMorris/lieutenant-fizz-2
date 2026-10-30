@@ -13,7 +13,7 @@
 //! [`Event::Cluck`] the rules emitted on tick `n`, and one line for every other [`Event`], all with `<x> <y>` in sixteenths
 //! of a tile as integers (y up): `shotend <x> <y>`, `fire <x> <y>`, `dud <x> <y>`, `stomp <chicken> <x> <y>`,
 //! `stun <chicken> <x> <y>`, `death <x> <y>`, `key <colour> <x> <y>` (0 red, 1 blue, 2 green), `dooropen <x> <y>`,
-//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>`, `jump <x> <y>` and `snack <x> <y>`. `<chicken>` is the chicken's index in the
+//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>`, `jump <x> <y>`, `snack <x> <y>` and `can <x> <y>`. `<chicken>` is the chicken's index in the
 //! world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
@@ -170,12 +170,28 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     (8, IDLE),
     (2, F),
     (8, IDLE),
+    // Walk to the soda can on the floor by the wall: it refills the blaster with five shots (fsssht). Spend them on the wall
+    // again, then walk back.
+    (12, R),
+    (4, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (2, F),
+    (8, IDLE),
+    (12, L),
+    (4, IDLE),
     // Jump under the shelf: the cheezie hanging there crunches and the head bumps the shelf. Then the same at the other one.
     (8, R),
     (4, IDLE),
     (20, J),
     (16, IDLE),
-    (28, L),
+    (22, L),
     (4, IDLE),
     (20, J),
     (16, IDLE),
@@ -198,7 +214,7 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
 ];
 
 /// The number of ticks the transcript covers.
-pub const SLICE_TICKS: u64 = 1681;
+pub const SLICE_TICKS: u64 = 1757;
 
 /// Writes the header and the tick 0 line.
 pub fn write_start(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
@@ -233,6 +249,7 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
             Event::HeadBump { x, y } => writeln!(out, "EVENT {} headbump {x} {y}", w.tick.0)?,
             Event::Jump { x, y } => writeln!(out, "EVENT {} jump {x} {y}", w.tick.0)?,
             Event::Snack { x, y } => writeln!(out, "EVENT {} snack {x} {y}", w.tick.0)?,
+            Event::Can { x, y } => writeln!(out, "EVENT {} can {x} {y}", w.tick.0)?,
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -382,11 +399,12 @@ mod tests {
 
     #[test]
     fn the_final_hash_is_the_playground_golden() {
-        // The final hash moved once, when the playground's snacks, blue key and blue door joined the hashed state and the
-        // level (the hash order is in `world::hash`). Presentation state and events must never move it again.
+        // The final hash moved when the playground's snacks, blue key and blue door joined the hashed state and the level, and
+        // again when the two soda cans joined the snack list and the script grew to refill the blaster (the hash order is in
+        // `world::hash`). Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1681 HASH e3d629fda94149ab\n"),
+            t.ends_with("FINAL TICK 1757 HASH a08501a57d509e8a\n"),
             "{t}"
         );
     }
@@ -404,8 +422,8 @@ mod tests {
             }
             lines += 1;
         }
-        assert_eq!(lines, 31);
-        assert_eq!(h, 0xcb57_844e_4cd2_6b11);
+        assert_eq!(lines, 32);
+        assert_eq!(h, 0xff10_1cf8_da08_9bcf);
     }
 
     /// The kind of every `EVENT` line, in order.
@@ -423,7 +441,7 @@ mod tests {
         let count = |name: &str| k.iter().filter(|x| x.as_str() == name).count();
         for name in [
             "fire", "dud", "stomp", "stun", "death", "key", "dooropen", "exit", "bounce",
-            "headbump", "jump", "snack", "shotend", "cluck",
+            "headbump", "jump", "snack", "can", "shotend", "cluck",
         ] {
             assert!(count(name) >= 1, "no {name} event in the replay");
         }
@@ -431,6 +449,7 @@ mod tests {
         assert_eq!(count("dooropen"), 2);
         assert_eq!(count("dud"), 1);
         assert_eq!(count("snack"), 5);
+        assert_eq!(count("can"), 2, "the floor can and the shelf can");
         assert!(count("bounce") >= 5);
         assert!(count("headbump") >= 3);
     }
@@ -445,14 +464,15 @@ mod tests {
                 prev = now;
             }
         }
-        // Three cheezies (1 each), a chocolate (2) and a cookie (5).
+        // Three cheezies (1 each), a chocolate (2) and a cookie (5); the cans are worth no points.
         assert_eq!(w.score(), 10);
         assert!(w.snacks.iter().all(|s| s.taken));
         assert!(w.flags.contains(WorldFlags::DOOR_BLUE_OPEN));
         assert!(!w.flags.contains(WorldFlags::KEY_BLUE), "the door spent it");
         assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
         assert!(!w.key_blue_in_world());
-        assert_eq!(w.ammo, 0, "the shots were spent on the wall");
+        // The five shots were spent on the wall, a can refilled them and they were spent again; then the shelf's can gave five more.
+        assert_eq!(w.ammo, 5);
     }
 
     #[test]

@@ -120,8 +120,8 @@ pub struct Report {
     pub frame_count: usize,
 }
 
-/// The tick the caption measurement stops the script at: Ben is in the snack nook, with a jump, a snack and a head-bump about to
-/// fire, so the picture is a busy one (the sprites, the HUD and the puffs are all in view).
+/// The tick the caption measurement stops the script at: Ben is in the snack nook, taking the floor can with the shots of his last
+/// refill about to fire, so the picture is a busy one (the sprites, the HUD and the puffs are all in view).
 pub const CAPTION_BENCH_TICK: u64 = 1190;
 /// Pictures timed for each of the two cases.
 pub const CAPTION_BENCH_FRAMES: u64 = 120;

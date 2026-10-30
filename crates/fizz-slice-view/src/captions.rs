@@ -48,6 +48,13 @@ pub const EFFECT_PLINK: u8 = 11;
 pub const EFFECT_BOING: u8 = 12;
 pub const EFFECT_JUMP: u8 = 13;
 pub const EFFECT_CRUNCH: u8 = 14;
+/// Three alternates, kept in the table and played by no event: the first Fizz 2 boing, jump and fzzt (Undertone FM and pitch steps), which
+/// Fizz 1's own voices replaced at 12, 13 and 4. To hear one in the game, change the id in `presentation` below (`Event::Bounce` to
+/// `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FM`, `Event::Fire` to `EFFECT_FZZT_FM`); docs/SOUND.md says more.
+pub const EFFECT_BOING_FM: u8 = 15;
+pub const EFFECT_JUMP_FM: u8 = 16;
+pub const EFFECT_SODA: u8 = 17;
+pub const EFFECT_FZZT_FM: u8 = 18;
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -70,6 +77,7 @@ pub const CAP_GREEN: u8 = 8;
 pub const CAP_CLUNK: u8 = 9;
 pub const CAP_BOING: u8 = 10;
 pub const CAP_CRUNCH: u8 = 11;
+pub const CAP_FSSSHT: u8 = 12;
 
 const fn cap(text: &'static str, bright: u8, dark: u8) -> EventCaption {
     EventCaption { text, bright, dark }
@@ -77,7 +85,7 @@ const fn cap(text: &'static str, bright: u8, dark: u8) -> EventCaption {
 
 /// Fizz 1's `CAPTIONS` words and colours (its 0xrrggbb values are the EGA light colours), in id order. The dash in the click
 /// caption is the font's em dash.
-pub const EVENT_CAPTIONS: [EventCaption; 12] = [
+pub const EVENT_CAPTIONS: [EventCaption; 13] = [
     cap("fzzt", LIGHT_CYAN, CYAN),
     cap("click \u{2014} no fizz", LIGHT_GREY, DARK_GREY),
     cap("fizzled", LIGHT_CYAN, CYAN),
@@ -90,6 +98,7 @@ pub const EVENT_CAPTIONS: [EventCaption; 12] = [
     cap("clunk", WHITE, LIGHT_GREY),
     cap("boing", YELLOW, BROWN),
     cap("crunch", YELLOW, BROWN),
+    cap("fsssht", LIGHT_CYAN, CYAN),
 ];
 
 /// What an event is to a presenter.
@@ -134,6 +143,7 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::Bounce { .. } => p(EFFECT_BOING, Some(CAP_BOING)),
         Event::Jump { .. } => p(EFFECT_JUMP, None),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
+        Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
     }
 }
 
@@ -153,7 +163,8 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
         | Event::Bounce { x, y }
         | Event::HeadBump { x, y }
         | Event::Jump { x, y }
-        | Event::Snack { x, y } => Some((x, y)),
+        | Event::Snack { x, y }
+        | Event::Can { x, y } => Some((x, y)),
     }
 }
 
@@ -338,6 +349,8 @@ impl EventCaptions {
 pub struct ViewFx {
     pub puffs: crate::Puffs,
     pub captions: EventCaptions,
+    /// The HUD's score count-up, `+N` and key rings: what changes in the HUD between steps.
+    pub hud: crate::HudAnim,
 }
 
 impl ViewFx {
@@ -345,6 +358,7 @@ impl ViewFx {
         ViewFx {
             puffs: crate::Puffs::new(),
             captions: EventCaptions::new(),
+            hud: crate::HudAnim::new(),
         }
     }
 
@@ -352,6 +366,7 @@ impl ViewFx {
     pub fn observe(&mut self, world: &World, w: usize, h: usize, options: &DrawOptions) {
         self.puffs.observe(world);
         self.captions.observe(world, w, h, options);
+        self.hud.observe(world, !options.shake);
     }
 
     pub fn clear(&mut self) {

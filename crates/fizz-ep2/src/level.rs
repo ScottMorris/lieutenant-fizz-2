@@ -41,6 +41,9 @@
 //!   too high for a jump (3.5 tiles); the pogo with Jump held bounces 6.6 tiles, enough to land on it from the right, and
 //!   every pogo landing is a bounce.
 //! - Fizz Blaster ammo is five shots. Spending them against the right-hand wall and pressing Fire once more is the dud.
+//! - Fizz 1's soda cans refill it, five shots a can. One lies on the gallery floor three tiles from the spot where the five
+//!   shots go, between Ben and the wall he shoots at, so the player who has spent them walks into a refill ([`SNACKS`], the
+//!   last two entries). The other lies at the right end of the shelf, where the pogo lands.
 
 use crate::tiles::{self, BLOCK, DOOR_B, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use crate::world::{SnackKind, World};
@@ -119,14 +122,18 @@ pub const BLUE_DOOR: [(i32, i32); 3] = [(22, 38), (22, 39), (22, 40)];
 pub const SHELF: [(i32, i32); 5] = [(24, 41), (25, 41), (26, 41), (27, 41), (28, 41)];
 /// The blue key's centre, at the left end of the shelf.
 pub const KEY_BLUE: (f64, f64) = (24.5, 42.7);
-/// The snacks, as `(kind, x, y)` with the centre in tiles. Two cheezies hang under the shelf, where a jump bumps the head
-/// to reach them; on the shelf, from its right end to its left, lie a cheezie, a chocolate and a cookie.
-pub const SNACKS: [(SnackKind, f64, f64); 5] = [
+/// The snacks and the soda cans, as `(kind, x, y)` with the centre in tiles, in the order they are added to the world (and so the
+/// order of the hash). Two cheezies hang under the shelf, where a jump bumps the head to reach them; on the shelf, from its right
+/// end to its left, lie a cheezie, a chocolate and a cookie. Then the cans: one on the gallery floor in the shooting stretch
+/// by the right-hand wall, where Ben spends his five shots and needs more, and one on the right end of the shelf.
+pub const SNACKS: [(SnackKind, f64, f64); 7] = [
     (SnackKind::Cheezie, 25.5, 40.2),
     (SnackKind::Cheezie, 27.5, 40.2),
     (SnackKind::Cheezie, 27.5, 42.7),
     (SnackKind::Choc, 26.5, 42.7),
     (SnackKind::Cookie, 25.5, 42.7),
+    (SnackKind::Soda, 28.5, 38.7),
+    (SnackKind::Soda, 28.5, 42.7),
 ];
 
 /// The baked level: the shape `fizz-bake` will fill from a map file.
@@ -225,6 +232,27 @@ mod tests {
         assert_eq!(m.get(SPAWN.0 as i32, SPAWN.1 as i32 - 1), FILL);
         assert_eq!(m.get(CHICKEN.0 as i32, CHICKEN.1 as i32 - 1), PLAT);
         assert_eq!(m.get(KEY.0 as i32, KEY.1 as i32 - 1), PLAT);
+    }
+
+    #[test]
+    fn the_cans_lie_on_solid_footing_in_the_nook_after_the_snacks() {
+        let w = world();
+        let cans: alloc::vec::Vec<_> = SNACKS.iter().filter(|s| s.0 == SnackKind::Soda).collect();
+        assert_eq!(cans.len(), 2, "one on the gallery floor, one on the shelf");
+        // The list order is the hash order: the snacks keep their places and the cans come last.
+        assert!(SNACKS[..5].iter().all(|s| s.0 != SnackKind::Soda));
+        assert!(SNACKS[5..].iter().all(|s| s.0 == SnackKind::Soda));
+        assert_eq!(w.snacks.len(), SNACKS.len());
+        let m = map();
+        for &&(_, x, y) in &cans {
+            // A can's centre is 0.7 above the tile it lies on, as the keys' are.
+            let (tx, ty) = (x as i32, (y - 0.7) as i32);
+            assert!(
+                m.solid(tx, ty - 1, false, 0.0) || m.get(tx, ty - 1) == PLAT,
+                "{x}, {y}"
+            );
+            assert_eq!(m.get(tx, ty), EMPTY, "{x}, {y}");
+        }
     }
 
     #[test]

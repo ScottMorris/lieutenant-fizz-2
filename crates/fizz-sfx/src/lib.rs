@@ -344,15 +344,15 @@ mod tests {
         run_with(OplPlayer::new(variant))
     }
 
-    /// Effect ids, in order: the cluck's four variants, then fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump and crunch.
+    /// Effect ids, in order: the cluck's four variants, then fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump and crunch, then the alternates boing (FM) and jump (FM), soda, and the alternate fzzt (FM), which no event plays.
     /// The OPL records, the OPL chunk's ticks and the speaker frames of each, as `tools/sfx/downmix.ts --stats` prints them. A
     /// change to the source or the converter moves these on purpose, and this table is what says so.
-    const EFFECTS: [(&str, usize, u32, usize); 15] = [
+    const EFFECTS: [(&str, usize, u32, usize); 19] = [
         ("cluck 0", 178, 212, 48),
         ("cluck 1", 74, 88, 16),
         ("cluck 2", 147, 188, 42),
         ("cluck 3", 150, 200, 46),
-        ("fzzt", 69, 100, 16),
+        ("fzzt", 198, 96, 16),
         ("stun", 75, 112, 16),
         ("bonk", 74, 88, 14),
         ("hurt", 223, 336, 62),
@@ -360,15 +360,19 @@ mod tests {
         ("key", 166, 220, 42),
         ("clunk", 95, 116, 20),
         ("plink", 39, 56, 8),
-        ("boing", 186, 252, 42),
-        ("jump", 57, 84, 12),
+        ("boing", 81, 112, 18),
+        ("jump", 73, 104, 18),
         ("crunch", 118, 136, 24),
+        ("boing (FM)", 186, 252, 42),
+        ("jump (FM)", 57, 84, 12),
+        ("soda", 157, 200, 28),
+        ("fzzt (FM)", 69, 100, 16),
     ];
 
     #[test]
-    fn effect_ids_are_the_cluck_variants_then_the_eleven_others() {
+    fn effect_ids_are_the_cluck_variants_then_the_fifteen_others() {
         assert_eq!(EFFECT_COUNT, EFFECTS.len());
-        assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize + 11);
+        assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize + 15);
     }
 
     #[test]

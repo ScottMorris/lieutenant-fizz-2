@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { EFFECTS, EFFECT_NAMES } from '../../assets/sfx/effects.ts';
+import { FIZZ1_DOS } from '../../assets/sfx/fizz1-dos.ts';
 import { convertSfx, type Conversion } from './convert.ts';
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -20,10 +21,22 @@ const OUT = `${ROOT}crates/fizz-sfx/src/data.rs`;
 
 const hex = (n: number): string => `0x${n.toString(16).padStart(2, '0')}`;
 
-/** Converts every effect, in effect-id order. */
+/**
+ * Converts every effect, in effect-id order. An id that Fizz 1's DOS port has its own data for (`FIZZ1_DOS`: fzzt, boing and jump) takes
+ * that data as it is, because those effects are Fizz 1's voices and DOS plays them as Fizz 1 DOS did; every other id, the FM-era alternates
+ * included, is this converter's downmix of its Undertone voices.
+ */
 export function convertAll(): Conversion[] {
   if (EFFECTS.length === 0) throw new Error('assets/sfx/effects.ts defines no effects');
-  return EFFECTS.map((v) => convertSfx(v));
+  return EFFECTS.map((v, id) => {
+    const f1 = FIZZ1_DOS[id];
+    if (!f1) return convertSfx(v);
+    return {
+      seconds: f1.ticks / 560,
+      opl: { records: f1.records.map(([reg, val, wait]) => ({ bank: 0, reg, val, wait })), ticks: f1.ticks },
+      speaker: { divisors: [...f1.divisors] },
+    };
+  });
 }
 
 export function emit(): string {

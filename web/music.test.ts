@@ -261,9 +261,13 @@ describe('the audio root', () => {
     const a = root.context();
     expect(root.context()).toBe(a);
     const gains = ctx.nodes.filter((n) => n.kind === 'gain');
-    expect(gains.map((g) => g.gain!.value)).toEqual([MUSIC_BUS_GAIN, SFX_BUS_GAIN]);
+    // The third gain is the screen mix's, open (1) at the start; the music goes through its low-pass first (see web/mix.test.ts).
+    expect(gains.map((g) => g.gain!.value)).toEqual([MUSIC_BUS_GAIN, SFX_BUS_GAIN, 1]);
     const limiter = ctx.nodes.find((n) => n.kind === 'limiter')!;
-    expect(gains[0].connectedTo).toBe(limiter);
+    const lpf = ctx.nodes.find((n) => n.kind === 'filter')!;
+    expect(gains[0].connectedTo).toBe(lpf);
+    expect(lpf.connectedTo).toBe(gains[2]);
+    expect(gains[2].connectedTo).toBe(limiter);
     expect(gains[1].connectedTo).toBe(limiter);
     expect(limiter.connectedTo).toBe(ctx.destination);
   });

@@ -1,22 +1,22 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`Undertone 0.3 scheduling pinned for the cluck the short cluck (variant 1) schedules exactly these filter, gain and pitch values 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 4 fzzt schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
     "gain": {
       "ramps": [
         [
-          0.07,
-          0.003,
+          0.22,
+          0.001,
         ],
         [
           0,
-          0.023,
+          0.081,
         ],
         [
           0,
-          0.033,
+          0.131,
         ],
       ],
       "sets": [
@@ -43,351 +43,11 @@ exports[`Undertone 0.3 scheduling pinned for the cluck the short cluck (variant 
           3000,
           0,
         ],
-        [
-          3000,
-          0,
-        ],
-        [
-          3000,
-          0,
-        ],
       ],
     },
     "gain": undefined,
     "kind": "filter",
-    "type": "lowpass",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.26,
-          0.014,
-        ],
-        [
-          0,
-          0.0515,
-        ],
-        [
-          0,
-          0.0635,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0.012,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          640,
-          0.012,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "square",
-  },
-  {
-    "freq": {
-      "ramps": [
-        [
-          2860,
-          0.013,
-        ],
-        [
-          2398,
-          0.038,
-        ],
-        [
-          2200,
-          0.05,
-        ],
-      ],
-      "sets": [
-        [
-          2200,
-          0.012,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.221,
-          0.039,
-        ],
-        [
-          0,
-          0.0765,
-        ],
-        [
-          0,
-          0.0885,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0.037,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          517.84,
-          0.037,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "square",
-  },
-  {
-    "freq": {
-      "ramps": [
-        [
-          2860,
-          0.038,
-        ],
-        [
-          2398,
-          0.063,
-        ],
-        [
-          2200,
-          0.075,
-        ],
-      ],
-      "sets": [
-        [
-          2200,
-          0.037,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.182,
-          0.064,
-        ],
-        [
-          0,
-          0.1015,
-        ],
-        [
-          0,
-          0.1135,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0.062,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          419,
-          0.062,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "square",
-  },
-  {
-    "freq": {
-      "ramps": [
-        [
-          2860,
-          0.063,
-        ],
-        [
-          2398,
-          0.088,
-        ],
-        [
-          2200,
-          0.1,
-        ],
-      ],
-      "sets": [
-        [
-          2200,
-          0.062,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.143,
-          0.089,
-        ],
-        [
-          0,
-          0.1265,
-        ],
-        [
-          0,
-          0.1385,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0.087,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          339.03,
-          0.087,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "square",
-  },
-  {
-    "freq": {
-      "ramps": [
-        [
-          2860,
-          0.088,
-        ],
-        [
-          2398,
-          0.113,
-        ],
-        [
-          2200,
-          0.125,
-        ],
-      ],
-      "sets": [
-        [
-          2200,
-          0.087,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
-  },
-]
-`;
-
-exports[`the effects after the cluck (ids 4 to 14) 4 fzzt schedules these values, so a later Undertone that moves any shows up here 1`] = `
-[
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.2,
-          0.003,
-        ],
-        [
-          0,
-          0.083,
-        ],
-        [
-          0,
-          0.093,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": undefined,
-    "gain": undefined,
-    "kind": "noise",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          8000,
-          0,
-        ],
-        [
-          8000,
-          0,
-        ],
-        [
-          8000,
-          0,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
+    "type": "highpass",
   },
   {
     "freq": undefined,
@@ -395,21 +55,21 @@ exports[`the effects after the cluck (ids 4 to 14) 4 fzzt schedules these values
       "ramps": [
         [
           0.25,
-          0.007,
+          0.001,
         ],
         [
           0,
-          0.127,
+          0.121,
         ],
         [
           0,
-          0.177,
+          0.171,
         ],
       ],
       "sets": [
         [
           0,
-          0.006,
+          0,
         ],
       ],
     },
@@ -418,55 +78,16 @@ exports[`the effects after the cluck (ids 4 to 14) 4 fzzt schedules these values
   },
   {
     "freq": {
-      "ramps": [],
+      "ramps": [
+        [
+          1046.5,
+          0.08,
+        ],
+      ],
       "sets": [
         [
           2093,
-          0.006,
-        ],
-        [
-          1965.18,
-          0.0131429,
-        ],
-        [
-          1845.16,
-          0.0202857,
-        ],
-        [
-          1732.46,
-          0.0274286,
-        ],
-        [
-          1626.66,
-          0.0345714,
-        ],
-        [
-          1527.31,
-          0.0417143,
-        ],
-        [
-          1434.11,
-          0.0488571,
-        ],
-        [
-          1346.53,
-          0.056,
-        ],
-        [
-          1264.29,
-          0.0631429,
-        ],
-        [
-          1187.07,
-          0.0702857,
-        ],
-        [
-          1114.57,
-          0.0774286,
-        ],
-        [
-          1046.5,
-          0.0845714,
+          0,
         ],
       ],
     },
@@ -476,147 +97,35 @@ exports[`the effects after the cluck (ids 4 to 14) 4 fzzt schedules these values
   },
   {
     "freq": {
-      "ramps": [],
+      "ramps": [
+        [
+          5023.21,
+          0.001,
+        ],
+        [
+          4353.45,
+          0.145,
+        ],
+        [
+          4186.01,
+          0.195,
+        ],
+      ],
       "sets": [
         [
-          7325.52,
-          0.006,
-        ],
-        [
-          6878.12,
-          0.0131429,
-        ],
-        [
-          6458.04,
-          0.0202857,
-        ],
-        [
-          6063.62,
-          0.0274286,
-        ],
-        [
-          5693.29,
-          0.0345714,
-        ],
-        [
-          5345.58,
-          0.0417143,
-        ],
-        [
-          5019.4,
-          0.0488571,
-        ],
-        [
-          4712.84,
-          0.056,
-        ],
-        [
-          4425.01,
-          0.0631429,
-        ],
-        [
-          4154.76,
-          0.0702857,
-        ],
-        [
-          3901.01,
-          0.0774286,
-        ],
-        [
-          3662.76,
-          0.0845714,
+          4186.01,
+          0,
         ],
       ],
     },
     "gain": undefined,
-    "kind": "osc",
-    "type": "sine",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [],
-      "sets": [
-        [
-          6279.01,
-          0.006,
-        ],
-        [
-          5895.53,
-          0.0131429,
-        ],
-        [
-          5535.47,
-          0.0202857,
-        ],
-        [
-          5197.39,
-          0.0274286,
-        ],
-        [
-          4879.97,
-          0.0345714,
-        ],
-        [
-          4581.93,
-          0.0417143,
-        ],
-        [
-          4302.34,
-          0.0488571,
-        ],
-        [
-          4039.58,
-          0.056,
-        ],
-        [
-          3792.86,
-          0.0631429,
-        ],
-        [
-          3561.22,
-          0.0702857,
-        ],
-        [
-          3343.72,
-          0.0774286,
-        ],
-        [
-          3139.51,
-          0.0845714,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.0001,
-          0.096,
-        ],
-      ],
-      "sets": [
-        [
-          0.0001,
-          0.006,
-        ],
-        [
-          1,
-          0.006,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
+    "kind": "filter",
+    "type": "lowpass",
   },
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 5 stun (fizzled) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 5 stun (fizzled) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -1054,7 +563,7 @@ exports[`the effects after the cluck (ids 4 to 14) 5 stun (fizzled) schedules th
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 6 bonk schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 6 bonk schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -1348,7 +857,7 @@ exports[`the effects after the cluck (ids 4 to 14) 6 bonk schedules these values
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 7 hurt (whoa!) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 7 hurt (whoa!) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -2494,7 +2003,7 @@ exports[`the effects after the cluck (ids 4 to 14) 7 hurt (whoa!) schedules thes
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 8 win (ta-da!) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 8 win (ta-da!) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -2806,7 +2315,7 @@ exports[`the effects after the cluck (ids 4 to 14) 8 win (ta-da!) schedules thes
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 9 key (gumdrop) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 9 key (gumdrop) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -2985,7 +2494,7 @@ exports[`the effects after the cluck (ids 4 to 14) 9 key (gumdrop) schedules the
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 10 clunk schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 10 clunk schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -3195,7 +2704,7 @@ exports[`the effects after the cluck (ids 4 to 14) 10 clunk schedules these valu
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 11 plink (click) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 11 plink (click) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -3292,7 +2801,1281 @@ exports[`the effects after the cluck (ids 4 to 14) 11 plink (click) schedules th
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 12 boing schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 12 boing schedules these values, so a later Undertone that moves any shows up here 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2,
+          0.071,
+        ],
+        [
+          0,
+          0.151,
+        ],
+        [
+          0,
+          0.201,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.07,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          587.33,
+          0.07,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2819.18,
+          0.071,
+        ],
+        [
+          2443.29,
+          0.167,
+        ],
+        [
+          2349.32,
+          0.217,
+        ],
+      ],
+      "sets": [
+        [
+          2349.32,
+          0.07,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.42,
+          0.002,
+        ],
+        [
+          0,
+          0.0395,
+        ],
+        [
+          0,
+          0.0515,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          195.998,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.4046,
+          0.027,
+        ],
+        [
+          0,
+          0.0645,
+        ],
+        [
+          0,
+          0.0765,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.025,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          256.5,
+          0.025,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3892,
+          0.052,
+        ],
+        [
+          0,
+          0.0895,
+        ],
+        [
+          0,
+          0.1015,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          202.244,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3738,
+          0.077,
+        ],
+        [
+          0,
+          0.1145,
+        ],
+        [
+          0,
+          0.1265,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.075,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          156.201,
+          0.075,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3584,
+          0.102,
+        ],
+        [
+          0,
+          0.1395,
+        ],
+        [
+          0,
+          0.1515,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.1,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          185.941,
+          0.1,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.343,
+          0.127,
+        ],
+        [
+          0,
+          0.1645,
+        ],
+        [
+          0,
+          0.1765,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.125,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          235.384,
+          0.125,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3276,
+          0.152,
+        ],
+        [
+          0,
+          0.1895,
+        ],
+        [
+          0,
+          0.2015,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.15,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          208.908,
+          0.15,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3122,
+          0.177,
+        ],
+        [
+          0,
+          0.2145,
+        ],
+        [
+          0,
+          0.2265,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.175,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          170.499,
+          0.175,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2968,
+          0.202,
+        ],
+        [
+          0,
+          0.2395,
+        ],
+        [
+          0,
+          0.2515,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.2,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          183.676,
+          0.2,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2814,
+          0.227,
+        ],
+        [
+          0,
+          0.2645,
+        ],
+        [
+          0,
+          0.2765,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.225,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          216.079,
+          0.225,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.266,
+          0.252,
+        ],
+        [
+          0,
+          0.2895,
+        ],
+        [
+          0,
+          0.3015,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.25,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          207.408,
+          0.25,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2506,
+          0.277,
+        ],
+        [
+          0,
+          0.3145,
+        ],
+        [
+          0,
+          0.3265,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.275,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          184.705,
+          0.275,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2352,
+          0.302,
+        ],
+        [
+          0,
+          0.3395,
+        ],
+        [
+          0,
+          0.3515,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.3,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          188.399,
+          0.3,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2198,
+          0.327,
+        ],
+        [
+          0,
+          0.3645,
+        ],
+        [
+          0,
+          0.3765,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.325,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          201.233,
+          0.325,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2044,
+          0.352,
+        ],
+        [
+          0,
+          0.3895,
+        ],
+        [
+          0,
+          0.4015,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.35,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          198.927,
+          0.35,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.189,
+          0.377,
+        ],
+        [
+          0,
+          0.4145,
+        ],
+        [
+          0,
+          0.4265,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.375,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          195.998,
+          0.375,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+]
+`;
+
+exports[`the effects after the cluck (ids 4 to 18) 13 jump schedules these values, so a later Undertone that moves any shows up here 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2,
+          0.002,
+        ],
+        [
+          0,
+          0.0395,
+        ],
+        [
+          0,
+          0.0515,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          329.628,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2600,
+          0,
+        ],
+        [
+          2600,
+          0,
+        ],
+        [
+          2600,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.1633,
+          0.027,
+        ],
+        [
+          0,
+          0.0645,
+        ],
+        [
+          0,
+          0.0765,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.025,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          391.995,
+          0.025,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2600,
+          0.025,
+        ],
+        [
+          2600,
+          0.025,
+        ],
+        [
+          2600,
+          0.025,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.1267,
+          0.052,
+        ],
+        [
+          0,
+          0.0895,
+        ],
+        [
+          0,
+          0.1015,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          466.164,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2600,
+          0.05,
+        ],
+        [
+          2600,
+          0.05,
+        ],
+        [
+          2600,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.09,
+          0.077,
+        ],
+        [
+          0,
+          0.1145,
+        ],
+        [
+          0,
+          0.1265,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.075,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          554.365,
+          0.075,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2600,
+          0.075,
+        ],
+        [
+          2600,
+          0.075,
+        ],
+        [
+          2600,
+          0.075,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+]
+`;
+
+exports[`the effects after the cluck (ids 4 to 18) 14 crunch schedules these values, so a later Undertone that moves any shows up here 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.3,
+          0.003,
+        ],
+        [
+          0,
+          0.033,
+        ],
+        [
+          0,
+          0.043,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": undefined,
+    "kind": "noise",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2500,
+          0,
+        ],
+        [
+          2500,
+          0,
+        ],
+        [
+          2500,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.35,
+          0.009,
+        ],
+        [
+          0,
+          0.109,
+        ],
+        [
+          0,
+          0.159,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.008,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          523.251,
+          0.008,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          737.784,
+          0.008,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [],
+      "sets": [
+        [
+          1569.75,
+          0.008,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.0001,
+          0.068,
+        ],
+      ],
+      "sets": [
+        [
+          0.0001,
+          0.008,
+        ],
+        [
+          1,
+          0.008,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          4000,
+          0.008,
+        ],
+        [
+          4000,
+          0.008,
+        ],
+        [
+          4000,
+          0.008,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.35,
+          0.051,
+        ],
+        [
+          0,
+          0.191,
+        ],
+        [
+          0,
+          0.241,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          659.255,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "triangle",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          929.55,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [],
+      "sets": [
+        [
+          1977.77,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.0001,
+          0.13,
+        ],
+      ],
+      "sets": [
+        [
+          0.0001,
+          0.05,
+        ],
+        [
+          1,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          4500,
+          0.05,
+        ],
+        [
+          4500,
+          0.05,
+        ],
+        [
+          4500,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+]
+`;
+
+exports[`the effects after the cluck (ids 4 to 18) 15 boing (FM) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -4102,7 +4885,7 @@ exports[`the effects after the cluck (ids 4 to 14) 12 boing schedules these valu
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 13 jump schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 16 jump (FM) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
@@ -4214,23 +4997,23 @@ exports[`the effects after the cluck (ids 4 to 14) 13 jump schedules these value
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 17 soda (fizz can) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
     "gain": {
       "ramps": [
         [
-          0.3,
-          0.003,
+          0.18,
+          0.03,
         ],
         [
           0,
-          0.033,
+          0.33,
         ],
         [
           0,
-          0.043,
+          0.34,
         ],
       ],
       "sets": [
@@ -4254,15 +5037,15 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
       "ramps": [],
       "sets": [
         [
-          2500,
+          8000,
           0,
         ],
         [
-          2500,
+          8000,
           0,
         ],
         [
-          2500,
+          8000,
           0,
         ],
       ],
@@ -4276,130 +5059,16 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
     "gain": {
       "ramps": [
         [
-          0.35,
-          0.009,
-        ],
-        [
-          0,
-          0.109,
-        ],
-        [
-          0,
-          0.159,
-        ],
-      ],
-      "sets": [
-        [
-          0,
-          0.008,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          523.251,
-          0.008,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "triangle",
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          737.784,
-          0.008,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "osc",
-    "type": "sine",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [],
-      "sets": [
-        [
-          1569.75,
-          0.008,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.0001,
-          0.068,
-        ],
-      ],
-      "sets": [
-        [
-          0.0001,
-          0.008,
-        ],
-        [
-          1,
-          0.008,
-        ],
-      ],
-    },
-    "kind": "gain",
-    "type": undefined,
-  },
-  {
-    "freq": {
-      "ramps": [],
-      "sets": [
-        [
-          4000,
-          0.008,
-        ],
-        [
-          4000,
-          0.008,
-        ],
-        [
-          4000,
-          0.008,
-        ],
-      ],
-    },
-    "gain": undefined,
-    "kind": "filter",
-    "type": "lowpass",
-  },
-  {
-    "freq": undefined,
-    "gain": {
-      "ramps": [
-        [
-          0.35,
+          0.2,
           0.051,
         ],
         [
           0,
-          0.191,
+          0.251,
         ],
         [
           0,
-          0.241,
+          0.301,
         ],
       ],
       "sets": [
@@ -4417,21 +5086,21 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
       "ramps": [],
       "sets": [
         [
-          659.255,
+          880,
           0.05,
         ],
       ],
     },
     "gain": undefined,
     "kind": "osc",
-    "type": "triangle",
+    "type": "sine",
   },
   {
     "freq": {
       "ramps": [],
       "sets": [
         [
-          929.55,
+          3080,
           0.05,
         ],
       ],
@@ -4446,7 +5115,7 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
       "ramps": [],
       "sets": [
         [
-          1977.77,
+          704,
           0.05,
         ],
       ],
@@ -4460,7 +5129,7 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
       "ramps": [
         [
           0.0001,
-          0.13,
+          0.15,
         ],
       ],
       "sets": [
@@ -4477,21 +5146,615 @@ exports[`the effects after the cluck (ids 4 to 14) 14 crunch schedules these val
     "kind": "gain",
     "type": undefined,
   },
+]
+`;
+
+exports[`the effects after the cluck (ids 4 to 18) 18 fzzt (FM) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2,
+          0.003,
+        ],
+        [
+          0,
+          0.083,
+        ],
+        [
+          0,
+          0.093,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": undefined,
+    "kind": "noise",
+    "type": undefined,
+  },
   {
     "freq": {
       "ramps": [],
       "sets": [
         [
-          4500,
-          0.05,
+          8000,
+          0,
         ],
         [
-          4500,
-          0.05,
+          8000,
+          0,
         ],
         [
-          4500,
+          8000,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.25,
+          0.007,
+        ],
+        [
+          0,
+          0.127,
+        ],
+        [
+          0,
+          0.177,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.006,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          2093,
+          0.006,
+        ],
+        [
+          1965.18,
+          0.0131429,
+        ],
+        [
+          1845.16,
+          0.0202857,
+        ],
+        [
+          1732.46,
+          0.0274286,
+        ],
+        [
+          1626.66,
+          0.0345714,
+        ],
+        [
+          1527.31,
+          0.0417143,
+        ],
+        [
+          1434.11,
+          0.0488571,
+        ],
+        [
+          1346.53,
+          0.056,
+        ],
+        [
+          1264.29,
+          0.0631429,
+        ],
+        [
+          1187.07,
+          0.0702857,
+        ],
+        [
+          1114.57,
+          0.0774286,
+        ],
+        [
+          1046.5,
+          0.0845714,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          7325.52,
+          0.006,
+        ],
+        [
+          6878.12,
+          0.0131429,
+        ],
+        [
+          6458.04,
+          0.0202857,
+        ],
+        [
+          6063.62,
+          0.0274286,
+        ],
+        [
+          5693.29,
+          0.0345714,
+        ],
+        [
+          5345.58,
+          0.0417143,
+        ],
+        [
+          5019.4,
+          0.0488571,
+        ],
+        [
+          4712.84,
+          0.056,
+        ],
+        [
+          4425.01,
+          0.0631429,
+        ],
+        [
+          4154.76,
+          0.0702857,
+        ],
+        [
+          3901.01,
+          0.0774286,
+        ],
+        [
+          3662.76,
+          0.0845714,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [],
+      "sets": [
+        [
+          6279.01,
+          0.006,
+        ],
+        [
+          5895.53,
+          0.0131429,
+        ],
+        [
+          5535.47,
+          0.0202857,
+        ],
+        [
+          5197.39,
+          0.0274286,
+        ],
+        [
+          4879.97,
+          0.0345714,
+        ],
+        [
+          4581.93,
+          0.0417143,
+        ],
+        [
+          4302.34,
+          0.0488571,
+        ],
+        [
+          4039.58,
+          0.056,
+        ],
+        [
+          3792.86,
+          0.0631429,
+        ],
+        [
+          3561.22,
+          0.0702857,
+        ],
+        [
+          3343.72,
+          0.0774286,
+        ],
+        [
+          3139.51,
+          0.0845714,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.0001,
+          0.096,
+        ],
+      ],
+      "sets": [
+        [
+          0.0001,
+          0.006,
+        ],
+        [
+          1,
+          0.006,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+]
+`;
+
+exports[`Undertone 0.3 scheduling pinned for the cluck the short cluck (variant 1) schedules exactly these filter, gain and pitch values 1`] = `
+[
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.07,
+          0.003,
+        ],
+        [
+          0,
+          0.023,
+        ],
+        [
+          0,
+          0.033,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": undefined,
+    "kind": "noise",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          3000,
+          0,
+        ],
+        [
+          3000,
+          0,
+        ],
+        [
+          3000,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.26,
+          0.014,
+        ],
+        [
+          0,
+          0.0515,
+        ],
+        [
+          0,
+          0.0635,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.012,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          640,
+          0.012,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.013,
+        ],
+        [
+          2398,
+          0.038,
+        ],
+        [
+          2200,
           0.05,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.012,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.221,
+          0.039,
+        ],
+        [
+          0,
+          0.0765,
+        ],
+        [
+          0,
+          0.0885,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.037,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          517.84,
+          0.037,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.038,
+        ],
+        [
+          2398,
+          0.063,
+        ],
+        [
+          2200,
+          0.075,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.037,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.182,
+          0.064,
+        ],
+        [
+          0,
+          0.1015,
+        ],
+        [
+          0,
+          0.1135,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.062,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          419,
+          0.062,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.063,
+        ],
+        [
+          2398,
+          0.088,
+        ],
+        [
+          2200,
+          0.1,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.062,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.143,
+          0.089,
+        ],
+        [
+          0,
+          0.1265,
+        ],
+        [
+          0,
+          0.1385,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.087,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          339.03,
+          0.087,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "square",
+  },
+  {
+    "freq": {
+      "ramps": [
+        [
+          2860,
+          0.088,
+        ],
+        [
+          2398,
+          0.113,
+        ],
+        [
+          2200,
+          0.125,
+        ],
+      ],
+      "sets": [
+        [
+          2200,
+          0.087,
         ],
       ],
     },

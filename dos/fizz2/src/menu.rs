@@ -149,6 +149,7 @@ impl Menus {
         self.paused = PausedScreen::new(Platform::Dos);
         self.which = Which::Paused;
         self.opened_at = timer::ticks();
+        audio::set_mix(audio::Mix::Pause);
     }
 
     /// Opens Options over `picture` without Paused behind it (`/OPTIONS`).
@@ -163,6 +164,7 @@ impl Menus {
         self.view.invalidate();
         self.options = OptionsScreen::new(self.values, self.overridden);
         self.which = Which::Options;
+        audio::set_mix(audio::Mix::Options);
     }
 
     fn caps(&self, rate: u32) -> Caps {
@@ -185,6 +187,7 @@ impl Menus {
                 }
                 Outcome::Chosen(PausedScreen::QUIT) => {
                     self.which = Which::Closed;
+                    audio::set_mix(audio::Mix::Play);
                     Step::Quit
                 }
                 _ => Step::Stay,
@@ -210,6 +213,7 @@ impl Menus {
     fn close(&mut self) -> Step {
         self.view.set_message("");
         self.which = Which::Closed;
+        audio::set_mix(audio::Mix::Play);
         Step::Resume
     }
 
@@ -218,12 +222,14 @@ impl Menus {
         let ok = !self.dirty || self.save();
         if self.standalone {
             self.which = Which::Closed;
+            audio::set_mix(audio::Mix::Play);
             return Step::Quit;
         }
         self.paused = PausedScreen::new(Platform::Dos);
         let _ = self.paused.key(MenuKey::Down);
         self.view.invalidate();
         self.which = Which::Paused;
+        audio::set_mix(audio::Mix::Pause);
         self.view.set_message(if ok { "" } else { SAVE_FAILED });
         Step::Stay
     }
