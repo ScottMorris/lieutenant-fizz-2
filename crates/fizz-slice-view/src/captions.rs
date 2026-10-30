@@ -48,6 +48,10 @@ pub const EFFECT_PLINK: u8 = 11;
 pub const EFFECT_BOING: u8 = 12;
 pub const EFFECT_JUMP: u8 = 13;
 pub const EFFECT_CRUNCH: u8 = 14;
+/// The first Fizz 2 boing and jump (Undertone FM and pitch steps), kept as alternates: no event plays them. To hear one in the game,
+/// change the id in `presentation` below (`Event::Bounce` to `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FM`); docs/SOUND.md says more.
+pub const EFFECT_BOING_FM: u8 = 15;
+pub const EFFECT_JUMP_FM: u8 = 16;
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -17,7 +17,7 @@
 #      (the bass, its partner, the pad and the hats of assets/music/events.ts) and the shared context is made once; M suspends the
 #      context; a muted page does not start the song; the Music option (Esc, Options) turns the song off, remembered in the fizz2-options blob, and back on. The mute and music
 #      choices are read from the options screen, so the check also proves the page holds and resumes around it.
-#   5. the audition list in the H panel (web/index.html, web/main.js): all 15 effects in id order, silent before a key, and each choice
+#   5. the audition list in the H panel (web/index.html, web/main.js): all 17 effects in id order, silent before a key, and each choice
 #      schedules exactly that effect's oscillators (a carrier and a modulator for an FM voice) and noise bursts, centred; Play repeats
 #      it and a muted page plays nothing. The music is turned off first and the stand-in's clock is moved on between effects.
 #   6. the screen mix (web/mix.ts, web/audio.ts): opening Paused and Options schedules the music's low-pass to 900 Hz and its mix gain to 0.7
@@ -326,18 +326,18 @@ def main(argv):
         check(not a["osc"] and a["noise"] == 0, "a page that starts muted schedules no song at its first key")
         page.js("localStorage.clear()")
 
-        # 5. The audition list in the H panel plays any effect by its id, on its own. It exists, lists the 15 effects by id, makes no
+        # 5. The audition list in the H panel plays any effect by its id, on its own. It exists, lists the 17 effects (the last two, boing (FM) and jump (FM), are alternates no event plays) by id, makes no
         # sound before a key, and each choice schedules exactly that effect's voices (a carrier and a modulator for an FM voice).
         page.load()
-        check(page.js("document.getElementById('effect-picker').options.length") == 15, "the H panel's audition list has the 15 effects")
-        check(page.js("[...document.getElementById('effect-picker').options].map(o => o.value).join(',')") == ",".join(str(i) for i in range(15)),
-              "the audition list is in effect-id order, 0 to 14")
+        check(page.js("document.getElementById('effect-picker').options.length") == 17, "the H panel's audition list has the 17 effects")
+        check(page.js("[...document.getElementById('effect-picker').options].map(o => o.value).join(',')") == ",".join(str(i) for i in range(17)),
+              "the audition list is in effect-id order, 0 to 16")
         check(page.audio()["made"] == 0 and not page.audio()["osc"], "the audition list makes no sound before a key or click")
         page.key("ShiftLeft")
         time.sleep(0.3)
         page.toggle("music")  # the song's scheduler would add sources as the stand-in's clock is moved on below
         time.sleep(0.3)
-        for effect in range(15):
+        for effect in range(17):
             want_fx = expected_voices(effect)
             page.js("window.__audio.ctx.currentTime += 5")  # the earlier effect is over, so the player's cap of six at once is not in the way
             before = page.audio()

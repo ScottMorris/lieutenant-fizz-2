@@ -5,18 +5,21 @@
 //
 //   0-3  the chicken's cluck, variants 0..=3 (`Event::Cluck { variant }`; `CLUCK_VARIANTS = 4`).
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
-//   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack).
+//   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
+//   15 boing (FM) and 16 jump (FM): the first Fizz 2 versions of 12 and 13, kept as alternates no event plays.
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// Provenance: effects 4 to 14 are written from Fizz 1's `SFX` table (`episodes/episode-1/src/audio/patterns.ts`) and its Enhanced pitch
+// Provenance: effects 4 to 16 are written from Fizz 1's `SFX` table (`episodes/episode-1/src/audio/patterns.ts`) and its Enhanced pitch
 // curves and bell partials (`enhanced-sfx.ts`) in lieutenant-fizz at 4bce036, the same author's code, dual-licensed there as here: the
 // notes, lengths, gains and filters are Fizz 1's, and its curve shapes are written as Undertone `pitchsteps`. Where a voice here has
 // an `fm`, that is Undertone's two-operator FM (`fmVoice`) standing in for what Fizz 1 did with a second, inharmonic partial voice (the
 // bells) or could not do at all (a springy boing, a buzzing fizzle). Fizz 1's `hpf` has no field here, so its high-passed noise is a
-// short burst of white noise with a high `lpf`, the nearest the vocabulary has.
+// short burst of white noise with a high `lpf`, the nearest the vocabulary has. Effects 12 and 13 are the exception: they are Fizz 1's
+// Enhanced voices unchanged, its pitch curves as the same chains of short notes (`chain`), with no `fm`; effects 15 and 16 are the
+// `pitchsteps` and FM versions they replaced.
 //
 // Rule for the downmix: voices that start together put the main layer first at the highest gain, and a noise breath starts a little
 // before the pitched note it belongs to. DOS plays one voice at a time, so the layers beyond the lead are Web-only.
@@ -35,7 +38,7 @@
 // `EFFECTS` table at the bottom. Layering rule the downmix relies on: voices that share a start time put the main layer at the
 // highest gain, and a noise breath starts a little before the pitched note it belongs to (see docs/SOUND.md).
 
-import { breath, curve, glide, repeat, wobble, type SfxVoice } from './voice.ts';
+import { breath, chain, curve, glide, repeat, wobble, type SfxVoice } from './voice.ts';
 
 /** Variant 0, "buh-GAWK". */
 const buhGawk: SfxVoice[] = [
@@ -140,16 +143,23 @@ const clunk: SfxVoice[] = [
 const plink: SfxVoice[] = [V('c7', { w: 'sine', d: 0.05, g: 0.25, fm: { ratio: 2, index: 1.5, decay: 0.03 } })];
 
 /**
- * Effect 12, boing. Fizz 1's Enhanced version: g3 wobbling five semitones at nine swings a second, fading over 0.4 s, with a bright
- * sine on top. FM makes the body springy. About 0.4 s.
+ * Effect 12, boing: Fizz 1's, as the Web plays it in Enhanced mode, with nothing changed. Fizz 1's `enhanceEffect` drops the Classic
+ * g3 and g4 voices, and puts in their place a triangle g3 whose pitch swings five semitones at nine swings a second and fades out
+ * over 0.4 s (`CURVES.boing`: sixteen short notes, one every 25 ms), and keeps the Classic sine d5 on top (`nudge` 0.07 s), which
+ * Enhanced gives a filter that opens at the attack (`shaped`). No `fm`: Fizz 1 has none, and this is plain oscillators as it is there.
+ * About 0.4 s. The FM boing this replaced is effect 15.
  */
 const boing: SfxVoice[] = [
-  V('g3', { d: 0.4, g: 0.42, steps: wobble(5, 9, 0.4), fm: { ratio: 1, index: 2, decay: 0.3 } }),
-  V('d5', { w: 'sine', d: 0.08, g: 0.2, nudge: 0.07 }),
+  V('d5', { w: 'sine', d: 0.08, g: 0.2, nudge: 0.07, lpf: 2349.318, lpenv: 2819.1816, lpa: 0.001, lpd: 0.096, lps: 0.2, lpr: 0.05 }),
+  ...chain({ from: 'g3', shape: 'wobble', semitones: 5, rate: 9, seconds: 0.4, wave: 'triangle', gain: 0.42 }),
 ];
 
-/** Effect 13, jump: a square chirp rising nine semitones from e4 in 80 ms (Fizz 1's Enhanced curve). No caption. About 0.1 s. */
-const jump: SfxVoice[] = [V('e4', { w: 'square', d: 0.1, g: 0.2, lpf: 2600, steps: glide(9, 0.08) })];
+/**
+ * Effect 13, jump (no caption): Fizz 1's, as the Web plays it in Enhanced mode, with nothing changed. Fizz 1's `enhanceEffect` drops
+ * both Classic voices (the e4 and b4 squares) and plays a square chirp from e4 rising nine semitones in 80 ms (`CURVES.jump`: four
+ * short notes, one every 25 ms) through a 2600 Hz low-pass. About 0.1 s. The FM-era jump this replaced is effect 16.
+ */
+const jump: SfxVoice[] = chain({ from: 'e4', shape: 'rise', semitones: 9, seconds: 0.08, wave: 'square', gain: 0.2, lpf: 2600 });
 
 /** Effect 14, crunch (a snack): a noise burst, then c5 and e5 with an inharmonic crackle (FM). About 0.19 s. */
 const crunch: SfxVoice[] = [
@@ -159,7 +169,24 @@ const crunch: SfxVoice[] = [
 ];
 
 /** The effects after the cluck, in id order from 4. */
-export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch];
+/**
+ * Effect 15, boing (FM): the first Fizz 2 boing, kept as an alternate and not played by any event. Fizz 1's wobble (g3, five
+ * semitones at nine swings a second, over 0.4 s) as one note that moves (`pitchsteps`) with Undertone's FM making the body springy,
+ * and the same sine d5 on top. Switch an event back to it with a one-line change in `captions.rs` (see docs/SOUND.md). About 0.4 s.
+ */
+const boingFm: SfxVoice[] = [
+  V('g3', { d: 0.4, g: 0.42, steps: wobble(5, 9, 0.4), fm: { ratio: 1, index: 2, decay: 0.3 } }),
+  V('d5', { w: 'sine', d: 0.08, g: 0.2, nudge: 0.07 }),
+];
+
+/**
+ * Effect 16, jump (FM): the first Fizz 2 jump, kept as an alternate and not played by any event. A square chirp rising nine semitones
+ * from e4 in 80 ms as one note that moves (`pitchsteps`), with no FM in it (the name pairs it with boing (FM)). Switch an event back to
+ * it with a one-line change in `captions.rs` (see docs/SOUND.md). About 0.1 s.
+ */
+const jumpFm: SfxVoice[] = [V('e4', { w: 'square', d: 0.1, g: 0.2, lpf: 2600, steps: glide(9, 0.08) })];
+
+export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm];
 
 /** The name of each effect by id, for tools and the audition picker. */
 export const EFFECT_NAMES: readonly string[] = [
@@ -178,6 +205,8 @@ export const EFFECT_NAMES: readonly string[] = [
   'boing',
   'jump',
   'crunch',
+  'boing (FM)',
+  'jump (FM)',
 ];
 
 /**
