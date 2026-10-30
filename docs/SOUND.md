@@ -1,12 +1,12 @@
 # Sound
 
-This document is the sound story of Lieutenant Fizz 2: what plays on each platform, how the effects (the chicken's cluck and the eleven others that Fizz 1 pairs with its captions) are made and placed, what Fizz 1 does when sounds overlap, and how music fits in. The Web leads on fidelity and DOS on budgets, so the Web plays rich Undertone sources, authored with Undertone's FM voices and pitch steps, and DOS plays downmixes of them: to the OPL3 pair (channels 5 and 14), to OPL2 (channel 5) or to the PC speaker, whichever the machine has.
+This document is the sound story of Lieutenant Fizz 2: what plays on each platform, how the effects (the chicken's cluck, the eleven others that Fizz 1 pairs with its captions, and two alternates no event plays) are made and placed, what Fizz 1 does when sounds overlap, and how music fits in. The Web leads on fidelity and DOS on budgets, so the Web plays rich Undertone sources, authored with Undertone's FM voices and pitch steps, and DOS plays downmixes of them: to the OPL3 pair (channels 5 and 14), to OPL2 (channel 5) or to the PC speaker, whichever the machine has.
 
 ## Overview
 
 What plays where, today:
 
-| Platform | Effects (15 ids: the cluck and the other eleven) | Music |
+| Platform | Effects (17 ids: the cluck, the other eleven and two alternates) | Music |
 | --- | --- | --- |
 | Web | The rich Undertone source, placed by where the event happened (Enhanced) or centred (Classic) | The rich Undertone song, built (see [MUSIC.md](MUSIC.md)) |
 | DOS, OPL2 or AdLib | The OPL2 chunk on channel 5, with the distance as a carrier level and no pan | Planned, on channels 0 to 4 and 6 to 8 |
@@ -90,7 +90,7 @@ Both outputs run on the Keen effect clock of 140 frames a second. The OPL2 chunk
 | 2 | 42 | 84 | 300 ms |
 | 3 | 46 | 92 | 329 ms |
 
-In all, the four cluck variants take 2,196 bytes of OPL2 records and 304 bytes of speaker divisors; all fifteen effects take 7,872 and 988.
+In all, the four cluck variants take 2,196 bytes of OPL2 records and 304 bytes of speaker divisors; all seventeen effects take 8,840 and 1,128.
 
 ### What is lost, and where
 
@@ -131,7 +131,7 @@ Last-wins between effects, detection of an OPL2, the 560 Hz timer and the ports 
 
 ## The effects after the cluck
 
-Eleven more effects follow the cluck's four, written in `assets/sfx/effects.ts` from Fizz 1's `SFX` table (`episodes/episode-1/src/audio/patterns.ts`) and its Enhanced curves and bell partials (`enhanced-sfx.ts`), at commit `4bce036`: the notes, lengths, gains and filters are Fizz 1's, and where Fizz 1's Enhanced version adds a pitch curve or a bell partial the source writes it as pitch steps or an FM voice. `crates/fizz-slice-view/src/captions.rs` is the one table that says which rules event plays which id and raises which caption, and both presenters read it through `fizz_slice_view::event_sound`, so DOS and the Web play the same effect for the same event. A shot ending (`ShotEnd`) has a puff and no sound. Sound plays whatever the Captions setting says.
+Thirteen more effects follow the cluck's four (eleven that events play, then two alternates, ids 15 and 16, below), written in `assets/sfx/effects.ts` from Fizz 1's `SFX` table (`episodes/episode-1/src/audio/patterns.ts`) and its Enhanced curves and bell partials (`enhanced-sfx.ts`), at commit `4bce036`: the notes, lengths, gains and filters are Fizz 1's, and where Fizz 1's Enhanced version adds a pitch curve or a bell partial the source writes it as pitch steps or an FM voice, except boing and jump (12 and 13), which are Fizz 1's Enhanced voices unchanged (see [Boing and jump: Fizz 1's, with the FM versions kept](#boing-and-jump-fizz-1s-with-the-fm-versions-kept)). `crates/fizz-slice-view/src/captions.rs` is the one table that says which rules event plays which id and raises which caption, and both presenters read it through `fizz_slice_view::event_sound`, so DOS and the Web play the same effect for the same event. A shot ending (`ShotEnd`) has a puff and no sound. Sound plays whatever the Captions setting says.
 
 | Id | Effect | Event, where in the level | Caption | Source (Undertone) | OPL chunk | Speaker | What the DOS downmix loses |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -143,11 +143,22 @@ Eleven more effects follow the cluck's four, written in `assets/sfx/effects.ts` 
 | 9 | key | `Key`: Ben takes a gumdrop (red, blue or green: one sound) | red, blue or green gumdrop | Three triangle notes c5 e5 g5, the last an FM bell (ratio 2.76, index 1, 80 ms). 0.39 s | 166 records, 664 bytes, 393 ms | 42 frames, 84 bytes | The bell, as ta-da! |
 | 10 | clunk | `DoorOpen` and `HeadBump`: a door opening, or Ben's head hitting a ceiling | clunk | A breath of brown noise, then c2 sagging three semitones through a 300 Hz low-pass, FM at ratio 1, index 1.2 for 60 ms. 0.21 s | 95 records, 380 bytes, 207 ms | 20 frames, 40 bytes | The low-pass and the brown noise (a buzz on the chip); the thud is thinner |
 | 11 | plink | `Dud`: Fire pressed with no ammo | `click - no fizz` | A sine at c7 for 50 ms with a glint of FM (ratio 2, index 1.5, 30 ms). 0.1 s | 39 records, 156 bytes, 100 ms | 8 frames, 16 bytes | The glint is a plainer tone; at 2,093 Hz it is among the quietest things on the chip |
-| 12 | boing | `Bounce`: the pogo stick bounces off the ground | boing | A triangle at g3 wobbling five semitones at 9 swings a second, fading over 0.4 s, FM at ratio 1, index 2 for 300 ms, and a short sine at d5 70 ms in. 0.45 s | 186 records, 744 bytes, 450 ms | 42 frames, 84 bytes | The sine on top (one voice at a time) and the FM's springy edge, which becomes the patch's brightness |
-| 13 | jump | `Jump`: a jump from the ground. No caption | none | A square chirp rising nine semitones from e4 in 80 ms through a 2.6 kHz low-pass. 0.15 s | 57 records, 228 bytes, 150 ms | 12 frames, 24 bytes | The low-pass; quieter on the chip by the level floor (see below) |
+| 12 | boing | `Bounce`: the pogo stick bounces off the ground | boing | Fizz 1's Enhanced boing, plain oscillators: sixteen short triangle g3 notes, 25 ms apart, swinging five semitones at 9 swings a second and fading over 0.4 s (gain 0.42 easing down 55 percent), and a sine d5 70 ms in through a filter that opens at the attack. No FM. 0.41 s | 185 records, 740 bytes, 443 ms | 56 frames, 112 bytes | The sine on top (one voice at a time: the next chain note starts 5 ms after it) and the filter envelope |
+| 13 | jump | `Jump`: a jump from the ground. No caption | none | Fizz 1's Enhanced jump: four square notes 25 ms apart rising nine semitones from e4 (e4, g4, a#4, c#5) through a 2.6 kHz low-pass, gain 0.2 easing down 55 percent. No FM. 0.11 s | 57 records, 228 bytes, 143 ms | 14 frames, 28 bytes | The low-pass; quieter on the chip by the level floor (see below) |
 | 14 | crunch | `Snack`: a cheezie, a chocolate bar or a cookie | crunch | A noise burst, then c5 and e5 triangles with an inharmonic crackle (FM ratio 1.41, index 3, decaying over 60 and 80 ms). 0.24 s | 118 records, 472 bytes, 243 ms | 24 frames, 48 bytes | The burst (a buzz on the chip) and the crackle's ratio, which becomes the multiple 1 |
+| 15 | boing (FM) | none (alternate; see below) | none | The first Fizz 2 boing: one triangle g3 wobbling five semitones at 9 swings a second as pitch steps, FM at ratio 1, index 2 for 300 ms, and a short sine at d5 70 ms in. 0.40 s | 186 records, 744 bytes, 450 ms | 42 frames, 84 bytes | The sine on top and the FM's springy edge, which becomes the patch's brightness |
+| 16 | jump (FM) | none (alternate; see below) | none | The first Fizz 2 jump: one square e4 rising nine semitones in 80 ms as pitch steps through a 2.6 kHz low-pass. No FM in it, despite the name, which pairs it with 15. 0.10 s | 57 records, 228 bytes, 150 ms | 12 frames, 24 bytes | The low-pass; quieter on the chip by the level floor |
 
-The cluck keeps ids 0 to 3 and its data did not change: the generated cluck records are byte for byte what they were. In all, the fifteen effects take 7,872 bytes of OPL records (1,968 records) and 988 bytes of speaker divisors, 6,360 bytes more than the cluck alone. The OPL3 pair adds no data: the same records play on channels 5 and 14, each at its own level.
+The cluck keeps ids 0 to 3 and its data did not change: the generated cluck records are byte for byte what they were. In all, the seventeen effects take 8,840 bytes of OPL records (2,210 records) and 1,128 bytes of speaker divisors, 7,468 bytes more than the cluck alone. The OPL3 pair adds no data: the same records play on channels 5 and 14, each at its own level.
+
+### Boing and jump: Fizz 1's, with the FM versions kept
+
+The owner listened and preferred Fizz 1's pogo and jump to the first Fizz 2 ones, so ids 12 (boing) and 13 (jump) are Fizz 1's, and the first Fizz 2 versions stay in the table as ids 15 (boing (FM)) and 16 (jump (FM)).
+
+- **Ids 12 and 13 are Fizz 1's Enhanced voices, the ones the Web plays**, with the notes, lengths, gains, waveforms, filters and pitch curves exactly as `enhanceEffect` makes them (`CURVES.boing`, `CURVES.jump` and `shaped` in `enhanced-sfx.ts`; a test in `web/sfx.test.ts` holds the numbers). They are plain oscillators with no `fm`, as in Fizz 1, because the FM did not reproduce Fizz 1's sound: Fizz 1's curves are a chain of short notes, each its own 45 ms envelope, and `chain()` in `assets/sfx/voice.ts` writes them the same way. The DOS port of Fizz 1 converted its Classic table (a plain two-note jump and a three-note boing); Fizz 2 follows the Web's Enhanced here, since the Web plays the rich version.
+- **Ids 15 and 16 are the alternates**, kept as they were (pitch steps, and FM on the boing). No event plays them, and the picker lists them: choose "15  boing (FM)" or "16  jump (FM)" under "Hear an effect" to compare. They are on DOS too, in the same tables, at the cost of 972 bytes of the OPL list and 108 of the speaker list.
+- **To switch an event back**, change the id it maps to in `presentation` in `crates/fizz-slice-view/src/captions.rs`: `Event::Bounce` plays `EFFECT_BOING` (12), so `EFFECT_BOING_FM` (15) is a one-line change; `Event::Jump` plays `EFFECT_JUMP` (13) and `EFFECT_JUMP_FM` (16) likewise. Both presenters read that table, so DOS and the Web change together. The replay's AUDIO counts in `tools/check-dos.sh` and the counts in `captions/tests.rs` (`the_replay_plays_these_effects_this_often`) then move, and a gate says by how much.
+- **Tuning the FM to be close to the original** was judged possible for the jump only in a loose sense, and not worth it: the original is four steps of a rising square with a 55 percent gain fall, and the FM jump is a single square gliding with no FM, so the difference is the stepped, slightly buzzy chirp against a smooth one. The boing's body is the real difference (a ragged chain of triangle notes against one note with FM), and the FM would have to imitate the 25 ms envelope restarts, which is what the chain does.
 
 ### FM voices and pitch steps
 
@@ -179,9 +190,11 @@ The busiest tick of every effect is its patch load: 11 register writes on one ch
 | 9 | key | 166 | 220 | 0.75 | 2 | 2 |
 | 10 | clunk | 95 | 116 | 0.82 | 2 | 2 |
 | 11 | plink | 39 | 56 | 0.70 | 1 | 2 |
-| 12 | boing | 186 | 252 | 0.74 | 3 | 2 |
-| 13 | jump | 57 | 84 | 0.68 | 1 | 2 |
+| 12 | boing | 185 | 248 | 0.75 | 1 | 2 |
+| 13 | jump | 57 | 80 | 0.71 | 1 | 2 |
 | 14 | crunch | 118 | 136 | 0.87 | 3 | 2 |
+| 15 | boing (FM) | 186 | 252 | 0.74 | 3 | 2 |
+| 16 | jump (FM) | 57 | 84 | 0.68 | 1 | 2 |
 
 `bun tools/sfx/downmix.ts --stats` prints the records, bytes, length and busiest tick of each effect, and a unit test of `fizz-sfx` fails if any tick writes more than 11 registers.
 
@@ -203,7 +216,7 @@ The consequences to know: on DOS a head-bump that follows a jump and a snack wit
 
 Nobody can hear them headlessly: the checks prove what is scheduled and what is written, not how it sounds. The owner's listen of 29 October 2026 covered the Web.
 
-**On the Web**, press H (or the ? button) to open the panel. Under the hint there is a list, "Hear an effect", with all fifteen in id order, and a Play button. Choosing an entry plays that effect on its own, centred, at full level; the arrow keys on the list play each as they move, and Esc hands the keyboard back to the game. It makes the sound with the page's own player (first key or click, the M mute and the hidden-tab rule all apply). `?audio=classic` changes nothing for it, since it is always centred.
+**On the Web**, press H (or the ? button) to open the panel. Under the hint there is a list, "Hear an effect", with all seventeen in id order (the last two, boing (FM) and jump (FM), are the alternates), and a Play button. Choosing an entry plays that effect on its own, centred, at full level; the arrow keys on the list play each as they move, and Esc hands the keyboard back to the game. It makes the sound with the page's own player (first key or click, the M mute and the hidden-tab rule all apply). `?audio=classic` changes nothing for it, since it is always centred.
 
 **On DOS** there is no picker. The effects play where the events happen in the level, and `FIZZ2.EXE /REPLAY` (or a run of `/LIVE`) plays the whole route through the chip or the speaker the machine has.
 
@@ -214,7 +227,7 @@ Nobody can hear them headlessly: the checks prove what is scheduled and what is 
 - In the snack nook at the top: crunch (14) on each snack, key (9) at the blue key, boing (12) on the pogo bounces, and ta-da! (win, 8) at the exit.
 - The cluck (0 to 3) as before.
 
-What to expect, as a listener (these are intentions, not results): fzzt is a bright fizzing zap that falls; fizzled is a short wobbling sputter; bonk a deep round knock; whoa! a falling "wooo" over about half a second; ta-da! the longest, a rising four-note flourish ending on a long bell-like note; key three quick rising notes; clunk a low thud; click a tiny high tick; boing a springy wobble that fades; jump a short rising chirp; crunch a noisy crackle with two quick notes. On DOS each is one voice, so the layers and the noise are thinner and the FM bells are plain tones.
+What to expect, as a listener (these are intentions, not results): fzzt is a bright fizzing zap that falls; fizzled is a short wobbling sputter; bonk a deep round knock; whoa! a falling "wooo" over about half a second; ta-da! the longest, a rising four-note flourish ending on a long bell-like note; key three quick rising notes; clunk a low thud; click a tiny high tick; boing (Fizz 1's) a ragged, stepped wobble that fades over about 0.4 s, with a quick bright blip near the start; jump (Fizz 1's) a short rising chirp in four audible steps; crunch a noisy crackle with two quick notes. On DOS each is one voice, so the layers and the noise are thinner and the FM bells are plain tones.
 
 
 ## Where a sound is placed
@@ -363,7 +376,7 @@ A Sound Blaster Pro 1, which has two separate OPL2 chips for stereo, is not supp
 
 Each OPL write is the register port, six status reads, the data port and 35 status reads, about 43 port accesses, or about 26 microseconds at the chip's documented settling times. The pair doubles the writes of an effect (less the one chip-wide enable). The busiest tick of every effect is its patch, with 11 writes on one channel and 22 on the pair, about 0.3 ms and 0.6 ms of a 1.79 ms tick; with the music's 16-write ceiling on the same tick that is at most 38 writes, about 1.0 ms (see [Writes per tick and sizes](#writes-per-tick-and-sizes)). The handler stays bounded (at most two players, no loop longer than their records) and allocation-free, and the attenuation is a table lookup done in the program. The microseconds come from the documented delays, not from a measurement on an ISA bus.
 
-`/REPLAY` counts the writes. The replay (1,681 ticks) has 62 sounding events on 61 distinct ticks, so the service starts 61 effects (it has one slot and takes the last request of a tick; a shot and the stun it causes share a tick). `AUDIO WRITES` is 5,221 on OPL2 channel 5 (20 start and stop key-offs and 5,201 records), 5,242 on an OPL3 on the AdLib role and 10,382 on the pair (the 41 start and stop writes and twice the 5,201 records, less 61 enables), and the speaker makes 1,213 steps. They were 569, 590 and 1,135 when only the four clucks of the same script played, and 419, 440 and 836 for the three clucks of the shorter script before the playground. The numbers are exact because the replay is deterministic and DOSBox runs at fixed cycles; two runs in a row gave the same figures. `tools/check-dos.sh` requires exactly those relations. The attenuation changes values and not the count, so `AUDIO WRITES` does not show it; the register stream of the left, centre and right pair is checked by the host tests of `OplPair`.
+`/REPLAY` counts the writes. The replay (1,681 ticks) has 62 sounding events on 61 distinct ticks, so the service starts 61 effects (it has one slot and takes the last request of a tick; a shot and the stun it causes share a tick). `AUDIO WRITES` is 5,178 on OPL2 channel 5 (20 start and stop key-offs and 5,158 records), 5,199 on an OPL3 on the AdLib role and 10,296 on the pair (the 41 start and stop writes and twice the 5,158 records, less 61 enables), and the speaker makes 1,302 steps (they were 5,221, 5,242, 10,382 and 1,213 before the boing and the jump became Fizz 1's, whose chains are a record shorter and four ticks shorter and whose speaker lists are longer). They were 569, 590 and 1,135 when only the four clucks of the same script played, and 419, 440 and 836 for the three clucks of the shorter script before the playground. The numbers are exact because the replay is deterministic and DOSBox runs at fixed cycles; two runs in a row gave the same figures. `tools/check-dos.sh` requires exactly those relations. The attenuation changes values and not the count, so `AUDIO WRITES` does not show it; the register stream of the left, centre and right pair is checked by the host tests of `OplPair`.
 
 ## The Web path
 
