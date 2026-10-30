@@ -3,10 +3,10 @@ id: design
 n: 7
 title: Design explorations
 date: 2026-10-27
-summary: The Episode 2 sprite design canvas, where Ben variant A is the provisional Ben and the enemy rosters are options, Fizz Level Studio for levels and scripts, and the private IMF lab that the music will come from. None of it is built into the game.
+summary: The Episode 2 sprite design canvas, where Ben variant A is the provisional Ben and the enemy rosters are options, the level script language from an earlier experiment, and the music direction. None of it is built into the game.
 prs: [10]
 ---
-Three pieces of design work sit outside the repository. Nothing in `main` depends on any of them yet. The two canvases are private artifacts of the project owner, so the links work for the owner only.
+Three pieces of design work sit outside the finished game. Nothing in `main` depends on any of them yet. The sprite canvas is a private artifact of the project owner, so its link works for the owner only.
 
 ## The Episode 2 sprite canvas
 
@@ -18,13 +18,13 @@ The enemy rosters are options, and none is chosen. `docs/POC-1-FINDINGS.md` sets
 
 The base art resolution for Episode 2 is an open question in `docs/ARCHITECTURE.md`, because it decides what the baker must quantise for the DOS palette.
 
-## Fizz Level Studio
+## The level script language
 
-[Fizz Level Studio](https://claude.ai/artifact/E43evy173R6mC7bAeN5FAF) is the design canvas of the level and overworld editor; its specification lives in the `fizz-level-studio` experiment. `docs/POC-1-FINDINGS.md` (Level tooling) records what that experiment holds: a builder language in which every level and the overworld is a short text script, a Rust exporter to Fizz 1's `Builder` calls, a nine-tool MCP server and an interactive prototype. The scripts for all 16 Episode 1 levels and the overworld rebuild Fizz 1's data exactly, fingerprints included, by `scripts/prove-all.sh`. The studio application itself is not built. For Fizz 2 the script is meant to be the authoring format and `fizz-bake` the one place that turns it into engine data (Milestone 2).
+An earlier experiment designed a level script language for levels and the overworld. `docs/POC-1-FINDINGS.md` (Level tooling) records what that experiment held: a builder language in which every level and the overworld is a short text script, a Rust exporter to Fizz 1's `Builder` calls, a nine-tool MCP server and an interactive prototype. The scripts for all 16 Episode 1 levels and the overworld rebuild Fizz 1's data exactly, fingerprints included. The editor application itself was not built. For Fizz 2 the script is meant to be the authoring format and `fizz-bake` the one place that turns it into engine data (Milestone 2).
 
-## The IMF lab
+## Music from separately authored songs
 
-The IMF lab is a private authoring and comparison tool for IMF music (`docs/POC-1-FINDINGS.md`, Music direction); it is not published. Milestone 4 takes the music from its source: a composition that is not limited by AdLib, played directly on Web and lowered to IMF or OPL2 for DOS by a build step, with channel 5 kept for effects.
+Milestone 4 takes the music from its source: a composition that is not limited by AdLib, played directly on Web and lowered to IMF or OPL2 for DOS by a build step (`docs/POC-1-FINDINGS.md`, Music direction). Songs will come from separately authored material, and OPL register streams made by other tools can be imported through the stream spec. Channels 5 and 14 stay reserved for effects, which is a rule of the game's audio service that any score-writing tool must respect (`docs/SOUND.md`, Scores from other tools).
 
 ## The shelves
 
@@ -32,14 +32,14 @@ The IMF lab is a private authoring and comparison tool for IMF music (`docs/POC-
 - #10 is merged with CI {{pr10.ci}} on `{{pr10.merge}}`: the banner's Ben is drawn from Fizz 1's pogo sprites, and the archive's front page shows that banner from the tree of `main`.
 
 ### Uncatalogued
-- The contents of the two canvases, including Ben variant A: they are linked, not copied, and no check in this repository reads them.
-- The Level Studio results (the 16 levels rebuilt exactly): recorded in `docs/POC-1-FINDINGS.md` and run in the experiment's own repository, not here.
-- The IMF lab: private, and nothing in this repository uses it.
+- The contents of the sprite canvas, including Ben variant A: it is linked, not copied, and no check in this repository reads it.
+- The level script results (the 16 levels rebuilt exactly): recorded in `docs/POC-1-FINDINGS.md` from an earlier experiment and not re-run here.
+- Songs from other tools: nothing in this repository imports them yet.
 
 ### Wish list
 - A final Ben: the size, a redrawn bust, and the sprites authored above the DOS palette and quantised by the baker.
 - A chosen enemy roster and the level designs.
-- Level Studio scripts baked into Fizz 2 data, with a solvability run in CI (`docs/POC-1-FINDINGS.md`, Progression model).
+- Level scripts baked into Fizz 2 data, with a solvability run in CI (`docs/POC-1-FINDINGS.md`, Progression model).
 
 > **From the workbench — IMF.** The IMF format stores AdLib music as a list of OPL2 register writes with delays between them. id Software used it for the music of Wolfenstein 3D and other games of the early 1990s, which is why an IMF file can be played back without an instrument library.
 > Source: [AdLib music formats in the ModdingWiki](https://moddingwiki.shikadi.net/wiki/IMF_Format)

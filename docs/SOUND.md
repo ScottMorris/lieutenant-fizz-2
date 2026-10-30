@@ -43,7 +43,7 @@ The owner listened to the new effects on the Web on 29 October 2026 and found th
 
 ## Effects
 
-The chicken's cluck was the first effect and the other eleven came after it (see [The effects after the cluck](#the-effects-after-the-cluck)). All are placeholders built from the project's goals and from the shapes Fizz 1 uses for its effects. How effects should really sound is a separate discovery track, run in the owner's IMF lab (see [The IMF lab](#the-imf-lab-private)). When that produces a designed effect it replaces its entry in `assets/sfx/effects.ts` and the pipeline stays as it is.
+The chicken's cluck was the first effect and the other eleven came after it (see [The effects after the cluck](#the-effects-after-the-cluck)). All are placeholders built from the project's goals and from the shapes Fizz 1 uses for its effects. How effects should really sound is a separate discovery track, done by ear outside this pipeline (see [Scores from other tools](#scores-from-other-tools)). When that produces a designed effect it replaces its entry in `assets/sfx/effects.ts` and the pipeline stays as it is.
 
 ### The source
 
@@ -338,7 +338,7 @@ Sound effects own two OPL channels, numbered 0 to 17 with the second register ba
 
 The constants are `fizz_sfx::EFFECT_CHANNEL`, `EFFECT_CHANNEL_RIGHT` and `RESERVED_OPL_CHANNELS` in the crate, and the same three in `tools/sfx/opl.ts`. A score-writing tool imports the list and refuses those channels. Channel 5 keeps its reservation whatever the card; channel 14 is the right half of the pair on an OPL3.
 
-This costs a score one channel: the OPL3 list loses channel 14 (see [The IMF lab](#the-imf-lab-private) for the one change the lab needs). A second effect while one sounds cuts the first on both channels (last wins, as with every effect).
+This costs a score one channel: the OPL3 list loses channel 14 (see [Scores from other tools](#scores-from-other-tools) for the rule a score-writing tool must follow). A second effect while one sounds cuts the first on both channels (last wins, as with every effect).
 
 ### The OPL3 pair
 
@@ -387,15 +387,13 @@ Music has its own document, [MUSIC.md](MUSIC.md). In short: the song is an Under
 
 Channel allocation is settled and shared with effects. OPL2 music uses channels 0 to 4 and 6 to 8. OPL3 music uses `[0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 15, 16, 17]`, thirteen channels. Channels 5 and 14 are reserved for effects on every card (see [Reserved channels](#reserved-channels)). Music is a view of the game, like positional sound: it adds no event and no game logic reads the music clock.
 
-## The IMF lab (private)
+## Scores from other tools
 
-The IMF lab is the owner's private IMF transcription lab. It is not in this repository and is not public. It holds the Fizz 1 and Fizz 2 songs and the OPL engines that play them, and it is where the effect discovery track runs. This repository never changes it.
+Songs and effects can be authored in tools outside this repository. What the game requires of them is a spec, and nothing here depends on any particular tool.
 
-How it relates to the game:
-
-- Songs are composed there for Undertone, which is the rich source the Web plays, and then converted for OPL.
-- It is the plug-in point for an OPL3 arrangement of a song: the DOS music player would take an arrangement made in the lab. That import is not built.
-- It needs one change. Its OPL3 music channel list, `OPL3_MUSIC_CHANNELS` in `src/fizz-dos/music.ts`, is `[0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 14, 15, 16, 17]`, and it must drop channel 14, because effects reserve it as the right half of the pair. It becomes the thirteen channels above. Making that change is the owner's.
+- Music source songs come from separately authored material: an Undertone source for the Web, and an OPL register stream for DOS. A register stream made by another tool can be imported through the stream spec. That import is not built.
+- The reservations are a rule of the game's audio service, and any score-writing tool must respect them. Channel 5 is reserved for effects on every card. On an OPL3, channel 14 is reserved too, because effects use it as the right half of the pair (see [Reserved channels](#reserved-channels)). A tool that writes OPL3 scores must therefore use only the thirteen music channels listed above, `[0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 15, 16, 17]`, and a list that includes channel 14 must drop it.
+- The register numbers for bank 1 follow the chip's documented layout, and the five-byte OPL3 record (a register, a value, a wait and a bank byte) is the shape the game's player reads.
 
 ## Regenerate and check
 
@@ -424,6 +422,6 @@ The converter is the same author's code, MIT in `lieutenant-fizz-dos` and dual-l
 
 - Apart from the owner's playtests of 28 October 2026, in which the cluck played in the builds and sounded good (one listener, not a measurement), nobody has listened to the cluck in any form: not the source, not the OPL2 chunk, not the speaker list. The WAV previews are approximations of each and are not evidence of how the game will sound.
 - Nobody has heard any of the eleven effects after the cluck, on the Web or on DOS, in any form: the checks show which oscillators the page schedules and which registers the chip is written. The FM voices are authored by their numbers; whether they sound like zaps, knocks and bells, how loud each is beside the music and beside the others, and whether the cap of six at once is ever reached are unknown. The downmix of an FM voice is a best effort that was not compared by ear. The listening guide above says what to expect.
-- The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The OPL3 pair has run in DOSBox's headless emulator only, where the writes are counted and the positions are never heard; the register numbers for bank 1 and the total-level attenuation rest on the lab's conventions and the chip's documented layout, not on a test against hardware. Whether the pan and the distance sound right, whether the -3 dB centre matches a single voice by ear, and whether Fizz 1's 0.6 pan width is enough on small speakers are all unheard.
+- The OPL2 data has not run on an OPL2 chip or in an emulator, and the patches are untuned first guesses. The OPL3 pair has run in DOSBox's headless emulator only, where the writes are counted and the positions are never heard; the register numbers for bank 1 and the total-level attenuation rest on common OPL3 conventions and the chip's documented layout, not on a test against hardware. Whether the pan and the distance sound right, whether the -3 dB centre matches a single voice by ear, and whether Fizz 1's 0.6 pan width is enough on small speakers are all unheard.
 - The Web plays the cluck, but that has been checked only against stand-ins for `AudioContext`. A real browser's autoplay policy, its hidden-tab behaviour, the overall loudness and any clipping (each voice's gain is at most 0.3, but the sum is not measured) have not been tried. The manual describes the Web's cluck and the DOS one.
 - Nobody has heard the music in any form either, on the Web or in a lowered one; [MUSIC.md](MUSIC.md) lists what is unverified there.

@@ -15,7 +15,7 @@
 // Each side takes its own record stream (today both get the same one), so a later stereo-authored effect can put different content
 // on each side without changing this code. The OPL3 idea (enable by writing 0x01 to register 0x105, output bits 0x10 left, 0x20
 // right and 0x30 both in a channel's C0 register, a second register bank above 0x100, five-byte records with a bank byte) follows the
-// owner's IMF lab, `src/fizz-dos/opl.ts` and `music.ts`, adapted here as a packed bank bit and a runtime rewrite rather than a baked stream.
+// common OPL3 register conventions, adapted here as a packed bank bit and a runtime rewrite rather than a baked stream.
 #![no_std]
 #![forbid(unsafe_code)]
 

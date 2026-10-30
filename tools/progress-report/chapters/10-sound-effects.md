@@ -51,8 +51,8 @@ On the Web, `web/sfx.test.ts` snapshots what each new effect schedules on a stan
 - The cost of the 560 Hz interrupt with effects and music together on a 486: DOSBox charges no time for port I/O, so the `/BENCH /AUDIO` counts are exact and the microseconds are the emulator's.
 
 ### Wish list
-- Effects designed by ear in the owner's lab in place of these first drafts, and stereo-authored effects, which the pair already allows with one record stream for each side.
-- The exact FM-to-OPL mapping from the companion package in Undertone issue 25, and the lab's songs; both are Milestone 4.5 on the roadmap, as are the stereo-authored effects, the OPL3 core-and-extras idea, music compression and the audit of redundant register writes.
+- Effects designed by ear in place of these first drafts, and stereo-authored effects, which the pair already allows with one record stream for each side.
+- The exact FM-to-OPL mapping from the companion package in Undertone issue 25, and separately authored songs; both are Milestone 4.5 on the roadmap, as are the stereo-authored effects, the OPL3 core-and-extras idea, music compression and the audit of redundant register writes.
 
 > **From the workbench — FM synthesis.** In frequency-modulation synthesis one oscillator, the carrier, has its pitch swung by another, the modulator. A modulator at a whole-number multiple of the carrier gives a harmonic tone, and a fraction such as 2.76 gives the inharmonic partials of a bell. John Chowning developed the method at Stanford in the late 1960s, and the Yamaha OPL2 and OPL3 chips build their tones from pairs of such operators.
 > Source: [Frequency modulation synthesis, Wikipedia](https://en.wikipedia.org/wiki/Frequency_modulation_synthesis)
