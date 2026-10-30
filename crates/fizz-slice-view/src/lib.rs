@@ -1917,7 +1917,7 @@ mod tests {
         w.ben.b.y = 20.0;
         let closed = picture(&w, 0);
         w.map.set_switch(fizz_ep2::tiles::DOOR_RED_CHANNEL, false);
-        w.flags.set(WorldFlags::DOOR_RED_OPEN);
+        w.flags.set(WorldFlags::KEY_RED_USED);
         let open = picture(&w, 0);
         let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
         assert!(count(&closed, BROWN) > 0);
@@ -1945,7 +1945,7 @@ mod tests {
         let mut open = w.clone();
         open.map
             .set_switch(fizz_ep2::tiles::DOOR_BLUE_CHANNEL, false);
-        open.flags.set(WorldFlags::DOOR_BLUE_OPEN);
+        open.flags.set(WorldFlags::KEY_BLUE_USED);
         let opened = picture(&open, 0);
         assert!(
             count(&opened, BROWN) < count(&full, BROWN),

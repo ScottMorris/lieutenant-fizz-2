@@ -471,7 +471,7 @@ mod tests {
         // Three cheezies (1 each), a chocolate (2) and a cookie (5); the cans are worth no points.
         assert_eq!(w.score(), 10);
         assert!(w.snacks.iter().all(|s| s.taken));
-        assert!(w.flags.contains(WorldFlags::DOOR_BLUE_OPEN));
+        assert!(w.flags.contains(WorldFlags::KEY_BLUE_USED));
         assert!(!w.flags.contains(WorldFlags::KEY_BLUE), "the door spent it");
         assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
         assert!(!w.key_blue_in_world());
@@ -493,7 +493,7 @@ mod tests {
             prev = L;
         }
         assert!(w.ben.b.x >= 23.0);
-        assert!(!w.flags.contains(WorldFlags::DOOR_BLUE_OPEN));
+        assert!(!w.flags.contains(WorldFlags::KEY_BLUE_USED));
         assert!(w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
     }
 
@@ -531,10 +531,10 @@ mod tests {
     }
 
     #[test]
-    fn a_death_puts_the_snacks_back_and_keeps_the_open_blue_door() {
+    fn a_death_puts_the_snacks_back_and_closes_the_blue_door() {
         let mut w = level::world();
         w.snacks[0].taken = true;
-        w.flags.set(WorldFlags::DOOR_BLUE_OPEN);
+        w.flags.set(WorldFlags::KEY_BLUE_USED);
         w.map.set_switch(crate::tiles::DOOR_BLUE_CHANNEL, false);
         w.ben.kill();
         for _ in 0..100 {
@@ -542,7 +542,9 @@ mod tests {
         }
         assert_eq!(w.deaths, 1);
         assert!(w.snacks.iter().all(|s| !s.taken));
-        assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
+        assert!(w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));
+        assert!(!w.flags.contains(WorldFlags::KEY_BLUE_USED));
+        assert!(w.key_blue_in_world(), "the blue key is back where it lay");
         assert!(w.map.switch(crate::tiles::DOOR_RED_CHANNEL));
     }
 
@@ -563,7 +565,7 @@ mod tests {
         for &(frames, now) in SLICE_SCRIPT {
             for _ in 0..frames {
                 let had_key = w.flags.contains(WorldFlags::KEY_RED);
-                let was_open = w.flags.contains(WorldFlags::DOOR_RED_OPEN);
+                let was_open = w.flags.contains(WorldFlags::KEY_RED_USED);
                 step(&mut w, InputFrame::from_transition(prev, now));
                 prev = now;
                 max_shots = max_shots.max(w.shots.len());
@@ -586,7 +588,7 @@ mod tests {
         assert_eq!(deaths, 1);
         assert!(key_when_died, "Ben died carrying the key");
         assert!(!door_open_before_death);
-        assert!(w.flags.contains(WorldFlags::DOOR_RED_OPEN));
+        assert!(w.flags.contains(WorldFlags::KEY_RED_USED));
         assert!(
             !w.flags.contains(WorldFlags::KEY_RED),
             "the door spent the key"
@@ -608,25 +610,195 @@ mod tests {
             prev = R;
         }
         assert!(w.ben.b.x < level::DOOR[0].0 as f64);
-        assert!(!w.flags.contains(WorldFlags::DOOR_RED_OPEN));
+        assert!(!w.flags.contains(WorldFlags::KEY_RED_USED));
         assert!(w.map.switch(crate::tiles::DOOR_RED_CHANNEL));
     }
 
-    #[test]
-    fn an_open_door_survives_a_death_and_the_key_does_not() {
-        let mut w = level::world();
-        w.flags.set(WorldFlags::DOOR_RED_OPEN);
-        w.flags.set(WorldFlags::KEY_RED);
-        w.map.set_switch(crate::tiles::DOOR_RED_CHANNEL, false);
+    /// Steps an idle world until the respawn after `Ben::kill` has happened.
+    fn die_and_respawn(w: &mut World) {
         w.ben.kill();
         for _ in 0..100 {
-            step(&mut w, InputFrame::from_transition(IDLE, IDLE));
+            step(w, InputFrame::from_transition(IDLE, IDLE));
         }
+    }
+
+    #[test]
+    fn a_death_closes_an_opened_door_and_puts_its_key_back() {
+        let mut w = level::world();
+        w.flags.set(WorldFlags::KEY_RED_USED);
+        w.flags.set(WorldFlags::KEY_RED);
+        w.map.set_switch(crate::tiles::DOOR_RED_CHANNEL, false);
+        die_and_respawn(&mut w);
         assert_eq!(w.deaths, 1);
-        assert!(w.flags.contains(WorldFlags::DOOR_RED_OPEN));
+        assert!(!w.flags.contains(WorldFlags::KEY_RED_USED));
         assert!(!w.flags.contains(WorldFlags::KEY_RED));
-        assert!(!w.map.switch(crate::tiles::DOOR_RED_CHANNEL));
-        assert!(!w.key_in_world(), "a spent key does not come back");
+        assert!(
+            w.map.switch(crate::tiles::DOOR_RED_CHANNEL),
+            "the door is closed again"
+        );
+        assert!(w.key_in_world(), "the spent key lies where it began");
+        assert!(!w.lock_open(crate::rules::KEY_RED));
+    }
+
+    /// The slice's one death in the replay (on the spikes, carrying the red key, before any door opens): the reset is the old
+    /// respawn. The old respawn restored the channels from the open flags, which were clear, so both doors were put (back) to
+    /// closed and nothing else changed; the new reset restores the level's start switches, which are the same two bits.
+    #[test]
+    fn the_reset_equals_the_old_respawn_at_the_slices_one_death() {
+        let mut w = level::world();
+        let mut prev = Buttons::NONE;
+        let mut seen = false;
+        for &(frames, now) in SLICE_SCRIPT {
+            for _ in 0..frames {
+                let before = (w.flags.0, w.map.switches);
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                if w.deaths == 1 && !seen {
+                    seen = true;
+                    // Before the respawn, no door had opened and Ben carried the red key.
+                    assert_eq!(before.0 & !WorldFlags::KEY_RED, 0);
+                    assert_eq!(before.1, 0b110);
+                    // The old respawn: both channels set from the clear open flags, both key bits cleared.
+                    let mut old_switches = before.1;
+                    old_switches |= 1 << crate::tiles::DOOR_RED_CHANNEL;
+                    old_switches |= 1 << crate::tiles::DOOR_BLUE_CHANNEL;
+                    assert_eq!(w.map.switches, old_switches);
+                    assert_eq!(w.flags.0, 0);
+                }
+            }
+        }
+        assert!(seen);
+    }
+
+    #[test]
+    fn two_deaths_after_opening_a_door_restore_the_start_state() {
+        let mut w = level::world();
+        for _ in 0..2 {
+            w.flags.set(WorldFlags::KEY_RED_USED);
+            w.flags.set(WorldFlags::KEY_BLUE);
+            w.map.set_switch(crate::tiles::DOOR_RED_CHANNEL, false);
+            w.snacks[1].taken = true;
+            die_and_respawn(&mut w);
+            assert_eq!(w.map.switches, w.start_switches());
+            assert_eq!(w.map.switches, 0b110);
+            assert_eq!(w.flags.0, 0);
+            assert!(w.snacks.iter().all(|s| !s.taken));
+            assert!(w.key_in_world() && w.key_blue_in_world());
+        }
+        assert_eq!(w.deaths, 2);
+    }
+
+    #[test]
+    fn the_start_switches_come_from_the_level() {
+        let w = level::world();
+        assert_eq!(w.start_switches(), level::SLICE_SOURCE.switches);
+        // A level that starts with the red door open: a death brings that back, not a closed door.
+        let src = level::LevelSource {
+            switches: crate::tiles::DOOR_BLUE_BIT,
+            ..level::SLICE_SOURCE
+        };
+        let mut w = level::world_from(&src).unwrap();
+        assert!(w.lock_open(crate::rules::KEY_RED));
+        w.map.set_switch(crate::tiles::DOOR_RED_CHANNEL, true);
+        die_and_respawn(&mut w);
+        assert_eq!(w.map.switches, crate::tiles::DOOR_BLUE_BIT);
+        assert!(w.lock_open(crate::rules::KEY_RED));
+        // A bare world has the switches of its map, no more and no fewer.
+        let bare = World::new(level::map(), level::SPAWN);
+        assert_eq!(bare.map.switches, 0);
+    }
+
+    /// A one-door world: a lock for the red key on an arbitrary switched tile channel (7), standing in front of Ben.
+    fn custom_channel_world(start: u32) -> World {
+        use fizz_phys::tilemap::SWITCHED;
+        let mut props = crate::tiles::props();
+        props.set_flags(40, SWITCHED);
+        props.set_channel(40, 7);
+        let mut map = fizz_phys::TileMap::new(8, 4, props);
+        for x in 0..8 {
+            map.set(x, 0, crate::tiles::FILL);
+        }
+        for y in 1..4 {
+            map.set(5, y, 40);
+        }
+        let mut w = World::new(map, (2.0, 1.0));
+        w.set_switches(start);
+        let mut rules = crate::rules::RuleTable::new();
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7, (5, 2)));
+        w.set_rules(rules);
+        w.flags.set(WorldFlags::KEY_RED);
+        w
+    }
+
+    fn walk_right(w: &mut World, ticks: u32) {
+        let mut prev = Buttons::NONE;
+        for _ in 0..ticks {
+            step(w, InputFrame::from_transition(prev, R));
+            prev = R;
+        }
+    }
+
+    #[test]
+    fn a_lock_on_any_switched_tiles_channel_opens_its_door() {
+        let mut w = custom_channel_world(1 << 7);
+        assert!(w.map.solid(5, 1, false, 0.0));
+        walk_right(&mut w, 120);
+        assert!(!w.map.switch(7), "the door opened");
+        assert!(w.flags.contains(WorldFlags::KEY_RED_USED));
+        assert!(!w.flags.contains(WorldFlags::KEY_RED));
+        assert!(w.lock_open(crate::rules::KEY_RED));
+        assert!(w.ben.b.x > 5.0, "Ben walked through where the door was");
+    }
+
+    #[test]
+    fn a_lock_does_nothing_while_its_channel_is_already_off() {
+        let mut w = custom_channel_world(0);
+        walk_right(&mut w, 120);
+        assert!(!w.map.switch(7));
+        assert!(
+            w.flags.contains(WorldFlags::KEY_RED),
+            "the key is not spent"
+        );
+        assert!(!w.flags.contains(WorldFlags::KEY_RED_USED));
+        assert!(w.ben.b.x > 5.0);
+    }
+
+    #[test]
+    fn a_lock_for_another_colour_or_channel_leaves_the_door_shut() {
+        // The lock takes the blue key; Ben holds the red one.
+        let mut w = custom_channel_world(1 << 7);
+        let mut rules = crate::rules::RuleTable::new();
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7, (5, 2)));
+        w.set_rules(rules);
+        walk_right(&mut w, 120);
+        assert!(w.map.switch(7));
+        assert!(w.ben.b.x < 5.0);
+        // The lock reads channel 8; the tiles read 7.
+        let mut w = custom_channel_world(1 << 7 | 1 << 8);
+        let mut rules = crate::rules::RuleTable::new();
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 8, (5, 2)));
+        w.set_rules(rules);
+        walk_right(&mut w, 120);
+        assert!(w.map.switch(7) && w.map.switch(8));
+        assert!(w.flags.contains(WorldFlags::KEY_RED));
+    }
+
+    #[test]
+    fn locks_run_in_table_order() {
+        // Two locks on one channel for different colours, Ben holding both keys: the first in the table spends its key.
+        let mut w = custom_channel_world(1 << 7);
+        w.flags.set(WorldFlags::KEY_BLUE);
+        let mut rules = crate::rules::RuleTable::new();
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7, (5, 2)));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7, (5, 2)));
+        w.set_rules(rules);
+        walk_right(&mut w, 120);
+        assert!(w.flags.contains(WorldFlags::KEY_BLUE_USED));
+        assert!(!w.flags.contains(WorldFlags::KEY_RED_USED));
+        assert!(
+            w.flags.contains(WorldFlags::KEY_RED),
+            "the door was open for the second lock"
+        );
     }
 
     #[test]
