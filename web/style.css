@@ -80,19 +80,23 @@ canvas {
   --fizz: #ff55ff;
 }
 
-/* The HUD: Fizz 1's desktop HUD panel (episodes/episode-1/src/ui/hud.css): dark glass, small dim labels over big pixel digits, 16 px
-   from the corner. main.js sets --n, the whole-number pixel scale, from the stage's height (Fizz 1's rule, hud.ts `hudScale`) and
-   --key-px for the key chip. It sits above the captions and below the panel and its toast, takes no clicks, and does not move. */
+/* The HUD: Fizz 1's desktop HUD panel (episodes/episode-1/src/ui/hud.css), laid out as the Two-Row Stack: dark glass, a small dim
+   label beside each big pixel number, Fizz and Score on the top row, Deaths and the key tray on the bottom. main.js sets --n, the
+   whole-number pixel scale, from the stage's height (Fizz 1's rule, hud.ts `hudScale`) and --key-px, the size of one pixel of a
+   tray key. 16 px from the corner. It sits above the captions and below the panel and its toast, takes no clicks, does not move
+   (the box is one size whatever it shows) and has no animation: the ring and the count-up are the page changing what it draws. */
 #play-hud {
   --n: 3;
-  --key-px: 2px;
+  --key-px: 3px;
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 16px);
   left: calc(env(safe-area-inset-left, 0px) + 16px);
   box-sizing: border-box;
-  display: flex;
-  gap: calc(var(--n) * 6px);
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: calc(var(--n) * 8px);
+  row-gap: calc(var(--n) * 1px);
+  align-items: center;
   padding: calc(var(--n) * 3px) calc(var(--n) * 5px);
   background: rgba(12, 12, 16, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -119,19 +123,65 @@ canvas {
 
 #play-hud .cell {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: calc(var(--n) * 3px);
+  white-space: nowrap;
 }
 
 #play-hud .lbl {
-  font-size: 22px;
-  line-height: 26px;
+  font-size: calc(var(--n) * 22px / 3);
+  line-height: calc(var(--n) * 26px / 3);
   color: #7c8796;
+}
+
+/* The word Score gives way to the points of a snack for a second. Both sit in one cell, so the box keeps its size. */
+#play-hud .swap {
+  display: grid;
+}
+
+#play-hud .swap > * {
+  grid-area: 1 / 1;
+}
+
+#play-hud .pop {
+  justify-self: end;
+  font-family: "Fizz Mono", ui-monospace, monospace;
+  font-weight: 700;
+  color: #ffff55;
+}
+
+/* Two digits wide always, so the box does not change size at 10 Fizz or 10 deaths. */
+#play-hud #hud-fizz,
+#play-hud #hud-deaths {
+  min-width: 2ch;
 }
 
 #play-hud .num {
   font-family: "Fizz Mono", ui-monospace, monospace;
   font-weight: 700;
   color: var(--fizz);
+}
+
+/* The Fizz number has a black outline all round (Fizz 1 has none), so light red at zero keeps its contrast over any picture. */
+#play-hud #hud-fizz {
+  text-shadow:
+    calc(var(--n) * 1px) 0 0 #000,
+    calc(var(--n) * -1px) 0 0 #000,
+    0 calc(var(--n) * 1px) 0 #000,
+    0 calc(var(--n) * -1px) 0 #000,
+    calc(var(--n) * 1px) calc(var(--n) * 1px) 0 #000,
+    calc(var(--n) * -1px) calc(var(--n) * 1px) 0 #000,
+    calc(var(--n) * 1px) calc(var(--n) * -1px) 0 #000,
+    calc(var(--n) * -1px) calc(var(--n) * -1px) 0 #000;
+}
+
+/* The score is yellow, as in Fizz 1, so it is never taken for the grape Fizz; its leading zeros are dim padding. */
+#play-hud .score {
+  color: #ffff55;
+}
+
+#play-hud .lz {
+  opacity: 0.28;
 }
 
 /* Deaths is a plain count, not the Fizz: Fizz 1's light text colour, so it is never taken for the ammunition. */
@@ -143,24 +193,77 @@ canvas {
   color: #ff5555;
 }
 
-/* The key chip is as tall as the digits' line so the three cells line up; it holds both drawings and shows one. */
-#play-hud .chip {
-  display: block;
-  box-sizing: border-box;
-  height: calc(13px * var(--n));
-  padding: calc((13px * var(--n) - 16 * var(--key-px)) / 2) 0;
+/* The key tray: one socket for each kind of key the level has, a 7 by 7 key drawn empty (its dim edge) and filled when held, a ring
+   round it for a moment after the pickup, and a row of pips under it for duplicates. */
+#play-hud .tray {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--n) * 3px);
+  padding-top: calc(var(--n) * 1px);
 }
 
-#play-hud .chip svg {
+#play-hud .sock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--key-px);
+}
+
+#play-hud .sock[hidden] {
+  display: none;
+}
+
+#play-hud .sock .key {
   display: block;
-  width: calc(16 * var(--key-px));
-  height: calc(16 * var(--key-px));
+  width: calc(7 * var(--key-px));
+  height: calc(7 * var(--key-px));
   image-rendering: pixelated;
 }
 
-#play-hud .chip[data-carried="true"] .off,
-#play-hud .chip[data-carried="false"] .on {
+#play-hud .sock .key svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#play-hud .sock[data-held="true"] .off,
+#play-hud .sock[data-held="false"] .on {
   display: none;
+}
+
+/* The ring: a white pixel's width round the key's silhouette. */
+#play-hud .sock[data-ring="true"] .key {
+  filter: drop-shadow(var(--key-px) 0 0 #fff) drop-shadow(calc(var(--key-px) * -1) 0 0 #fff) drop-shadow(0 var(--key-px) 0 #fff)
+    drop-shadow(0 calc(var(--key-px) * -1) 0 #fff);
+}
+
+#play-hud .sock .pips {
+  display: flex;
+  gap: var(--key-px);
+  height: var(--key-px);
+}
+
+#play-hud .sock .pips i {
+  display: block;
+  width: var(--key-px);
+  height: var(--key-px);
+  background: #fff;
+}
+
+/* More than four of a kind: the count, over the key. */
+#play-hud .sock .cnt {
+  position: absolute;
+  top: calc(var(--key-px) * -1);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: "Fizz Mono", ui-monospace, monospace;
+  font-weight: 700;
+  font-size: calc(var(--n) * 7px);
+  line-height: calc(var(--n) * 9px);
+  color: #fff;
+  text-shadow: calc(var(--n) * 1px) 0 0 #000, calc(var(--n) * -1px) 0 0 #000, 0 calc(var(--n) * 1px) 0 #000, 0 calc(var(--n) * -1px) 0 #000;
 }
 
 /* Spoken, not seen. */

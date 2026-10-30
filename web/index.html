@@ -19,8 +19,10 @@
         <!-- The HUD, in Fizz 1's look. It repeats what the H panel lists, so a screen reader skips it; hud-status says only what changed. -->
         <div id="play-hud" aria-hidden="true">
           <div class="cell"><span class="lbl">Fizz</span><span id="hud-fizz" class="num">5</span></div>
+          <div class="cell"><span class="lbl swap"><span id="hud-score-word">Score</span><span id="hud-score-pop" class="pop"></span></span><span id="hud-score" class="num score"><span id="hud-score-lead" class="lz">0000</span><span id="hud-score-rest">0</span></span></div>
           <div class="cell"><span class="lbl">Deaths</span><span id="hud-deaths" class="num">0</span></div>
-          <div class="cell"><span class="lbl">Key</span><span id="hud-key" class="chip" data-carried="false"></span></div>
+          <!-- One socket for each kind of key the level has (main.js builds them from web/hud.ts), empty until the key is picked up. -->
+          <div id="hud-tray" class="tray"></div>
         </div>
       </div>
       <!-- Spoken, not seen: the Fizz running out, the key picked up and a death. Nothing else, so it stays quiet. -->

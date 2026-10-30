@@ -9,12 +9,14 @@
 # Needs dist/web from tools/build-web.sh and Chromium. The page, the fake clock, the key presses and the DevTools client are the
 # ones of tools/progress-report/capture-web.py, so the game plays the golden replay's ticks exactly. At 1920x1080, 1280x720 and
 # 540x1140 it checks:
-#   1. the HUD is there on load, inside the picture, hidden from assistive technology, with Fizz 5, Deaths 0 and the dim key;
+#   1. the HUD is there on load, inside the picture, hidden from assistive technology, with Fizz 5, Score 00000, Deaths 0 and the
+#      key tray: an empty socket for the red and the blue key, none for the kinds the slice lacks;
 #   2. it has no animation or transition, and it sits below the H panel and the toast in the stacking order;
-#   3. firing takes the Fizz from 5 to 4 and the number stays light magenta; firing on to zero turns it red;
-#   4. through the whole golden replay, on every tick, it agrees with the H panel's AMMO, KEY and DEATHS lines, the key chip shows
-#      the key only when it is carried, and the HUD's box never touches Ben's sprite;
-#   5. the live region says "Out of Fizz" and "Red key picked up" once each, and nothing else (no per-tick chatter);
+#   3. firing takes the Fizz from 5 to 4 and the number stays light magenta; firing on to zero turns it red, with its black outline;
+#   4. through the whole golden replay, on every tick, it agrees with the H panel's AMMO, KEY and DEATHS lines, the red socket shows
+#      the key only when it is carried, the box never changes size, and it never touches Ben's sprite; the +N pops are 1, 1, 1, 3
+#      and 8, the score ends at 10, and each key pickup rings its socket for twelve ticks;
+#   5. the live region says "Out of Fizz", "Red key picked up" and "Blue key picked up" once each, and nothing else (no per-tick chatter);
 #   6. the H panel still has all of its lines (TICK, HASH, AMMO, KEY, DOOR, DEATHS, EXIT), which tools/check-web-sfx.py and
 #      tools/progress-report/capture.py read.
 # With --shots DIR it also saves screenshots of each size at the start, with the key and with the Fizz out.
@@ -50,8 +52,11 @@ PROBE = """
   const c = canvas.getBoundingClientRect();
   const s = c.width / canvas.width;
   const [bx, by, bw, bh] = window.__benBox();
-  const chip = document.getElementById('hud-key');
   const shown = (el) => el && getComputedStyle(el).display !== 'none' && el.getBoundingClientRect().width > 0;
+  const socks = [...document.querySelectorAll('#hud-tray .sock')].map((el) => [
+    el.dataset.kind, shown(el), el.dataset.held === 'true', el.dataset.ring === 'true', shown(el.querySelector('.on')), shown(el.querySelector('.off')),
+    el.querySelectorAll('.pips i').length, el.querySelector('.cnt').textContent,
+  ]);
   const fizz = document.getElementById('hud-fizz');
   const pre = document.getElementById('hud').textContent;
   return JSON.stringify({
@@ -64,9 +69,12 @@ PROBE = """
     out: fizz.hasAttribute('data-out'),
     fizzColour: getComputedStyle(fizz).color,
     deaths: document.getElementById('hud-deaths').textContent,
-    carried: chip.dataset.carried,
-    keyOn: shown(chip.querySelector('.on')),
-    keyOff: shown(chip.querySelector('.off')),
+    fizzShadow: getComputedStyle(fizz).textShadow,
+    score: document.getElementById('hud-score').textContent,
+    scoreColour: getComputedStyle(document.getElementById('hud-score')).color,
+    word: shown(document.getElementById('hud-score-word')) && getComputedStyle(document.getElementById('hud-score-word')).visibility === 'visible',
+    pop: document.getElementById('hud-score-pop').textContent,
+    socks,
     side: hud.dataset.side || 'left',
   });
 })()
@@ -113,10 +121,14 @@ def run_size(p, w, h, per_tick, shots):
     s = probe(p)
 
     # 1. On load.
-    check(s["fizz"] == "5" and s["deaths"] == "0" and s["carried"] == "false" and not s["out"], "%s: the HUD starts as Fizz 5, Deaths 0, no key" % tag)
+    check(s["fizz"] == "5" and s["deaths"] == "0" and not s["out"], "%s: the HUD starts as Fizz 5, Deaths 0" % tag)
+    check(s["score"] == "00000" and s["word"] and s["pop"] == "" and s["scoreColour"] == "rgb(255, 255, 85)", "%s: the score starts as five yellow digits, 00000, under the word Score" % tag)
     check(s["hud"][2] > 0 and inside(s["hud"], s["stage"]), "%s: the HUD is inside the picture" % tag)
     check(s["hud"][0] - s["stage"][0] < 40 and s["hud"][1] - s["stage"][1] < 40, "%s: it sits in the top left corner" % tag)
-    check(s["keyOff"] and not s["keyOn"], "%s: the dim key outline shows, not the key" % tag)
+    tray = [(k, shown, held, off) for k, shown, held, ring, on, off, pips, cnt in s["socks"]]
+    check(tray == [("red", True, False, True), ("blue", True, False, True), ("green", False, False, False), ("gold", False, False, False)],
+          "%s: the tray has an empty socket for the red and the blue key and none for green or gold (%s)" % (tag, tray))
+    start_size = s["hud"][2:]
     check(p.js("document.getElementById('play-hud').getAttribute('aria-hidden')") == "true", "%s: the HUD is aria-hidden" % tag)
     check(p.js("var e=document.getElementById('hud-status'); e.getAttribute('role')+'/'+e.getAttribute('aria-live')") == "status/polite", "%s: the live region is a polite status" % tag)
     scale_px = p.js("getComputedStyle(document.getElementById('hud-fizz')).fontSize")
@@ -139,6 +151,8 @@ def run_size(p, w, h, per_tick, shots):
     s = probe(p)
     check(s["fizz"] == "4" and not s["out"] and "AMMO 4" in s["pre"], "%s: after Fire the HUD shows 4, light magenta" % tag)
     check(s["fizzColour"] == "rgb(255, 85, 255)", "%s: the number is light magenta (the Fizz accent, var(--fizz))" % tag)
+    check(s["fizzShadow"].count("rgb(0, 0, 0)") == 8, "%s: the Fizz number has a black outline on all eight sides" % tag)
+    check(abs(s["hud"][2] - start_size[0]) < 0.5 and abs(s["hud"][3] - start_size[1]) < 0.5, "%s: the box is the same size after firing" % tag)
     for _ in range(12):
         for _ in range(2):
             p.step("F")
@@ -162,15 +176,35 @@ def run_size(p, w, h, per_tick, shots):
     expected = []
     bad = []
     got_key_shot = False
+    pops, rings, last_blue, last_ring = [], {"red": 0, "blue": 0}, False, {"red": False, "blue": False}
+    sizes = set()
     for t, held in enumerate(per_tick):
         p.step(held)
         s = probe(p)
         ammo, deaths = int(panel_value(s["pre"], "AMMO")), int(panel_value(s["pre"], "DEATHS"))
         carried = panel_value(s["pre"], "KEY") == "carried"
-        if s["fizz"] != str(min(99, ammo)) or s["deaths"] != str(min(99, deaths)) or (s["carried"] == "true") != carried or s["out"] != (ammo == 0):
-            bad.append((s["tick"], "values", s["fizz"], ammo, s["deaths"], deaths, s["carried"], carried))
-        if s["keyOn"] != carried or s["keyOff"] == carried:
-            bad.append((s["tick"], "key drawing", s["keyOn"], s["keyOff"], carried))
+        socks = {k: (shown, held, ring, on, off, pips, cnt) for k, shown, held, ring, on, off, pips, cnt in s["socks"]}
+        red, blue = socks["red"], socks["blue"]
+        if s["fizz"] != str(min(99, ammo)) or s["deaths"] != str(min(99, deaths)) or red[1] != carried or s["out"] != (ammo == 0):
+            bad.append((s["tick"], "values", s["fizz"], ammo, s["deaths"], deaths, red[1], carried))
+        for k in ("red", "blue"):
+            sh, hd, rg, on, off, pips, cnt = socks[k]
+            if not sh or on != hd or off == hd or (rg and not hd) or pips or cnt:
+                bad.append((s["tick"], "socket", k, socks[k]))
+            if rg:
+                rings[k] += 1
+        sizes.add((round(s["hud"][2]), round(s["hud"][3])))
+        if s["pop"] and (not pops or pops[-1][0] != s["pop"] or pops[-1][1] < s["tick"] - 1):
+            pops.append([s["pop"], s["tick"]])
+        elif s["pop"]:
+            pops[-1][1] = s["tick"]
+        if bool(s["pop"]) == s["word"]:
+            bad.append((s["tick"], "the word Score and the +N are not swapped", s["pop"], s["word"]))
+        if blue[1] and not last_blue:
+            expected.append("Blue key picked up")
+            if shots:
+                p.shot(shots, "hud-%s-blue.png" % tag)
+        last_blue = blue[1]
         if touches(s["hud"], s["ben"]):
             bad.append((s["tick"], "HUD over Ben", s["hud"], s["ben"]))
         gap = max(s["ben"][0] - (s["hud"][0] + s["hud"][2]), s["hud"][0] - (s["ben"][0] + s["ben"][2]), s["ben"][1] - (s["hud"][1] + s["hud"][3]), s["hud"][1] - (s["ben"][1] + s["ben"][3]))
@@ -191,6 +225,13 @@ def run_size(p, w, h, per_tick, shots):
         last_key, last_deaths, last_out = carried, deaths, ammo == 0
     check(not bad, "%s: on all %d ticks of the replay the HUD agrees with the panel, shows the key only when carried and stays off Ben%s" % (tag, len(per_tick), "" if not bad else " (first: %s)" % (bad[0],)))
     check(bool(key_ticks), "%s: the replay picks the key up (at tick %s)" % (tag, key_ticks))
+    check(len(sizes) == 1, "%s: the box is one size on every tick of the replay (%s)" % (tag, sorted(sizes)))
+    check([x[0] for x in pops] == ["+1", "+1", "+1", "+3", "+8"], "%s: the snacks pop +1, +1, +1, +3 and +8 (%s)" % (tag, [x[0] for x in pops]))
+    check(rings == {"red": 24, "blue": 12}, "%s: each pickup rings its socket for twelve ticks (red twice, blue once: %s)" % (tag, rings))
+    for _ in range(70):
+        p.step("")
+    s = probe(p)
+    check(s["score"] == "00010" and s["word"] and s["pop"] == "", "%s: the score settles at 00010 and the word Score comes back" % tag)
     print("      %s: nearest the HUD came to Ben: %.0f px; it changed corner %d time(s)" % (tag, nearest, flips))
     time.sleep(0.3)
     said = json.loads(p.js("JSON.stringify(window.__said)"))
