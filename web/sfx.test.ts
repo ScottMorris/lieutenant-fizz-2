@@ -273,7 +273,7 @@ describe('the effects after the cluck (ids 4 to 18)', () => {
     expect(EFFECTS[4][1].lpenv).toBeCloseTo(noteHz('c6') * 4 * 1.2, 6);
     for (const id of [4, 12, 13]) expect(EFFECTS[id].some((v) => v.fm || v.steps)).toBe(false);
     // The alternates keep the FM-era voices; no event plays them.
-    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)', 'reserved (can pickup)', 'fzzt (FM)']);
+    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)', 'soda (fizz can)', 'fzzt (FM)']);
     expect(EFFECTS[16].length).toBe(1);
     expect(EFFECTS[16][0].steps).toBeDefined();
     expect(EFFECTS[15].some((v) => v.fm)).toBe(true);

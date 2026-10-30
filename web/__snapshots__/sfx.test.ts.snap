@@ -4997,23 +4997,23 @@ exports[`the effects after the cluck (ids 4 to 18) 16 jump (FM) schedules these 
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 18) 17 reserved (can pickup) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 17 soda (fizz can) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,
     "gain": {
       "ramps": [
         [
-          0.2,
-          0.001,
+          0.18,
+          0.03,
         ],
         [
           0,
-          0.101,
+          0.33,
         ],
         [
           0,
-          0.151,
+          0.34,
         ],
       ],
       "sets": [
@@ -5027,18 +5027,124 @@ exports[`the effects after the cluck (ids 4 to 18) 17 reserved (can pickup) sche
     "type": undefined,
   },
   {
+    "freq": undefined,
+    "gain": undefined,
+    "kind": "noise",
+    "type": undefined,
+  },
+  {
     "freq": {
       "ramps": [],
       "sets": [
         [
-          1046.5,
+          8000,
           0,
+        ],
+        [
+          8000,
+          0,
+        ],
+        [
+          8000,
+          0,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "filter",
+    "type": "lowpass",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.2,
+          0.051,
+        ],
+        [
+          0,
+          0.251,
+        ],
+        [
+          0,
+          0.301,
+        ],
+      ],
+      "sets": [
+        [
+          0,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          880,
+          0.05,
         ],
       ],
     },
     "gain": undefined,
     "kind": "osc",
     "type": "sine",
+  },
+  {
+    "freq": {
+      "ramps": [],
+      "sets": [
+        [
+          3080,
+          0.05,
+        ],
+      ],
+    },
+    "gain": undefined,
+    "kind": "osc",
+    "type": "sine",
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [],
+      "sets": [
+        [
+          704,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
+  },
+  {
+    "freq": undefined,
+    "gain": {
+      "ramps": [
+        [
+          0.0001,
+          0.15,
+        ],
+      ],
+      "sets": [
+        [
+          0.0001,
+          0.05,
+        ],
+        [
+          1,
+          0.05,
+        ],
+      ],
+    },
+    "kind": "gain",
+    "type": undefined,
   },
 ]
 `;

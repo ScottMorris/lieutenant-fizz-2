@@ -1251,14 +1251,14 @@ mod tests {
         assert_eq!(got, want);
         assert_eq!(
             got.len(),
-            4 + 8 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + jumps(&got)
+            5 + 13 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + 2 + jumps(&got)
         );
-        // Every effect an event plays (4 to 14); the ids after are the alternates (boing (FM), jump (FM), fzzt (FM)) and the reserved slot, which no event plays.
-        for id in 4..=14 {
+        // Every effect an event plays (4 to 14, and 17 the soda); the others (15 boing (FM), 16 jump (FM), 18 fzzt (FM)) are alternates no event plays.
+        for id in (4..=14).chain([17]) {
             assert!(got.contains(&id), "effect {id} is never played");
         }
         assert!(
-            !got.iter().any(|id| *id >= 15),
+            !got.iter().any(|id| matches!(*id, 15 | 16 | 18)),
             "the alternates are not wired to events"
         );
     }

@@ -53,8 +53,7 @@ pub const EFFECT_CRUNCH: u8 = 14;
 /// `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FM`, `Event::Fire` to `EFFECT_FZZT_FM`); docs/SOUND.md says more.
 pub const EFFECT_BOING_FM: u8 = 15;
 pub const EFFECT_JUMP_FM: u8 = 16;
-/// Effect 17 is reserved for the can pickup sound, which another change adds; it is a silent placeholder until then.
-pub const EFFECT_RESERVED: u8 = 17;
+pub const EFFECT_SODA: u8 = 17;
 pub const EFFECT_FZZT_FM: u8 = 18;
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
@@ -78,6 +77,7 @@ pub const CAP_GREEN: u8 = 8;
 pub const CAP_CLUNK: u8 = 9;
 pub const CAP_BOING: u8 = 10;
 pub const CAP_CRUNCH: u8 = 11;
+pub const CAP_FSSSHT: u8 = 12;
 
 const fn cap(text: &'static str, bright: u8, dark: u8) -> EventCaption {
     EventCaption { text, bright, dark }
@@ -85,7 +85,7 @@ const fn cap(text: &'static str, bright: u8, dark: u8) -> EventCaption {
 
 /// Fizz 1's `CAPTIONS` words and colours (its 0xrrggbb values are the EGA light colours), in id order. The dash in the click
 /// caption is the font's em dash.
-pub const EVENT_CAPTIONS: [EventCaption; 12] = [
+pub const EVENT_CAPTIONS: [EventCaption; 13] = [
     cap("fzzt", LIGHT_CYAN, CYAN),
     cap("click \u{2014} no fizz", LIGHT_GREY, DARK_GREY),
     cap("fizzled", LIGHT_CYAN, CYAN),
@@ -98,6 +98,7 @@ pub const EVENT_CAPTIONS: [EventCaption; 12] = [
     cap("clunk", WHITE, LIGHT_GREY),
     cap("boing", YELLOW, BROWN),
     cap("crunch", YELLOW, BROWN),
+    cap("fsssht", LIGHT_CYAN, CYAN),
 ];
 
 /// What an event is to a presenter.
@@ -142,6 +143,7 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::Bounce { .. } => p(EFFECT_BOING, Some(CAP_BOING)),
         Event::Jump { .. } => p(EFFECT_JUMP, None),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
+        Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
     }
 }
 
@@ -161,7 +163,8 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
         | Event::Bounce { x, y }
         | Event::HeadBump { x, y }
         | Event::Jump { x, y }
-        | Event::Snack { x, y } => Some((x, y)),
+        | Event::Snack { x, y }
+        | Event::Can { x, y } => Some((x, y)),
     }
 }
 

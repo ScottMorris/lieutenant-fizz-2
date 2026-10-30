@@ -6,7 +6,7 @@
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc opens the Paused screen (Resume, Options, Quit to DOS). The default when no mode is given
-//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,681 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,757 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
@@ -325,7 +325,7 @@ fn help() -> i32 {
 }
 
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
-/// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 28 seconds; the screen shows it as it goes.
+/// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 29 seconds; the screen shows it as it goes.
 #[inline(never)]
 fn replay(options: &DrawOptions) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.

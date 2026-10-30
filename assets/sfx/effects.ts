@@ -6,8 +6,8 @@
 //   0-3  the chicken's cluck, variants 0..=3 (`Event::Cluck { variant }`; `CLUCK_VARIANTS = 4`).
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
 //   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
-//   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays.
-//   17 is reserved for another change (the can pickup sound) and holds a placeholder blip until then.
+//   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays,
+//   and 17 soda (a fizz can).
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -200,10 +200,14 @@ const boingFm: SfxVoice[] = [
 const jumpFm: SfxVoice[] = [V('e4', { w: 'square', d: 0.1, g: 0.2, lpf: 2600, steps: glide(9, 0.08) })];
 
 /**
- * Effect 17: reserved for the can pickup sound, which another change adds. Effect ids are indexes with no gaps, so the slot holds a
- * short sine blip (about 0.1 s at c6) for that change to replace with the real voices.
+ * Effect 17, soda (a fizz can): Fizz 1's `soda` voices as written in `SFX` (no Enhanced version): a soft-attack hiss of high-passed noise
+ * for 0.3 s, and an a5 sine 50 ms in, for 0.2 s. The hiss is white noise with a high `lpf` here, as in the other effects, and the
+ * sine has a faint FM glint so the pop has a fizz in it. About 0.35 s.
  */
-const reserved: SfxVoice[] = [V('c6', { w: 'sine', d: 0.1, g: 0.2 })];
+const soda: SfxVoice[] = [
+  { n: 'white', a: 0.03, d: 0.3, r: 0.01, g: 0.18, lpf: 8000 },
+  V('a5', { w: 'sine', d: 0.2, g: 0.2, nudge: 0.05, fm: { ratio: 3.5, index: 0.8, decay: 0.1 } }),
+];
 
 /**
  * Effect 18, fzzt (FM): the first Fizz 2 fzzt, kept as an alternate and not played by any event. Fizz 1's was a high-passed noise burst and a sine falling an octave (its `slide`) in 80 ms; here the sine
@@ -216,7 +220,7 @@ const fzztFm: SfxVoice[] = [
 ];
 
 /** The effects after the cluck, in id order from 4. */
-export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, reserved, fzztFm];
+export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm];
 
 /** The name of each effect by id, for tools and the audition picker. */
 export const EFFECT_NAMES: readonly string[] = [
@@ -237,7 +241,7 @@ export const EFFECT_NAMES: readonly string[] = [
   'crunch',
   'boing (FM)',
   'jump (FM)',
-  'reserved (can pickup)',
+  'soda (fizz can)',
   'fzzt (FM)',
 ];
 

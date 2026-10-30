@@ -416,7 +416,8 @@ mod tests {
         assert_ne!(jump, just, "reduced motion jumps the score");
         let (world, fx) = world_at_with(at + 6, &full);
         assert_eq!(fx.hud.view(&world).pop, world.score());
-        let (world, fx) = world_at_with(at + 62, &full);
+        // One tick short of the second snack (62 ticks on in the replay), when the first pop has just ended.
+        let (world, fx) = world_at_with(at + 61, &full);
         assert_eq!(fx.hud.view(&world).score, world.score());
         assert_eq!(fx.hud.view(&world).pop, 0);
     }

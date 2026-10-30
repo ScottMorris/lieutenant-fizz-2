@@ -174,6 +174,7 @@ def run_size(p, w, h, per_tick, shots):
     key_ticks, flips, nearest = [], 0, 1e9
     last_side, last_key, last_deaths, last_out = "left", False, 0, False
     expected = []
+    told = 0
     bad = []
     got_key_shot = False
     pops, rings, last_blue, last_ring = [], {"red": 0, "blue": 0}, False, {"red": False, "blue": False}
@@ -223,6 +224,12 @@ def run_size(p, w, h, per_tick, shots):
         if ammo == 0 and not last_out:
             expected.append("Out of Fizz")
         last_key, last_deaths, last_out = carried, deaths, ammo == 0
+        if len(expected) != told:
+            # The page speaks 60 ms after the change and a newer announcement cancels one still waiting. The stepping here runs far
+            # faster than the game, so give each announcement the time it has in play before the next tick (two Out of Fizz in
+            # the replay, for one, come a second apart at 60 Hz).
+            told = len(expected)
+            time.sleep(0.12)
     check(not bad, "%s: on all %d ticks of the replay the HUD agrees with the panel, shows the key only when carried and stays off Ben%s" % (tag, len(per_tick), "" if not bad else " (first: %s)" % (bad[0],)))
     check(bool(key_ticks), "%s: the replay picks the key up (at tick %s)" % (tag, key_ticks))
     check(len(sizes) == 1, "%s: the box is one size on every tick of the replay (%s)" % (tag, sorted(sizes)))
