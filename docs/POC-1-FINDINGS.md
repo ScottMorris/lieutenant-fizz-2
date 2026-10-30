@@ -73,17 +73,17 @@ PLATFORM    clock, input, storage, display, audio services
 
 ## Level tooling
 
-The editor is Fizz Level Studio, in `~/source/experiments/fizz-level-studio/` (specification in `SPEC.md`, with `docs/` for goals, architecture, editor, MCP, overworld, engine changes, testing, roadmap, decisions and the language reference). It has a builder language, a Rust exporter for Fizz 1's `Builder` calls, a nine-tool MCP server and an interactive design prototype. The studio application itself is not built.
+An earlier experiment designed a level script language and tooling around it: a builder language, a Rust exporter for Fizz 1's `Builder` calls, a nine-tool MCP server and an interactive design prototype. The editor application itself was not built.
 
 - Every level and overworld is a short text script. Painting, dragging, typing and accepted Claude proposals all edit the script.
 - The scripts for all 16 Episode 1 levels and the overworld rebuild the game's data exactly, including each level's fingerprint (`scripts/prove-all.sh`).
-- Known gaps in the Fizz 1 engine that the studio audit found: the progress mask `MapPoint::req` is a `u16` with every bit used, the game builds one overworld, the exporter does not register levels in the `LEVELS` table, and `OverworldBuilder` exists only in the proof copy.
+- Known gaps in the Fizz 1 engine that the experiment's audit found: the progress mask `MapPoint::req` is a `u16` with every bit used, the game builds one overworld, the exporter does not register levels in the `LEVELS` table, and `OverworldBuilder` exists only in the proof copy.
 - For Fizz 2, the script is the authoring format and the baker is the single place that turns it into engine data. A data export from the same language, with Rust statics generated for DOS, avoids a compile step in the editing loop. The Fizz 1 Rust export stays for Fizz 1. Whether Fizz 2 adopts the language as is or extends it is open.
 
 ## Music direction
 
 - The source of truth is an Undertone-style composition that is not limited by AdLib.
-- A build step lowers it to IMF or OPL2 for DOS through a per-song instrument mapping. IMF is the portable DOS target and the IMF lab is an authoring and comparison tool.
+- A build step lowers it to IMF or OPL2 for DOS through a per-song instrument mapping. IMF is the portable DOS target and external tools can be used to author and compare scores.
 - Web plays the source directly. Presentation extras (gain, pan, extra lanes) are a Web-only sidecar until a second consumer exists.
 - Channel 5 stays reserved for game effects on DOS.
 
@@ -101,14 +101,14 @@ The editor is Fizz Level Studio, in `~/source/experiments/fizz-level-studio/` (s
 - Is Fizz 1's pogo physics code reused directly, or ported with the same constants?
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later? (Fizz 1 stays as it is.)
 - Which language does the baker use? Rust is preferred so it shares types.
-- Do the Level Studio scripts need extensions for the Fizz 2 content (vertical mazes, gadgets, depth)?
+- Does the level script language need extensions for the Fizz 2 content (vertical mazes, gadgets, depth)?
 - What base art resolution does Episode 2 author for?
 
 ## References
 
 - Codex session `01a1765b-cb7b-7f03-95e3-c62b7c77a6c9`: design and most of the proof of concept.
-- Antigravity session `61849e15-1516-47bf-9a1d-2453ce5053c3`: the OPL2 music service and the IMF lab channel naming.
-- Claude session `66cb2a84-3d9f-4325-86a7-130f63f99346` in the `lieutenant-fizz` project: Fizz Level Studio, its design canvas (`https://claude.ai/artifact/E43evy173R6mC7bAeN5FAF`) and the spec.
+- Antigravity session `61849e15-1516-47bf-9a1d-2453ce5053c3`: the OPL2 music service and the OPL channel naming.
+- Claude session `66cb2a84-3d9f-4325-86a7-130f63f99346` in the `lieutenant-fizz` project: the level script language experiment and its spec.
 - Fizz 1: `~/source/liminal-hq/lieutenant-fizz` (`docs/GAME_DESIGN.md`, `docs/STORY.md`, `docs/SERIES.md`) and `~/source/experiments/fizz-dos`.
 - Desk: `~/source/liminal-hq/desk`.
 - [SCENE-CONTRACT.md](SCENE-CONTRACT.md) here, and `docs/SCORE-EXTENSIONS.md` in the proof of concept.

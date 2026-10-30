@@ -7,8 +7,8 @@
 // the same author's code, MIT there and dual-licensed here. What changed: the music-only IMF byte writer (`toImf`, with its
 // 16-bit length header) is replaced by `toRecords`, which returns plain `{ reg, val, wait }` records so the Rust crate stores
 // them without a byte parser; the register arithmetic is otherwise unchanged. A record carries a bank bit so registers 0x100 and up
-// (the OPL3's second bank) are expressible, after the owner's IMF lab (`src/fizz-dos/opl.ts`: `bankOf`, `OPL3_ENABLE` and the five-byte
-// `toOpl3` record); the lab's files are not copied.
+// (the OPL3's second bank) are expressible, following the common OPL3 conventions (`bankOf`, `OPL3_ENABLE` and a five-byte
+// record with a bank byte).
 
 /** The IMF clock the Keen games use: register writes are timed in 1/560 s. */
 export const IMF_RATE = 560;
@@ -28,7 +28,7 @@ export const EFFECT_CHANNEL_RIGHT = 14;
 /** The channels (0 to 17) that effects own; a score-writing tool imports this list to refuse them. Mirrors `fizz_sfx::RESERVED_OPL_CHANNELS`. */
 export const RESERVED_OPL_CHANNELS: readonly number[] = [EFFECT_CHANNEL, EFFECT_CHANNEL_RIGHT];
 
-/** The bank (0 or 1) and in-bank slot (0 to 8) of a channel numbered 0 to 17, as the owner's IMF lab's `bankOf`. */
+/** The bank (0 or 1) and in-bank slot (0 to 8) of a channel numbered 0 to 17, by the usual OPL3 `bankOf` convention. */
 export const bankOf = (channel: number): { bank: number; slot: number } => ({ bank: channel >= 9 ? 1 : 0, slot: channel % 9 });
 
 /** Register offsets of the modulator and carrier operators of each of the nine channels. */

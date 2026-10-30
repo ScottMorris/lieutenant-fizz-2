@@ -103,7 +103,7 @@ Fizz 2 draws on several Liminal HQ projects and names each one where it uses it.
 - [Lieutenant Fizz](https://github.com/liminal-hq/lieutenant-fizz) is the behaviour, story and level reference. Its `f64`, fixed-step simulation is the numeric model Fizz 2 follows.
 - [Desk](https://github.com/liminal-hq/desk) is the Rust-on-DOS foundation. Its hardware abstraction ideas are mirrored here for now and swapped for the real crates later.
 - [Undertone](https://github.com/liminal-hq/undertone) is the audio library for the Web score.
-- Fizz Level Studio, an experiment, is the level and overworld authoring tool, with its own script language.
+- Levels and the overworld will be authored in a level script language, proved on Fizz 1's levels in an earlier experiment.
 - [Waypoint](https://github.com/liminal-hq/waypoint) and [Spindle](https://github.com/liminal-hq/spindle) set the repository conventions: the README shape, CI, release notes and labels.
 
 ## Conventions

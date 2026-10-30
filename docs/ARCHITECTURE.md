@@ -118,7 +118,7 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - **Fizz 1's DOS port** (`ScottMorris/lieutenant-fizz-dos`) supplies the 486 performance model and its palette frame technique: 16 colours by 14 brightness levels with a shade pass for lights.
 - **Desk** (`liminal-hq/desk`) supplies the hardware abstraction layer shape, the rule that shared crates forbid `unsafe` and never call DOS directly, the no-float-in-graphics rule for presenters, the toolchain and the check scripts. Its ideas are mirrored here now, kept behind `fizz-hal` and `fizz-dos-rt`, so the real Desk crates can be swapped in later.
 - **Waypoint and Spindle** supply repository conventions: the README shape, CI, release notes grouped by labels, and the pull request and issue templates.
-- **Fizz Level Studio** supplies the level script language and the proof that scripts rebuild Fizz 1's levels exactly. Fizz 2 uses the script as its authoring format and the baker as the single place that turns it into engine data.
+- **A level script format** was proved on Fizz 1: scripts rebuild its levels exactly. Fizz 2 uses a level script language as its authoring format and the baker as the single place that turns it into engine data.
 
 ## Open questions
 
@@ -130,7 +130,7 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - Is the `f64` model affordable on a 486 (partly answered): in DOSBox at about a 486DX2-66 the step costs 103 us of a 16,667 us tick and a whole tick, drawing and copy included, 3,432 us. DOSBox charges the x87 like any simple instruction, so the real cost on a 486 is still unmeasured (see [Performance](PLATFORM.md#performance)).
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later?
 - Which language does the baker use? Rust is preferred so it shares types.
-- Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
+- Does the level script language need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits? (partly answered) The slice uses Fizz 1's 16 by 24 Ben and 16-pixel tiles in the 16 EGA colours, with the provisional 24 by 32 Ben A drawn against the same physics body but not yet shown. Which Ben ships is still open.
 - How much level does the Web view show on a large screen by default: a larger target tile count, a capped scale, or only a zoom control?
 - What pack granularity and compression does Episode 2 use: one pack per world or per level, and whether packs are compressed, which trades load time against floppy space?

@@ -13,7 +13,7 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 - Fizz 1 (`~/source/liminal-hq/lieutenant-fizz`, docs in `docs/GAME_DESIGN.md`, `STORY.md`, `SERIES.md`) is the behaviour reference. Its DOS port lives in `~/source/experiments/fizz-dos`.
 - Desk (`~/source/liminal-hq/desk`) is the Rust-on-DOS reference. Mirror its ideas here for now and swap in the real crates later.
 - `docs/POC-1-FINDINGS.md` records what the earlier proof of concept (`~/source/experiments/fizz-2-dos-poc1`, tag `poc-1`) settled and what it did not.
-- Fizz Level Studio (`~/source/experiments/fizz-level-studio`) is the level and overworld authoring tool and its script language.
+- The level and overworld authoring format is a level script language, proved on Fizz 1's levels in an earlier experiment.
 
 ## Layout
 
