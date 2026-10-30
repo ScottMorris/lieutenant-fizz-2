@@ -367,7 +367,7 @@ Each OPL write is the register port, six status reads, the data port and 35 stat
 
 ## The Web path
 
-`web/sfx.ts` plays the rich effect. Undertone is the owner's package `@liminal-hq/undertone`, public on npm and MIT licensed, ES modules with no dependencies and no side effects. `package.json` pins exactly 0.3.0 (Fizz 1 asks for ^0.2.0), and `bun.lock` is committed. `tools/build-web.sh` bundles it into `dist/web/main.js` (see [`PLATFORM.md`](PLATFORM.md#the-web-build)). Undertone 0.3.0 honours every field of `SfxVoice`: an exact `hz` as a numeric pitch, `nudge`, the low-pass with its envelope, white, pink and brown noise, `fmVoice` FM and `pitchsteps`. The Web uses no OPL emulator and none is planned: emulators live in the owner's lab only.
+`web/sfx.ts` plays the rich effect. Undertone is the owner's package `@liminal-hq/undertone`, public on npm and MIT licensed, ES modules with no dependencies and no side effects. `package.json` pins exactly 0.3.0 (Fizz 1 asks for ^0.2.0), and `bun.lock` is committed. `tools/build-web.sh` bundles it into `dist/web/main.js` (see [`PLATFORM.md`](PLATFORM.md#the-web-build)). Undertone 0.3.0 honours every field of `SfxVoice`: an exact `hz` as a numeric pitch, `nudge`, the low-pass with its envelope, white, pink and brown noise, `fmVoice` FM and `pitchsteps`. The Web uses no OPL emulator and none is planned.
 
 How the page gets from a rules event to a sound:
 
@@ -390,6 +390,8 @@ Channel allocation is settled and shared with effects. OPL2 music uses channels 
 ## Scores from other tools
 
 Songs and effects can be authored in tools outside this repository. What the game requires of them is a spec, and nothing here depends on any particular tool.
+
+The stream format for OPL and speaker effects and music, the proposed OPX, is specified in [OPX.md](OPX.md).
 
 - Music source songs come from separately authored material: an Undertone source for the Web, and an OPL register stream for DOS. A register stream made by another tool can be imported through the stream spec. That import is not built.
 - The reservations are a rule of the game's audio service, and any score-writing tool must respect them. Channel 5 is reserved for effects on every card. On an OPL3, channel 14 is reserved too, because effects use it as the right half of the pair (see [Reserved channels](#reserved-channels)). A tool that writes OPL3 scores must therefore use only the thirteen music channels listed above, `[0, 1, 2, 3, 4, 9, 10, 11, 12, 13, 15, 16, 17]`, and a list that includes channel 14 must drop it.
