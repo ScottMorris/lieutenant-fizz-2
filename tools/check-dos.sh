@@ -146,6 +146,24 @@ printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not rest
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
 { [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || fail "BIOS TICKS '$bios' is outside 531-535"
 
+# DOSBox's cycles per millisecond for the bench groups (view, audio, config-sound), set here so a run that selects one without the others still has it.
+CYCLES=26800
+
+# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
+# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
+caps_check() {
+  local prefix="$1" text="$2" none six
+  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
+  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
+    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
+  done
+  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
+  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
+  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
+  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
+  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
+}
+
 if group input; then
 # 2. Live play of the slice with the default Keen keys: type Ctrl (jump), right, right, down, then Esc once the program is up.
 # MOVED means Ben is somewhere other than his spawn (a step changes x, a jump changes y). Movement only; autotype timing is not
@@ -233,21 +251,6 @@ out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /MUSIC:FOO)" || s
 printf '%s\n' "$out" | grep -qF 'unknown switch /MUSIC:FOO' || fail "a bad sound value was not named"
 echo "HELP unknown switch exit 2"
 
-CYCLES=26800
-# The same busy picture (tick 1190, in the snack nook) drawn 120 times with no captions and then with all six slots full. The six cost
-# something and not much: the draw average with six is at least the one with none, and the whole draw plus copy stays inside the tick.
-caps_check() {
-  local prefix="$1" text="$2" none six
-  printf '%s\n' "$text" | grep -qx "$prefix CAPTIONS TICK 1190 FRAMES 120 EACH" || fail "no '$prefix CAPTIONS TICK 1190 FRAMES 120 EACH' line"
-  for kind in "none DRAW" "six DRAW" "none DRAW+PRESENT" "six DRAW+PRESENT"; do
-    printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS ${kind//+/\\+} avg [0-9]+ max [0-9]+ units us$" || fail "no '$prefix CAPTIONS $kind avg <n> max <n> units us' line"
-  done
-  none="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS none DRAW avg \([0-9]*\) .*/\1/p")"
-  six="$(printf '%s\n' "$text" | sed -n "s/^$prefix CAPTIONS six DRAW avg \([0-9]*\) .*/\1/p")"
-  { [ "$none" -gt 0 ] && [ "$six" -ge "$none" ] && [ "$six" -lt 16667 ]; } || fail "$prefix CAPTIONS: draw average with six is $six us and with none $none us"
-  printf '%s\n' "$text" | grep -qE "^$prefix CAPTIONS COST six minus none: draw avg [0-9]+ us, draw\+present avg [0-9]+ us$" || fail "no '$prefix CAPTIONS COST' line"
-  echo "$(printf '%s\n' "$text" | grep -E "^$prefix CAPTIONS (none DRAW avg|six DRAW avg|COST)" | tr '\n' ';')"
-}
 
 fi
 
