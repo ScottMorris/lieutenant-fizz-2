@@ -18,6 +18,7 @@ The DOS start-up check is a read-only text screen that shows what the machine ha
 - [Memory floor](#memory-floor)
 - [The golden file](#the-golden-file)
 - [Bench: six captions and effects](#bench-six-captions-and-effects)
+- [Check groups and what a pull request runs](#check-groups-and-what-a-pull-request-runs)
 - [Not verified](#not-verified)
 
 ## Status
@@ -253,6 +254,39 @@ The `/BENCH /AUDIO` figures with effects playing:
 The writes are the exact figure: the music is held to 16 in any tick, the pair's patch load is 22, and the most one tick ever made together stays at or under 16 + 22 = 38 (`tools/check-dos.sh` requires that). The pass with music and effects together made at most 28 writes in a tick here, and the figure is a property of where the music and the effects fall on the same tick, so it is not a limit and it moves when either changes. The microseconds are DOSBox's, not a 486's.
 
 **DOSBox-only.** DOSBox charges no time for ISA port I/O, so the interrupt's microseconds leave out the roughly 43 port accesses of each register write (about 26 us each at the chip's documented settling times: a 22-write patch tick would add about 0.6 ms on the pair, a 38-write one about 1.0 ms of the 1.79 ms between interrupts). Everything in the tables comes from DOSBox at a fixed cycle count, which treats every simple instruction alike and so hides what a 486 spends on 32-bit multiplies, cache misses and the VGA's slow ISA writes. The write counts and the shape of the cost (six captions double the drawing) hold; the milliseconds on a real 486 are unmeasured.
+
+## Check groups and what a pull request runs
+
+The full DOS gate, `tools/check-dos.sh`, takes about 18 minutes, and about 13 of those are the 27 `/REPLAY` cases of 28 seconds each (the per-device audio replays, the audio counts, the frame-rate replays, the replay at 1 MB); the base group takes under a minute. So the script's cases are split into named groups, and a pull request runs the groups its paths can affect. `tools/check-dos.sh --list` prints the groups.
+
+| Group | What it holds |
+| --- | --- |
+| `base` | Always runs. The build with no more warnings than `WARNING_BUDGET` (`WARNINGS <n>`), the `cpu_cycles` guard, the default `/REPLAY` against the golden transcript (`EXIT yes`, `FPU CW 027F`, `VECTORS RESTORED yes`, a BIOS tick count of 508 to 512), a plain `/PANIC` (exit 3), `/PROBE` with no sound card and with an SB16, and the `SIZE` line |
+| `input` | Live play with the Keen keys and with `/MODERN`, and the keys each layout ignores |
+| `view` | `/NOCAPTIONS`, `/BENCH` (the step, draw and present figures, the frame digests against the host's, the captions cost) and the frame rate at 30 and 60 Hz |
+| `audio` | `/PANIC` with an OPL3 and the music running, `/BENCH /AUDIO`, `/MUSICTEST`, `/REPLANTEST`, the per-device `/REPLAY` cases with their `AUDIO` and `MUSIC` lines, and the exact `AUDIO WRITES` counts |
+| `config-sound` | `/?` and `/HELP`, the `SOUND` line under every `FIZZ2.CFG` form and flag, and `/CFGTEST` (the save, the read-back, the crash safety) |
+| `menu` | `/MENUSHOT`, and the Paused and Options screens played with typed keys |
+| `machine` | `/PROBE` under the ladder of DOSBox configurations, `/CHECKCELLS`, the memory ladder and the `/REPLAY` at 1 MB |
+| `pack` | Reserved for the pack-loading cases; it has none yet |
+
+Run them locally with `tools/check-dos.sh --groups base,audio` (a comma list; `base` is added if it is missing). With no flag, or `--groups all`, every group runs, which is the full gate and what runs on `main`. `CHECK_DOS_JOBS=4 tools/check-dos.sh` runs the independent `/REPLAY` cases four at a time: each gets its own copy of the program directory and its own DOSBox scratch directory, its output is printed in order at a barrier, and the assertions are the same. Cases that type keys (the live play, the Options screens, the live frame-rate cases) or time themselves (`/BENCH`) wait for a barrier and never share the machine with another case. The default is one job, so a local run behaves as it always did.
+
+`tools/ci-scope.sh` picks the groups for a pull request. It reads the paths changed since the merge base with the target branch (`git diff --name-only origin/main...HEAD`), gives each path the first rule of its table that matches, and prints the union of those rules' groups (`base,audio,menu`), or `all`. On standard error it prints one line per path with the rule that matched, and CI shows those lines in the job log. The table at the top of the script is the rule set; some examples:
+
+- `docs/**`, any `*.md`, the progress report: `base` only. The Web presenter and its scripts: `base` (Web parity is in every run).
+- `crates/fizz-sfx/**`, `crates/fizz-music/**`, `assets/sfx/**`, `assets/music/**`, `dos/rt/src/audio.rs`: `audio`. `crates/fizz-pack/**`: `audio` and `pack`.
+- `crates/fizz-machine/**`: `config-sound` and `machine`. `crates/fizz-menu/**` and `dos/fizz2/src/menu.rs`: `menu`. `crates/fizz-hal/**`: `input` and `menu`.
+- `crates/fizz-view/**`, `crates/fizz-slice-view/**`, `crates/fizz-present-dos/**` (but its `menu.rs` is `menu`), the sprite and font sources: `view`.
+- `crates/fizz-ep2/**`, `crates/fizz-phys/**`, `crates/fizz-sim/**`: `view`, because the state hash and the drawing follow the rules; `crates/fizz-ep2/src/world.rs` and `replay.rs`, where the events come from, add `audio`.
+- Everything that can change what runs or how it is built selects `all`: the workflow, `Cargo.lock`, `Cargo.toml`, `rust-toolchain.toml`, `tools/check-dos.sh`, `tools/dosrun.sh`, `tools/build-dos.sh`, `tools/setup-dos.sh`, `tools/check-parity.sh`, `tools/ci-scope.sh`, the golden transcript and the shared DOS runtime (`dos/rt/**` except the files named above).
+- A path no rule matches selects `all`, the safe answer. A new crate or DOS source file therefore runs the full gate until a rule is added for it.
+
+`tools/ci-scope.sh --self-test` (run by `tools/check.sh`) checks every rule against an example path, that every group the table names exists in `tools/check-dos.sh --list`, and the combinations above. Add the rule and its example together.
+
+The native and Web parity legs are in every run. On a pull request the `parity` job's final step, `tools/check-parity.sh --quick`, reuses the DOS `/REPLAY` transcript that `check-dos.sh` left in `dist/dos-replay.txt` instead of playing it a second time; the comparison with the golden file is the same.
+
+CI runs `all` on pushes to `main`, on a manual run (`workflow_dispatch`) and on a nightly schedule, so `main` is verified in full whatever the pull requests ran. A pull request that touches only `crates/fizz-ep2/src/ben.rs`, say, runs `base` and `view`: the golden still gets checked on DOS once in `base`, but the per-device audio and config matrices wait for `main`.
 
 ## Not verified
 
