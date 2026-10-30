@@ -155,3 +155,17 @@ pub fn bios_ticks() -> u32 {
     // SAFETY: conventional memory is mapped at linear 0 and the counter is dword-aligned; the BIOS updates it behind our back.
     unsafe { read_volatile(dpmi::linear_to_ptr::<u32>(0x46C)) }
 }
+
+/// How many BIOS ticks a day holds: the counter at 0040:006C runs from 0 to this value and wraps at midnight.
+pub const BIOS_TICKS_PER_DAY: u32 = 0x18_00B0;
+
+/// The BIOS ticks between two readings of [`bios_ticks`], counting the wrap at midnight as the BIOS does. A reading that is smaller than
+/// the first one means the clock passed midnight in between (the replay takes about 28 s, so a run that starts just before midnight
+/// crosses it); a plain subtraction would then read as about four billion ticks.
+pub const fn bios_elapsed(start: u32, end: u32) -> u32 {
+    if end >= start {
+        end - start
+    } else {
+        end + (BIOS_TICKS_PER_DAY - start)
+    }
+}
