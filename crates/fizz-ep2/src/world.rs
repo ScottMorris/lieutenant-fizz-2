@@ -78,6 +78,15 @@ pub enum SnackKind {
 }
 
 impl SnackKind {
+    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie.
+    pub const fn number(self) -> u8 {
+        match self {
+            SnackKind::Cheezie => 0,
+            SnackKind::Choc => 1,
+            SnackKind::Cookie => 2,
+        }
+    }
+
     /// The points Fizz 1 adds to the score for this snack.
     pub const fn points(self) -> u32 {
         match self {

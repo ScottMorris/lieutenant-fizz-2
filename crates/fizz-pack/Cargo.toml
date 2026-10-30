@@ -1,0 +1,17 @@
+[package]
+name = "fizz-pack"
+description = "Reader, raw-deflate decoder and (behind a feature) writer for Lieutenant Fizz 2's asset pack (.FAP)"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[features]
+# Pack and level writers and a small deterministic deflate compressor. Uses `alloc`; never enabled in a game build.
+write = []
+
+[dependencies]
+
+[dev-dependencies]
+# The tests build packs with the writer.
+fizz-pack = { path = ".", features = ["write"] }

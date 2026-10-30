@@ -553,6 +553,7 @@ CRATE_ROLE = {  # name: (fill class, what it is)
     "fizz-present-dos": ("e10", "320x200 frame, HUD"), "fizz-present-web": ("e10", "wasm-bindgen App"),
     "fizz-hal": ("e14", "clock, input, display"), "fizz-machine": ("e14", "probe, settings, check"), "fizz-menu": ("e14", "menu list, Options rows"),
     "fizz-sfx": ("e12", "cluck on OPL and speaker"), "fizz-music": ("e12", "music OPL streams"),
+    "fizz-pack": ("e14", ".FAP reader, inflate"),
     "fizz-dos-rt": ("e13", "DPMI, timer, audio, VGA"), "fizz2": ("e13", "FIZZ2.EXE"), "rtsmoke": ("e13", "runtime smoke test"),
 }
 CRATE_LEGEND = [("e11", "rules"), ("e10", "drawing and presenters"), ("e14", "HAL and machine model"), ("e12", "sound"), ("e13", "the dos/ workspace")]
@@ -577,7 +578,7 @@ def crate_deps(root):
                     section = m.group(1)
                     continue
                 dm = re.match(r'^([A-Za-z0-9_-]+)\s*=\s*\{[^}]*path\s*=', line.strip())
-                if dm:
+                if dm and dm.group(1) != pkg:  # a crate that enables its own feature for its tests is not a dependency
                     (deps if section == "dependencies" else dev if section == "dev-dependencies" else []).append(dm.group(1))
             out[pkg] = (deps, dev)
     return out

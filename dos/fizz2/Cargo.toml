@@ -16,3 +16,4 @@ fizz-menu = { path = "../../crates/fizz-menu" }
 fizz-music = { path = "../../crates/fizz-music" }
 fizz-hal = { path = "../../crates/fizz-hal" }
 fizz-present-dos = { path = "../../crates/fizz-present-dos" }
+fizz-pack = { path = "../../crates/fizz-pack" }
