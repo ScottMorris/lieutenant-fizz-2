@@ -46,7 +46,7 @@ When the chicken clucks, its beak opens and its words float above its head for a
 
 ![The Web slice just after the chicken clucks: its beak is open and the small orange word bwuk-BWUK floats just above its head, drawn as text over the picture. Ben is in mid-air below it. Captured from the Web build in headless Chromium at 1280 by 720, in the Keen layout.](images/web-cluck.png)
 
-*The Web build (commit 2ea8dcb) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck, with the HUD in the top left corner. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
+*The Web build (commit e46fbe6) in headless Chromium at 1280 by 720, at tick 201, four ticks after the chicken's first cluck, with the HUD in the top left corner. The word is ordinary page text on top of the canvas, so it stays sharp at any window size.*
 
 - **Web:** the Captions row of the Options screen turns them on and off, and so does `V`. They are on until you turn them off, and the page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** start with `FIZZ2.EXE /NOCAPTIONS` to turn them off, or `/CAPTIONS` for on, which is the default. It combines with the other options, as in `FIZZ2.EXE /MODERN /NOCAPTIONS`. With neither, the choice saved in `FIZZ2.CFG` is used.
@@ -79,7 +79,8 @@ Every one of those words has a sound that plays at the same moment, and so does 
 - When two things happen at once the sounds can overlap on the Web. On DOS the effects share one voice, so the newest sound cuts the one before it off, as in Lieutenant Fizz 1; for instance a snack taken as you leave the ground plays the snack's sound, not the jump's.
 - Holding the Fizz button with no shots left clicks once, when you press it.
 - The song does not stop or get quieter when you reach the exit; `ta-da!` plays over it.
-- On the Web, press `H` for the panel and use the list "Hear an effect" under the hint: it plays any of the fifteen sounds by itself, at full volume and in the middle, so you can hear each one. The arrow keys step through the list, and `Esc` gives the keyboard back to the game. DOS has no such list.
+- On the Web, press `H` for the panel and use the list "Hear an effect" under the hint: it plays any of the nineteen sounds by itself, at full volume and in the middle, so you can hear each one. The last three of the list, `boing (FM)`, `jump (FM)` and `fzzt (FM)`, are the first versions of those sounds, kept for comparison; the game plays Fizz 1's own. The arrow keys step through the list, and `Esc` gives the keyboard back to the game. DOS has no such list.
+- While Paused or Options is open, the music is muffled and a little quieter, and it comes back when you resume, as in Lieutenant Fizz 1. The effects are not changed. On the Web it is a low-pass filter at 900 Hz and a gain of 0.7; an AdLib or Sound Blaster chip has no filter, so DOS lowers the carriers' levels by about 3 dB and softens the FM voices by a little more, which is a close but not an exact match. Nobody has reported how either sounds.
 - On DOS each sound is one voice and is a little thinner than on the Web: the layers, the noise and the bell tones are simpler, and on the PC speaker each is a plain beep with no volume.
 
 The owner has listened to the new sounds on the Web and found them decent. Nobody has reported how they sound on DOS or on real sound hardware, so the DOS descriptions here are what they are meant to be.
@@ -194,10 +195,10 @@ The run prints one more line when it ends, such as `AUDIO WRITES 7224 SPEAKER ST
 Press Esc while you play to open the pause menu: Resume, Options and Quit to DOS. The picture stops and darkens behind it, and the music keeps playing. Up and Down choose a row (they wrap round), Enter or your Jump or Fire key chooses it, and Esc or your Pogo key goes back, which from the pause menu means Resume. Choosing Options opens the Options screen over the same darkened picture.
 
 ![The Paused menu on DOS: the darkened level with the heading Paused in white above a light magenta rule, the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Quit to DOS, and a grey line of keys at the bottom.](img/dos-paused.png)
-*The Paused menu in the DOS build (commit 2ea8dcb), `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc was typed.*
+*The Paused menu in the DOS build (commit e46fbe6), `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc was typed.*
 
 ![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it and the values in light magenta on the right.](img/dos-options.png)
-*The Options screen in the DOS build (commit 2ea8dcb): `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc, Down, Enter and Down were typed, with no card and no switches, so Music is `Auto (off)` and Effects `Auto (PC speaker)`. It is a capture of the running game; a row set by a switch also shows a star and a note, described below.*
+*The Options screen in the DOS build (commit e46fbe6): `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc, Down, Enter and Down were typed, with no card and no switches, so Music is `Auto (off)` and Effects `Auto (PC speaker)`. It is a capture of the running game; a row set by a switch also shows a star and a note, described below.*
 
 On the Options screen Up and Down choose a row, Left goes back one choice and Right, Enter, Jump and Fire go forward one (past the last choice it wraps to the first), and Esc or Pogo goes back to the pause menu. The Modern keys work the same way, with `W` and `S` for Up and Down and `A` and `D` for Left and Right. The rows are:
 
@@ -233,7 +234,7 @@ It has not been tried on a real computer: how long the save takes on a floppy di
 
 ![The DOS build in DOSBox, at the start of a run: Ben at the foot of the shaft and the chicken on the top ledge, with the translucent HUD pill in the top-left corner (the picture shows darkened through it) showing `Fizz 5`, `Deaths 0` and the key chip empty.](img/dos-slice.png)
 
-*Screenshot of the DOS build (commit 2ea8dcb) with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, a moment after the built-in run starts. The emulator scales the 320 by 200 picture up.*
+*Screenshot of the DOS build (commit e46fbe6) with the slice, `FIZZ2.EXE /REPLAY` in DOSBox Staging, a moment after the built-in run starts. The emulator scales the 320 by 200 picture up.*
 
 You are Ben, in a cut-down lighthouse of 32 tiles by 48. The screen follows you up and down and left and right. The sound effects play (see [Sound effects](#sound-effects) and [Hearing the cluck on DOS](#hearing-the-cluck-on-dos)) and, with an AdLib or a Sound Blaster, so does a looping placeholder song.
 
@@ -257,7 +258,7 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 
 ![The DOS build, Ben on the first ledge with the view lifted: the chicken is on its ledge higher up and its words BWUK, BWUK float above it.](img/dos-look-up-caption.png)
 
-*DOS build (`FIZZ2.EXE /LIVE`, DOSBox Staging, headless under a virtual display): Ben has stood still on the first ledge holding Up for a second and a half, so the view has risen to show the chicken, which has just clucked "bwuk, bwuk". Commit 796602d.*
+*DOS build (`FIZZ2.EXE /LIVE`, DOSBox Staging, headless under a virtual display): Ben has stood still on the first ledge holding Up for a second and a half, so the view has risen to show the chicken, which has just clucked "bwuk, bwuk". Commit e46fbe6.*
 
 ![The DOS build, Ben standing at the foot of the shaft with his blaster raised and a shot rising above him.](img/dos-aim-up.png)  ![The DOS build, Ben in the air holding his blaster down with a shot falling beneath him.](img/dos-aim-down.png)
 
@@ -266,6 +267,10 @@ Tiles are told apart by colour: dark blue is the wall behind the rooms, dark gre
 ### The red key and the door
 
 Walk onto the red key to pick it up; its socket in the HUD's key tray fills in, with a white ring for a moment. Carry it to the red door and walk into it: the door opens and the key is used up. The door stays open for the rest of the run, even if you die afterwards. If you die while still carrying the key, it goes back to where it lay.
+
+![The DOS build in the snack nook, a moment after Ben took the blue key: the HUD's second socket is filled with the blue key inside a white ring, with +8 over the score, Fizz 5 and Deaths 1.](img/dos-hud-key.png)  ![The Web build a moment after Ben took the blue key: the HUD panel's second key socket is filled and ringed, +8 over the score.](images/web-hud-key.png)
+
+*The key tray after the blue key (commit e46fbe6): the second socket of the tray is filled and ringed, and the `+8` is the points of the snacks Ben has just taken, shown in the place of the word `Score` while the score counts up. Left: `FIZZ2.EXE /REPLAY` in DOSBox Staging. Right: the Web build at 1280 by 720, tick 1583.*
 
 ### The snack nook
 
@@ -278,6 +283,10 @@ The gallery at the top is also a small playground, where the things Ben can do e
 - **An empty blaster.** You start with five Fizz shots. After the fifth, pressing Fizz again does nothing but make the "no Fizz" click that Fizz 1 has.
 - **Soda cans.** A fizzy drink can is a refill: walking into one gives five more Fizz shots (the number in the HUD goes up by five), with the word `fsssht` and its fizzing sound, as in Fizz 1. There is no limit to how many shots you can hold. One can lies on the gallery floor by the right-hand wall, where you stand to shoot at it, so you can spend your five shots and walk into more; another lies on the right end of the shelf, where the pogo stick lands you. A can is taken once; if you die, the cans come back with the snacks, and you start again with five shots.
 
+![The DOS build in the snack nook with the blaster empty: Fizz 0 in light red in the HUD box, a soda can on the floor beside the right-hand wall and another on the shelf, with a chocolate bar, a cookie and the blue key.](img/dos-can.png)  ![The Web build in the snack nook with the blaster empty: Fizz 0 in light red in the HUD panel, a soda can on the floor at Ben's right and another on the shelf above.](images/web-can.png)
+
+*The nook after the five Fizz shots are spent (commit e46fbe6). Left: `FIZZ2.EXE /REPLAY` in DOSBox Staging, with `click - no fizz` still fading. Right: the Web build at 1280 by 720, tick 1183. The can on the floor is the one to walk into next.*
+
 The Web page and the DOS build show all of these as pictures, with their words (see [Captions](#captions)) and their sounds (see [Sound effects](#sound-effects)). The HUD's key tray has a socket for the red key and one for the blue key.
 
 ### The chicken
@@ -286,7 +295,7 @@ The chicken walks to and fro along its ledge and turns round at walls and edges.
 
 ![A stunned chicken lying beside Ben on the chicken's ledge, two small yellow-and-white stars twinkling above its head. Web build, 1280 by 720.](images/web-stun.png)
 
-*The Web build (commit 2ea8dcb), 1280 by 720, tick 300 of the replay: the chicken was hit by a Fizz shot and is stunned; its stars twinkle above it. DOS draws the stars too.*
+*The Web build (commit e46fbe6), 1280 by 720, tick 300 of the replay: the chicken was hit by a Fizz shot and is stunned; its stars twinkle above it. DOS draws the stars too.*
 
 ### Death and respawn on DOS
 
@@ -298,7 +307,7 @@ The Web page plays the first slice of Episode 2. You are Ben, climbing the insid
 
 ![The Web slice at the start of the level, 1280 by 720: Ben in the lower left with a Fizz Blaster shot in flight, the chicken and the red key high above, the level a column in the middle of the window with grey bars either side, the small HUD panel in the top left corner, a hint line at the bottom and a small round help button in the corner. Captured from the Web build in headless Chromium, in the Keen layout.](images/web-slice-fire.png)
 
-*The Web build (commit 2ea8dcb), headless Chromium at 1280 by 720: Ben has just fired a shot at tick 40, so the HUD's `Fizz` reads 4. The HUD sits in the top left corner of the picture and the debug lines are in the panel shown below.*
+*The Web build (commit e46fbe6), headless Chromium at 1280 by 720: Ben has just fired a shot at tick 40, so the HUD's `Fizz` reads 4. The HUD sits in the top left corner of the picture and the debug lines are in the panel shown below.*
 
 ### The level on the Web
 
@@ -320,19 +329,19 @@ The level is a tall room split into a left shaft and a right shaft by a wall. Yo
 
 ![The Web slice with Ben on the first ledge, looking up: the view has risen to show the chicken on its ledge and its caption bwuk-BWUK above it.](images/web-look-up.png)
 
-*The Web build (commit 2ea8dcb), 1280 by 720, tick 210: after the first 150 ticks of the replay Ben stands on the first ledge and holds Up for 60 ticks; the chicken clucked at tick 197.*
+*The Web build (commit e46fbe6), 1280 by 720, tick 210: after the first 150 ticks of the replay Ben stands on the first ledge and holds Up for 60 ticks; the chicken clucked at tick 197.*
 
 ![The Web slice with Ben on the chicken's ledge, looking down: the view has dropped so that Ben is near the top of the picture and the ledges and spikes below him are in view.](images/web-look-down.png)
 
-*The Web build (commit 2ea8dcb), 1280 by 720, tick 326: after the first 236 ticks of the replay Ben stands on the chicken's ledge (the third) and holds Down for 90 ticks. The view slides down as far as the foot of the level allows, which is about half a tile past the spikes, so the picture ends in a thin grey strip. On the first ledge the view cannot slide down because the level ends just below it.*
+*The Web build (commit e46fbe6), 1280 by 720, tick 326: after the first 236 ticks of the replay Ben stands on the chicken's ledge (the third) and holds Down for 90 ticks. The view slides down as far as the foot of the level allows, which is about half a tile past the spikes, so the picture ends in a thin grey strip. On the first ledge the view cannot slide down because the level ends just below it.*
 
 ![The Web slice with Ben in mid-jump holding his blaster down and a shot falling below him.](images/web-aim-down.png)
 
-*The Web build (commit 2ea8dcb), same window, tick 41: Down and Fire together in a jump fire straight down, so `Fizz` in the HUD reads 4.*
+*The Web build (commit e46fbe6), same window, tick 41: Down and Fire together in a jump fire straight down, so `Fizz` in the HUD reads 4.*
 
 ![The Web slice a moment after a shot hit the wall: a small light magenta puff at the right-hand wall.](images/web-puff.png)
 
-*The Web build (commit 2ea8dcb), same window, tick 108: the second shot of the replay has just hit the wall, two ticks earlier, and pops as a small light magenta puff (the Fizz colour) that swells and thins out for a third of a second. DOS draws the same puff.*
+*The Web build (commit e46fbe6), same window, tick 108: the second shot of the replay has just hit the wall, two ticks earlier, and pops as a small light magenta puff (the Fizz colour) that swells and thins out for a third of a second. DOS draws the same puff.*
 
 The keys for each action are in the table under Controls, in both the Keen and the Modern layouts. Switching layouts lets go of every key you are holding.
 
@@ -346,11 +355,11 @@ The page is the game: the picture fills the whole window and nothing scrolls. It
 
 ![The Web slice with the panel open over the right-hand side of the window: the goal line, the keys line, the Options (Esc) button, the list "Hear an effect" with its Play button and the seven lines of debug text, TICK 40 and HASH shown first.](images/web-panel.png)
 
-*The Web build (commit 2ea8dcb), 1280 by 720, tick 40, after pressing `H`. Press `H` again, or the round button in the corner, to hide the panel. The settings are rows of the Options screen, which the `Options (Esc)` button opens; the list "Hear an effect" plays the sounds (see [Sound effects](#sound-effects)).*
+*The Web build (commit e46fbe6), 1280 by 720, tick 40, after pressing `H`. Press `H` again, or the round button in the corner, to hide the panel. The settings are rows of the Options screen, which the `Options (Esc)` button opens; the list "Hear an effect" plays the sounds (see [Sound effects](#sound-effects)).*
 
 ![A phone-shaped window, 540 by 1140: the view is narrow and tall, about six tiles across and 13 tiles high, with Ben and a stunned chicken on a ledge.](images/web-portrait.png)
 
-*The Web build (commit 2ea8dcb), headless Chromium with a 540 by 1140 window, tick 300 of the replay. The picture is 13 tiles tall as always and only about six tiles wide, centred on Ben.*
+*The Web build (commit e46fbe6), headless Chromium with a 540 by 1140 window, tick 300 of the replay. The picture is 13 tiles tall as always and only about six tiles wide, centred on Ben.*
 
 ### Options on the Web
 
@@ -372,11 +381,11 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 `Esc` goes back one screen from Options, so it takes you to Paused, and again to the game. If you start with `?audio=classic` or `?audio=enhanced` at the end of the address, the Placement row shows a `*` and a line under the rows says it was set by the address and that changing it applies to this visit; change the row and the star goes. The page keeps all of your choices on this browser, if the browser allows it to, and reads the settings saved by older versions of the page the first time. If the setting for reduced motion is on, or Motion is Reduced, the plate and the can hold still. A screen reader is told the screen's name, then each row and its value as you move, and each change as you make it. Nobody has used the screens with a screen reader or in a real browser yet.
 
 ![The Web Paused screen over the slice at 1280 by 720: the picture dimmed behind a dark panel titled Paused with the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Restart, and the line Esc resumes.](images/web-paused.png)
-*The Web build (commit 2ea8dcb), headless Chromium at 1280 by 720, 40 ticks after load and Esc pressed: Paused with Resume chosen.*
+*The Web build (commit e46fbe6), headless Chromium at 1280 by 720, 40 ticks after load and Esc pressed: Paused with Resume chosen.*
 
 ![The Web Options screen over the slice at 1280 by 720: a dark panel titled Options with eight rows, Sound selected as a light magenta plate with a can of drink beside it and the value On between two arrows.](images/web-options.png)
 
-*The Web build (commit 2ea8dcb), headless Chromium at 1280 by 720, 40 ticks after load and Esc, Down and Enter pressed: Options with Sound selected.*
+*The Web build (commit e46fbe6), headless Chromium at 1280 by 720, 40 ticks after load and Esc, Down and Enter pressed: Options with Sound selected.*
 
 ### Sound on the Web
 

@@ -70,6 +70,9 @@ SCENES = [
     ("web-stars.png", 960, 540, "replay", 300),
     ("web-nook.png", 1280, 720, "replay", 1195),
     ("web-nook-boing.png", 1280, 720, "replay", 1354),
+    ("web-can.png", 1280, 720, "replay", 1183),
+    ("web-hud-snack.png", 1280, 720, "replay", 1530),
+    ("web-hud-key.png", 1280, 720, "replay", 1583),
     ("web-effects.png", 1280, 720, "effects", 40),
     ("web-paused.png", 960, 540, "menu", (60, ["Escape"])),
     ("web-options.png", 960, 540, "menu", (60, ["Escape", "ArrowDown", "Enter"])),
@@ -84,6 +87,8 @@ MANUAL_SCENES = [
     ("web-look-down.png", 1280, 720, "ledge", (236, [(0, 90, "D")], 90)),
     ("web-aim-down.png", 1280, 720, "hold", ([(30, 50, "J"), (37, 39, "DF")], 41)),
     ("web-puff.png", 1280, 720, "replay", 108),
+    ("web-can.png", 1280, 720, "replay", 1183),
+    ("web-hud-key.png", 1280, 720, "replay", 1583),
     ("web-panel.png", 1280, 720, "panel", 40),
     ("web-portrait.png", 540, 1140, "replay", 300),
     ("web-paused.png", 1280, 720, "menu", (40, ["Escape"])),
@@ -289,7 +294,7 @@ def main(argv):
                     if kind == "menu":
                         p.frame()  # the game is held, so the frame draws the screen and runs no tick
                 if kind == "effects":
-                    # The page's list is a drop-down, which headless Chromium does not draw open; the capture lists all fifteen
+                    # The page's list is a drop-down, which headless Chromium does not draw open; the capture lists all nineteen
                     # entries at once (the select's size attribute) and chooses effect 14, crunch, without playing it.
                     p.js("(() => { const s = document.getElementById('effect-picker'); s.size = s.options.length; s.selectedIndex = 14; })()")
             elif kind == "ledge":

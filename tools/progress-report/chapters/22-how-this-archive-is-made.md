@@ -3,7 +3,7 @@ id: archive
 n:
 kicker: Reference
 title: How this archive is made
-date: 2026-10-29
+date: 2026-10-30
 summary: The generator, where each number comes from, the rules for the shelves and the tags, the captures, the checks, and the commands that regenerate and publish the site.
 prs: [70, 71]
 section: reference
@@ -35,6 +35,7 @@ python3 tools/progress-report/build.py --offline --check            # the same f
 python3 tools/progress-report/gather.py --update-snapshot           # refresh snapshots/gh.json from gh
 python3 tools/progress-report/capture.py                            # refresh media/ (after tools/check-dos.sh and tools/build-web.sh)
 python3 tools/progress-report/capture.py --keep DIR                 # the same, leaving the raw grabs in DIR; --reuse DIR rebuilds media/ from them
+python3 tools/progress-report/capture.py --manual --reuse DIR       # the manual's pictures, with the DOS grabs of that run and fresh Web shots
 python3 -I tools/progress-report/tests/test_report.py               # the unit tests, the voice check among them
 python3 -m http.server -d dist/progress-report 9000                 # serve the site locally
 ```

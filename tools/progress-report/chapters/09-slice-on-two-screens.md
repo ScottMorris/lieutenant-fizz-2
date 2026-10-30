@@ -3,8 +3,8 @@ id: slice
 n: 9
 title: The slice on two screens
 date: 2026-10-29
-summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound and music, the HUD, the Fizz colour, the frame-rate policy, the Paused and Options screens, the snack nook that gives the rules' events a place to happen, and the start-up check, probe and help screens.
-prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75, 76, 79, 80, 81, 83, 84, 86, 87, 88, 89, 90, 92, 93, 94, 95, 96, 99, 100, 102, 103, 104, 105, 106]
+summary: One small vertical level with Ben, a chicken, a key and a door, played on the Web in a window that sets its own width and on DOS in 320 by 200, with the chicken's cluck, captions and place in the stereo field, the view-only effects, DOS sound and music, the HUD (a Two-Row Stack of Fizz, score, deaths and a key tray), the Fizz colour, the frame-rate policy, the Paused and Options screens, the snack nook that gives the rules' events a place to happen, with its soda cans, and the start-up check, probe and help screens.
+prs: [24, 28, 31, 32, 34, 38, 39, 42, 44, 58, 59, 60, 62, 63, 65, 67, 69, 72, 73, 74, 75, 76, 79, 80, 81, 83, 84, 86, 87, 88, 89, 90, 92, 93, 94, 95, 96, 99, 100, 102, 103, 104, 105, 106, 116, 117, 122, 127]
 ---
 The first slice is a cut-down lighthouse: a tall room split into two shafts, Ben, one chicken, a red key, a red door and an exit. It plays on the Web and on DOS from the same rules and the same drawing routine, `fizz_slice_view::draw_slice`. This chapter follows the slice from the level to the two screens and the DOS start-up screens. Chapter 8 covers the rules underneath it.
 
@@ -57,7 +57,7 @@ The Web screenshots are taken with a fake clock that the capture script advances
 
 ## The DOS screen (#31, #34, #39, #42)
 
-`FIZZ2.EXE` draws the slice in mode 13h, 320 by 200, through `fizz-present-dos`, which adds the HUD pill in the top-left corner (#83; the 8 by 8 strip of `AMMO`, `KEY`, `DEATHS` and `TICK` is gone) and the `LEVEL CLEAR` banner. In `/LIVE` it waits for the vertical retrace once per drawn frame, with a bounded poll so a status port that never toggles cannot hang it. The step, the drawing and the copy to video memory are timed by `/BENCH` against the 16,667 microsecond tick: at 26,800 cycles a millisecond in DOSBox the tick costs {{ms.benchTickUs}} microseconds, of which the step is {{ms.benchStepUs}}, the drawing {{ms.benchDrawUs}} and the copy {{ms.benchPresentUs}} (`snapshots/measured.json`). `FIZZ2.EXE` is {{ms.exeBytes}} bytes unstripped.
+`FIZZ2.EXE` draws the slice in mode 13h, 320 by 200, through `fizz-present-dos`, which adds the HUD box in the top-left corner (#83, #122; the 8 by 8 strip of `AMMO`, `KEY`, `DEATHS` and `TICK` is gone) and the `LEVEL CLEAR` banner. In `/LIVE` it waits for the vertical retrace once per drawn frame, with a bounded poll so a status port that never toggles cannot hang it. The step, the drawing and the copy to video memory are timed by `/BENCH` against the 16,667 microsecond tick: at 26,800 cycles a millisecond in DOSBox the tick costs {{ms.benchTickUs}} microseconds, of which the step is {{ms.benchStepUs}}, the drawing {{ms.benchDrawUs}} and the copy {{ms.benchPresentUs}} (`snapshots/measured.json`). `FIZZ2.EXE` is {{ms.exeBytes}} bytes unstripped.
 
 <!-- figure shots dos-puff.png dos-exit.png -->
 
@@ -81,13 +81,21 @@ The cluck itself changed in #69: the first variant's `buh` is 85 milliseconds, u
 
 Milestone 4 gave the rules a list of moments to report. Undertone moved to 0.3.0 with the audio it affects pinned (#99), and `World::step` raises an `Event` for each moment that has a caption or a sound in Fizz 1: a shot leaving the blaster, an empty-blaster click, a stomp, a stun, a death, a key, a door, the exit, a pogo bounce, a head bump and a snack (#100). The golden transcript prints them as `EVENT` lines, so native, Web and DOS agree on when each happened. The gallery's right end became a small playground (#102): a shelf of grey blocks with snacks on it and two cheezies underneath, a blue key and door in front of the exit, and the pogo, the head bump and the empty blaster each with a place to happen. The golden replay grew to {{golden.finalTick}} ticks and `{{golden.final}}`, and the captions (#103) and the sounds (#104, #105; chapter 10) follow the events. Milestone 4 closed with the pair label `FX ch5+14` in the `SOUND` line (#106) and the move of the remaining audio ideas to Milestone 4.5 (#107, #108).
 
+The soda can (#127) is Fizz 1's refill. Walking into one gives five more shots, with no limit and no points, raises `Event::Can`, shows the caption `fsssht` and plays effect 17. One can lies on the gallery floor beside the right-hand wall, where Ben stands to shoot at it, and one on the right end of the shelf, where the pogo stick lands him. The replay was lengthened to use them: Ben spends his five shots, takes the first can and fires again, so it grew to {{golden.finalTick}} ticks and ends at `{{golden.final}}`, with two `can` lines among its `EVENT` lines (at ticks 1190 and 1522). A taken can is hashed like a taken snack; its kind and position are level data, and the score is not hashed.
+
 <!-- figure shots web-nook.png web-nook-boing.png -->
 
-<!-- figure shots dos-nook-crunch.png dos-nook-boing.png -->
+<!-- figure shots dos-can.png dos-nook-boing.png -->
 
 ## The HUD, the frame rate, the colour and the menus (#83 to #95)
 
-The HUD (#83, #86) follows Fizz 1's: `Fizz` is the shots left, `Deaths` the count and a chip shows the red key. On DOS it is a 72 by 27 pixel pill at (4, 4) in Fizz 1's pixel font, drawn translucent over the picture: the palette gains the sixteen EGA colours dimmed to 4/13 in entries 16 to 31 (Fizz 1's `ui::dim`), and the cached strip is rendered again only when a value changes. `TICK` left the live screen and stays in `/BENCH`, the transcripts and the Web panel. At 26,800 cycles a millisecond the `/BENCH` drawing average fell from 2,802 microseconds for the old 8 by 8 strip to 2,229 for the cached box and rose to 2,340 for the translucent pill, and the eleven `BENCH FRAME` digests are pinned in both the host tests and `tools/check-dos.sh`. The Web HUD is DOM in `#stage`, a dark panel scaled by the stage's height that moves to the other corner when Ben comes near; `web/hud.ts` holds its rules and `tools/check-web-hud.py` plays the golden replay against the built page in headless Chromium.
+The first HUD (#83, #86) followed Fizz 1's: `Fizz` is the shots left, `Deaths` the count and a chip showed the red key. On DOS it was a 72 by 27 pixel pill at (4, 4) in Fizz 1's pixel font, drawn translucent over the picture: the palette gains the sixteen EGA colours dimmed to 4/13 in entries 16 to 31 (Fizz 1's `ui::dim`), and the cached strip is rendered again only when a value changes. `TICK` left the live screen and stays in `/BENCH`, the transcripts and the Web panel. The Web HUD is DOM in `#stage`, a dark panel scaled by the stage's height that moves to the other corner when Ben comes near; `web/hud.ts` holds its rules and `tools/check-web-hud.py` plays the golden replay against the built page in headless Chromium.
+
+The Two-Row Stack (#122) replaced its content on both platforms with two rows that never change size. The top row is `Fizz` and a five-digit `Score`, the bottom row is `Deaths` and the key tray. The tray has one 7 by 7 socket for each kind of key the level has, red and blue now, with green and gold listed for later levels: an empty outline until the key is picked up, then the key in its colour with a white ring for a moment, and each key carries a mark besides its colour (a dot, a bar, a plus and a USB stick) so the colours are not the only way to tell them apart. A snack's points show as `+1`, `+2` or `+5` in the place of the word `Score` for a second, and the score counts up a point every two steps (it jumps at once with Motion on Reduced). A shared `HudView` in `fizz-slice-view` holds the values both presenters draw, the Fizz number is outlined in black so that its light red at zero clears the 3.0 contrast floor, and the score is worked out from the events and is not hashed, so the golden is unchanged by it. On DOS the box grew from 72 to 120 pixels wide, 3,240 pixels in all, and at 26,800 cycles a millisecond the drawing cost rose by about 1.08 times, with the largest tick 3.8 ms higher where a pickup's ring or a counting step renders the strip again (`docs/PLATFORM.md` has the figures of that run). The full gate of 30 October 2026 prints a drawing average of {{ms.benchDrawUs}} microseconds and a tick of {{ms.benchTickUs}} against the 16,667 microsecond budget.
+
+<!-- figure shots dos-hud-snack.png dos-hud-key.png -->
+
+<!-- figure shots web-can.png web-hud-snack.png web-hud-key.png -->
 
 The frame-rate policy (#84) leaves the rules at 60 steps a second and changes how often `/LIVE` and `/REPLAY` draw. `/FPS30` draws every second tick, `/FPS60` every tick, and `/FPSAUTO` (the default) averages 32 drawn frames on the 560 Hz clock in `fizz_machine::FrameGovernor`: it chooses 30 Hz when a frame takes 101 to 170% of a sixtieth of a second and 60 Hz above 185% or below 67%, which are the thresholds of Fizz 1's DOS port. Both modes print `FRAMES <n> TICKS <t> RATE <hz> MODE <m>`. `tools/check-dos.sh` runs the replay at `/FPS30` (about half as many drawn frames as ticks), Auto at 60 at 26,800 cycles and Auto at 30 at 4,500 cycles, and each must print the golden transcript.
 
@@ -95,13 +103,13 @@ The Fizz colour (#87) is one accent, light magenta (EGA 13, `#ff55ff`, grape), d
 
 The settings changed shape underneath the screens. `FIZZ2.CFG` version 3 (#88) is 13 bytes and adds motion, sound placement, captions and key layout to the sound and frame-rate bytes; zero is always the default, versions 1 and 2 still read, a bad value resets only its own field, and every switch (`/KEEN` joins `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS`) overrides one field for one run and is never saved. The save (#89) writes `FIZZ2.NEW`, reads it back, deletes the old file and renames the new one, with a three-byte INT 24h handler answering Fail during it so no "Abort, Retry, Fail?" lands on mode 13h. `audio::replan` (#90) switches the music and effects devices while the game runs and is checked by register counts under an SB16, a Pro 2, an AdLib alone and no card.
 
-The screens come in four steps. `fizz-menu` (#92) is the shared model: a list with a cursor, the Options rows and their value words for DOS and the Web, and the Paused menu, as `no_std` code with host tests. The DOS drawing (#93) dims the frozen picture once into the palette's dimmed half, draws a 2x white heading over a Fizz-colour rule and a clipped-corner plate with black ink for the chosen row, and Fizz 1's soda can bobbing one pixel every 20 ticks; `/MENUSHOT` proves the DOS digests equal the host's. The Web screens (#94) open with Esc or Pause over the picture, hold the game and its pacer with no catch-up on resuming, and save one `localStorage` blob. The DOS flow (#95) opens Paused with Esc in `/LIVE`, holds the world and the frame governor while a screen is up with the music playing, applies each change live, and saves `FIZZ2.CFG` when Options is left with a change; `tools/check-dos.sh` types `esc up enter` where it used to type `esc` and adds cases for the saved bytes, the live frame rate, a switch that is not saved, a read-only file, the hidden `/OPTIONS` mode and a menu left open until the wall-clock cap. `FIZZ2.EXE` is now 177,664 bytes.
+The screens come in four steps. `fizz-menu` (#92) is the shared model: a list with a cursor, the Options rows and their value words for DOS and the Web, and the Paused menu, as `no_std` code with host tests. The DOS drawing (#93) dims the frozen picture once into the palette's dimmed half, draws a 2x white heading over a Fizz-colour rule and a clipped-corner plate with black ink for the chosen row, and Fizz 1's soda can bobbing one pixel every 20 ticks (the can is grape, the Fizz colour, since #116); `/MENUSHOT` proves the DOS digests equal the host's. The Web screens (#94) open with Esc or Pause over the picture, hold the game and its pacer with no catch-up on resuming, and save one `localStorage` blob. The DOS flow (#95) opens Paused with Esc in `/LIVE`, holds the world and the frame governor while a screen is up with the music playing, applies each change live, and saves `FIZZ2.CFG` when Options is left with a change; `tools/check-dos.sh` types `esc up enter` where it used to type `esc` and adds cases for the saved bytes, the live frame rate, a switch that is not saved, a read-only file, the hidden `/OPTIONS` mode and a menu left open until the wall-clock cap. `FIZZ2.EXE` was 177,664 bytes then; it is {{ms.exeBytes}} bytes on `main` today.
 
 <!-- figure shots dos-paused.png dos-options.png -->
 
 <!-- figure shots web-paused.png web-options.png -->
 
-The owner's playtest on 28 October 2026 reported that the Web HUD looks good, the cluck (buh-gawk) plays and the music rolls, the spin death, the stars and the puffs look good, and the translucent DOS pill matches Fizz 1's look. The same screenshots are retaken from the current builds, and the DOS Paused and Options pictures are grabs from DOSBox running `/LIVE` with the keys typed through the X server.
+The music takes a screen mix while these screens are up (#124, #125; chapter 10). The owner's playtest on 28 October 2026 reported that the Web HUD looks good, the cluck (buh-gawk) plays and the music rolls, the spin death, the stars and the puffs look good, and the translucent DOS pill matches Fizz 1's look. The same screenshots are retaken from the current builds, and the DOS Paused and Options pictures are grabs from DOSBox running `/LIVE` with the keys typed through the X server.
 
 ## /CHECK, /PROBE and /?
 
@@ -119,13 +127,14 @@ Three more screens belong to the DOS machine work (Milestone 1.5). `/PROBE` (#50
 
 ### Catalogued
 - #29, #31, #32, #34, #38, #39, #42 and #44 are merged into `main`; the last of them, #44, landed on `{{pr44.merge}}` with CI {{pr44.ci}}.
-- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, four `cluck`, eight `shotend` and 58 other `EVENT` lines, 70 in all) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
+- The golden replay (`FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`, five `cluck`, thirteen `shotend`, two `can` and 63 other `EVENT` lines, 83 in all) is printed by native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}`, and the DOSBox run in the transcript above matches the file line for line, `EVENT` lines included (`snapshots/measured.json`; the build checks the transcript).
 - Both screens call `fizz_slice_view::draw_slice`; frame digests at nine ticks of the replay, and for the puff, the stars and the death frame, are pinned in its tests, and `/BENCH` compares eleven `BENCH FRAME` digests from DOS with the host's.
 - The chicken's `EVENT` lines are the evidence that a cluck happens at the same tick and with the same variant on all three platforms.
-- DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` for the golden replay (569, 590 and 1,135 when only its four clucks played; 7,224, 7,245 and 14,380 now that every event has a sound, the fzzt, boing and jump are Fizz 1 DOS's own and the soda cans refill the blaster, see chapter 10), and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer.
+- DOS audio paths write what they should: the channel 5 effect, the OPL3 on the AdLib role and the pair print `AUDIO WRITES` for the golden replay (569, 590 and 1,135 when only its four clucks played; 7,224, 7,245 and 14,380 now that every event has a sound, the fzzt, boing and jump are Fizz 1 DOS's own and the soda cans refill the blaster, see chapter 10), and `tools/check-dos.sh` requires exactly those relations; `tools/check-dos.sh` requires register writes on a chip, steps on the speaker and zeros when silent, and the same transcript under every configuration. The last measured run printed `BIOS TICKS {{ms.biosTicks}}` for the {{golden.finalTick}}-tick replay under the 560 Hz timer, which the check counts across the midnight wrap (#117).
 - `/PROBE` runs under 21 DOSBox configurations, `/CHECKCELLS` under six machines with the cells equal to the host builder's, `/?` prints the text of `crates/fizz-machine/tests/help.txt`, and a host test refuses any script that runs the interactive `/CHECK`.
 - The Web cluck path is checked with a stand-in `AudioContext`: `web/sfx.test.ts` under `bun test` and `tools/check-web-sfx.py` in headless Chromium show what is scheduled, that nothing plays before a key press or while muted, that a pan other than the middle adds a panner to each voice, and that the cluck at tick 197 schedules variant 2 with its panners.
 - The Web music is checked with the same kind of stand-in: `bun test web/music.test.ts` matches the sources scheduled over one loop with the note list of `assets/music/notes/crater.txt` for start time, pitch and pan, and `tools/check-web-sfx.py` shows nothing sounding before a key press and the Music button and `M` working in headless Chromium. `bun tools/music/notes.ts --check` guards the note list itself.
+- The Two-Row Stack HUD (#122) is checked by `cargo test -p fizz-slice-view -p fizz-present-dos`, `bun test web/hud.test.ts`, `tools/check-web-hud.py` and the `BENCH FRAME` digests of `tools/check-dos.sh`, with the key tray with the red key and the blue key, a snack's `+N` and the cans grabbed from DOSBox and headless Chromium (the pictures above). The soda can (#127) is checked by the golden's two `can` lines on all three platforms and by `AUDIO WRITES` of 7,224, 7,245 and 14,380.
 - The HUD, the frame-rate policy, `FIZZ2.CFG` version 3, the crash-safe save, device switching and the screens (#83 to #95) are merged with the checks named in the section above: the `BENCH FRAME` digests and the `FRAMES` lines in `tools/check-dos.sh`, the byte-for-byte saves and the typed-key Options cases there, `/REPLANTEST` under four machines, `/MENUSHOT`'s digests, `tools/check-web-hud.py`, `tools/check-web-options.py`, and `cargo test -p fizz-menu`; the golden hash is unchanged by all of them (`PARITY ok {{ms.parityHash}}`).
 - The screenshots on this page are records in `media/captures.json`: headless Chromium for the Web, and DOSBox grabbed under a virtual display for DOS, each with its command, commit and date.
 - The owner's playtest of 29 October 2026 of the Milestone 4 builds: they listened to the new Web effects and found them good ("they sound decent", and they may revisit them), and said Milestone 4 "looks good in gameplay" on the Web and in the DOS player. That is one person's statement; it does not name a DOS effect or any sound hardware.
@@ -232,12 +241,30 @@ caption: Esc opens Paused; Options is its second row. Both are grabs of the runn
 at: figure shots dos-paused.png dos-options.png
 thumb: img:media/dos-options.png
 
+id: dos-hud-shots
+kind: screenshot
+track: dos
+title: The HUD box with a snack's points and the blue key
+alt: Two DOSBox screenshots of FIZZ2.EXE on the pogo stick over the snack shelf: the HUD box with Fizz 5, +3 in the place of the word Score with the score counting up to 00005, Deaths 1 and two empty key sockets, and then Fizz 5, +8 over the score counting up to 00010 and the second key socket filled with the blue key inside a white ring.
+caption: A snack's points and the key tray on DOS: the second picture is a moment after the blue key was taken. DOSBox's pace varies, so each grab falls within a few ticks of its Web twin.
+at: figure shots dos-hud-snack.png dos-hud-key.png
+thumb: img:media/dos-hud-key.png
+
+id: web-hud-shots
+kind: screenshot
+track: web
+title: The HUD panel with the empty blaster, a snack's points and the blue key
+alt: Three screenshots of the Web slice in headless Chromium, 1280 by 720: Ben on the gallery with Fizz 0 in light red in the HUD panel, a soda can at his right and another on the shelf; Ben on the pogo stick with Fizz 5, +1 over the score counting up to 00003 and the captions crunch and fsssht; and Fizz 5 with +8 over the score and the second key socket filled with the blue key inside a white ring.
+caption: The Web HUD at ticks 1183, 1530 and 1583 of the golden replay: the empty blaster before the can, a snack's points, and the blue key in the tray.
+at: figure shots web-can.png web-hud-snack.png web-hud-key.png
+thumb: img:media/web-hud-key.png
+
 id: web-nook-shots
 kind: screenshot
 track: web
 title: The snack nook on the Web
-alt: Two screenshots of the Web slice in headless Chromium, 1280 by 720, in the snack nook: Ben jumps under a grey shelf that carries a blue key, a cookie, a chocolate bar and a cheezie, with a cheezie beside him and the captions crunch and click - no fizz near him, and Ben on the pogo stick beside the gallery's right wall with the caption boing at his feet.
-caption: The nook at ticks 1195 and 1354 of the golden replay, with the captions of the snack and of the bounce.
+alt: Two screenshots of the Web slice in headless Chromium, 1280 by 720, in the snack nook: Ben on the gallery below a grey shelf that carries a blue key, a cookie, a chocolate bar, a cheezie and a soda can, with Fizz 4 in the HUD panel, the caption fsssht at his head and a fresh shot in front of him, and Ben on the pogo stick beside the gallery's right wall with the caption boing at his feet.
+caption: The nook at ticks 1195 and 1354 of the golden replay: five ticks after the first can and a pogo bounce.
 at: figure shots web-nook.png web-nook-boing.png
 thumb: img:media/web-nook.png
 
@@ -245,10 +272,10 @@ id: dos-nook-shots
 kind: screenshot
 track: dos
 title: The snack nook in DOSBox
-alt: Two DOSBox screenshots of FIZZ2.EXE running the replay in the snack nook: Ben below the shelf with the captions crunch and click - no fizz beside him and Fizz 0 and Deaths 1 in the HUD pill, and Ben bouncing on the pogo stick with the caption boing at the spot of the bounce.
-caption: The same nook on DOS, grabbed from the running replay; DOSBox's pace varies, so the grabs fall within a few ticks of the Web's.
-at: figure shots dos-nook-crunch.png dos-nook-boing.png
-thumb: img:media/dos-nook-crunch.png
+alt: Two DOSBox screenshots of FIZZ2.EXE running the replay in the snack nook: Ben on the gallery with Fizz 0 in light red and the caption click - no fizz fading beside him, a soda can on the floor at his right and another on the shelf, and Ben bouncing on the pogo stick with the caption boing at the spot of the bounce, Score 00002 in the HUD box.
+caption: The same nook on DOS, grabbed from the running replay with the cans in it; DOSBox's pace varies, so the grabs fall within a few ticks of the Web's.
+at: figure shots dos-can.png dos-nook-boing.png
+thumb: img:media/dos-can.png
 
 id: web-menu-shots
 kind: screenshot
@@ -290,7 +317,7 @@ id: slice-transcript
 kind: transcript
 track: dos
 title: FIZZ2.EXE /REPLAY output
-alt: Terminal output of FIZZ2.EXE /REPLAY: the SLICE REPLAY 1 line, TICK lines every 60 ticks, four cluck, eight shotend and 58 other EVENT lines, the FINAL line and the EXIT, FPU, BIOS, SOUND, AUDIO and VECTORS lines.
+alt: Terminal output of FIZZ2.EXE /REPLAY: the SLICE REPLAY 1 line, TICK lines every 60 ticks, five cluck, thirteen shotend, two can and 63 other EVENT lines, the FINAL line and the EXIT, FPU, BIOS, SOUND, AUDIO and VECTORS lines.
 caption: The transcript of the grabbed DOSBox run, line for line.
 at: figure dos-transcript
 thumb: term

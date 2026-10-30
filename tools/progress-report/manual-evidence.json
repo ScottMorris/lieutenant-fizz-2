@@ -57,8 +57,8 @@
   {
    "section": "Sound effects",
    "shelf": "catalogued",
-   "evidence": "`fizz-slice-view` tests play the replay through `event_sound`: one effect for each of its 70 sounding events (every `EVENT` line but `shotend`), in order, with the counts the manual's table implies, the same with the Captions setting on or off, and placed against the camera. `web/sfx.test.ts` schedules each of the twelve new effects on a stand-in `AudioContext` (a carrier and a modulator for an FM voice, a pitch step for each frame) and checks that whoa! and ta-da! bypass the cap. `tools/check-web-sfx.py` drives the audition list in headless Chromium: sixteen entries in id order, silence before a key, each choice scheduling exactly that effect, Play repeating it and a muted page staying quiet. `tools/check-dos.sh` requires `AUDIO WRITES` of 5,972 (channel 5), 5,993 (the OR rule) and 11,876 (the pair) and 1,388 speaker steps for the 69 effects the replay starts, with the golden transcript unchanged. The rules Fizz 1 follows for overlap, dedupe, the click and the music are in [chapter 10](chapter:effects).",
-   "gaps": "how any of the eleven new effects sounds on DOS or on real hardware (the owner listened to them on the Web on 29 October 2026 and found them good; a stand-in cannot hear); the audition list was driven by script, not by a person with the arrow keys; and a real OPL2, OPL3, Sound Blaster or PC speaker."
+   "evidence": "`fizz-slice-view` tests play the replay through `event_sound`: one effect for each of its 70 sounding events (every `EVENT` line but `shotend`), in order, with the counts the manual's table implies, the same with the Captions setting on or off, and placed against the camera. `web/sfx.test.ts` schedules each effect on a stand-in `AudioContext` (a carrier and a modulator for an FM voice, a pitch step for each frame, Fizz 1's high-pass and slide for the fzzt) and checks that whoa! and ta-da! bypass the cap. `tools/check-web-sfx.py` drives the audition list in headless Chromium: nineteen entries in id order, silence before a key, each choice scheduling exactly that effect, Play repeating it and a muted page staying quiet. `tools/check-dos.sh` requires `AUDIO WRITES` of 7,224 (channel 5), 7,245 (the OR rule) and 14,380 (the pair) and 1,358 speaker steps for the 69 effects the replay starts, with the golden transcript unchanged; the jump, the pogo and the fizz shot on DOS are Fizz 1 DOS's own records, kept equal to the converter's output by `bun tools/sfx/downmix.ts --check`. The rules Fizz 1 follows for overlap, dedupe, the click and the music are in [chapter 10](chapter:effects).",
+   "gaps": "how any of the new effects, the soda can's fsssht or the music under Paused and Options sounds on DOS or on real hardware (the owner listened to the first effects on the Web on 29 October 2026 and found them good, and chose Fizz 1's jump, pogo and fizz shot after listening on both platforms; nobody has reported the menu mix or the can's sound; a stand-in cannot hear); the audition list was driven by script, not by a person with the arrow keys; and a real OPL2, OPL3, Sound Blaster or PC speaker."
   },
   {
    "section": "Fullscreen and browser shortcuts",
@@ -108,7 +108,7 @@
   {
    "section": "The slice on DOS",
    "shelf": "catalogued",
-   "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD pill is tested in `fizz-present-dos` (`the_slice_hud_is_a_box_over_the_whole_picture_with_no_tick`, `the_hud_is_rendered_only_when_its_values_change`). The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server. The owner's playtest of 28 October 2026 found the translucent HUD pill matching Fizz 1's look: one person's look, not a check.",
+   "evidence": "`tools/check-dos.sh` runs `/REPLAY` in headless DOSBox and compares its `TICK` and `FINAL` lines with the slice's golden transcript, so the DOS rules, level and hash match the native build, and asserts `EXIT yes`. The picture is the one `fizz-slice-view` draws, pinned by frame digests at six ticks of the replay, and the HUD box (Fizz, score, deaths and the key tray, with a snack's `+N`) is tested in `fizz-present-dos` and its values in `fizz-slice-view` (`HudView`); the key tray with the red and the blue key and the soda can are in the screenshots, which are DOSBox grabs of `/REPLAY`. The screenshot is a real DOSBox Staging grab of `/REPLAY` under a virtual X server. The owner's playtest of 28 October 2026 found the first translucent HUD pill matching Fizz 1's look: one person's look, not a check, and of the earlier one-row HUD.",
    "gaps": "playing it by hand: `/LIVE` was exercised only by AUTOTYPE key presses, so how the camera and the keys feel is unchecked; the picture on a real VGA screen and the speed on a real 486; and the sound, which no one has heard on a real machine."
   },
   {
@@ -132,7 +132,19 @@
   {
    "section": "The red key and the door",
    "shelf": "catalogued",
-   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, and the `key_door` trace against Fizz 1. The replay on DOS opens the door."
+   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, and the `key_door` trace against Fizz 1. The replay on DOS opens the door. The key tray's sockets fill and ring in `fizz-slice-view` tests and in the screenshots of the replay at the red key (tick 295) and the blue key (tick 1579).",
+   "gaps": "how the tray looks on a real display; the blue key's door is in the snack nook section."
+  },
+  {
+   "section": "The snack nook",
+   "shelf": "catalogued",
+   "prs": [
+    102,
+    122,
+    127
+   ],
+   "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok a08501a57d509e8a`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
+   "gaps": "that the nook is pleasant to play, and that the pogo route onto the shelf is possible for a person: the replay climbs it with scripted keys; how fsssht sounds; and the score's count-up, which a still cannot show."
   },
   {
    "section": "The chicken",
@@ -167,7 +179,7 @@
   {
    "section": "The Web heads-up text",
    "shelf": "catalogued",
-   "evidence": "`web/hud.test.ts` (under `bun test`) covers the HUD's rules and `tools/check-web-hud.py` plays the golden replay in headless Chromium against the built page and reads the in-picture HUD (the Fizz number, deaths and the key chip). The panel's seven lines start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The owner's playtest of 28 October 2026 found the Web HUD looking good: one person's look, not a check. The values come from the `App` getters the host tests read. Headless Chromium took screenshots of the filled page at 960 by 540, 390 by 780 and 1600 by 520, each 13 tiles tall with the width following the window, and the page's `HASH` at tick 300 equals the golden transcript's `TICK 300` line ([chapter 9](chapter:slice)).",
+   "evidence": "`web/hud.test.ts` (under `bun test`) covers the HUD's rules and `tools/check-web-hud.py` plays the golden replay in headless Chromium against the built page and reads the in-picture HUD (the Fizz number, the score and its `+N`, deaths and the key tray with its sockets and rings). The panel's seven lines start at `TICK 0` and change as Ben moves, `AMMO` fell to 4 after a shot, and Restart returned the tick to the start. The owner's playtest of 28 October 2026 found the Web HUD looking good: one person's look of the earlier one-row HUD, not a check. The values come from the `App` getters the host tests read. Headless Chromium took screenshots of the filled page at 960 by 540, 390 by 780 and 1600 by 520, each 13 tiles tall with the width following the window, and the page's `HASH` at tick 300 equals the golden transcript's `TICK 300` line ([chapter 9](chapter:slice)).",
    "gaps": "`KEY`, `DOOR` and `EXIT` changing in the browser: the replay reaches all three in the host tests, but no browser run has played that far; the panel opened with `H` or the `?` button, which no run pressed, and a real window being resized or a phone being turned"
   },
   {
@@ -190,7 +202,7 @@
     4,
     7
    ],
-   "evidence": "The HUD's text is tested in `fizz-present-dos` and the picture is pinned by frame digests in `fizz-slice-view`; the hash is the parity gate's, equal on native, Web and DOS ([chapter 5](chapter:parity)); 60 steps a second is the pacer of `fizz-hal` and the timer of [chapter 3](chapter:m0-core#the-60-hz-timer-that-keeps-the-bios-clock). The Web lines are read from the `App` getters by the host tests."
+   "evidence": "The HUD's text is tested in `fizz-present-dos` and the picture is pinned by frame digests in `fizz-slice-view`; the hash is the parity gate's, equal on native, Web and DOS ([chapter 5](chapter:parity)); 60 steps a second is the pacer of `fizz-hal` and the timer of [chapter 3](chapter:m0-core#the-60-hz-timer-that-keeps-the-bios-clock). The Web lines are read from the `App` getters by the host tests. The key tray and the score are in the shots of [chapter 9](chapter:slice)."
   },
   {
    "section": "Web and DOS compared",
