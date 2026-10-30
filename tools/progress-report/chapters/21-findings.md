@@ -41,7 +41,7 @@ This page collects the results of the chapters in one place, each with the chapt
 
 - Does the engine crate stay Fizz 2's own, or become something Fizz 1 could adopt later?
 - Which language does the baker use? Rust is preferred, so it shares types.
-- Do the level script and the studio need extensions for vertical mazes, gadgets and the underworld?
+- Does the level script language need extensions for vertical mazes, gadgets and the underworld?
 - What base art resolution does Episode 2 author for, given the DOS palette limits? The slice uses Fizz 1's sizes and the provisional Ben A is not shown yet.
 - Is the `f64` model affordable on a 486? In DOSBox the slice's step costs a small part of the tick, and DOSBox does not model the x87's latency.
 - How much level does the Web view show on a large screen by default?

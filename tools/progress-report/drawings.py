@@ -125,7 +125,7 @@ LAYER_BOXES = [
     (0, 0, 2, "built", "fizz-sim · fizz-phys", "tick, hash, input; Fizz 1's physics (#22)"),
     (0, 2, 2, "built", "fizz-ep2", "Ben, the chicken, the level, the replay (#27, #29)"),
     (1, 0, 4, "plan", "fizz-engine: scene, audio and event intent", "docs/SCENE-CONTRACT.md is a sketch (M3)"),
-    (2, 0, 4, "plan", "fizz-bake", "Level Studio scripts, art and music lowered per target (M2)"),
+    (2, 0, 4, "plan", "fizz-bake", "Level scripts, art and music lowered per target (M2)"),
     (3, 0, 2, "built", "fizz-present-web · fizz-slice-view", "wasm-bindgen App; the one slice drawing (#31, #32)"),
     (3, 2, 2, "built", "fizz-present-dos · fizz-slice-view", "320x200 frame, HUD, pixel captions (#31)"),
     (4, 0, 1, "built", "Web page, sfx.ts", "canvas, panel, Undertone cluck (#45)"),
