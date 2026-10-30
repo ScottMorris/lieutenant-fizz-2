@@ -79,6 +79,8 @@
 
 mod captions;
 pub use captions::*;
+pub mod hud;
+pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;

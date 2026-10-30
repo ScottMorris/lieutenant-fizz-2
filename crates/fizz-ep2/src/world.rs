@@ -273,6 +273,17 @@ impl World {
         }
     }
 
+    /// Whether the level has a red key at all, lying, carried or spent on its door. Level data, so it never changes after the
+    /// level is built; a presenter's key tray has one socket for each kind the level has.
+    pub fn level_has_red_key(&self) -> bool {
+        self.key.is_some()
+    }
+
+    /// Whether the level has a blue key at all, as [`World::level_has_red_key`] is for the red one.
+    pub fn level_has_blue_key(&self) -> bool {
+        self.key_blue.is_some()
+    }
+
     /// Lays a snack with its centre at `(x, y)`.
     pub fn add_snack(&mut self, kind: SnackKind, x: f64, y: f64) {
         self.snacks.push(Snack {

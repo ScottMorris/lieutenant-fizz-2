@@ -338,6 +338,8 @@ impl EventCaptions {
 pub struct ViewFx {
     pub puffs: crate::Puffs,
     pub captions: EventCaptions,
+    /// The HUD's score count-up, `+N` and key rings: what changes in the HUD between steps.
+    pub hud: crate::HudAnim,
 }
 
 impl ViewFx {
@@ -345,6 +347,7 @@ impl ViewFx {
         ViewFx {
             puffs: crate::Puffs::new(),
             captions: EventCaptions::new(),
+            hud: crate::HudAnim::new(),
         }
     }
 
@@ -352,6 +355,7 @@ impl ViewFx {
     pub fn observe(&mut self, world: &World, w: usize, h: usize, options: &DrawOptions) {
         self.puffs.observe(world);
         self.captions.observe(world, w, h, options);
+        self.hud.observe(world, !options.shake);
     }
 
     pub fn clear(&mut self) {
