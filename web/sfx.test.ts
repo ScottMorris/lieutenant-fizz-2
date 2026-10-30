@@ -254,23 +254,23 @@ describe('the effects after the cluck (ids 4 to 16)', () => {
     });
   }
 
-  test('boing and jump (12 and 13) are Fizz 1 Enhanced: plain oscillators in a 25 ms chain, and the FM versions are kept as 15 and 16', () => {
-    // Fizz 1's jump: a square e4 chirp rising nine semitones in four notes (e4, g4, a#4, c#5), a 2600 Hz low-pass, no FM, no steps.
-    expect(EFFECTS[13].length).toBe(4);
-    expect(EFFECTS[13].map((v) => Math.round(voiceHz(v)))).toEqual([330, 392, 466, 554]);
-    expect(EFFECTS[13].map((v) => v.nudge)).toEqual([0, 0.025, 0.05, 0.075]);
-    expect(EFFECTS[13].every((v) => v.w === 'square' && v.lpf === 2600 && !v.fm && !v.steps)).toBe(true);
+  test('boing (12) and jump (Fizz 1) (16) are Fizz 1 Enhanced: plain oscillators in a 25 ms chain; the jump (13) is the FM-era one again', () => {
+    // Fizz 1's jump (16): a square e4 chirp rising nine semitones in four notes (e4, g4, a#4, c#5), a 2600 Hz low-pass, no FM, no steps.
+    expect(EFFECTS[16].length).toBe(4);
+    expect(EFFECTS[16].map((v) => Math.round(voiceHz(v)))).toEqual([330, 392, 466, 554]);
+    expect(EFFECTS[16].map((v) => v.nudge)).toEqual([0, 0.025, 0.05, 0.075]);
+    expect(EFFECTS[16].every((v) => v.w === 'square' && v.lpf === 2600 && !v.fm && !v.steps)).toBe(true);
     // Fizz 1's boing: sixteen triangle g3 notes swinging five semitones at nine swings a second, fading, and the sine d5 at 0.07 s.
     const body = EFFECTS[12].filter((v) => v.w === 'triangle');
     expect(body.length).toBe(16);
     expect(body[1].hz).toBeCloseTo(noteHz('g3') * 2 ** (5 * Math.sin((2 * Math.PI * 9 * 0.4) / 15) * (14 / 15) / 12), 1);
     expect(EFFECTS[12].filter((v) => v.w === 'sine').map((v) => [v.n, v.nudge])).toEqual([['d5', 0.07]]);
     expect(EFFECTS[12].some((v) => v.fm || v.steps)).toBe(false);
-    // The alternates: the FM boing and the stepped jump, named, and not the same voices.
-    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)']);
+    // The jump events play (13) is one square that glides (pitch steps), as before; the FM boing is kept as 15.
+    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (Fizz 1)']);
+    expect(EFFECTS[13].length).toBe(1);
+    expect(EFFECTS[13][0].steps).toBeDefined();
     expect(EFFECTS[15].some((v) => v.fm)).toBe(true);
-    expect(EFFECTS[16].length).toBe(1);
-    expect(EFFECTS[16][0].steps).toBeDefined();
   });
 
   test('pitch steps become the carrier pitch a 140 Hz frame at a time', async () => {

@@ -344,7 +344,7 @@ mod tests {
         run_with(OplPlayer::new(variant))
     }
 
-    /// Effect ids, in order: the cluck's four variants, then fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump and crunch, then the alternates boing (FM) and jump (FM), which no event plays.
+    /// Effect ids, in order: the cluck's four variants, then fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump and crunch, then the alternates boing (FM) and jump (Fizz 1), which no event plays.
     /// The OPL records, the OPL chunk's ticks and the speaker frames of each, as `tools/sfx/downmix.ts --stats` prints them. A
     /// change to the source or the converter moves these on purpose, and this table is what says so.
     const EFFECTS: [(&str, usize, u32, usize); 17] = [
@@ -361,10 +361,10 @@ mod tests {
         ("clunk", 95, 116, 20),
         ("plink", 39, 56, 8),
         ("boing", 185, 248, 56),
-        ("jump", 57, 80, 14),
+        ("jump", 57, 84, 12),
         ("crunch", 118, 136, 24),
         ("boing (FM)", 186, 252, 42),
-        ("jump (FM)", 57, 84, 12),
+        ("jump (Fizz 1)", 57, 80, 14),
     ];
 
     #[test]

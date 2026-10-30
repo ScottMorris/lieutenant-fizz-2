@@ -326,7 +326,7 @@ def main(argv):
         check(not a["osc"] and a["noise"] == 0, "a page that starts muted schedules no song at its first key")
         page.js("localStorage.clear()")
 
-        # 5. The audition list in the H panel plays any effect by its id, on its own. It exists, lists the 17 effects (the last two, boing (FM) and jump (FM), are alternates no event plays) by id, makes no
+        # 5. The audition list in the H panel plays any effect by its id, on its own. It exists, lists the 17 effects (the last two, boing (FM) and jump (Fizz 1), are alternates no event plays) by id, makes no
         # sound before a key, and each choice schedules exactly that effect's voices (a carrier and a modulator for an FM voice).
         page.load()
         check(page.js("document.getElementById('effect-picker').options.length") == 17, "the H panel's audition list has the 17 effects")

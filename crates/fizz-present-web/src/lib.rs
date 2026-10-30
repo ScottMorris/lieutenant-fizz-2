@@ -1253,7 +1253,7 @@ mod tests {
             got.len(),
             4 + 8 + 1 + 1 + 1 + 1 + 3 + 6 + 1 + 9 + 5 + jumps(&got)
         );
-        // Every effect an event plays (4 to 14); the last two ids are the alternates boing (FM) and jump (FM), which no event plays.
+        // Every effect an event plays (4 to 14); the last two ids are the alternates boing (FM) and jump (Fizz 1), which no event plays.
         for id in 4..fizz_sfx::EFFECT_COUNT as u8 - 2 {
             assert!(got.contains(&id), "effect {id} is never played");
         }
