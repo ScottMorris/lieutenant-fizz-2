@@ -10,6 +10,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 (cd dos && cargo fmt --check)
 tools/check-headers.sh
+tools/ci-scope.sh --self-test
 python3 -I tools/check-docs.py
 python3 -I tools/progress-report/tests/test_report.py
 python3 -I tools/progress-report/gather.py --dry-run
