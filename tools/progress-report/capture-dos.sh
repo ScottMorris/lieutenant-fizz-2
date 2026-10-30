@@ -10,7 +10,7 @@
 # so DOSBox draws through SDL's x11 driver into the virtual server; ImageMagick's `import` grabs DOSBox's window from it and xdotool
 # presses keys in it, as a person at the keyboard would. The runs:
 #
-#   /REPLAY        the 1,681-tick slice script in real time, one grab every 0.4 s (replay-00.png, replay-01.png, ...). The program's
+#   /REPLAY        the 1,757-tick slice script in real time, one grab every 0.4 s (replay-00.png, replay-01.png, ...). The program's
 #                  HUD no longer prints the tick; DOSBox's pace varies a little from run to run, so capture.py picks grabs by index
 #                  and the ticks it names are approximate
 #   /LIVE          Ctrl is held for 0.6 s (Ben jumps to the first ledge), then Up alone for 1.8 s (look-up.png), then Up and Space
