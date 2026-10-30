@@ -10,8 +10,10 @@
 #![forbid(unsafe_code)]
 
 mod data;
+mod mix;
 mod player;
 
+pub use mix::{Audit, MAX_MIX_WRITES, Mix, MixState};
 pub use player::{Card, Fnv, MAX_SILENCE_WRITES, MusicPlayer, Write, count_loops, writes_for};
 
 /// Bytes in one record: the register's low byte, the value, then a little-endian u16 holding the bank in its top bit and the number
