@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-30T03:32:54-04:00",
+ "capturedAt": "2026-10-30T04:13:08-04:00",
  "data": {
   "prs": [
    {
@@ -5731,16 +5731,66 @@
     "state": "MERGED",
     "title": "Put Fizz 1's soda can in the slice level",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/127"
+   },
+   {
+    "additions": 23,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T08:00:26Z",
+    "deletions": 20,
+    "headRefName": "ci/replay-case-diagnostics",
+    "headRefOid": "75ae2616d55385de6e598d506cb6523d70e390c4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0e8a16",
+      "description": "Continuous integration workflows and checks",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXsvw",
+      "name": "ci"
+     },
+     {
+      "color": "fbca04",
+      "description": "Tests, checks and test tooling updates",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXs5g",
+      "name": "testing"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 130,
+    "state": "OPEN",
+    "title": "Print a failing /REPLAY case's output in check-dos",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/130"
    }
   ],
   "runs": [
    {
-    "conclusion": "",
+    "conclusion": "success",
     "createdAt": "2026-10-30T07:27:51Z",
     "displayTitle": "Put Fizz 1's soda can in the slice level (#127)",
     "event": "push",
     "headSha": "e46fbe627077a8c0b95f65c06244364caec6c85a",
-    "status": "in_progress",
+    "status": "completed",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41020240175",
     "workflowName": "CI"
    },
