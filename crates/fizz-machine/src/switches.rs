@@ -23,6 +23,7 @@ pub enum Mode {
     Panic,
     CfgTest,
     MusicTest,
+    MixTest,
     ReplanTest,
     MenuShot,
     Options,
@@ -276,6 +277,13 @@ pub const SWITCHES: &[Switch] = &[
         Group::Developer,
         Kind::Mode(Mode::MusicTest),
         "Step two loops of the music as fast as possible and hash",
+    ),
+    sw(
+        "/MIXTEST",
+        Arg::None,
+        Group::Developer,
+        Kind::Mode(Mode::MixTest),
+        "Play the music, switch to the menu mix and back, and audit it",
     ),
     sw(
         "/REPLANTEST",
@@ -681,6 +689,13 @@ mod tests {
             run(&["/musictest", "/ADLIB"]),
             Parsed::Run(Invocation {
                 mode: Mode::MusicTest,
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/mixtest"]),
+            Parsed::Run(Invocation {
+                mode: Mode::MixTest,
                 ..live
             })
         );

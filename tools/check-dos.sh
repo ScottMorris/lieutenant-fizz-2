@@ -477,6 +477,37 @@ musictest_case 'SB16 with /MUSIC:OFF' "$(sb sb16)" off 'SOUND MUSIC off FX ch5+1
 musictest_case 'SB16 with /NOSOUND' "$(sb sb16)" off 'SOUND MUSIC off FX off' /NOSOUND
 musictest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
 
+# 3d0a. /MIXTEST: the screen mix. The first 2,000 ticks of the music, 600 ticks with the Paused mix, 800 ticks playing again, through the real
+# chip writes with no timer. With music: the mix made level writes, at most 2 in a tick and never more than the 16 of a music tick in all
+# (MAX_TOTAL); at the end of the pause every operator the music has used was muffled by 4 steps (carrier) and 6 (FM modulator) with the
+# register state as the shadow says (MISMATCH 0); after the resume none is muffled (MUTED 0, MISMATCH 0); and the hash of the music's
+# authored writes equals the one from the same ticks with the mix left at `play`. Without music nothing is written at all.
+mixtest_case() {
+  local name="$1" conf="$2" arr="$3" sound="$4" out status=0 writes
+  shift 4
+  out="$(DOS_CONF="$conf" DOS_TIMEOUT=60 tools/dosrun.sh dist/dos FIZZ2.EXE /MIXTEST "$@")" || status=$?
+  [ "$status" = 0 ] || fail "/MIXTEST ($name) exited $status"
+  out="$(printf '%s\n' "$out" | tr -d '\r')"
+  printf '%s\n' "$out" | grep -qxF "$sound" || fail "/MIXTEST ($name) printed no '$sound' line"
+  printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/MIXTEST ($name): FPU control word is not 027F"
+  printf '%s\n' "$out" | grep -qE '^MIX HASH ([0-9a-f]{8}) REFERENCE \1 SAME yes$' || fail "/MIXTEST ($name): the authored hash changed with the mix"
+  if [ "$arr" = off ]; then
+    printf '%s\n' "$out" | grep -qx 'MIX WRITES 0 MAX_PER_TICK 0 MAX_TOTAL 0' || fail "/MIXTEST ($name): music was off but the mix wrote"
+    printf '%s\n' "$out" | grep -qx 'MIX PAUSED OPS 0 MUTED 0 MISMATCH 0 CARRIER 0 MODULATOR 0' || fail "/MIXTEST ($name): music was off but the shadow is not empty"
+  else
+    writes="$(printf '%s\n' "$out" | sed -n 's/^MIX WRITES \([0-9]*\) MAX_PER_TICK [12] MAX_TOTAL \(1[0-6]\|[0-9]\)$/\1/p')"
+    [ -n "$writes" ] && [ "$writes" -gt 0 ] || fail "/MIXTEST ($name): no mix writes, or more than 2 in a tick, or more than 16 in all"
+    printf '%s\n' "$out" | grep -qE '^MIX PAUSED OPS ([1-9][0-9]*) MUTED \1 MISMATCH 0 CARRIER 4 MODULATOR 6$' || fail "/MIXTEST ($name): the paused shadow is not fully muffled by 4 and 6 steps"
+    printf '%s\n' "$out" | grep -qE '^MIX RESUMED OPS [1-9][0-9]* MUTED 0 MISMATCH 0 CARRIER 0 MODULATOR 0$' || fail "/MIXTEST ($name): the levels did not come back"
+  fi
+  echo "MIXTEST case $name ok ($(printf '%s\n' "$out" | grep -E '^MIX (WRITES|HASH)' | tr '\n' ' '))"
+}
+mixtest_case 'AdLib machine (OPL2 arrangement, effects on channel 5)' "$(sb none 'oplmode = opl2')" opl2 'SOUND MUSIC opl2 FX ch5'
+mixtest_case 'SB16 (OPL3 arrangement, effects on the pair)' "$(sb sb16)" opl3 'SOUND MUSIC opl3 FX ch5+14'
+mixtest_case 'SB16 with /ADLIB (OPL2 arrangement on an OPL3 chip, channel 5)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5' /ADLIB
+mixtest_case 'SB16 with /MUSIC:ADLIB /FX:SB (OPL2 music beside the pair)' "$(sb sb16)" opl2 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
+mixtest_case 'no sound card' '' off 'SOUND MUSIC off FX speaker'
+
 # 3d0b. /REPLANTEST: the audio service runs and `audio::replan` changes its music and effects devices live through eight plans (the
 # Options screen's job), printing a `REPLAN` line for each (see dos/fizz2/src/replan.rs). Under every card the walk must end cleanly with
 # the vectors restored, and each line must show: the handler kept ticking (TICKS rises) and so did what the plan plays (writes and music

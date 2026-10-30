@@ -27,6 +27,8 @@
 //                       last one given wins). The beak still moves. A settings-file field replaces this switch with the settings package
 //   FIZZ2.EXE /MUSICTEST  a test mode: steps two loops of the music the sound plan names as fast as possible through the real chip
 //                       writes (no timer) and prints the `MUSIC` line; `/MUSIC:OFF` prints `ARR off` and zeros
+//   FIZZ2.EXE /MIXTEST  a test mode: plays the music's first ticks, switches to the Paused mix and back, and prints the `MIX` lines
+//                       (the writes the offset cost, the shadow against the register state, the authored hash) (audio.rs)
 //   FIZZ2.EXE /BENCH /AUDIO  the bench with the 560 Hz audio service, first without and then with music, and what the service costs
 //   FIZZ2.EXE /REPLANTEST  a test mode: runs the audio service, changes its music and effects devices live through a list of plans
 //                       (`audio::replan`) and prints a `REPLAN` line for each (replan.rs)
@@ -289,6 +291,7 @@ fn main() -> i32 {
         Mode::Bench if run.bench_audio => bench_audio(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::Bench => bench(run.bench_ticks.unwrap_or(SLICE_TICKS), &options),
         Mode::MusicTest => music_test(),
+        Mode::MixTest => mix_test(),
         Mode::ReplanTest => replan::replan_mode(),
         Mode::MenuShot => menushot(),
         Mode::Options => live(&start, true),
@@ -609,6 +612,43 @@ fn music_test() -> i32 {
     }
     sound.print();
     print_music();
+    println!("FPU CW {:04X}", fpu::control_word());
+    0
+}
+
+/// Ticks of each phase of `/MIXTEST`: playing, paused, playing again. The pause must outlast the ramp (100 ticks) and the writes that follow it.
+const MIX_PHASES: [u32; 3] = [2000, 600, 800];
+
+/// `/MIXTEST`: the first ticks of the music, then the same with the Paused mix, then back to play, through the real chip writes and no
+/// timer; prints the `MIX` lines the check reads (see `audio::mix_test`).
+#[inline(never)]
+fn mix_test() -> i32 {
+    let sound = sound::Plan::new(&machine::probe_machine());
+    let r = match audio::mix_test(&sound.resolved, MIX_PHASES) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("HOOK FAILED {:?}", e);
+            return 1;
+        }
+    };
+    sound.print();
+    println!("MIX PHASES {} {} {}", r.phases[0], r.phases[1], r.phases[2]);
+    println!(
+        "MIX WRITES {} MAX_PER_TICK {} MAX_TOTAL {}",
+        r.writes, r.max_per_tick, r.max_total
+    );
+    for (name, a) in [("PAUSED", &r.paused), ("RESUMED", &r.resumed)] {
+        println!(
+            "MIX {} OPS {} MUTED {} MISMATCH {} CARRIER {} MODULATOR {}",
+            name, a.ops, a.muted, a.mismatch, a.max_carrier, a.max_modulator
+        );
+    }
+    println!(
+        "MIX HASH {:08x} REFERENCE {:08x} SAME {}",
+        r.hash,
+        r.reference,
+        if r.hash == r.reference { "yes" } else { "no" }
+    );
     println!("FPU CW {:04X}", fpu::control_word());
     0
 }
