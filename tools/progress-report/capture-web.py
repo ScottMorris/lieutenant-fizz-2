@@ -294,7 +294,7 @@ def main(argv):
                     if kind == "menu":
                         p.frame()  # the game is held, so the frame draws the screen and runs no tick
                 if kind == "effects":
-                    # The page's list is a drop-down, which headless Chromium does not draw open; the capture lists all fifteen
+                    # The page's list is a drop-down, which headless Chromium does not draw open; the capture lists all nineteen
                     # entries at once (the select's size attribute) and chooses effect 14, crunch, without playing it.
                     p.js("(() => { const s = document.getElementById('effect-picker'); s.size = s.options.length; s.selectedIndex = 14; })()")
             elif kind == "ledge":
