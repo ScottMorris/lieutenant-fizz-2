@@ -34,29 +34,17 @@ use fizz_view::TILE_PX;
 
 const GREEN: u8 = 2;
 
-// Effect ids, fixed by the milestone plan; the sound path (not here) plays by these.
-/// The cluck variants use effects 0 to 3 (effect = this plus the variant).
-pub const EFFECT_CLUCK: u8 = 0;
-pub const EFFECT_FZZT: u8 = 4;
-pub const EFFECT_STUN: u8 = 5;
-pub const EFFECT_BONK: u8 = 6;
-pub const EFFECT_HURT: u8 = 7;
-pub const EFFECT_WIN: u8 = 8;
-pub const EFFECT_KEY: u8 = 9;
-pub const EFFECT_CLUNK: u8 = 10;
-pub const EFFECT_PLINK: u8 = 11;
-pub const EFFECT_BOING: u8 = 12;
-pub const EFFECT_JUMP: u8 = 13;
-pub const EFFECT_CRUNCH: u8 = 14;
-/// Three alternates, kept in the table and played by no event: the first Fizz 2 boing, jump and fzzt (Undertone FM and pitch steps), which
-/// Fizz 1's own voices replaced at 12, 13 and 4. To hear one in the game, change the id in `presentation` below (`Event::Bounce` to
-/// `EFFECT_BOING_FM`, `Event::Jump` to `EFFECT_JUMP_FM`, `Event::Fire` to `EFFECT_FZZT_FM`); docs/SOUND.md says more.
-pub const EFFECT_BOING_FM: u8 = 15;
-pub const EFFECT_JUMP_FM: u8 = 16;
-pub const EFFECT_SODA: u8 = 17;
-pub const EFFECT_FZZT_FM: u8 = 18;
-/// A door opening with its key (`Event::DoorOpen`): lower and longer than the clunk, which the head-bump keeps. The caption stays "clunk".
-pub const EFFECT_DOOR: u8 = 19;
+// The effect ids and the shared caption ids are part of the pack format, so they live in `fizz_ep2::cues`; the words, colours and
+// placement stay here. Re-exported so the presenters and their tests keep their paths.
+pub use fizz_ep2::cues::{
+    CAP_BLUE, CAP_BOING, CAP_BONK, CAP_CLICK, CAP_CLUNK, CAP_COUNT, CAP_CRUNCH, CAP_FIZZLED,
+    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_RED, CAP_TADA, CAP_WHOA,
+};
+pub use fizz_ep2::cues::{
+    EFFECT_BOING, EFFECT_BOING_FM, EFFECT_BONK, EFFECT_CLUCK, EFFECT_CLUNK, EFFECT_COUNT,
+    EFFECT_CRUNCH, EFFECT_DOOR, EFFECT_FZZT, EFFECT_FZZT_FM, EFFECT_HURT, EFFECT_JUMP,
+    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN, EFFECT_WIN,
+};
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -66,28 +54,13 @@ pub struct EventCaption {
     pub dark: u8,
 }
 
-/// Indices into [`EVENT_CAPTIONS`]; the index is the caption's id for dedupe.
-pub const CAP_FZZT: u8 = 0;
-pub const CAP_CLICK: u8 = 1;
-pub const CAP_FIZZLED: u8 = 2;
-pub const CAP_BONK: u8 = 3;
-pub const CAP_WHOA: u8 = 4;
-pub const CAP_TADA: u8 = 5;
-pub const CAP_RED: u8 = 6;
-pub const CAP_BLUE: u8 = 7;
-pub const CAP_GREEN: u8 = 8;
-pub const CAP_CLUNK: u8 = 9;
-pub const CAP_BOING: u8 = 10;
-pub const CAP_CRUNCH: u8 = 11;
-pub const CAP_FSSSHT: u8 = 12;
-
 const fn cap(text: &'static str, bright: u8, dark: u8) -> EventCaption {
     EventCaption { text, bright, dark }
 }
 
 /// Fizz 1's `CAPTIONS` words and colours (its 0xrrggbb values are the EGA light colours), in id order. The dash in the click
 /// caption is the font's em dash.
-pub const EVENT_CAPTIONS: [EventCaption; 13] = [
+pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("fzzt", LIGHT_CYAN, CYAN),
     cap("click \u{2014} no fizz", LIGHT_GREY, DARK_GREY),
     cap("fizzled", LIGHT_CYAN, CYAN),
