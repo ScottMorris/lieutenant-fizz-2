@@ -154,11 +154,11 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('variant mapping', () => {
   test('each id maps to its own table entry and a bad value wraps', () => {
-    expect(EFFECTS.length).toBe(17);
+    expect(EFFECTS.length).toBe(19);
     expect(EFFECT_NAMES.length).toBe(EFFECTS.length);
     for (let v = 0; v < EFFECTS.length; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
-    expect(effectVoices(17)).toBe(EFFECTS[0]);
-    expect(effectVoices(-1)).toBe(EFFECTS[16]);
+    expect(effectVoices(19)).toBe(EFFECTS[0]);
+    expect(effectVoices(-1)).toBe(EFFECTS[18]);
   });
 
   test('every cluck variant schedules one source per voice, at the voice pitch, kind and start', async () => {
@@ -207,7 +207,7 @@ describe('variant mapping', () => {
   });
 });
 
-describe('the effects after the cluck (ids 4 to 16)', () => {
+describe('the effects after the cluck (ids 4 to 18)', () => {
   /** Plays effect `id` centred on a fresh stand-in and returns what it scheduled. */
   async function play(id: number, pan = 0, gain = 1) {
     const { ctx, sfx } = setup();
@@ -254,29 +254,48 @@ describe('the effects after the cluck (ids 4 to 16)', () => {
     });
   }
 
-  test('boing (12) and jump (Fizz 1) (16) are Fizz 1 Enhanced: plain oscillators in a 25 ms chain; the jump (13) is the FM-era one again', () => {
-    // Fizz 1's jump (16): a square e4 chirp rising nine semitones in four notes (e4, g4, a#4, c#5), a 2600 Hz low-pass, no FM, no steps.
-    expect(EFFECTS[16].length).toBe(4);
-    expect(EFFECTS[16].map((v) => Math.round(voiceHz(v)))).toEqual([330, 392, 466, 554]);
-    expect(EFFECTS[16].map((v) => v.nudge)).toEqual([0, 0.025, 0.05, 0.075]);
-    expect(EFFECTS[16].every((v) => v.w === 'square' && v.lpf === 2600 && !v.fm && !v.steps)).toBe(true);
+  test('fzzt (4), boing (12) and jump (13) are Fizz 1 Enhanced: plain oscillators, no FM and no steps; 15, 16 and 18 are the FM-era alternates', () => {
+    // Fizz 1's jump (13): a square e4 chirp rising nine semitones in four notes (e4, g4, a#4, c#5), a 2600 Hz low-pass, no FM, no steps.
+    expect(EFFECTS[13].length).toBe(4);
+    expect(EFFECTS[13].map((v) => Math.round(voiceHz(v)))).toEqual([330, 392, 466, 554]);
+    expect(EFFECTS[13].map((v) => v.nudge)).toEqual([0, 0.025, 0.05, 0.075]);
+    expect(EFFECTS[13].every((v) => v.w === 'square' && v.lpf === 2600 && !v.fm && !v.steps)).toBe(true);
     // Fizz 1's boing: sixteen triangle g3 notes swinging five semitones at nine swings a second, fading, and the sine d5 at 0.07 s.
     const body = EFFECTS[12].filter((v) => v.w === 'triangle');
     expect(body.length).toBe(16);
     expect(body[1].hz).toBeCloseTo(noteHz('g3') * 2 ** (5 * Math.sin((2 * Math.PI * 9 * 0.4) / 15) * (14 / 15) / 12), 1);
     expect(EFFECTS[12].filter((v) => v.w === 'sine').map((v) => [v.n, v.nudge])).toEqual([['d5', 0.07]]);
-    expect(EFFECTS[12].some((v) => v.fm || v.steps)).toBe(false);
-    // The jump events play (13) is one square that glides (pitch steps), as before; the FM boing is kept as 15.
-    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (Fizz 1)']);
-    expect(EFFECTS[13].length).toBe(1);
-    expect(EFFECTS[13][0].steps).toBeDefined();
+    // Fizz 1's fzzt: a white noise burst through a 3 kHz high-pass and a c6 sine that slides down an octave in 80 ms, with the shaped filter.
+    expect(EFFECTS[4].length).toBe(2);
+    expect(EFFECTS[4][0]).toMatchObject({ n: 'white', d: 0.08, g: 0.22, hpf: 3000 });
+    expect(EFFECTS[4][1]).toMatchObject({ n: 'c6', w: 'sine', d: 0.12, g: 0.25, slide: 0.08 });
+    expect(EFFECTS[4][1].lpf).toBeCloseTo(noteHz('c6') * 4, 6);
+    expect(EFFECTS[4][1].lpenv).toBeCloseTo(noteHz('c6') * 4 * 1.2, 6);
+    for (const id of [4, 12, 13]) expect(EFFECTS[id].some((v) => v.fm || v.steps)).toBe(false);
+    // The alternates keep the FM-era voices; no event plays them.
+    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)', 'reserved (can pickup)', 'fzzt (FM)']);
+    expect(EFFECTS[16].length).toBe(1);
+    expect(EFFECTS[16][0].steps).toBeDefined();
     expect(EFFECTS[15].some((v) => v.fm)).toBe(true);
+    expect(EFFECTS[18].some((v) => v.fm && v.steps)).toBe(true);
+  });
+
+  test('the slide and the high-pass reach Undertone: fzzt schedules a high-pass filter and a falling carrier', async () => {
+    const ctx = await play(4);
+    const highpass = ctx.of('filter').filter((f) => f.type === 'highpass');
+    expect(highpass.length).toBe(1);
+    expect(highpass[0].frequency!.sets[0][0]).toBeCloseTo(3000, 3);
+    // The carrier starts an octave above c6 and ramps to it over the slide.
+    const carrier = ctx.of('osc')[0];
+    const all = [...carrier.frequency!.sets, ...carrier.frequency!.ramps].map((x) => x[0]);
+    expect(Math.max(...all)).toBeCloseTo(noteHz('c6') * 2, 1);
+    expect(Math.min(...all)).toBeCloseTo(noteHz('c6'), 1);
   });
 
   test('pitch steps become the carrier pitch a 140 Hz frame at a time', async () => {
-    // Effect 4 (fzzt): the sine falls an octave from c7 to c6 in 80 ms, then holds.
-    const voice = EFFECTS[4].find((v) => v.steps)!;
-    const ctx = await play(4);
+    // Effect 18 (fzzt (FM)): the sine falls an octave from c7 to c6 in 80 ms, then holds.
+    const voice = EFFECTS[18].find((v) => v.steps)!;
+    const ctx = await play(18);
     const carrier = ctx.of('osc')[0];
     const times = carrier.frequency!.sets;
     expect(times.length + carrier.frequency!.ramps.length).toBeGreaterThan(8);

@@ -802,7 +802,7 @@ AUDIO=opl par replay_case '/ADLIB, sb16 with oplmode opl2' "$(sb sb16 'oplmode =
 AUDIO=opl par replay_case 'AdLib card alone (no Sound Blaster)' "$(sb none 'oplmode = opl2')" 'SOUND MUSIC opl2 FX ch5'
 AUDIO=opl_or par replay_case '/MUSIC:SB /FX:ADLIB, sb16 (channel 5 through the OR rule)' "$SB16" 'SOUND MUSIC opl3 FX ch5' /MUSIC:SB /FX:ADLIB
 AUDIO=speaker par replay_case '/SPEAKER, sb16' "$SB16" 'SOUND MUSIC off FX speaker' /SPEAKER
-# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 10,296 writes either way.
+# Music on and music off give the same transcript and the same AUDIO counts: the pair path is 11,812 writes either way.
 AUDIO=opl_pair par replay_case '/MUSIC:OFF, sb16 (the pair, no music)' "$SB16" 'SOUND MUSIC off FX ch5+14' /MUSIC:OFF
 AUDIO=opl_pair par replay_case '/MUSIC:ADLIB /FX:SB, sb16 (OPL2 music centred beside the pair)' "$SB16" 'SOUND MUSIC opl2 FX ch5+14' /MUSIC:ADLIB /FX:SB
 AUDIO=opl2 par replay_case '/MUSIC:OFF /FX:ADLIB, sb1 (channel 5, no music)' "$(sb sb1)" 'SOUND MUSIC off FX ch5' /MUSIC:OFF /FX:ADLIB
@@ -816,18 +816,17 @@ cfg_none
 # 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
 # exact because the replay is deterministic and DOSBox runs at fixed cycles (twice in a row gave the same figures), and they count the
 # 61 effects the replay starts (62 sounding events, two of them on one tick) with the last one of a tick winning and a later one cutting
-# an earlier one off. Only the boing (9 bounces) is Fizz 1's own voice (a chain of short notes); the jump (22 jumps) keeps its FM-era voice
-# (one square gliding on pitch steps), which is what these counts were before the boing changed (5221, 5242, 10382 and 1213 speaker steps).
-# The boing is one record fewer (186 to 185) and 4 OPL ticks shorter, so the channel 5 total falls by 43 records (the pair, which writes
-# them twice, by 86) as the next start cuts each one off, the OPL3 OR rule keeps its 21 more, and the boing's speaker list is longer
-# (42 to 56 frames), which adds 51 steps net of the cuts. The same totals (5,178, 5,199 and 10,296) were measured when the jump was
-# Fizz 1's as well, since both jump versions are 57 records; only the speaker steps differ (1,302 with Fizz 1's four-note jump, 14 frames,
-# against 1,264 with the 12-frame FM jump: 38 fewer over 22 jumps). They were 569, 590 and 1135 when only the clucks and the four-cluck
-# replay played, and 419, 440 and 836 before that.
-#   5178: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,158 records of the effects (5,201 before the boing was Fizz 1's).
-#   5199: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
-#   10296: the OPL3 pair = 41 start and stop writes, twice the 5,158 records, less 61 enables (one per effect, left to channel 5).
-#   1264 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+# an earlier one off: 4 clucks, 8 fzzt (the 8 `fire` events; the 8 `shotend` events are silent), 1 fizzled, 1 bonk, 1 whoa!, 1 ta-da!,
+# 3 keys, 6 clunks (2 doors, 4 head-bumps), 1 click (the `dud`), 9 boings (the `bounce` events), 22 jumps and 5 crunches. Fzzt (id 4),
+# boing (12) and jump (13) play Fizz 1's own DOS-port records and speaker lists (assets/sfx/fizz1-dos.ts), which are longer in records for
+# the fzzt (198, from 69) and the jump (73, from 57) and shorter for the boing (81, from 185); the jump's speaker list is 18 frames (from
+# 12), the boing's 18 (from 56) and the fzzt's still 16. Those moved the totals from the figures of the FM-era voices (5,178, 5,199, 10,296
+# and 1,264 speaker steps) to the ones below. Before the boing and jump changed they were 5221, 5242, 10382 and 1213; before that, 569, 590 and
+# 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
+#   5936: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 5,916 records of the effects.
+#   5957: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   11812: the OPL3 pair = 41 start and stop writes, twice the 5,916 records, less 61 enables (one per effect, left to channel 5).
+#   1207 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
 #   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
@@ -837,10 +836,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-par audio_count 'ch5 on an OPL2 (5178)' "$(sb sb1)" '5178 SPEAKER STEPS 0' /MODERN /ADLIB
-par audio_count 'ch5 through the OR rule on an OPL3 (5199)' "$SB16" '5199 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-par audio_count 'the OPL3 pair (10296)' "$SB16" '10296 SPEAKER STEPS 0' /SB
-par audio_count 'the PC speaker (1264 steps)' '' '0 SPEAKER STEPS 1264' /SPEAKER
+par audio_count 'ch5 on an OPL2 (5936)' "$(sb sb1)" '5936 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (5957)' "$SB16" '5957 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (11812)' "$SB16" '11812 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1207 steps)' '' '0 SPEAKER STEPS 1207' /SPEAKER
 par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 par_wait
 
