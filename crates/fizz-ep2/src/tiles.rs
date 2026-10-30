@@ -86,7 +86,7 @@ pub fn props() -> TileProps {
 /// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
 /// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
 /// the tile property table (flags, slope and switch channel for each of the 256 tile ids, in that order), the named tile ids, and the
-/// numbers of the snack kinds. The object kind numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel or an id
+/// numbers of the snack kinds (the three snacks and the soda can). The object kind numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel or an id
 /// changes the number on purpose, so a pack baked before the change is refused.
 pub fn pack_content() -> alloc::vec::Vec<u8> {
     use crate::world::SnackKind;
@@ -110,6 +110,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         SnackKind::Cheezie.number(),
         SnackKind::Choc.number(),
         SnackKind::Cookie.number(),
+        SnackKind::Soda.number(),
     ]);
     v
 }
@@ -121,7 +122,7 @@ mod pack_content_tests {
     #[test]
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
-        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 3);
+        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 4);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
@@ -129,6 +130,6 @@ mod pack_content_tests {
         // The door channels are in the third table.
         assert_eq!(a[16 + 512 + usize::from(DOOR_R)], DOOR_RED_CHANNEL);
         assert_eq!(a[16 + 512 + usize::from(DOOR_B)], DOOR_BLUE_CHANNEL);
-        assert_eq!(&a[a.len() - 3..], &[0, 1, 2]);
+        assert_eq!(&a[a.len() - 4..], &[0, 1, 2, 3]);
     }
 }

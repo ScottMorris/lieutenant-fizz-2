@@ -7,7 +7,7 @@
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
 //   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
 //   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays,
-//   and 17 soda (a fizz can).
+//   17 soda (a fizz can) and 19 door (a door opening with its key; a head-bump keeps 10).
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -219,8 +219,24 @@ const fzztFm: SfxVoice[] = [
   V('c6', { w: 'sine', d: 0.12, g: 0.25, nudge: 0.006, steps: glide(-12, 0.08, 12), fm: { ratio: 3.5, index: 3, decay: 0.09 } }),
 ];
 
+/**
+ * Effect 19, door (a door opening with its key; `Event::DoorOpen`): new for Fizz 2, not from Fizz 1 (its door plays the clunk, which Fizz 2
+ * keeps for the head-bump). Intent: a heavy wooden-and-iron door swinging, lower and longer than the clunk. A scrape of brown noise as the
+ * bolt draws, then a low creaking groan, a square at a2 (110 Hz) that leans up five semitones and sags back down seven (`pitchsteps`) with a
+ * rough FM edge that eases off, under a low filter (700 Hz) so it is a groan and not a squeal, with a soft pink-noise scrape under it
+ * (Web only; the chip plays the loudest voice). It ends on a soft latch: a tick of brown noise and a low thud at c2 sagging two semitones.
+ * About 0.45 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
+ */
+const door: SfxVoice[] = [
+  breath('brown', 0, 0.06, 0.4, 700),
+  V('a2', { w: 'square', d: 0.27, g: 0.38, lpf: 700, nudge: 0.04, steps: [...glide(5, 0.13), ...glide(-7, 0.13, 5)], fm: { ratio: 1, index: 1.6, decay: 0.2 } }),
+  breath('pink', 0.08, 0.2, 0.12, 500),
+  breath('brown', 0.3, 0.04, 0.45, 600),
+  V('c2', { d: 0.14, g: 0.55, lpf: 300, nudge: 0.31, steps: [2, 1, 0], fm: { ratio: 1, index: 1, decay: 0.06 } }),
+];
+
 /** The effects after the cluck, in id order from 4. */
-export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm];
+export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm, door];
 
 /** The name of each effect by id, for tools and the audition picker. */
 export const EFFECT_NAMES: readonly string[] = [
@@ -243,6 +259,7 @@ export const EFFECT_NAMES: readonly string[] = [
   'jump (FM)',
   'soda (fizz can)',
   'fzzt (FM)',
+  'door',
 ];
 
 /**

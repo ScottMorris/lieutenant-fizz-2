@@ -55,6 +55,8 @@ pub const EFFECT_BOING_FM: u8 = 15;
 pub const EFFECT_JUMP_FM: u8 = 16;
 pub const EFFECT_SODA: u8 = 17;
 pub const EFFECT_FZZT_FM: u8 = 18;
+/// A door opening with its key (`Event::DoorOpen`): lower and longer than the clunk, which the head-bump keeps. The caption stays "clunk".
+pub const EFFECT_DOOR: u8 = 19;
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -139,7 +141,8 @@ pub const fn presentation(event: &Event) -> Presentation {
                 _ => CAP_GREEN,
             }),
         ),
-        Event::DoorOpen { .. } | Event::HeadBump { .. } => p(EFFECT_CLUNK, Some(CAP_CLUNK)),
+        Event::DoorOpen { .. } => p(EFFECT_DOOR, Some(CAP_CLUNK)),
+        Event::HeadBump { .. } => p(EFFECT_CLUNK, Some(CAP_CLUNK)),
         Event::Bounce { .. } => p(EFFECT_BOING, Some(CAP_BOING)),
         Event::Jump { .. } => p(EFFECT_JUMP, None),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
