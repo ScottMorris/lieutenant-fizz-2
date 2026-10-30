@@ -729,15 +729,17 @@ ch5_get() {
 }
 replay_case() {
   local name="$1" conf="$2" expect="$3" out status=0 got_lines
+  # A failure here prints what the run printed (its last lines), so an intermittent failure under load can be read from the log.
+  rfail() { printf '%s\n' "${out:-}" | tail -30 | sed 's/^/  | /' >&2; fail "$@"; }
   shift 3
   out="$(DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@")" || status=$?
-  [ "$status" = 0 ] || fail "/REPLAY ($name) exited $status"
+  [ "$status" = 0 ] || rfail "/REPLAY ($name) exited $status"
   out="$(printf '%s\n' "$out" | tr -d '\r')"
   got_lines="$(printf '%s\n' "$out" | grep -E '^(TICK|FINAL|EVENT) ' || true)"
-  [ "$got_lines" = "$want" ] || fail "/REPLAY ($name) transcript differs from $golden"
-  printf '%s\n' "$out" | grep -qxF "$expect" || fail "/REPLAY ($name) printed no '$expect' line"
-  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY ($name) did not reach the exit"
-  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/REPLAY ($name) did not restore the vectors"
+  [ "$got_lines" = "$want" ] || rfail "/REPLAY ($name) transcript differs from $golden"
+  printf '%s\n' "$out" | grep -qxF "$expect" || rfail "/REPLAY ($name) printed no '$expect' line"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || rfail "/REPLAY ($name) did not reach the exit"
+  printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || rfail "/REPLAY ($name) did not restore the vectors"
   # The AUDIO line proves which path ran, since the sound itself cannot be heard here: OPL register writes with a chip (opl), speaker steps
   # on the speaker (speaker), neither when silent (silent). The clucks the script causes are the same in every run, so the counts are not
   # compared with each other, only with zero.
@@ -745,9 +747,9 @@ replay_case() {
   audio="$(printf '%s\n' "$out" | grep '^AUDIO ' || true)"
   writes="$(printf '%s\n' "$audio" | sed -n 's/^AUDIO WRITES \([0-9]*\) SPEAKER STEPS [0-9]*$/\1/p')"
   steps="$(printf '%s\n' "$audio" | sed -n 's/^AUDIO WRITES [0-9]* SPEAKER STEPS \([0-9]*\)$/\1/p')"
-  [ -n "$writes" ] && [ -n "$steps" ] || fail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
+  [ -n "$writes" ] && [ -n "$steps" ] || rfail "/REPLAY ($name) printed no 'AUDIO WRITES <n> SPEAKER STEPS <m>' line"
   case "${AUDIO:-}" in
-    opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
+    opl) { [ "$writes" -gt 0 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)" ;;
     # The three OPL paths, by how many writes the script's sounds cause. The attenuation of a distant source changes a value in a write the
     # effect makes anyway, never the count, so a path's count is a function of the path alone.
     #   opl2: channel 5 on a bare OPL2: 20 writes to key the chip off at start and stop, the rest the effects' records.
@@ -756,17 +758,17 @@ replay_case() {
     #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
     #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
     #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
-    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; printf '%s' "$writes" > "$parroot/ch5-writes" ;;
-    opl_or) ch5_get; [ "$writes" -eq $((CH5_WRITES + 21)) ] || fail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
+    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; printf '%s' "$writes" > "$parroot/ch5-writes" ;;
+    opl_or) ch5_get; [ "$writes" -eq $((CH5_WRITES + 21)) ] || rfail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
       ch5_get
       starts="$(grep '^EVENT ' "$golden" | grep -v ' shotend ' | cut -d' ' -f2 | sort -u | wc -l)"
       expected=$((41 + 2 * (CH5_WRITES - 20) - starts))
-      { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
-    speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
+      { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
+    speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
     # Effects on the speaker while music holds the chip: the chip is only keyed off at start and stop (no cluck reaches it).
-    speaker_chip) { { [ "$writes" -gt 0 ] && [ "$writes" -le 40 ] && [ "$steps" -gt 0 ]; } || fail "/REPLAY ($name): '$audio' (expected speaker steps and only the chip's start and stop writes)"; } ;;
-    silent) { [ "$writes" -eq 0 ] && [ "$steps" -eq 0 ]; } || fail "/REPLAY ($name): '$audio' (expected no writes and no steps)" ;;
+    speaker_chip) { { [ "$writes" -gt 0 ] && [ "$writes" -le 40 ] && [ "$steps" -gt 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected speaker steps and only the chip's start and stop writes)"; } ;;
+    silent) { [ "$writes" -eq 0 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected no writes and no steps)" ;;
   esac
   # The MUSIC line: the arrangement the SOUND line names (off when it says off), and for a chip, the exact writes and hash the host computes
   # for the player's own tick count. The music never changes the AUDIO counts above: those count effects and the start and stop key-offs only.
@@ -774,22 +776,22 @@ replay_case() {
   want_arr="$(printf '%s\n' "$expect" | sed -n 's/^SOUND MUSIC \([a-z0-9]*\) .*/\1/p')"
   music="$(printf '%s\n' "$out" | grep '^MUSIC SONG ' || true)"
   parsed="$(printf '%s\n' "$music" | sed -n 's/^MUSIC SONG crater ARR \([a-z0-9]*\) TICKS \([0-9]*\) WRITES \([0-9]*\) LOOPS \([0-9]*\) HASH \([0-9a-f]\{8\}\)$/\1 \2 \3 \4 \5/p')"
-  [ -n "$parsed" ] || fail "/REPLAY ($name) printed no well-formed 'MUSIC SONG crater ARR ...' line: '$music'"
+  [ -n "$parsed" ] || rfail "/REPLAY ($name) printed no well-formed 'MUSIC SONG crater ARR ...' line: '$music'"
   set -- $parsed
   m_arr="$1"; m_ticks="$2"; m_writes="$3"; m_loops="$4"; m_hash="$5"
-  [ "$m_arr" = "$want_arr" ] || fail "/REPLAY ($name): MUSIC ARR '$m_arr' but the SOUND line says '$want_arr'"
+  [ "$m_arr" = "$want_arr" ] || rfail "/REPLAY ($name): MUSIC ARR '$m_arr' but the SOUND line says '$want_arr'"
   if [ "$m_arr" = off ]; then
-    { [ "$m_ticks" -eq 0 ] && [ "$m_writes" -eq 0 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): music is off and the line says '$music'"
+    { [ "$m_ticks" -eq 0 ] && [ "$m_writes" -eq 0 ] && [ "$m_loops" -eq 0 ]; } || rfail "/REPLAY ($name): music is off and the line says '$music'"
   else
     # About 29 s at 559.9 Hz is about 16,400 ticks of the player's own clock; loops stay 0 (the loop is 63 s).
-    { [ "$m_writes" -gt 0 ] && [ "$m_ticks" -ge 12000 ] && [ "$m_ticks" -le 19000 ] && [ "$m_loops" -eq 0 ]; } || fail "/REPLAY ($name): implausible '$music'"
+    { [ "$m_writes" -gt 0 ] && [ "$m_ticks" -ge 12000 ] && [ "$m_ticks" -le 19000 ] && [ "$m_loops" -eq 0 ]; } || rfail "/REPLAY ($name): implausible '$music'"
     host="$(cargo run -q -p fizz-music --example mline -- "$m_arr" "$m_ticks")"
-    [ "$music" = "$host" ] || fail "/REPLAY ($name): '$music' differs from the host's '$host'"
-    printf '%s\n' "$out" | grep -qE '^MUSIC DETAIL ORDER ok MAX_PER_TICK ([0-9]|1[0-6])$' || fail "/REPLAY ($name): bad MUSIC DETAIL line"
+    [ "$music" = "$host" ] || rfail "/REPLAY ($name): '$music' differs from the host's '$host'"
+    printf '%s\n' "$out" | grep -qE '^MUSIC DETAIL ORDER ok MAX_PER_TICK ([0-9]|1[0-6])$' || rfail "/REPLAY ($name): bad MUSIC DETAIL line"
   fi
   local bios
   bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-  { [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || fail "/REPLAY ($name): BIOS TICKS '$bios' is outside 531-535"
+  { [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || rfail "/REPLAY ($name): BIOS TICKS '$bios' is outside 531-535"
   echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
