@@ -377,6 +377,94 @@ function sidePiece(h: number, tex: (a: number, b: number) => string): Piece {
   return cv.piece();
 }
 
+/** Draws a picture given as rows of palette letters (`.` for transparent) with its anchor at canvas (ax, ay). */
+function drawRows(cv: Canvas, rows: string[], ax: number, ay: number) {
+  rows.forEach((row, y) => [...row].forEach((c, x) => cv.put(x - ax, y - ay, c === '.' ? null : c)));
+}
+
+/**
+ * A wall lantern on an iron hook, for the night: a k and D roof and base round a y glass with a W flame, relative to the top of
+ * its hook, which hangs from the pillar face above a door. The glass and the flame are what glows at night.
+ */
+function lanternPiece(): Piece {
+  const cv = new Canvas();
+  drawRows(
+    cv,
+    [
+      '...kkk...',
+      '...k.k...',
+      '....k....',
+      '..kkkkk..',
+      '.kDLLLDk.',
+      'kkkkkkkkk',
+      '.kyyyyyk.',
+      '.kyyWyyk.',
+      '.kyWWWyk.',
+      '.kyyWyyk.',
+      '.kNyyyNk.',
+      'kkkkkkkkk',
+      '.kDDDDDk.',
+      '..kkkkk..',
+    ],
+    4,
+    0,
+  );
+  return cv.piece();
+}
+
+/**
+ * A caged bulkhead lamp on the back wall, for the night: a D and L rim, k cage bars over a y glass with a W bulb, relative to its
+ * centre. The glass and the bulb are what glows at night.
+ */
+function lampPiece(): Piece {
+  const cv = new Canvas();
+  drawRows(
+    cv,
+    [
+      '..kkkkk..',
+      '.kLLLLDk.',
+      'kLyWWWyDk',
+      'kyWkWkWyk',
+      'kyyWWWyyk',
+      'kDyykyyDk',
+      '.kDyyyDk.',
+      '..kkkkk..',
+    ],
+    4,
+    4,
+  );
+  return cv.piece();
+}
+
+// ---------- the light tables ----------
+
+/** Steps of the light falloff table over the squared distance from 0 to a light's radius. */
+const FALL_STEPS = 1024;
+
+/**
+ * The falloff of a point light against its squared distance (z lift included): for `u` the distance over the radius, `(1 - u)^2 / u`
+ * at the middle of each of 1,024 steps of `u^2`, times 256, rounded, at most 65,535. It is fizz-dos's `falloff` (`m2/dos-rt/src/video.rs`),
+ * which folds the Web shader's `(1 - |d| / r)^2` and its `z / |d|` for a sprite facing the screen into one table; a light's
+ * strength times `z / r` scales it.
+ */
+export function falloff(): number[] {
+  return Array.from({ length: FALL_STEPS }, (_, i) => {
+    const u = Math.sqrt((i + 0.5) / FALL_STEPS);
+    return Math.min(65535, Math.floor(((1 - u) * (1 - u)) / u * 256 + 0.5));
+  });
+}
+
+/** `round(sin(2 pi i / 256) * 256)`: a whole turn in 256 steps, for the lights' flicker and the lighthouse beam's sweep. */
+export function sine(): number[] {
+  return Array.from({ length: 256 }, (_, i) => Math.round(Math.sin((2 * Math.PI * i) / 256) * 256));
+}
+
+function wordsItem(name: string, ty: string, doc: string, v: number[]): string {
+  const lines: string[] = [];
+  for (let i = 0; i < v.length; i += 16) lines.push(`    ${v.slice(i, i + 16).join(', ')},`);
+  return `/// ${doc}\npub static ${name}: [${ty}; ${v.length}] = [\n${lines.join('\n')}\n];\n`;
+}
+
 // ---------- the Rust file ----------
 
 function bytes(t: Uint8Array, perLine: number, indent: string): string {
@@ -460,6 +548,17 @@ export function emit(): string {
   items.push(pieceItem('RAIL', 'One tile of railing; `(ox, oy)` is relative to the left edge and the top of the plank cell it stands on.', railPiece()));
   items.push(pieceItem('BRACKET', 'An iron bracket under a plank; `(ox, oy)` is relative to its leg and the bottom edge of the plank cell.', bracketPiece()));
   items.push(pieceItem('PORTHOLE', 'A porthole; `(ox, oy)` is relative to its centre.', portholePiece()));
+  items.push(pieceItem('LANTERN', 'A wall lantern, lit at night; `(ox, oy)` is relative to the top of its hook.', lanternPiece()));
+  items.push(pieceItem('LAMP', 'A caged lamp on the back wall, lit at night; `(ox, oy)` is relative to its centre.', lampPiece()));
+  items.push(
+    wordsItem(
+      'FALLOFF',
+      'u16',
+      'A point light\'s falloff against its squared distance over its squared radius, in 1,024 steps: `(1 - u)^2 / u` at the middle of each step of `u^2`, times 256, rounded (fizz-dos `falloff`).',
+      falloff(),
+    ),
+  );
+  items.push(wordsItem('SINE', 'i16', '`round(sin(2 pi i / 256) * 256)`: a whole turn in 256 steps.', sine()));
   // The far headlands of the Lighthouse stack: column heights in tiles, rounded from a sum of two sines (the board's: 0.5 +
   // 1.5 sin(ix * 0.19 + f * 9) + sin(ix * 0.067 + f * 20) at f = 0.12), so no sine runs at draw time.
   const headland = Array.from({ length: 256 }, (_, ix) => Math.round(0.5 + 1.5 * Math.sin(ix * 0.19 + 0.12 * 9) + Math.sin(ix * 0.067 + 0.12 * 20)));

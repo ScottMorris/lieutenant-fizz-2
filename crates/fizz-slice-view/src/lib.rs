@@ -25,7 +25,18 @@
 //! 4. The Fizz Blaster shots (the `bubble` sprite).
 //! 5. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
 //! 6. Ben (Fizz 1's sprites).
-//! 7. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//! 7. At night ([`DrawOptions::night`]), the light pass: the cells the lights reach are shaded ([`light`]).
+//! 8. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//!
+//! # Night
+//!
+//! With [`DrawOptions::night`] the picture is drawn for the 256-entry palette of brightness banks ([`light::palette`] with the
+//! theme's [`oblique::NIGHT_AMBIENT`], which the presenter shows instead of [`light::DAY`]): the ground as by day, which the
+//! palette shows at the night's ambient; the night dressing ([`oblique::draw_night`]: the lamps, the lanterns, and the glow on
+//! the door badges and the exit); the keys, snacks, shots and puffs in the glow bank and Ben and the chicken in the actor bank,
+//! so they never go below level 9; then the lights ([`night_lights`]: Ben's lantern, pinned first, each shot's cyan light and
+//! the slice's own) added up for each 8 by 8 cell, and the cells they reach shaded ([`light::shade`]). The captions are drawn
+//! after, glowing. By day none of that runs and the picture is the one it always was.
 //!
 //! # Choices that are ours
 //!
@@ -83,6 +94,7 @@ mod captions;
 pub use captions::*;
 #[cfg(test)]
 extern crate std;
+pub mod light;
 pub mod oblique;
 #[rustfmt::skip]
 mod oblique_data;
@@ -94,7 +106,8 @@ use fizz_ep2::World;
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
-    TILE_PX, blit_sprite, follow, pfont::draw_text, pfont::text_width, screen_y, tile_px,
+    TILE_PX, blit_sprite_banked, follow, pfont::draw_text, pfont::text_width,
+    screen_y, tile_px,
 };
 
 /// The width of the picture in pixels.
@@ -130,16 +143,109 @@ pub struct DrawOptions {
     /// sea); Light (off) draws its stars and sea only, which costs a 486 about a third as much. A view effect only, and only
     /// open air differs. See `oblique::draw_ground_sky`.
     pub full_sky: bool,
+    /// The Night setting: on draws the level at night, for the night palette ([`palette_for`]) and lit by the lights (see the
+    /// module's "Night"); off, the default, draws it by day exactly as before the setting. A view effect only: the rules never
+    /// see it.
+    pub night: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on, motion (shake and spin) on, the full sky.
+    /// Captions on, motion (shake and spin) on, the full sky, by day.
     fn default() -> Self {
         DrawOptions {
             captions: true,
             shake: true,
             full_sky: true,
+            night: false,
         }
+    }
+}
+
+/// The palette a presenter shows a picture drawn with `options` in, as 6-bit DAC values: [`light::DAY`], or at night the one
+/// whose bank 0 is the slice theme's night ambient. DOS writes it to the DAC; the Web expands it with [`light::rgba`].
+pub fn palette_for(options: &DrawOptions) -> [[u8; 3]; 256] {
+    if options.night {
+        light::palette(oblique::NIGHT_AMBIENT)
+    } else {
+        light::DAY
+    }
+}
+
+/// Ben's lantern at night, Fizz 1's for a theme with `lantern: true` (`update_lights` in `episodes/episode-1/game/src/render.rs`):
+/// at the middle of his body and 1.1 tiles over his feet, 1.2 tiles high, a radius of 5.5 tiles and a warm `[0.95, 0.7, 0.45]`,
+/// whose brightness (`0.3 r + 0.59 g + 0.11 b`) is 0.75. It is pinned first, so the light budget never drops it. Without it Ben
+/// would walk through the dark between the lanterns, lit only by his floor of level 9, and the ledges he lands on would be
+/// at the ambient; with it the floor around him reads, as in Fizz 1.
+const BEN_LANTERN: (f64, i32, i32, i32) = (1.1, 19, 88, 765);
+/// The light every shot carries: Fizz 1's Fizz Blaster bubble, cyan `[0.3, 1.1, 1.2]` (brightness 0.87), 0.6 tiles high, radius 3.
+const SHOT_LIGHT: (i32, i32, i32) = (10, 48, 892);
+
+/// The lights of a night picture of `world` at animation tick `tick` with the camera's top left at (`cam_x`, `cam_y`) in a `w`
+/// by `h` view, nearest the camera first and at most [`light::MAX_ACTIVE`] (Fizz 1's budget): Ben's lantern (unless he is
+/// dead), each shot's light and the slice's own ([`oblique::night_lights`]).
+pub fn night_lights(
+    world: &World,
+    ground: &oblique::Ground,
+    cam: (i32, i32),
+    w: usize,
+    h: usize,
+    tick: u32,
+) -> light::Lights {
+    use light::{Light, SUB};
+    let map_h = world.map.h;
+    let centre = (
+        (cam.0 + w as i32 / 2).saturating_mul(SUB),
+        (cam.1 + h as i32 / 2).saturating_mul(SUB),
+    );
+    let mut lights = light::Lights::new();
+    let ben = &world.ben;
+    if ben.dead <= 0.0 {
+        let (rise, z, r, s) = BEN_LANTERN;
+        let at = Light {
+            x: tile_px(ben.b.x + ben.b.w * 0.5).saturating_mul(SUB),
+            y: screen_y(ben.b.y + rise, map_h).saturating_mul(SUB),
+            z: z * SUB,
+            r: r * SUB,
+            strength: s,
+        };
+        if let Some(i) = lights.add(centre, at) {
+            lights.pin_first(i);
+        }
+    }
+    for shot in &world.shots {
+        let (z, r, s) = SHOT_LIGHT;
+        lights.add(
+            centre,
+            Light {
+                x: tile_px(shot.x).saturating_mul(SUB),
+                y: screen_y(shot.y, map_h).saturating_mul(SUB),
+                z: z * SUB,
+                r: r * SUB,
+                strength: s,
+            },
+        );
+    }
+    oblique::night_lights(&mut lights, ground, centre, tick);
+    lights
+}
+
+/// The cells of the largest grid kept on the stack for a DOS-sized view (40 by 25 at 320 by 200), and of the largest for any view
+/// the Web draws (1280 by 416 is 160 by 52).
+const SMALL_GRID: usize = 1024;
+const LARGE_GRID: usize = 160 * 52;
+
+/// The light pass over a picture drawn at night: adds the lights to the cell grid and shades the frame by it.
+fn light_pass(frame: &mut [u8], w: usize, h: usize, lights: &[light::Light], cam: (i32, i32)) {
+    let (cols, rows) = light::grid_size(w, h);
+    let cam = (cam.0.saturating_mul(light::SUB), cam.1.saturating_mul(light::SUB));
+    let mut pass = |add: &mut [u16]| {
+        light::add_lights(add, cols, rows, lights, cam);
+        light::shade(frame, w, h, add, oblique::NIGHT_AMBIENT);
+    };
+    if cols * rows <= SMALL_GRID {
+        pass(&mut [0u16; SMALL_GRID]);
+    } else if cols * rows <= LARGE_GRID {
+        pass(&mut [0u16; LARGE_GRID]);
     }
 }
 
@@ -479,6 +585,16 @@ pub fn draw_slice_captions(
         blue_closed: map.switch(DOOR_BLUE_CHANNEL),
     };
     oblique::draw_ground_sky(frame, w, h, &ground, cam_x, cam_y, tick, options.full_sky);
+    let night = options.night;
+    if night {
+        oblique::draw_night(frame, w, h, &ground, cam_x, cam_y);
+    }
+    // At night the art carries its marker in its bank (see `light`): pickups, shots and puffs glow, Ben and the chicken are actors.
+    let (glow, actor) = if night {
+        (light::GLOW, light::ACTOR)
+    } else {
+        (0, 0)
+    };
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
@@ -503,29 +619,29 @@ pub fn draw_slice_captions(
                 SnackKind::Soda => soda,
             };
             let (sx, sy) = at(sn.x, sn.y);
-            blit_sprite(frame, w, h, art, sx, sy + 8 - bob, false);
+            blit_sprite_banked(frame, w, h, art, sx, sy + 8 - bob, false, glow);
         }
     }
 
     if let (Some((kx, ky)), Some(key)) = (world.key_blue_position(), sprite("keyBlue")) {
         let (sx, sy) = at(kx, ky);
-        blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
+        blit_sprite_banked(frame, w, h, key, sx, sy + 8 - bob, false, glow);
     }
 
     if let (Some((kx, ky)), Some(key)) = (world.key_position(), sprite("keyRed")) {
         // The sprite's anchor is its feet; the key's centre is half a sprite above them.
         let (sx, sy) = at(kx, ky);
-        blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
+        blit_sprite_banked(frame, w, h, key, sx, sy + 8 - bob, false, glow);
     }
 
     for c in &world.chickens {
-        draw_chicken(frame, w, h, c, phase, &at);
+        draw_chicken(frame, w, h, c, phase, &at, actor);
     }
 
     if let Some(bubble) = sprite("bubble") {
         for s in &world.shots {
             let (sx, sy) = at(s.x, s.y);
-            blit_sprite(frame, w, h, bubble, sx, sy + 4, false);
+            blit_sprite_banked(frame, w, h, bubble, sx, sy + 4, false, glow);
         }
     }
 
@@ -534,18 +650,23 @@ pub fn draw_slice_captions(
         if let Some(puff) = sprite(PUFF_NAMES[which]) {
             let (sx, sy) = (px - cam_x, map_h.saturating_mul(TILE_PX) - py - cam_y);
             // The puff is anchored at its centre, as the shot's position is the centre of the bubble.
-            blit_sprite(frame, w, h, puff, sx, sy, false);
+            blit_sprite_banked(frame, w, h, puff, sx, sy, false, glow);
         }
     }
 
-    draw_ben(frame, w, h, world, phase, &at, options.shake);
+    draw_ben(frame, w, h, world, phase, &at, options.shake, actor);
+
+    if night {
+        let mut lights = night_lights(world, &ground, (cam_x, cam_y), w, h, tick);
+        light_pass(frame, w, h, lights.select(), (cam_x, cam_y));
+    }
 
     if options.captions {
         for c in &world.chickens {
-            draw_caption(frame, w, h, c, &at);
+            draw_caption(frame, w, h, c, &at, glow);
         }
         for cap in captions.views(world, w, h, options) {
-            draw_caption_view(frame, w, h, &cap);
+            draw_caption_view(frame, w, h, &cap, glow);
         }
     }
 }
@@ -638,7 +759,15 @@ pub const fn star_frame(phase: usize) -> usize {
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
-fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, phase: usize, at: At) {
+fn draw_chicken(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    c: &fizz_ep2::Chicken,
+    phase: usize,
+    at: At,
+    bank: u8,
+) {
     let stunned = c.stun > 0.0;
     // A stunned chicken flashes for its last second.
     if stunned && c.stun < 1.0 && phase / 4 % 2 == 1 {
@@ -663,7 +792,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     };
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
     let flip = c.dir < 0.0;
-    blit_sprite(frame, w, h, s, sx, sy + sink, flip);
+    blit_sprite_banked(frame, w, h, s, sx, sy + sink, flip, bank);
     if stunned
         && let Some(stars) = sprite(if star_frame(phase) == 0 {
             "stars0"
@@ -673,7 +802,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     {
         // Fizz 1 centres the stars 0.3 tiles above the enemy's head; the 8-row sprite then ends 0.3 * 16 - 4 = 0.8, about one
         // pixel, above it. The head is the top of the sprite drawn, so the stars follow the sink. They are not flipped.
-        blit_sprite(
+        blit_sprite_banked(
             frame,
             w,
             h,
@@ -681,6 +810,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
             sx,
             sy + sink - i32::from(s.h) - 1,
             false,
+            bank,
         );
     }
     // The overlay shares the body's anchor and flip, so it lands on the beak whichever way the chicken faces and whichever
@@ -689,7 +819,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
         && beak_open(c.cluck_variant, c.cluck_age)
         && let Some(beak) = sprite("cluckzarg_beak")
     {
-        blit_sprite(frame, w, h, beak, sx, sy + sink, flip);
+        blit_sprite_banked(frame, w, h, beak, sx, sy + sink, flip, bank);
     }
 }
 
@@ -764,14 +894,15 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
 
 /// Draws the chicken's caption as pixel text, the downscaled form for the 320 by 200 picture: the variant's word above its
 /// head, rising and fading with `cluck_age`. The Web page draws the same captions as DOM text instead.
-fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
+fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At, bank: u8) {
     if let Some(cap) = caption_at(c, w, h, at) {
-        draw_caption_view(frame, w, h, &cap);
+        draw_caption_view(frame, w, h, &cap, bank);
     }
 }
 
-/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow.
-fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
+/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow. The
+/// word's colour takes `bank` (the glow bank at night, so it stays at full brightness over a shaded picture).
+fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView, bank: u8) {
     let age = cap.age;
     // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
     let colour = if age < CAPTION_TICKS / 2 {
@@ -789,7 +920,7 @@ fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
     // A chicken's caption sits above its head; an event's is centred on its point (the glyph cell is 8 rows).
     let top = cap.y - if cap.event { 4 } else { CAPTION_ABOVE_FEET } - rise;
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
-    draw_text(frame, w, h, left, top, text, colour);
+    draw_text(frame, w, h, left, top, text, colour | bank);
 }
 
 /// Ben shows a run frame while his horizontal speed is above this many tiles a second (Fizz 1's `Math.abs(p.vx) > 0.5`).
@@ -832,7 +963,17 @@ fn ben_pose(ben: &fizz_ep2::Ben) -> &'static str {
     }
 }
 
-fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At, spin: bool) {
+#[allow(clippy::too_many_arguments)]
+fn draw_ben(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    phase: usize,
+    at: At,
+    spin: bool,
+    bank: u8,
+) {
     let ben = &world.ben;
     let dead = ben.dead > 0.0;
     let turn = if spin { death_spin(world) } else { None };
@@ -847,12 +988,12 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
     let (sx, sy) = at(ben.b.x + ben.b.w * 0.5, ben.b.y);
     if let Some((cos, sin)) = turn {
         // Fizz 1 flips by `face` alone, dead or alive, and turns the flipped sprite about its centre.
-        blit_sprite_turned(frame, w, h, s, sx, sy, ben.face < 0.0, cos, sin);
+        blit_sprite_turned(frame, w, h, s, sx, sy, ben.face < 0.0, cos, sin, bank);
         return;
     }
     // The sprites face right; dead Ben is turned away from the way he was facing.
     let flip = if dead { ben.face > 0.0 } else { ben.face < 0.0 };
-    blit_sprite(frame, w, h, s, sx, sy, flip);
+    blit_sprite_banked(frame, w, h, s, sx, sy, flip, bank);
 }
 
 /// Draws `sprite` as [`blit_sprite`] does, with its anchor at (`x`, `y`), mirrored if `flip_x`, then turned about the middle of
@@ -872,6 +1013,7 @@ fn blit_sprite_turned(
     flip_x: bool,
     cos: i32,
     sin: i32,
+    bank: u8,
 ) {
     let (sw, sh) = (i32::from(sprite.w), i32::from(sprite.h));
     if w == 0 || h == 0 || sw == 0 || sh == 0 || sprite.pixels.len() < (sw * sh) as usize {
@@ -916,7 +1058,7 @@ fn blit_sprite_turned(
             }
             let p = sprite.pixels[(row * sw + col) as usize];
             if p != fizz_view::TRANSPARENT {
-                frame[py as usize * w + px as usize] = p;
+                frame[py as usize * w + px as usize] = p | bank;
             }
         }
     }
@@ -2319,14 +2461,14 @@ mod tests {
         let s = jump();
         for flip in [false, true] {
             let (mut a, mut b) = (vec![0xEEu8; 40 * 40], vec![0xEEu8; 40 * 40]);
-            blit_sprite(&mut a, 40, 40, s, 20, 30, flip);
-            blit_sprite_turned(&mut b, 40, 40, s, 20, 30, flip, 4096, 0);
+            fizz_view::blit_sprite(&mut a, 40, 40, s, 20, 30, flip);
+            blit_sprite_turned(&mut b, 40, 40, s, 20, 30, flip, 4096, 0, 0);
             assert_eq!(a, b, "flip {flip}");
         }
         // A quarter turn counter-clockwise turns the 16 by 24 box into a 24 by 16 one about the same middle: the top of the
         // picture becomes the left and the left edge the bottom. Box top left (12, 6), middle (20, 18), turned box x 8..32, y 10..26.
         let mut q = vec![0xEEu8; 40 * 40];
-        blit_sprite_turned(&mut q, 40, 40, s, 20, 30, false, 0, 4096);
+        blit_sprite_turned(&mut q, 40, 40, s, 20, 30, false, 0, 4096, 0);
         let sw = 16usize;
         let mut ink = 0;
         for y in 0..40usize {
@@ -2374,7 +2516,7 @@ mod tests {
             ] {
                 for flip in [false, true] {
                     let mut buf = vec![0xEEu8; 60 * 60];
-                    blit_sprite_turned(&mut buf[..fw * fh], fw, fh, s, x, y, flip, cos, sin);
+                    blit_sprite_turned(&mut buf[..fw * fh], fw, fh, s, x, y, flip, cos, sin, 0);
                     assert!(buf[fw * fh..].iter().all(|&p| p == 0xEE), "outside");
                     assert!(
                         buf.iter().all(|&p| p == 0xEE || own.contains(&p)),
@@ -2386,7 +2528,7 @@ mod tests {
         // It really is drawn when on screen, with about as many pixels as the sprite has.
         let mut frame = vec![0xEEu8; 40 * 40];
         let (c, sn) = DEATH_SPIN[20];
-        blit_sprite_turned(&mut frame, 40, 40, s, 20, 30, false, c, sn);
+        blit_sprite_turned(&mut frame, 40, 40, s, 20, 30, false, c, sn, 0);
         let ink = frame.iter().filter(|&&p| p != 0xEE).count();
         let src = s
             .pixels

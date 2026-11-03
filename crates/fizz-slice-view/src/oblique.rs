@@ -1654,6 +1654,183 @@ pub fn draw_ground_sky(
     }
 }
 
+// ---------- the night ----------
+
+/// The slice theme's night: the level bank 0 shows at night, of 14 (a third of full), which the palette carries
+/// (`light::palette`). Fizz 1 gives each level theme a `night` ambient beside its day one (`LevelTheme` in
+/// `episodes/episode-1/game/src/render.rs`); a later level and theme format will carry this with the Sky stack's constants.
+pub const NIGHT_AMBIENT: u8 = 6;
+const _: () = assert!(NIGHT_AMBIENT >= 1 && NIGHT_AMBIENT <= crate::light::ACTOR_FLOOR);
+
+/// The lanterns over the doors, lit at night: the `(column, row)` of the pillar cell above each door that each hangs from (the
+/// red door's at column 15, the blue door's at column 22). Slice dressing, like the portholes: drawn only where that cell is a
+/// block.
+pub const LANTERNS: [(i32, i32); 2] = [(15, 23), (22, 41)];
+/// The lamps in the shafts, lit at night: the back-wall cell each is centred on, one in each shaft, clear of the ledges and
+/// their shadows. Drawn only where the map still has back wall there.
+pub const LAMPS: [(i32, i32); 2] = [(4, 12), (27, 30)];
+
+/// The lights' sizes and strengths, in tiles and in `light::LIGHT_ONE` units. A lantern is Fizz 1's static light (`update_lights`,
+/// a warm colour times a flicker of about 1.6), with a radius of 6 tiles where Fizz 1's is 8.5, which keeps the light in the
+/// slice's narrow shafts and the cells it visits fewer; a lamp is a little weaker; the exit's doorway glows green like Fizz 1's
+/// terminals (`[0.3, 1.2, 0.3]`, radius 4, height 1).
+const LANTERN_LIGHT: (i32, i32, i32) = (T * 7 / 5, T * 6, 768);
+const LAMP_LIGHT: (i32, i32, i32) = (T * 6 / 5, T * 5, 640);
+const EXIT_LIGHT: (i32, i32, i32) = (T, T * 4, 850);
+
+/// The lighthouse beam over the gallery: a wide, soft light at `BEAM_ROW` (screen row, 4 tiles above the gallery's floor)
+/// that sweeps across the open air as the beam turns. It turns once every `BEAM_PERIOD` ticks: it is `BEAM_X` plus `BEAM_SWING`
+/// times the sine of its turn across, and its strength is the cosine, so it crosses the view facing the player and is dark for
+/// the half turn it faces the sea. Presentation only, from the draw tick.
+const BEAM_ROW: i32 = 4;
+const BEAM_X: i32 = 16 * T;
+const BEAM_SWING: i32 = 22 * T;
+const BEAM_PERIOD: u32 = 512;
+const BEAM_LIGHT: (i32, i32, i32) = (T * 5 / 2, T * 7, 1100);
+
+/// Colour masks, a bit for each EGA index whose pixels glow: a lamp's yellow glass and white bulb, a door badge's white, and the
+/// exit's green and light green opening and white arrow.
+const GLOW_LAMP: u16 = 1 << 14 | 1 << 15;
+const GLOW_BADGE: u16 = 1 << 15;
+const GLOW_EXIT: u16 = 1 << 2 | 1 << 10 | 1 << 15;
+
+/// Fizz 1's flicker of a static light, `1.6 + 0.12 sin(9 t + x) + 0.08 sin(23 t + 3 x)` with `t` in seconds and `x` in tiles,
+/// times 256, from the baked `SINE` table: a tick is 6 and 16 steps of its 256 (9.2 and 24.5 radians a second, the nearest whole
+/// steps), and the light's x in pixels times 163 / 64 is its phase in steps (`x` radians).
+pub fn flicker(tick: u32, x_px: i32) -> i32 {
+    let ph = (x_px.wrapping_mul(163) >> 6) as u32;
+    let a = i32::from(SINE[(tick.wrapping_mul(6).wrapping_add(ph) & 255) as usize]);
+    let b = i32::from(SINE[(tick.wrapping_mul(16).wrapping_add(ph.wrapping_mul(3)) & 255) as usize]);
+    410 + (31 * a + 20 * b) / 256
+}
+
+/// A light at map pixel (`x`, `y`) (y down) of `(height, radius, strength)` with its strength scaled by `k / 256`.
+fn light_at(x: i32, y: i32, (z, r, s): (i32, i32, i32), k: i32) -> crate::light::Light {
+    use crate::light::SUB;
+    crate::light::Light {
+        x: x * SUB,
+        y: y * SUB,
+        z: z * SUB,
+        r: r * SUB,
+        strength: s * k / 256,
+    }
+}
+
+/// Adds the slice's own lights at animation tick `tick` to `lights`, measured from the camera's centre `cam` (map pixels times
+/// `light::SUB`): the door lanterns and shaft lamps, flickering; the exit's green glow; and the lighthouse beam. Each is added
+/// only where its dressing is drawn ([`draw_night`]), so a map without the cells has no lights.
+pub fn night_lights(lights: &mut crate::light::Lights, g: &Ground, cam: (i32, i32), tick: u32) {
+    if !g.usable() {
+        return;
+    }
+    for &(c, row) in &LANTERNS {
+        let r = g.h - 1 - row;
+        if mass(g.cell(c, r)) {
+            let (x, y) = lantern_at(c, r);
+            lights.add(cam, light_at(x, y + 8, LANTERN_LIGHT, flicker(tick, x)));
+        }
+    }
+    for &(c, row) in &LAMPS {
+        let r = g.h - 1 - row;
+        if g.cell(c, r) == WALLBG {
+            let (x, y) = (c * T + 8, r * T + 8);
+            lights.add(cam, light_at(x, y, LAMP_LIGHT, flicker(tick, x) * 7 / 8));
+        }
+    }
+    for r in 0..g.h {
+        for c in 0..g.w {
+            if g.cell(c, r) == EXIT && g.cell(c, r + 1) != EXIT {
+                // The middle of the two-tile opening, which stands on the far plane above the lower exit cell.
+                lights.add(cam, light_at(c * T + 14, r * T - 12, EXIT_LIGHT, 256));
+            }
+        }
+    }
+    let turn = (tick.wrapping_mul(256) / BEAM_PERIOD) & 255;
+    let facing = i32::from(SINE[((turn + 64) & 255) as usize]);
+    if facing > 0 {
+        let x = BEAM_X + BEAM_SWING * i32::from(SINE[turn as usize]) / 256;
+        lights.add(cam, light_at(x, BEAM_ROW * T + 8, BEAM_LIGHT, facing));
+    }
+}
+
+/// Where a lantern's hook hangs for the pillar cell at column `c` and screen row `r`: the middle of the cell's front face (on
+/// the near plane, 4 pixels left of the tile and 10 down), two rows below its top edge.
+fn lantern_at(c: i32, r: i32) -> (i32, i32) {
+    (c * T - FEET_DX + 8, r * T + (STRIP - BACK) + 2)
+}
+
+impl Canvas<'_> {
+    /// Sets the glow bank on the pixels of `p` placed as [`Canvas::piece`] places it whose colour is in `mask` and which still
+    /// show that colour (so nothing drawn over the piece since is marked).
+    fn glow_piece(&mut self, p: &Piece, x: i32, y: i32, mask: u16) {
+        let pw = usize::from(p.w);
+        let (left, top) = (x + i32::from(p.ox), y + i32::from(p.oy));
+        for sy in 0..usize::from(p.h) {
+            for &(rx, len) in &p.runs[usize::from(p.rows[sy])..usize::from(p.rows[sy + 1])] {
+                let Some((i, src, n)) = self.span(left + i32::from(rx), top + sy as i32, i32::from(len)) else {
+                    continue;
+                };
+                let src = &p.pixels[sy * pw + usize::from(rx) + src..][..n];
+                for (d, &c) in self.px[i..i + n].iter_mut().zip(src) {
+                    if *d == c && mask & (1 << (c & 15)) != 0 {
+                        *d = c | crate::light::GLOW;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Draws the slice's night dressing over a ground [`draw_ground_sky`] drew with the same camera: the lamps on the back wall
+/// and the lanterns over the doors with their glass and flames glowing, and the glow marker on the door badges and the exit's
+/// opening, so those stay at full brightness when the picture is shaded. Only at night: by day none of it is drawn, and the
+/// day picture is the one it always was.
+pub fn draw_night(frame: &mut [u8], w: usize, h: usize, g: &Ground, cam_x: i32, cam_y: i32) {
+    let mut cv = Canvas::new(frame, w, h);
+    if cv.w == 0 || cv.h == 0 || !g.usable() {
+        return;
+    }
+    let (cam_x, cam_y) = (
+        cam_x.clamp(-(1 << 24), 1 << 24),
+        cam_y.clamp(-(1 << 24), 1 << 24),
+    );
+    for &(c, row) in &LAMPS {
+        let r = g.h - 1 - row;
+        if g.cell(c, r) == WALLBG {
+            cv.piece(&LAMP, c * T + 8 - cam_x, r * T + 8 - cam_y);
+            cv.glow_piece(&LAMP, c * T + 8 - cam_x, r * T + 8 - cam_y, GLOW_LAMP);
+        }
+    }
+    let (c_lo, c_hi, r_lo, r_hi) = cell_range(&cv, cam_x, cam_y);
+    for r in r_lo.max(0)..=r_hi.min(g.h - 1) {
+        for c in c_lo.max(0)..=c_hi.min(g.w - 1) {
+            let t = g.cell(c, r);
+            let badge = match t {
+                DOOR_R if g.red_closed => &DOOR_RED_TOP,
+                DOOR_B if g.blue_closed => &DOOR_BLUE_TOP,
+                EXIT if g.cell(c, r + 1) != EXIT => {
+                    cv.glow_piece(&EXIT_DOORWAY, c * T - cam_x, r * T - cam_y, GLOW_EXIT);
+                    continue;
+                }
+                _ => continue,
+            };
+            if r > 0 && g.cell(c, r - 1) == t {
+                continue;
+            }
+            let (x, y) = (c * T - FEET_DX - cam_x, r * T - cam_y + (STRIP - BACK));
+            cv.glow_piece(badge, x, y, GLOW_BADGE);
+        }
+    }
+    for &(c, row) in &LANTERNS {
+        let r = g.h - 1 - row;
+        if mass(g.cell(c, r)) {
+            let (x, y) = lantern_at(c, r);
+            cv.piece(&LANTERN, x - cam_x, y - cam_y);
+            cv.glow_piece(&LANTERN, x - cam_x, y - cam_y, GLOW_LAMP);
+        }
+    }
+}
+
 /// Draws the map into the canvas through a window held in `tile` and `info`.
 #[inline(never)]
 fn draw_cells(

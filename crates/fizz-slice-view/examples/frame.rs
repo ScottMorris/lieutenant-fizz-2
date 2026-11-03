@@ -11,40 +11,22 @@
 //       the slice at every 100th replay tick, as <stem>-<tick>.ppm
 //   cargo run --release -p fizz-slice-view --example frame -- bench [all|indoor|gallery] [rounds] [width height]
 //       host timing of the ground over the bench cameras, indoor and gallery separately
-//   Add --open to a `ground` run to open both doors.
+//   Add --open to a `ground` run to open both doors, and --night to any picture to draw it at night (for `ground`, with the
+//   level's own lights and no Ben). The colours are the palette the presenters show, the night's at night.
 //
 // The size defaults to 320 by 200. Convert with any PPM reader, for example `python3 -c "from PIL import Image; Image.open('f.ppm').save('f.png')"`.
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_ep2::{SLICE_SCRIPT, World, level, step};
 use fizz_sim::{Buttons, InputFrame};
 use fizz_slice_view::oblique::{Ground, draw_ground, draw_ground_at};
-use fizz_slice_view::{DrawOptions, draw_slice_with};
+use fizz_slice_view::{DrawOptions, draw_slice_with, light, oblique, palette_for};
 use std::fs;
 
-/// The sixteen EGA colours in palette order, as red, green and blue bytes.
-const EGA: [[u8; 3]; 16] = [
-    [0, 0, 0],
-    [0, 0, 170],
-    [0, 170, 0],
-    [0, 170, 170],
-    [170, 0, 0],
-    [170, 0, 170],
-    [170, 85, 0],
-    [170, 170, 170],
-    [85, 85, 85],
-    [85, 85, 255],
-    [85, 255, 85],
-    [85, 255, 255],
-    [255, 85, 85],
-    [255, 85, 255],
-    [255, 255, 85],
-    [255, 255, 255],
-];
-
-fn write_ppm(path: &str, frame: &[u8], w: usize, h: usize) {
+fn write_ppm(path: &str, frame: &[u8], w: usize, h: usize, options: &DrawOptions) {
+    let rgba = light::rgba(&palette_for(options));
     let mut out = format!("P6\n{w} {h}\n255\n").into_bytes();
     for &p in &frame[..w * h] {
-        out.extend_from_slice(&EGA[usize::from(p & 15)]);
+        out.extend_from_slice(&rgba[usize::from(p)][..3]);
     }
     fs::write(path, out).expect("write the picture");
 }
@@ -181,6 +163,12 @@ fn main() {
     // `--open` leaves both doors open, to look at what they hide.
     let open = args.iter().any(|a| a == "--open");
     args.retain(|a| a != "--open");
+    let night = args.iter().any(|a| a == "--night");
+    args.retain(|a| a != "--night");
+    let options = DrawOptions {
+        night,
+        ..DrawOptions::default()
+    };
     match args.first().map(String::as_str) {
         Some("ground") => {
             let cam_x: i32 = args[1].parse().expect("cam_x");
@@ -200,7 +188,17 @@ fn main() {
             };
             let mut frame = vec![0xEEu8; w * h];
             draw_ground(&mut frame, w, h, &g, cam_x, cam_y);
-            write_ppm(&args[3], &frame, w, h);
+            if night {
+                oblique::draw_night(&mut frame, w, h, &g, cam_x, cam_y);
+                let centre = ((cam_x + w as i32 / 2) * light::SUB, (cam_y + h as i32 / 2) * light::SUB);
+                let mut lights = light::Lights::new();
+                oblique::night_lights(&mut lights, &g, centre, 0);
+                let (cols, rows) = light::grid_size(w, h);
+                let mut add = vec![0u16; cols * rows];
+                light::add_lights(&mut add, cols, rows, lights.select(), (cam_x * light::SUB, cam_y * light::SUB));
+                light::shade(&mut frame, w, h, &add, oblique::NIGHT_AMBIENT);
+            }
+            write_ppm(&args[3], &frame, w, h, &options);
         }
         Some("bench") => bench(&args),
         Some("all") => {
@@ -213,9 +211,9 @@ fn main() {
                     200,
                     &world,
                     tick as u32,
-                    &DrawOptions::default(),
+                    &options,
                 );
-                write_ppm(&format!("{}-{tick}.ppm", args[1]), &frame, 320, 200);
+                write_ppm(&format!("{}-{tick}.ppm", args[1]), &frame, 320, 200, &options);
             }
         }
         Some(t) => {
@@ -229,9 +227,9 @@ fn main() {
                 h,
                 &world,
                 tick as u32,
-                &DrawOptions::default(),
+                &options,
             );
-            write_ppm(&args[1], &frame, w, h);
+            write_ppm(&args[1], &frame, w, h, &options);
         }
         None => eprintln!(
             "usage: frame <tick> <out.ppm> [w h] | ground <cam_x> <cam_y> <out.ppm> [w h] | all <stem>"
