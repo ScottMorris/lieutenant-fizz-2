@@ -12,8 +12,8 @@
 // (Auto is On), and `Values::to_prefs` writes them that way. The Web's `System` motion has no `Prefs` form and saves as Full.
 
 use fizz_machine::{
-    Captions, FrameRate, FxChoice, Keys, Motion, MusicChoice, PlacementMode, Prefs, Resolved,
-    SkyDetail, SoundState,
+    Captions, FrameRate, FxChoice, Keys, Motion, MusicChoice, Night, PlacementMode, Prefs,
+    Resolved, SkyDetail, SoundState,
 };
 use fizz_machine::{FxPlan, MusicPlan};
 
@@ -138,6 +138,7 @@ pub struct Values {
     pub captions: Captions,
     pub keys: Keys,
     pub sky: SkyDetail,
+    pub night: Night,
     /// Web only; not in `Prefs`.
     pub fullscreen: bool,
 }
@@ -157,6 +158,7 @@ impl Values {
             captions: prefs.captions,
             keys: prefs.keys,
             sky: prefs.sky,
+            night: prefs.night,
             fullscreen: false,
         }
     }
@@ -175,6 +177,7 @@ impl Values {
         prefs.captions = self.captions;
         prefs.keys = self.keys;
         prefs.sky = self.sky;
+        prefs.night = self.night;
         prefs
     }
 }
@@ -193,6 +196,8 @@ impl RowId {
     pub const FULLSCREEN: RowId = RowId(9);
     /// The Sky: Full, or Light (the stars and the sea).
     pub const SKY: RowId = RowId(14);
+    /// The Night: Off (day), or On (dark, lit by the level's lanterns and lamps).
+    pub const NIGHT: RowId = RowId(15);
 }
 
 /// The note to draw when any row shows `*`.
@@ -287,9 +292,9 @@ impl Default for RowList {
 }
 
 /// The most rows a platform's Options screen has.
-const MAX_IDS: usize = 9;
+const MAX_IDS: usize = 10;
 
-const DOS_ROWS: [RowId; 9] = [
+const DOS_ROWS: [RowId; 10] = [
     RowId::MUSIC,
     RowId::EFFECTS,
     RowId::PLACEMENT,
@@ -298,10 +303,11 @@ const DOS_ROWS: [RowId; 9] = [
     RowId::CAPTIONS,
     RowId::KEYS,
     RowId::SKY,
+    RowId::NIGHT,
     RowId::BACK,
 ];
 
-const WEB_ROWS: [RowId; 9] = [
+const WEB_ROWS: [RowId; 10] = [
     RowId::SOUND,
     RowId::MUSIC,
     RowId::PLACEMENT,
@@ -310,6 +316,7 @@ const WEB_ROWS: [RowId; 9] = [
     RowId::KEYS,
     RowId::FULLSCREEN,
     RowId::SKY,
+    RowId::NIGHT,
     RowId::BACK,
 ];
 
@@ -346,6 +353,7 @@ fn label(platform: Platform, id: RowId) -> &'static str {
         (_, RowId::SOUND) => "Sound",
         (_, RowId::FULLSCREEN) => "Fullscreen",
         (_, RowId::SKY) => "Sky",
+        (_, RowId::NIGHT) => "Night",
         _ => "",
     }
 }
@@ -404,6 +412,7 @@ fn index(platform: Platform, id: RowId, v: &Values) -> usize {
         (_, RowId::FULLSCREEN) => on(v.fullscreen),
         (Platform::Dos, RowId::SKY) => SKY_DOS.iter().position(|d| *d == v.sky).unwrap_or(0),
         (Platform::Web, RowId::SKY) => on(v.sky == SkyDetail::Light),
+        (_, RowId::NIGHT) => on(v.night == Night::On),
         _ => 0,
     }
 }
@@ -442,6 +451,7 @@ fn set(platform: Platform, id: RowId, v: &mut Values, i: usize) {
         (_, RowId::FULLSCREEN) => v.fullscreen = i == 1,
         (Platform::Dos, RowId::SKY) => v.sky = SKY_DOS[i],
         (Platform::Web, RowId::SKY) => v.sky = SKY_WEB[i],
+        (_, RowId::NIGHT) => v.night = if i == 0 { Night::Off } else { Night::On },
         _ => {}
     }
 }
@@ -507,6 +517,7 @@ fn word(caps: &Caps, id: RowId, i: usize) -> Text {
             SkyDetail::Light => Text::join(&["Light"]),
         },
         (Platform::Web, RowId::SKY) => Text::join(&[["Full", "Light"][i]]),
+        (_, RowId::NIGHT) => Text::join(&[on_off(i == 0)]),
         _ => Text::EMPTY,
     }
 }
@@ -728,6 +739,7 @@ mod tests {
                 "Captions",
                 "Keys",
                 "Sky",
+                "Night",
                 "Back"
             ]
         );
@@ -750,11 +762,12 @@ mod tests {
                 "Keys",
                 "Fullscreen",
                 "Sky",
+                "Night",
                 "Back"
             ]
         );
         let without = ids_of(&screen(), &Caps::web(false));
-        assert_eq!(without.len(), 8);
+        assert_eq!(without.len(), 9);
         assert!(without.iter().all(|r| r.0 != "Fullscreen"));
     }
 
@@ -763,7 +776,7 @@ mod tests {
         let caps = sb16();
         let mut s = screen();
         assert_eq!(s.key(MenuKey::Up, &caps), Outcome::Moved);
-        assert_eq!(s.cursor, 8);
+        assert_eq!(s.cursor, 9);
         assert_eq!(s.key(MenuKey::Confirm, &caps), Outcome::Closed);
         assert_eq!(s.key(MenuKey::Back, &caps), Outcome::Closed);
         assert!(!s.changed);
@@ -890,7 +903,7 @@ mod tests {
             s.key(k, &caps);
         }
         assert!(!s.changed);
-        s.cursor = 8;
+        s.cursor = 9;
         s.key(MenuKey::Confirm, &caps);
         s.key(MenuKey::Left, &caps);
         assert!(!s.changed);
@@ -958,6 +971,7 @@ mod tests {
             (RowId::PLACEMENT, "Enhanced", "Classic"),
             (RowId::CAPTIONS, "On", "Off"),
             (RowId::KEYS, "Keen", "Modern"),
+            (RowId::NIGHT, "Off", "On"),
         ] {
             goto(&mut s, &caps, row);
             assert_eq!(value(&s, &caps, row), first);
@@ -1007,6 +1021,7 @@ mod tests {
         prefs.captions = Captions::Off;
         prefs.keys = Keys::Modern;
         prefs.sky = SkyDetail::Full;
+        prefs.night = Night::On;
         assert_eq!(Values::from_prefs(&prefs).to_prefs(), prefs);
         assert_eq!(Values::from_prefs(&Prefs::default()), Values::default());
         let system = Values {

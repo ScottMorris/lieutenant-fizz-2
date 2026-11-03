@@ -32,5 +32,5 @@ pub use route::{OplMode, Stream, enable_writes, route};
 pub use screen::{CELLS, COLS, MEMORY_FLOOR_KB, ROWS, cells, ready};
 pub use settings::{
     Captions, Config, ConfigIssue, FlagReport, FrameRate, FxChoice, Keys, Motion, MusicChoice,
-    PlacementMode, Prefs, Settings, SkyDetail, apply_flags,
+    Night, PlacementMode, Prefs, Settings, SkyDetail, apply_flags,
 };

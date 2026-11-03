@@ -8,7 +8,7 @@
 // A switch is added by adding one line to `SWITCHES` (and, if it does something new, a `Kind` and the code that acts on it). The
 // help text is written from the same lines, so a switch cannot be recognised without a help line or the reverse: the tests here
 // check both ways, and `tests/help.txt` holds the exact text. Matching is case-insensitive, as DOS reads a command line.
-use crate::settings::{Captions, FrameRate, Keys, Prefs, Settings, SkyDetail, apply_flags};
+use crate::settings::{Captions, FrameRate, Keys, Night, Prefs, Settings, SkyDetail, apply_flags};
 use core::fmt;
 
 /// What a mode switch asks the program to do. The first one on the command line is used; `Live` is the default.
@@ -47,6 +47,8 @@ pub enum Kind {
     /// The sky for this run, `/SKY:AUTO`, `/SKY:FULL` or `/SKY:LIGHT`, over `FIZZ2.CFG`'s; the last one given wins. The value is read by
     /// [`sky_value`].
     Sky,
+    /// Night on (`/NIGHT`) or off (`/DAY`) for this run, over `FIZZ2.CFG`'s; the last one given wins.
+    Night(Night),
     /// A sound choice, applied by `settings::apply_flags` (which also checks the value).
     Sound,
 }
@@ -98,8 +100,12 @@ pub struct Switch {
     /// One line for the help, 62 characters at most.
     pub help: &'static str,
     pub group: Group,
-    /// Recognised but not listed in the help (the developer switches).
+    /// Recognised but not given a line of its own in the help: the developer switches, and a switch another one's line names
+    /// as its opposite (see `pair`).
     pub hidden: bool,
+    /// The opposite this switch's help line names after its own name (`/MODERN /KEEN`), so a pair takes one line of the 25. The
+    /// opposite is in the same group and `hidden`, and its own `help` is what its line would say.
+    pub pair: Option<&'static str>,
     pub kind: Kind,
 }
 
@@ -111,6 +117,7 @@ const fn sw(name: &'static str, arg: Arg, group: Group, kind: Kind, help: &'stat
         help,
         group,
         hidden: matches!(group, Group::Developer),
+        pair: None,
         kind,
     }
 }
@@ -169,20 +176,26 @@ pub const SWITCHES: &[Switch] = &[
             "Show this help (also /HELP and -?); nothing else runs",
         )
     },
-    sw(
-        "/MODERN",
-        Arg::None,
-        Group::Options,
-        Kind::Keys(Keys::Modern),
-        "Use the Modern keys (W A S D, Z X C) instead of Keen's",
-    ),
-    sw(
-        "/KEEN",
-        Arg::None,
-        Group::Options,
-        Kind::Keys(Keys::Keen),
-        "Use Keen's keys, even if FIZZ2.CFG saved the Modern ones",
-    ),
+    Switch {
+        pair: Some("/KEEN"),
+        ..sw(
+            "/MODERN",
+            Arg::None,
+            Group::Options,
+            Kind::Keys(Keys::Modern),
+            "Modern keys (W A S D, Z X C), or Keen's, the default",
+        )
+    },
+    Switch {
+        hidden: true,
+        ..sw(
+            "/KEEN",
+            Arg::None,
+            Group::Options,
+            Kind::Keys(Keys::Keen),
+            "Use Keen's keys, even if FIZZ2.CFG saved the Modern ones",
+        )
+    },
     sw(
         "/CAPTIONS",
         Arg::None,
@@ -225,6 +238,26 @@ pub const SWITCHES: &[Switch] = &[
         Kind::Sky,
         "Sky: AUTO (the default), FULL night, or LIGHT (stars and sea)",
     ),
+    Switch {
+        pair: Some("/DAY"),
+        ..sw(
+            "/NIGHT",
+            Arg::None,
+            Group::Options,
+            Kind::Night(Night::On),
+            "Night, lit by lanterns; or day, the default",
+        )
+    },
+    Switch {
+        hidden: true,
+        ..sw(
+            "/DAY",
+            Arg::None,
+            Group::Options,
+            Kind::Night(Night::Off),
+            "Play by day, even if FIZZ2.CFG saved the night",
+        )
+    },
     sw(
         "/MUSIC",
         Arg::Value("x"),
@@ -333,10 +366,14 @@ impl Switch {
     pub fn display(&self, out: &mut impl fmt::Write) -> fmt::Result {
         out.write_str(self.name)?;
         match self.arg {
-            Arg::None => Ok(()),
-            Arg::Value(v) => write!(out, ":{v}"),
-            Arg::Count => out.write_str(" [n]"),
+            Arg::None => {}
+            Arg::Value(v) => write!(out, ":{v}")?,
+            Arg::Count => out.write_str(" [n]")?,
         }
+        if let Some(p) = self.pair {
+            write!(out, " {p}")?;
+        }
+        Ok(())
     }
 
     /// Whether `arg` is this switch, by name or alias, with a value where the shape wants one.
@@ -371,6 +408,8 @@ pub struct Invocation {
     pub frame_rate: Option<FrameRate>,
     /// The sky a `/SKY:` switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
     pub sky: Option<SkyDetail>,
+    /// The night `/NIGHT` or `/DAY` chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Off, in force.
+    pub night: Option<Night>,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
     /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
@@ -394,6 +433,9 @@ impl Invocation {
         }
         if let Some(d) = self.sky {
             prefs.sky = d;
+        }
+        if let Some(n) = self.night {
+            prefs.night = n;
         }
         prefs
     }
@@ -425,6 +467,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         captions: None,
         frame_rate: None,
         sky: None,
+        night: None,
         bench_ticks: None,
         bench_audio: false,
     };
@@ -452,6 +495,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
                 Some(d) => run.sky = Some(d),
                 None => return Parsed::Unknown(arg),
             },
+            Kind::Night(n) => run.night = Some(n),
             Kind::Sound => {
                 if apply_flags(&mut Settings::default(), [arg]).applied != 1 {
                     return Parsed::Unknown(arg);
@@ -566,7 +610,22 @@ mod tests {
             s.display(&mut shown).unwrap();
             let line = std::format!("  {:<w$}{}", shown, s.help, w = NAME_COLUMN);
             assert_eq!(text.lines().any(|l| l == line), !s.hidden, "{}", s.name);
-            assert_eq!(s.hidden, s.group == Group::Developer, "{}", s.name);
+            // A switch is hidden when it is a developer's, or when another's line names it as the opposite of a pair, which is
+            // then in the same group, has no pair of its own and appears on that line.
+            let paired_by = SWITCHES.iter().find(|o| o.pair == Some(s.name));
+            assert_eq!(
+                s.hidden,
+                s.group == Group::Developer || paired_by.is_some(),
+                "{}",
+                s.name
+            );
+            if let Some(o) = paired_by {
+                assert_eq!((o.group, s.pair, o.hidden), (s.group, None, false), "{}", s.name);
+                assert!(text.lines().any(|l| l.split_whitespace().nth(1) == Some(s.name)));
+            }
+            if let Some(p) = s.pair {
+                assert!(lookup(p).is_some_and(|o| o.hidden), "{p}");
+            }
         }
     }
 
@@ -579,6 +638,11 @@ mod tests {
             let s = lookup(&typed).unwrap_or_else(|| panic!("help line for no switch: {l}"));
             assert!(!s.hidden, "{l}");
             assert_eq!(s.name, word.split(':').next().unwrap(), "{l}");
+            // A pair's line names its opposite second, and that is a switch too.
+            if let Some(p) = s.pair {
+                assert_eq!(l.split_whitespace().nth(1), Some(p), "{l}");
+                assert!(lookup(p).is_some(), "{l}");
+            }
         }
     }
 
@@ -636,6 +700,7 @@ mod tests {
             captions: None,
             frame_rate: None,
             sky: None,
+            night: None,
             bench_ticks: None,
             bench_audio: false,
         };
@@ -806,6 +871,25 @@ mod tests {
         match run(args) {
             Parsed::Run(i) => i,
             other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn night_and_day_set_the_night_for_the_run_and_the_last_wins() {
+        assert_eq!(invocation(&["/night"]).night, Some(Night::On));
+        assert_eq!(invocation(&["/NIGHT", "/Day"]).night, Some(Night::Off));
+        assert_eq!(invocation(&["/DAY", "/NIGHT", "/BENCH"]).night, Some(Night::On));
+        assert_eq!(invocation(&["/BENCH"]).night, None);
+        assert_eq!(invocation(&["/BENCH"]).mode, Mode::Bench);
+        let file = Prefs {
+            night: Night::On,
+            ..Prefs::default()
+        };
+        assert_eq!(invocation(&[]).over(&file), file);
+        assert_eq!(invocation(&["/DAY"]).over(&file), Prefs::default());
+        assert_eq!(invocation(&["/NIGHT"]).over(&Prefs::default()), file);
+        for bad in ["/NIGHT:ON", "/NIGHTS", "/DAYS", "/DAY:1"] {
+            assert_eq!(run(&[bad]), Parsed::Unknown(bad), "{bad}");
         }
     }
 

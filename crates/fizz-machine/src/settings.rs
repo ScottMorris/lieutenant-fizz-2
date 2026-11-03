@@ -1,4 +1,4 @@
-// The player's settings: the choices, the 13-byte `FIZZ2.CFG` layout and the command-line flags that override it.
+// The player's settings: the choices, the 14-byte `FIZZ2.CFG` layout and the command-line flags that override it.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
@@ -70,6 +70,17 @@ pub enum SkyDetail {
     Light,
 }
 
+/// Whether the level is played at night: the Night row of Options, byte 13 of `FIZZ2.CFG` (version 4), and the `/NIGHT` and
+/// `/DAY` switches. Night darkens the picture to the level's night ambient and lights it with its lanterns, lamps and Ben's own
+/// lantern, as Fizz 1's Options screen's Night row does (fizz-dos keeps it in byte 9 of its `FIZZ.CFG`). Off is the default on both
+/// platforms. The rules never see it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Night {
+    #[default]
+    Off,
+    On,
+}
+
 /// How effects are placed in the stereo field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PlacementMode {
@@ -98,8 +109,8 @@ pub enum Keys {
     Modern,
 }
 
-/// Everything `FIZZ2.CFG` holds: the sound choices, the frame rate and the choices about motion, placement, captions, keys and
-/// the sky.
+/// Everything `FIZZ2.CFG` holds: the sound choices, the frame rate and the choices about motion, placement, captions, keys, the
+/// sky and the night.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Prefs {
     pub sound: Settings,
@@ -109,16 +120,17 @@ pub struct Prefs {
     pub captions: Captions,
     pub keys: Keys,
     pub sky: SkyDetail,
+    pub night: Night,
 }
 
 /// Why part of `FIZZ2.CFG` was not used. The field or fields concerned fall back to their defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConfigIssue {
-    /// The file's length does not match its version (8 bytes for version 1, 9 for version 2, 13 for version 3).
+    /// The file's length does not match its version (8 bytes for version 1, 9 for version 2, 13 for version 3, 14 for version 4).
     BadLength,
     /// The first four bytes are not `FZ2C`.
     BadMagic,
-    /// The version byte is not 1, 2 or 3.
+    /// The version byte is not 1 to 4.
     BadVersion,
     /// The music byte is not 0 to 3.
     BadMusic,
@@ -136,6 +148,8 @@ pub enum ConfigIssue {
     BadKeys,
     /// The sky (detail level) byte is not 0 to 2.
     BadSky,
+    /// The night byte is not 0 or 1.
+    BadNight,
 }
 
 impl ConfigIssue {
@@ -153,32 +167,35 @@ impl ConfigIssue {
             ConfigIssue::BadCaptions => "cfg-captions",
             ConfigIssue::BadKeys => "cfg-keys",
             ConfigIssue::BadSky => "cfg-sky",
+            ConfigIssue::BadNight => "cfg-night",
         }
     }
 }
 
-/// The `FIZZ2.CFG` file. Version 3 is 13 bytes: bytes 0 to 3 are `FZ2C`, byte 4 the version (3), byte 5 the music choice (0 Auto,
+/// The `FIZZ2.CFG` file. Version 4 is 14 bytes: bytes 0 to 3 are `FZ2C`, byte 4 the version (4), byte 5 the music choice (0 Auto,
 /// 1 Off, 2 AdLib, 3 Sound Blaster), byte 6 the effects choice (0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker), byte 7 the frame
 /// rate (0 Auto, 1 30 Hz, 2 60 Hz), byte 8 the detail level, which is the sky (0 Auto, 1 Full, 2 Light, as Fizz 1's DOS port's
 /// 0 auto, 1 high, 2 low; builds before the setting wrote 0 there and did not read it, so their files read as Auto), byte 9 the
 /// motion (0 Full,
 /// 1 Reduced), byte 10 the sound placement (0 Enhanced, 1 Classic), byte 11 the captions (0 On, 1 Off) and byte 12 the key layout
-/// (0 Keen, 1 Modern). Zero always means the default. Version 2 is the first nine bytes with version 2, and version 1 the first
-/// eight (music, effects and a reserved byte); both are still read, with the fields they lack at their defaults, and saving writes
-/// version 3.
+/// (0 Keen, 1 Modern), and byte 13 the night (0 Off, 1 On). Zero always means the default. Version 3 is the first 13 bytes with
+/// version 3, version 2 the first nine with version 2, and version 1 the first eight (music, effects and a reserved byte); all are
+/// still read, with the fields they lack at their defaults, and saving writes version 4.
 pub struct Config;
 
 impl Config {
     /// The file's name, in the current directory.
     pub const FILE_NAME: &'static str = "FIZZ2.CFG";
-    /// The length of a version 3 file in bytes: the length `encode_prefs` writes.
-    pub const LEN: usize = 13;
+    /// The length of a version 4 file in bytes: the length `encode_prefs` writes.
+    pub const LEN: usize = 14;
+    /// The length of a version 3 file in bytes.
+    pub const LEN_V3: usize = 13;
     /// The length of a version 2 file in bytes.
     pub const LEN_V2: usize = 9;
     /// The length of a version 1 file in bytes.
     pub const LEN_V1: usize = 8;
     const MAGIC: [u8; 4] = *b"FZ2C";
-    const VERSION: u8 = 3;
+    const VERSION: u8 = 4;
 
     /// Reads a file's bytes as sound `Settings` only; see `parse_prefs`.
     pub fn parse(bytes: &[u8]) -> (Settings, Option<ConfigIssue>) {
@@ -204,7 +221,8 @@ impl Config {
         let want = match version {
             1 => Self::LEN_V1,
             2 => Self::LEN_V2,
-            3 => Self::LEN,
+            3 => Self::LEN_V3,
+            4 => Self::LEN,
             _ => return (Prefs::default(), Some(ConfigIssue::BadVersion)),
         };
         if bytes.len() != want {
@@ -263,10 +281,17 @@ impl Config {
                 _ => issue = issue.or(Some(ConfigIssue::BadKeys)),
             }
         }
+        if version >= 4 {
+            match bytes[13] {
+                0 => {}
+                1 => prefs.night = Night::On,
+                _ => issue = issue.or(Some(ConfigIssue::BadNight)),
+            }
+        }
         (prefs, issue)
     }
 
-    /// The bytes to save for `prefs`: always a version 3 file.
+    /// The bytes to save for `prefs`: always a version 4 file.
     pub fn encode_prefs(prefs: &Prefs) -> [u8; Self::LEN] {
         let music = match prefs.sound.music {
             MusicChoice::Auto => 0,
@@ -304,6 +329,7 @@ impl Config {
             u8::from(prefs.placement == PlacementMode::Classic),
             u8::from(prefs.captions == Captions::Off),
             u8::from(prefs.keys == Keys::Modern),
+            u8::from(prefs.night == Night::On),
         ]
     }
 
@@ -432,6 +458,7 @@ mod tests {
     const CAPTIONS: [Captions; 2] = [Captions::On, Captions::Off];
     const KEYS: [Keys; 2] = [Keys::Keen, Keys::Modern];
     const SKIES: [SkyDetail; 3] = [SkyDetail::Auto, SkyDetail::Full, SkyDetail::Light];
+    const NIGHTS: [Night; 2] = [Night::Off, Night::On];
 
     fn sample() -> Prefs {
         Prefs {
@@ -445,6 +472,7 @@ mod tests {
             captions: Captions::Off,
             keys: Keys::Modern,
             sky: SkyDetail::Full,
+            night: Night::On,
         }
     }
 
@@ -458,7 +486,9 @@ mod tests {
                         for placement in PLACEMENTS {
                             for captions in CAPTIONS {
                                 for keys in KEYS {
-                                    for sky in SKIES {
+                                    for (sky, night) in
+                                        SKIES.iter().flat_map(|&s| NIGHTS.map(|n| (s, n)))
+                                    {
                                         let p = Prefs {
                                             sound: Settings { music, fx },
                                             frame_rate,
@@ -467,12 +497,14 @@ mod tests {
                                             captions,
                                             keys,
                                             sky,
+                                            night,
                                         };
                                         let bytes = Config::encode_prefs(&p);
-                                        assert_eq!(bytes.len(), 13);
+                                        assert_eq!(bytes.len(), 14);
                                         assert_eq!(&bytes[..4], b"FZ2C");
-                                        assert_eq!(bytes[4], 3);
+                                        assert_eq!(bytes[4], 4);
                                         assert_eq!(bytes[8], sky as u8);
+                                        assert_eq!(bytes[13], u8::from(night == Night::On));
                                         assert_eq!(Config::parse_prefs(&bytes), (p, None));
                                         assert_eq!(Config::parse(&bytes), (p.sound, None));
                                         count += 1;
@@ -484,35 +516,36 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2 * 3);
+        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2 * 3 * 2);
     }
 
     #[test]
     fn layout_is_exact() {
         assert_eq!(
             Config::encode_prefs(&sample()),
-            [b'F', b'Z', b'2', b'C', 3, 3, 4, 2, 1, 1, 1, 1, 1]
+            [b'F', b'Z', b'2', b'C', 4, 3, 4, 2, 1, 1, 1, 1, 1, 1]
         );
         assert_eq!(
             Config::encode(&Settings::default()),
-            [b'F', b'Z', b'2', b'C', 3, 0, 0, 0, 0, 0, 0, 0, 0]
+            [b'F', b'Z', b'2', b'C', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         );
-        assert_eq!(&Config::encode(&sample().sound)[7..], [0u8; 6]);
+        assert_eq!(&Config::encode(&sample().sound)[7..], [0u8; 7]);
     }
 
     #[test]
     fn zero_means_the_default_in_every_field() {
-        let zeros = [b'F', b'Z', b'2', b'C', 3, 0, 0, 0, 0, 0, 0, 0, 0];
+        let zeros = [b'F', b'Z', b'2', b'C', 4, 0, 0, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(Config::parse_prefs(&zeros), (Prefs::default(), None));
         let d = Prefs::default();
         assert_eq!(
-            (d.motion, d.placement, d.captions, d.keys, d.sky),
+            (d.motion, d.placement, d.captions, d.keys, d.sky, d.night),
             (
                 Motion::Full,
                 PlacementMode::Enhanced,
                 Captions::On,
                 Keys::Keen,
-                SkyDetail::Auto
+                SkyDetail::Auto,
+                Night::Off
             )
         );
     }
@@ -541,8 +574,8 @@ mod tests {
         // The old layout exactly, as the first build wrote it.
         let old = [b'F', b'Z', b'2', b'C', 1, 3, 4, 0];
         assert_eq!(Config::parse(&old).0, sample().sound);
-        // Saving it again upgrades it to version 3.
-        assert_eq!(Config::encode(&Config::parse(&old).0)[4], 3);
+        // Saving it again upgrades it to version 4.
+        assert_eq!(Config::encode(&Config::parse(&old).0)[4], 4);
     }
 
     #[test]
@@ -572,10 +605,33 @@ mod tests {
                 }
             }
         }
-        // Saving a version 2 file's prefs upgrades it to version 3 and keeps the frame rate.
+        // Saving a version 2 file's prefs upgrades it to version 4 and keeps the frame rate.
         let (p, _) = Config::parse_prefs(&[b'F', b'Z', b'2', b'C', 2, 3, 4, 2, 0]);
         let saved = Config::encode_prefs(&p);
-        assert_eq!(saved, [b'F', b'Z', b'2', b'C', 3, 3, 4, 2, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            saved,
+            [b'F', b'Z', b'2', b'C', 4, 3, 4, 2, 0, 0, 0, 0, 0, 0]
+        );
+    }
+
+    #[test]
+    fn a_version_3_file_still_reads_with_the_night_off() {
+        // The layout the Sky setting's build wrote: 13 bytes, every field but the night.
+        let v3 = [b'F', b'Z', b'2', b'C', 3, 3, 4, 2, 1, 1, 1, 1, 1];
+        assert_eq!(
+            Config::parse_prefs(&v3),
+            (
+                Prefs {
+                    night: Night::Off,
+                    ..sample()
+                },
+                None
+            )
+        );
+        // Saving it again upgrades it to version 4 with the night byte at 0, Off.
+        let saved = Config::encode_prefs(&Config::parse_prefs(&v3).0);
+        assert_eq!(saved[..4], v3[..4]);
+        assert_eq!((saved[4], &saved[5..13], saved[13]), (4, &v3[5..], 0));
     }
 
     #[test]
@@ -588,19 +644,19 @@ mod tests {
     fn wrong_length_is_auto_with_a_reason() {
         let good = Config::encode_prefs(&sample());
         let bad = Some(ConfigIssue::BadLength);
-        // Too short, and a version 3 header on an older body.
-        for len in [1, 4, 5, 7, 8, 9, 10, 11, 12] {
+        // Too short, and a version 4 header on an older body.
+        for len in [1, 4, 5, 7, 8, 9, 10, 11, 12, 13] {
             assert_eq!(
                 Config::parse_prefs(&good[..len]),
                 (Prefs::default(), bad),
                 "{len}"
             );
         }
-        let mut long = [3u8; 14];
-        long[..13].copy_from_slice(&good);
+        let mut long = [3u8; 15];
+        long[..14].copy_from_slice(&good);
         assert_eq!(Config::parse_prefs(&long), (Prefs::default(), bad));
-        // A version 1 or 2 header on a longer body.
-        for version in [1u8, 2] {
+        // A version 1, 2 or 3 header on a longer body.
+        for version in [1u8, 2, 3] {
             let mut wrong = good;
             wrong[4] = version;
             assert_eq!(Config::parse_prefs(&wrong), (Prefs::default(), bad));
@@ -624,7 +680,7 @@ mod tests {
             Config::parse_prefs(&bytes),
             (Prefs::default(), Some(ConfigIssue::BadMagic))
         );
-        for version in [0u8, 4, 255] {
+        for version in [0u8, 5, 255] {
             let mut bytes = Config::encode_prefs(&sample());
             bytes[4] = version;
             assert_eq!(
@@ -640,7 +696,7 @@ mod tests {
         let base = sample();
         // (byte, bad value, the issue, the field it resets)
         type Reset = fn(&mut Prefs);
-        let cases: [(usize, u8, ConfigIssue, Reset); 8] = [
+        let cases: [(usize, u8, ConfigIssue, Reset); 9] = [
             (5, 4, ConfigIssue::BadMusic, |p| {
                 p.sound.music = MusicChoice::Auto
             }),
@@ -659,6 +715,7 @@ mod tests {
                 p.captions = Captions::On
             }),
             (12, 255, ConfigIssue::BadKeys, |p| p.keys = Keys::Keen),
+            (13, 2, ConfigIssue::BadNight, |p| p.night = Night::Off),
         ];
         for (at, value, issue, reset) in cases {
             let mut bytes = Config::encode_prefs(&base);
@@ -754,6 +811,7 @@ mod tests {
             ConfigIssue::BadCaptions,
             ConfigIssue::BadKeys,
             ConfigIssue::BadSky,
+            ConfigIssue::BadNight,
         ];
         for (i, a) in all.iter().enumerate() {
             for b in &all[i + 1..] {
@@ -765,6 +823,7 @@ mod tests {
         assert_eq!(ConfigIssue::BadCaptions.code(), "cfg-captions");
         assert_eq!(ConfigIssue::BadKeys.code(), "cfg-keys");
         assert_eq!(ConfigIssue::BadSky.code(), "cfg-sky");
+        assert_eq!(ConfigIssue::BadNight.code(), "cfg-night");
     }
 
     #[test]
@@ -792,9 +851,9 @@ mod tests {
         let saved = Config::encode_prefs(&read);
         assert_eq!(
             (
-                saved[5], saved[6], saved[7], saved[9], saved[10], saved[11], saved[12]
+                saved[5], saved[6], saved[7], saved[9], saved[10], saved[11], saved[12], saved[13]
             ),
-            (3, 0, 1, 1, 1, 1, 1)
+            (3, 0, 1, 1, 1, 1, 1, 1)
         );
     }
 
