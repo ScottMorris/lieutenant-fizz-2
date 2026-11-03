@@ -20,7 +20,7 @@
 #                 and the exact AUDIO WRITES counts
 #   config-sound  /? and /HELP, the SOUND line under every FIZZ2.CFG form and flag, /CFGTEST (save, read back, crash safety)
 #   menu          /MENUSHOT, and the Paused and Options screens played with typed keys (OPTIONS SAVED and the file's bytes)
-#   machine       /PROBE under the ladder of DOSBox configurations, /CHECKCELLS, the memsize ladder and the replay at memsize 1
+#   machine       /PROBE under the ladder of DOSBox configurations, /CHECKCELLS, the memsize ladder and the replay at memsize 4
 #   pack          reserved for the pack-loading cases; it has none yet
 #
 # CHECK_DOS_JOBS=<n> (default 1) runs the independent 28-second /REPLAY cases n at a time, each in its own copy of the program directory
@@ -395,12 +395,10 @@ probe_case 'machine cga' cga '' 'PROBE video cga'
 probe_case 'machine hercules' hercules '' 'PROBE video mdahercules'
 probe_case 'cputype 386' svga_s3 $'[cpu]\ncputype = 386' 'PROBE cpu 386'
 probe_case 'cputype pentium' svga_s3 $'[cpu]\ncputype = pentium' 'PROBE cpu 586'
-# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB (the third
-# fell to 96 KB when the sound data grew FIZZ2.EXE past 200,000 bytes, so its floor is 64; the program is what takes the difference).
+# The memory ladder: free memory falls with the machine's memory. The slice needs 4 MB since the oblique ground's texture tables
+# and drawing code (docs/DOS-CHECK.md, Memory floor); the ranges are loose around the 14,296 and 2,008 KB measured then at 16 and 4 MB.
 probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-16384'
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
-probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 64-1024'
-probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
 fi
 
 if group machine; then
@@ -433,17 +431,17 @@ cells_case 'machine cga' cga ''
 cells_case 'machine hercules' hercules ''
 # A test (crates/fizz-machine/tests/no-check-in-scripts.rs) fails if any script or workflow runs the interactive /CHECK.
 
-# The slice's memory floor: the replay must still play, with the same transcript, on DOSBox's smallest memory size (1 MB).
-replay_memsize1() {
+# The slice's memory floor: the replay must still play, with the same transcript, on the 4 MB the slice needs.
+replay_memsize4() {
   local status=0 out got
-  out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
-  [ "$status" = 0 ] || fail "/REPLAY at memsize 1 exited $status"
+  out="$(DOS_CONF=$'[dosbox]\nmemsize = 4' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
+  [ "$status" = 0 ] || fail "/REPLAY at memsize 4 exited $status"
   got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
-  [ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
-  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
-  echo "REPLAY at memsize 1 ok"
+  [ "$got" = "$want" ] || fail "/REPLAY at memsize 4 differs from $golden"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 4 did not reach the exit"
+  echo "REPLAY at memsize 4 ok"
 }
-par replay_memsize1
+par replay_memsize4
 par_wait
 
 fi

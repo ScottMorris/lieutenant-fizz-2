@@ -217,6 +217,8 @@ The value comes from a ladder. `/REPLAY` was run in DOSBox at `memsize` 4, 3, 2 
 
 The program has grown since: with the sound effects `FIZZ2.EXE` is 201,216 bytes, and the `/PROBE` memory ladder in `tools/check-dos.sh` reads 96 KB free at `memsize = 2` (its floor went from 100 to 64) and 56 KB at `memsize = 1`, still above the 40 KB floor of that case; `/REPLAY` at `memsize = 1` still ends on the golden transcript.
 
+The oblique ground raised the slice's need to 4 MB (owner decision, 2026-11-03). Its baked texture tables take about 100 KB (three depths of stone front at 16 KB each, the board back wall at 24 KB, brick, plank and stone tops) and its drawing code about 45 KB more, so at `memsize = 4` 2,008 KB is free, where 2,256 KB was before, and a 2 MB machine has none to spare. `tools/check-dos.sh` now runs the `/PROBE` ladder at 16 and 4 MB and repeats `/REPLAY` at `memsize = 4`, the floor; the 1 and 2 MB cases are gone. A 2 MB machine still starts, and the check screen warns that less than 1 MB is free (`MEMORY_FLOOR_KB` is unchanged). The tables could shrink later (a shorter period, or shades derived at draw time) if a smaller machine matters again.
+
 When the constant changed from its first value of 4,096, the golden cells for the low-memory machine changed with it (the case is now 512 KB, so it still shows the warning), and `BLESS=1 cargo test -p fizz-machine --test golden` regenerated the file.
 
 ## The golden file
