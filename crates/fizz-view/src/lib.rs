@@ -19,6 +19,7 @@ mod draw;
 pub mod font;
 #[rustfmt::skip]
 pub mod fizz_font_data;
+pub mod parallax;
 pub mod pfont;
 pub mod theme;
 

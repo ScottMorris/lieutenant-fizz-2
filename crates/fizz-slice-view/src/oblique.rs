@@ -19,7 +19,7 @@
 //! 0. The cell window ([`Window`]): the tiles of the cells the view reaches, and for each its look and its background, read
 //!    once for the whole draw so that no later step looks a neighbour up again.
 //! 1. The background of every cell the view touches: the back wall (`WALLBG`, and the cells under a solid or ledge that has a
-//!    room above), or open air ([`draw_open_air`]). A cell that four solid cells will cover is skipped.
+//!    room above), or open air ([`draw_open_air`], the parallax stack of the slice's theme). A cell that four solid cells will cover is skipped.
 //! 2. Portholes, then the contact shadows and brackets under ledges, the railings on ledges open to the sky, and the exit.
 //! 3. Terrain, from the bottom row up and from left to right within a row, so a cell to the upper right hides the far parts of
 //!    a lower left cell's faces without a depth buffer. A face is a top (26 rows), a front (16 px, or the 6 px fascia of a
@@ -30,6 +30,7 @@
 
 use crate::oblique_data::*;
 use fizz_ep2::tiles::{BLOCK, CHOC, DOOR_B, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
+use fizz_view::parallax::{Clip, Layer, Sky};
 
 /// The side of a tile in pixels.
 const T: i32 = 16;
@@ -46,6 +47,7 @@ const PLANK_FH: i32 = 6;
 const BLACK: u8 = 0;
 const BLUE: u8 = 1;
 const BROWN: u8 = 6;
+const DARK_GREY: u8 = 8;
 const LIGHT_BLUE: u8 = 9;
 const CYAN: u8 = 3;
 
@@ -984,106 +986,171 @@ impl<'a, 'b> Window<'a, 'b> {
 
 // ---------- backgrounds ----------
 
-/// Two-pixel checkers, 512 long, whose even pixels are blue and black, for the dither of the sky and sea.
-static CHECK_BLUE: [u8; 512] = checker(BLUE, BLACK);
-static CHECK_BLACK: [u8; 512] = checker(BLACK, BLUE);
+/// The camera height, in map pixels, the Lighthouse stack's horizon is calibrated at: the view's top when Ben stands on the
+/// gallery floor (his centre is 38.75 tiles up, so a 200 px view starts 48 px down the map). At this camera the sea's
+/// horizon lies on the top of map row [`HORIZON_ROW`], as the gallery was designed; from lower in the level the layers have
+/// scrolled by their factors and the horizon has risen on the screen, and indoors none of it shows.
+pub const HORIZON_CAM_Y: i32 = 48;
 
-const fn checker(even: u8, odd: u8) -> [u8; 512] {
-    let mut t = [even; 512];
-    let mut i = 1;
-    while i < 512 {
-        t[i] = odd;
-        i += 2;
-    }
-    t
-}
+/// Layer factors out of 256: the Lighthouse Point board's 0.04, 0.06, 0.12 and 0.18 (Fizz 1's `Layer` vocabulary: a layer at
+/// factor `f` is offset by `camera * (1 - f)`, so 0 stays on the screen and 1 moves with the tiles).
+const F_STARS: u16 = 10;
+const F_CLOUDS: u16 = 15;
+const F_HEADLANDS_X: u16 = 31;
+const F_SEA_X: u16 = 46;
+/// The vertical factor of every layer but the stars: 0.06.
+const F_Y: u16 = 15;
 
-/// The crest of the sea on its second and third rows from the top: C where `(x div 6 + 2 s) mod 3` is 0, with s the row, as a
-/// pattern that repeats every 18 pixels of world x.
-static CREST_1: [u8; 288] = crest(1);
-static CREST_2: [u8; 288] = crest(2);
-
-const fn crest(s: usize) -> [u8; 288] {
-    let mut t = [BLUE; 288];
-    let mut x = 0;
-    while x < 288 {
-        if ((x % 18) / 6 + 2 * s).is_multiple_of(3) {
-            t[x] = CYAN;
+/// The far headlands' tile: filled D where `y >= |x - 7.5| * 1.8 + 2`, in the integer form `10 y >= 9 |2x - 15| + 20`, 255
+/// elsewhere. Row 0 is the surface.
+const MTN_TOP: [u8; 256] = {
+    let mut t = [255u8; 256];
+    let mut y = 0;
+    while y < 16 {
+        let mut x = 0;
+        while x < 16 {
+            let d = 2 * x as i32 - 15;
+            if 10 * y as i32 >= 9 * (if d < 0 { -d } else { d }) + 20 {
+                t[y * 16 + x] = DARK_GREY;
+            }
+            x += 1;
         }
-        x += 1;
+        y += 1;
     }
     t
+};
+
+/// The sea's tile: row 10 is a C crest where `x % 6 < 4`, row 11 C, rows 12 and 13 a B and k checker, rows 14 and 15 B, and
+/// the rows above it are 255. Row [`SEA_SURFACE_ROW`] is the surface.
+const SEA_TOP: [u8; 256] = {
+    let mut t = [255u8; 256];
+    let mut y = 10;
+    while y < 16 {
+        let mut x = 0;
+        while x < 16 {
+            t[y * 16 + x] = match y {
+                10 => {
+                    if x % 6 < 4 {
+                        CYAN
+                    } else {
+                        255
+                    }
+                }
+                11 => CYAN,
+                12 | 13 => {
+                    if (x + y) % 2 == 0 {
+                        BLUE
+                    } else {
+                        BLACK
+                    }
+                }
+                _ => BLUE,
+            };
+            x += 1;
+        }
+        y += 1;
+    }
+    t
+};
+const SEA_SURFACE_ROW: i32 = 10;
+
+/// The slice's open-air theme, back to front: the Lighthouse Point night. Stars, drifting clouds, the far headlands (D, stepped
+/// heights from the baked [`HEADLAND_HEIGHTS`]) and a flat sea whose crest is the horizon. This is the slice's theme as
+/// constants in this module; a later level and theme format will carry the stack, and nothing here invents one.
+fn lighthouse<'a>(g: &Ground) -> [Layer<'a>; 4] {
+    // The horizon in layer space: the top of map row `HORIZON_ROW`, less what the layers have scrolled at the calibration camera.
+    let horizon = (g.h - 1 - HORIZON_ROW) * T - fizz_view::parallax::offset(HORIZON_CAM_Y, F_Y);
+    [
+        Layer::Stars {
+            fx: F_STARS,
+            fy: F_STARS,
+        },
+        Layer::Clouds {
+            fx: F_CLOUDS,
+            fy: F_Y,
+            rows: 2,
+        },
+        Layer::Band {
+            fx: F_HEADLANDS_X,
+            fy: F_Y,
+            base_y: horizon,
+            heights: &HEADLAND_HEIGHTS,
+            top: &MTN_TOP,
+            surface_row: 0,
+            fill: DARK_GREY,
+        },
+        Layer::Band {
+            fx: F_SEA_X,
+            fy: F_Y,
+            base_y: horizon,
+            heights: &[0],
+            top: &SEA_TOP,
+            surface_row: SEA_SURFACE_ROW,
+            fill: BLUE,
+        },
+    ]
 }
 
-/// Fills `row` from the pattern `pat`, which repeats every `P` pixels (its length is a multiple of `P`), starting `phase`
-/// pixels into the repeat.
-#[inline]
-fn pattern<const P: usize>(row: &mut [u8], pat: &[u8], phase: usize) {
-    let (n, mut k, mut done) = (row.len(), phase, 0);
-    while done < n {
-        let c = (n - done).min(pat.len() - k);
-        row[done..done + c].copy_from_slice(&pat[k..k + c]);
-        done += c;
-        k = (k + c) % P;
+/// The open-air stack at a level of detail: the whole [`lighthouse`] night for Full, and for Light only its stars and its sea,
+/// which keep the horizon and the night where the drifting clouds and the far headlands cost the most to draw (about 55,000 of
+/// the 80,000 instructions the night adds to a gallery frame on the DOS build).
+fn stack<'a>(g: &Ground, full_sky: bool) -> ([Layer<'a>; 4], usize) {
+    let [stars, clouds, headlands, sea] = lighthouse(g);
+    if full_sky {
+        ([stars, clouds, headlands, sea], 4)
+    } else {
+        ([stars, sea, sea, sea], 2)
     }
 }
 
-/// Fills a rectangle of the view (`x0..x1`, `y0..y1`) with open air. Sky is k with a k and B dither where it meets the
-/// horizon, and below the horizon a B and k sea with a C crest. `cam_x` and `cam_y` place the view in the map so the dither is
-/// fixed to the world.
+/// Fills a rectangle of the view (`x0..x1`, `y0..y1`) with open air: the parallax stack of the slice's theme, clipped to the
+/// rectangle, so a layer's pixel appears only where a cell is open air and interior cells show the back wall.
 #[allow(clippy::too_many_arguments)]
 fn draw_open_air(
     cv: &mut Canvas,
     g: &Ground,
-    cam_x: i32,
-    cam_y: i32,
+    sky: &mut Option<Sky<'static>>,
+    (cam_x, cam_y, tick, full_sky): (i32, i32, u32, bool),
     x0: i32,
     x1: i32,
     y0: i32,
     y1: i32,
 ) {
-    let horizon = (g.h - 1 - HORIZON_ROW) * T;
-    for y in y0.max(0)..y1.min(cv.h) {
-        let wy = y + cam_y;
-        let d = horizon - wy;
-        if d >= 10 {
-            cv.fill(x0, y, x1 - x0, BLACK);
-            continue;
-        }
-        let Some((row, off)) = cv.row_mut(x0, y, x1 - x0) else {
-            continue;
-        };
-        let wx0 = x0 + off + cam_x;
-        if d > 0 {
-            // Sky above the horizon: a checker for four rows, then a sparse dot grid for six.
-            if d < 4 {
-                pattern::<2>(row, &CHECK_BLUE, ((wx0 + wy) & 1) as usize);
-            } else if wy & 1 == 0 {
-                pattern::<2>(row, &CHECK_BLUE, (wx0 & 1) as usize);
-            } else {
-                row.fill(BLACK);
-            }
-        } else {
-            // Sea: a C crest, then B, then a B and k checker.
-            let s = -d;
-            if s == 0 {
-                row.fill(CYAN);
-            } else if s < 3 {
-                let pat = if s == 1 { &CREST_1 } else { &CREST_2 };
-                pattern::<18>(row, pat, wx0.rem_euclid(18) as usize);
-            } else if s < 6 {
-                row.fill(BLUE);
-            } else {
-                pattern::<2>(row, &CHECK_BLACK, ((wx0 + wy) & 1) as usize);
-            }
-        }
+    let clip = Clip {
+        x0: x0.max(0),
+        y0: y0.max(0),
+        x1: x1.min(cv.w),
+        y1: y1.min(cv.h),
+    };
+    if clip.x0 >= clip.x1 || clip.y0 >= clip.y1 {
+        return;
     }
+    // The layers write each pixel of the rectangle once (the clear) and the headlands and sea once more where they are; the
+    // overdraw test counts it as twice, which is above what the sea and headlands cover.
+    count(2 * ((clip.x1 - clip.x0) * (clip.y1 - clip.y0)) as usize);
+    let (w, h) = (cv.w as usize, cv.h as usize);
+    // The stack is prepared for the frame once, when its first rectangle is drawn, and each rectangle then only composes rows.
+    let sky = sky.get_or_insert_with(|| {
+        let (layers, n) = stack(g, full_sky);
+        Sky::new(w, h, cam_x, cam_y, &layers[..n], tick)
+    });
+    sky.draw(cv.px, w, h, clip);
 }
 
+/// The most cells of another background between two runs of open air in a row of cells that the sky is drawn across, so that
+/// the two are one rectangle: four cells, whose sky costs less than the rows of a second rectangle.
+const OPEN_GAP: i32 = 4;
+
 /// Draws the background of every cell the view touches.
-fn backgrounds(cv: &mut Canvas, g: &Ground, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
+fn backgrounds(
+    cv: &mut Canvas,
+    g: &Ground,
+    win: &Window<'_, '_>,
+    (cam_x, cam_y, tick, full_sky): (i32, i32, u32, bool),
+) {
     let (r0, r1) = (cam_y.div_euclid(T), (cam_y + cv.h - 1).div_euclid(T));
     let (c0, c1) = (cam_x.div_euclid(T), (cam_x + cv.w - 1).div_euclid(T));
+    let mut sky = None;
     for r in r0..=r1 {
         let ya = (r * T).max(cam_y) - cam_y;
         let yb = ((r + 1) * T).min(cam_y + cv.h) - cam_y;
@@ -1092,10 +1159,39 @@ fn backgrounds(cv: &mut Canvas, g: &Ground, win: &Window<'_, '_>, cam_x: i32, ca
             Some(row) => row[(c - c0) as usize] >> 4,
             None => win.info(c, r) >> 4,
         };
+        // Open air first, as one rectangle from the first open-air cell of the row to the last, across gaps of up to
+        // `OPEN_GAP` other cells: the sky's cost is mostly for each row of a rectangle, and what it draws in a gap is drawn
+        // over next by the gap's own background (or, for a cell that needs none, by the solid cells that cover it).
+        let mut c = c0;
+        while c <= c1 {
+            if BACKS[usize::from(back(c))] != Back::Open {
+                c += 1;
+                continue;
+            }
+            let (mut e, mut end) = (c + 1, c + 1);
+            while e <= c1 && e - end < OPEN_GAP {
+                if BACKS[usize::from(back(e))] == Back::Open {
+                    end = e + 1;
+                }
+                e += 1;
+            }
+            let (x, len) = (c * T - cam_x, (end - c) * T);
+            draw_open_air(
+                cv,
+                g,
+                &mut sky,
+                (cam_x, cam_y, tick, full_sky),
+                x,
+                x + len,
+                ya,
+                yb,
+            );
+            c = end;
+        }
         let mut c = c0;
         while c <= c1 {
             let kind = back(c);
-            if BACKS[usize::from(kind)] == Back::Skip {
+            if matches!(BACKS[usize::from(kind)], Back::Skip | Back::Open) {
                 c += 1;
                 continue;
             }
@@ -1115,8 +1211,7 @@ fn backgrounds(cv: &mut Canvas, g: &Ground, win: &Window<'_, '_>, cam_x: i32, ca
             let x = c * T - cam_x;
             let len = (e - c) * T;
             match BACKS[usize::from(kind)] {
-                Back::Skip => {}
-                Back::Open => draw_open_air(cv, g, cam_x, cam_y, x, x + len, ya, yb),
+                Back::Skip | Back::Open => {}
                 Back::Wall => {
                     let first = (ya + cam_y).rem_euclid(96) as usize;
                     cv.table_rows(x, ya, yb - ya, len, &BACK_WALL, first, 96, c * T);
@@ -1490,6 +1585,35 @@ fn standing(cv: &mut Canvas, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
 /// Draws the map into the `w` by `h` frame, with the view's top left at (`cam_x`, `cam_y`) in map pixels (y down, as
 /// `fizz_view::follow` gives them). Every pixel of the frame is written.
 pub fn draw_ground(frame: &mut [u8], w: usize, h: usize, g: &Ground, cam_x: i32, cam_y: i32) {
+    draw_ground_at(frame, w, h, g, cam_x, cam_y, 0);
+}
+
+/// [`draw_ground`] at animation tick `tick`, which drifts the clouds of the open air.
+pub fn draw_ground_at(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    g: &Ground,
+    cam_x: i32,
+    cam_y: i32,
+    tick: u32,
+) {
+    draw_ground_sky(frame, w, h, g, cam_x, cam_y, tick, true);
+}
+
+/// [`draw_ground_at`] with the open air at a level of detail: `full_sky` draws the theme's whole parallax stack (the Sky
+/// setting's Full), and otherwise its stars and sea only (Light; see `stack`). Nothing but open air differs between the two.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_ground_sky(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    g: &Ground,
+    cam_x: i32,
+    cam_y: i32,
+    tick: u32,
+    full_sky: bool,
+) {
     let mut cv = Canvas::new(frame, w, h);
     if cv.w == 0 || cv.h == 0 {
         return;
@@ -1515,8 +1639,7 @@ pub fn draw_ground(frame: &mut [u8], w: usize, h: usize, g: &Ground, cam_x: i32,
             g,
             &mut [0; SMALL_CELLS],
             &mut [0; SMALL_CELLS],
-            cam_x,
-            cam_y,
+            (cam_x, cam_y, tick, full_sky),
         );
     } else if cells <= LARGE_CELLS {
         draw_cells(
@@ -1524,11 +1647,10 @@ pub fn draw_ground(frame: &mut [u8], w: usize, h: usize, g: &Ground, cam_x: i32,
             g,
             &mut [0; LARGE_CELLS],
             &mut [0; LARGE_CELLS],
-            cam_x,
-            cam_y,
+            (cam_x, cam_y, tick, full_sky),
         );
     } else {
-        draw_cells(&mut cv, g, &mut [], &mut [], cam_x, cam_y);
+        draw_cells(&mut cv, g, &mut [], &mut [], (cam_x, cam_y, tick, full_sky));
     }
 }
 
@@ -1539,13 +1661,12 @@ fn draw_cells(
     g: &Ground,
     tile: &mut [u8],
     info: &mut [u8],
-    cam_x: i32,
-    cam_y: i32,
+    (cam_x, cam_y, tick, full_sky): (i32, i32, u32, bool),
 ) {
     let (c_lo, c_hi, r_lo, r_hi) = cell_range(cv, cam_x, cam_y);
     let win = Window::new(g, tile, info, c_lo, c_hi, r_lo, r_hi);
     phase(PHASE_BACK);
-    backgrounds(cv, g, &win, cam_x, cam_y);
+    backgrounds(cv, g, &win, (cam_x, cam_y, tick, full_sky));
     phase(PHASE_DRESS);
     dressing(cv, &win, cam_x, cam_y);
     terrain(cv, &win, cam_x, cam_y);

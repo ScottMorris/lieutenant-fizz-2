@@ -473,7 +473,7 @@ pub fn draw_slice_captions(
         red_closed: map.switch(DOOR_RED_CHANNEL),
         blue_closed: map.switch(DOOR_BLUE_CHANNEL),
     };
-    oblique::draw_ground(frame, w, h, &ground, cam_x, cam_y);
+    oblique::draw_ground_at(frame, w, h, &ground, cam_x, cam_y, tick);
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
@@ -938,7 +938,7 @@ mod tests {
         (217, 0xe2b4b3606cd280b6, 0x2651474df9ae333c),
         (853, 0x713ceac5767e59fd, 0x713ceac5767e59fd),
         (873, 0x991efe7bea2e8eaf, 0x991efe7bea2e8eaf),
-        (1094, 0xb7012d211667f7a1, 0xb7012d211667f7a1),
+        (1094, 0xf0c5a4f0f739d3b3, 0xf0c5a4f0f739d3b3),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
         0xe950fb35cf350efa,
@@ -1078,9 +1078,9 @@ mod tests {
                 (700, 0x9412f4259f56cbc6),
                 (865, 0x912ea065a8cc2e5e),
                 (1000, 0x35b26d3a582a66d2),
-                (1268, 0x479dde26afaaf0cc),
-                (1450, 0x01e28223575a8186),
-                (1681, 0xfe798805dfc1bec2),
+                (1268, 0x62cf1ef918ae4519),
+                (1450, 0xf3c2b824bb5937c3),
+                (1681, 0xcf885255514a3ed0),
             ]
         );
         assert_eq!(
@@ -1095,9 +1095,9 @@ mod tests {
                 (700, 0x9412f4259f56cbc6),
                 (865, 0x912ea065a8cc2e5e),
                 (1000, 0x35b26d3a582a66d2),
-                (1268, 0x479dde26afaaf0cc),
-                (1450, 0x01e28223575a8186),
-                (1681, 0xfe798805dfc1bec2),
+                (1268, 0x62cf1ef918ae4519),
+                (1450, 0xf3c2b824bb5937c3),
+                (1681, 0xcf885255514a3ed0),
             ]
         );
     }
@@ -1785,12 +1785,12 @@ mod tests {
         assert_eq!(
             seen,
             [
-                ("stand", 0x2f3613629dbe437f),
-                ("look up", 0xc6c235ffbe015bb0),
-                ("look down", 0xd18f1401345cde86),
-                ("aim level", 0xb1e0ea5463506ecd),
-                ("aim up", 0xb2765016adde0555),
-                ("aim down", 0xcc0c9983691d74d5),
+                ("stand", 0x1deb726ac325be49),
+                ("look up", 0xab88c020fd4aef5c),
+                ("look down", 0xc91cd6e208d07cd4),
+                ("aim level", 0x6b2556fe3f543057),
+                ("aim up", 0x5b77750264e3bb31),
+                ("aim down", 0xdbd6e404040063b5),
             ]
         );
     }

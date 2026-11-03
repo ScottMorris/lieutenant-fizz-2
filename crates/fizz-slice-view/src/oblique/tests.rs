@@ -466,3 +466,125 @@ fn the_generated_data_is_what_the_bake_tool_writes() {
         Err(_) => std::eprintln!("skipped: bun is not installed, so the bake check did not run"),
     }
 }
+
+#[test]
+fn the_headland_heights_are_the_boards_sines_rounded() {
+    for (ix, &h) in HEADLAND_HEIGHTS.iter().enumerate() {
+        let ix = ix as f64;
+        let want =
+            (0.5 + 1.5 * (ix * 0.19 + 0.12 * 9.0).sin() + (ix * 0.067 + 0.12 * 20.0).sin()).round();
+        assert_eq!(f64::from(h), want, "column {ix}");
+    }
+}
+
+#[test]
+fn the_sprites_of_the_stack_are_as_designed() {
+    // The mountain tile: a peak from row 2 widening to the bottom, D only.
+    assert!(MTN_TOP.iter().all(|&p| p == 255 || p == DARK_GREY));
+    let on = |x: usize, y: usize| MTN_TOP[y * 16 + x] != 255;
+    for y in 0..16 {
+        for x in 0..16 {
+            let want = y as f64 >= (x as f64 - 7.5).abs() * 1.8 + 2.0;
+            assert_eq!(on(x, y), want, "({x}, {y})");
+        }
+    }
+    // The sea tile: nothing above row 10; crest, crest, checker, checker, B, B below.
+    assert!(SEA_TOP[..10 * 16].iter().all(|&p| p == 255));
+    for x in 0..16 {
+        assert_eq!(SEA_TOP[10 * 16 + x], if x % 6 < 4 { CYAN } else { 255 });
+        assert_eq!(SEA_TOP[11 * 16 + x], CYAN);
+        assert_eq!(SEA_TOP[14 * 16 + x], BLUE);
+        assert_eq!(SEA_TOP[15 * 16 + x], BLUE);
+    }
+}
+
+#[test]
+fn the_horizon_sits_on_map_row_39_at_the_gallery_camera() {
+    // An all-open map as tall as the slice: the sea's crest row (the first row with C) is the top of row 39 less the camera.
+    let data = vec![EMPTY; 32 * 48];
+    let g = Ground {
+        data: &data,
+        w: 32,
+        h: 48,
+        red_closed: true,
+        blue_closed: true,
+    };
+    let mut f = vec![0xEEu8; 320 * 200];
+    draw_ground(&mut f, 320, 200, &g, 100, HORIZON_CAM_Y);
+    let row_has = |y: usize, c: u8| f[y * 320..y * 320 + 320].contains(&c);
+    let map_y = (48 - 1 - HORIZON_ROW) * 16;
+    let crest = (map_y - HORIZON_CAM_Y) as usize;
+    assert!(row_has(crest, CYAN), "the crest is on row {crest}");
+    assert!(!row_has(crest - 1, CYAN));
+    // Above the sea the sky is dark with stars, headlands and clouds; below it is the sea's B and k.
+    assert!(f[..crest * 320].iter().all(|&p| p <= 15));
+    assert!(
+        f[(crest + 6) * 320..(crest + 20) * 320]
+            .iter()
+            .all(|&p| p == BLUE || p == BLACK)
+    );
+}
+
+#[test]
+fn layer_pixels_appear_only_where_a_cell_is_open_air() {
+    // The clouds drift with the tick and nothing else changes with it, so the pixels that differ between two ticks show where
+    // the layers can reach: every one lies in a cell whose background is open air.
+    let mut checked = 0;
+    let mut tick = 0u64;
+    play(|w| {
+        tick += 1;
+        if tick % 60 != 1 {
+            return;
+        }
+        let (cx, cy) = camera(w, VIEW_W, VIEW_H);
+        let g = ground(w);
+        let (mut a, mut b) = (vec![0xEEu8; VIEW_W * VIEW_H], vec![0xEEu8; VIEW_W * VIEW_H]);
+        draw_ground_at(&mut a, VIEW_W, VIEW_H, &g, cx, cy, 0);
+        draw_ground_at(&mut b, VIEW_W, VIEW_H, &g, cx, cy, 6000);
+        for y in 0..VIEW_H {
+            for x in 0..VIEW_W {
+                if a[y * VIEW_W + x] != b[y * VIEW_W + x] {
+                    let (c, r) = (
+                        (x as i32 + cx).div_euclid(16),
+                        (y as i32 + cy).div_euclid(16),
+                    );
+                    assert!(
+                        !back_is_wall(&g, c, r),
+                        "tick {tick}: ({x}, {y}) differs under a wall cell"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+    });
+    assert!(
+        checked > 100,
+        "the replay shows clouds drifting ({checked} pixels)"
+    );
+}
+
+#[test]
+fn indoor_frames_pay_nothing_for_the_layers_and_every_frame_is_repeatable() {
+    let mut w = level::world();
+    w.ben.b.x = 9.0;
+    w.ben.b.y = 14.0;
+    let (cx, cy) = camera(&w, VIEW_W, VIEW_H);
+    let g = ground(&w);
+    let mut a = vec![0xEEu8; VIEW_W * VIEW_H];
+    WRITES.with(|c| c.set([(0, 0); PHASES]));
+    draw_ground_at(&mut a, VIEW_W, VIEW_H, &g, cx, cy, 77);
+    let px: u64 = WRITES.with(|c| c.get()).iter().map(|p| p.0).sum();
+    // Indoors no cell is open air, so no layer is asked to draw: the picture is the back wall, terrain and dressing alone.
+    assert!(px < 2 * (VIEW_W * VIEW_H) as u64, "{px} pixels written");
+    let mut b = vec![0xEEu8; VIEW_W * VIEW_H];
+    draw_ground_at(&mut b, VIEW_W, VIEW_H, &g, cx, cy, 77);
+    assert_eq!(a, b);
+    // And the same inputs give the same picture on a gallery frame, where the layers draw.
+    w.ben.b.x = 20.5;
+    w.ben.b.y = 38.0;
+    let (cx, cy) = camera(&w, VIEW_W, VIEW_H);
+    let g = ground(&w);
+    draw_ground_at(&mut a, VIEW_W, VIEW_H, &g, cx, cy, 301);
+    draw_ground_at(&mut b, VIEW_W, VIEW_H, &g, cx, cy, 301);
+    assert_eq!(a, b);
+}

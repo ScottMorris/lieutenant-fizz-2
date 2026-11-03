@@ -385,6 +385,12 @@ function bytes(t: Uint8Array, perLine: number, indent: string): string {
   return lines.join('\n');
 }
 
+function bytesSigned(v: number[]): string {
+  const lines: string[] = [];
+  for (let i = 0; i < v.length; i += 32) lines.push(`    ${v.slice(i, i + 32).join(', ')},`);
+  return lines.join('\n');
+}
+
 function tableItem(name: string, doc: string, rows: number, t: Uint8Array): string {
   return `/// ${doc}\npub static ${name}: [u8; ${PERIOD * rows}] = [\n${bytes(t, PERIOD, '    ')}\n];\n`;
 }
@@ -454,6 +460,12 @@ export function emit(): string {
   items.push(pieceItem('RAIL', 'One tile of railing; `(ox, oy)` is relative to the left edge and the top of the plank cell it stands on.', railPiece()));
   items.push(pieceItem('BRACKET', 'An iron bracket under a plank; `(ox, oy)` is relative to its leg and the bottom edge of the plank cell.', bracketPiece()));
   items.push(pieceItem('PORTHOLE', 'A porthole; `(ox, oy)` is relative to its centre.', portholePiece()));
+  // The far headlands of the Lighthouse stack: column heights in tiles, rounded from a sum of two sines (the board's: 0.5 +
+  // 1.5 sin(ix * 0.19 + f * 9) + sin(ix * 0.067 + f * 20) at f = 0.12), so no sine runs at draw time.
+  const headland = Array.from({ length: 256 }, (_, ix) => Math.round(0.5 + 1.5 * Math.sin(ix * 0.19 + 0.12 * 9) + Math.sin(ix * 0.067 + 0.12 * 20)));
+  items.push(
+    `/// Height in tiles of each 16 px column of the far headlands, \`round(0.5 + 1.5 sin(ix 0.19 + 1.08) + sin(ix 0.067 + 2.4))\`; a column index wraps at 256.\npub static HEADLAND_HEIGHTS: [i8; 256] = [\n${bytesSigned(headland)}\n];\n`,
+  );
   const odd = (dark: string) => (a: number, b: number) => ((a + b) % 2 ? 'k' : dark);
   const side = 'relative to the near plane\'s right edge and the strip\'s far edge';
   items.push(sideItem('SIDE_STONE', `The right side face of a stone prism, 16 px tall; \`(ox, oy)\` is ${side}.`, sidePiece(T, odd('D'))));
