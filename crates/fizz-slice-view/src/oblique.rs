@@ -192,6 +192,12 @@ fn count(_n: usize) {
     }
 }
 
+/// Whether a fixed move of 32 bytes or more is a call. On 32-bit x86 (the DOS build, which has no vector registers and is built
+/// for size) the compiler inlines a fixed move of up to 16 bytes as dword moves and makes anything larger a call to `memcpy` or
+/// `memset`, so two overlapping fixed moves would cost two calls and their set-up; there one call moves a run of 32 or more. Where
+/// the moves are vector registers (x86-64, WebAssembly) two of them are cheaper than any call. The pixels are the same either way.
+const ONE_CALL_FROM_32: bool = cfg!(target_arch = "x86");
+
 /// Moves `N` bytes from the start (or the end) of `src` to the start (or the end) of `dst`, as one fixed-size assignment.
 #[inline(always)]
 fn mov<const N: usize>(dst: &mut [u8], src: &[u8], end: bool) {
@@ -211,7 +217,9 @@ fn mov<const N: usize>(dst: &mut [u8], src: &[u8], end: bool) {
 fn copy_to(dst: &mut [u8], src: &[u8]) {
     let n = dst.len();
     let src = &src[..n];
-    if n < 8 {
+    if ONE_CALL_FROM_32 && n >= 32 {
+        dst.copy_from_slice(src);
+    } else if n < 8 {
         if n >= 4 {
             mov::<4>(dst, src, false);
             mov::<4>(dst, src, true);
@@ -254,7 +262,7 @@ fn set<const N: usize>(dst: &mut [u8], c: u8, end: bool) {
 #[inline(always)]
 fn fill_to(dst: &mut [u8], c: u8) {
     let n = dst.len();
-    if n > 64 {
+    if n > 64 || (ONE_CALL_FROM_32 && n >= 32) {
         dst.fill(c);
     } else if n >= 32 {
         set::<32>(dst, c, false);
@@ -280,6 +288,10 @@ fn fill_to(dst: &mut [u8], c: u8) {
 macro_rules! by_length {
     ($n:expr, |$copy:ident| $body:expr) => {
         match $n {
+            32.. if ONE_CALL_FROM_32 => {
+                let $copy = |d: &mut [u8], s: &[u8]| d.copy_from_slice(s);
+                $body
+            }
             129.. => {
                 let $copy = |d: &mut [u8], s: &[u8]| d.copy_from_slice(s);
                 $body
