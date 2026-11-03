@@ -843,13 +843,13 @@ cfg_none
 # `can` events). Fzzt (id 4), boing (12) and jump (13) play Fizz 1's own DOS-port records and speaker lists (assets/sfx/fizz1-dos.ts),
 # which are longer in records for the fzzt (198, from 69) and the jump (73, from 57) and shorter for the boing (81, from 185); the
 # jump's speaker list is 18 frames (from 12), the boing's 18 (from 56) and the fzzt's still 16. The soda (id 17) is a downmix of 157
-# records and 28 speaker frames. With the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
+# records and 28 speaker frames. With the exit on an Up press (the 1,800-tick replay, measured in DOSBox one case at a time) the totals are 7,375, 7,396, 14,682 and 1,392 speaker steps; with the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
 # 5,993, 11,876 and 1,388 with the cans but the FM-era fzzt, boing and jump, and 5221, 5242, 10382 and 1213 before the boing and the
 # jump were Fizz 1's at all; 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
-#   7345: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,325 records of the effects.
-#   7366: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
-#   14622: the OPL3 pair = 41 start and stop writes, twice the 7,325 records, less 69 enables (one per effect, left to channel 5).
-#   1388 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+#   7375: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,355 records of the effects.
+#   7396: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   14682: the OPL3 pair = 41 start and stop writes, twice the 7,355 records, less 69 enables (one per effect, left to channel 5).
+#   1392 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
 #   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
@@ -859,10 +859,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-par audio_count 'ch5 on an OPL2 (7345)' "$(sb sb1)" '7345 SPEAKER STEPS 0' /MODERN /ADLIB
-par audio_count 'ch5 through the OR rule on an OPL3 (7366)' "$SB16" '7366 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-par audio_count 'the OPL3 pair (14622)' "$SB16" '14622 SPEAKER STEPS 0' /SB
-par audio_count 'the PC speaker (1388 steps)' '' '0 SPEAKER STEPS 1388' /SPEAKER
+par audio_count 'ch5 on an OPL2 (7375)' "$(sb sb1)" '7375 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (7396)' "$SB16" '7396 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (14682)' "$SB16" '14682 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1392 steps)' '' '0 SPEAKER STEPS 1392' /SPEAKER
 par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 par_wait
 
