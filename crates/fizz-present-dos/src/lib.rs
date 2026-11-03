@@ -32,7 +32,18 @@ pub const FRAME_BYTES: usize = WIDTH * HEIGHT;
 
 /// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
 /// banner, which would add text over the picture. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
-pub const DIGEST_TICKS: [u64; 11] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000];
+/// Tick 1190 is on the gallery, with open air over most of the top of the picture, so the sky's pixels are compared too.
+pub const DIGEST_TICKS: [u64; 12] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000, 1190];
+
+/// The shared picture's options for `FIZZ2.EXE` with a `FIZZ2.CFG` of defaults: captions on, Full motion, and the Light sky
+/// (the stars and the sea), which is the DOS default because the whole parallax night does not fit a 60 Hz frame on the
+/// 486DX2-66 floor. The Web's default sky is Full.
+pub fn dos_default_options() -> DrawOptions {
+    DrawOptions {
+        full_sky: false,
+        ..DrawOptions::default()
+    }
+}
 
 /// An FNV-1a digest of the whole frame: the shared picture and the HUD box over it. The DOS bench and the host `frames`
 /// example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any faster routine) is proved to

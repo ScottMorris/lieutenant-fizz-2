@@ -71,6 +71,16 @@ Other things Ben does raise a word where they happen, in the colours of Lieutena
 
 A jump has no word, but it has a sound. The same word is left out if it comes again within about a fifth of a second (so a fast run of shots does not pile up `fzzt`), at most six words show at once (a seventh replaces the first), and a word is left out if its spot is more than a tile outside the picture. Each word stays where it appeared while the view moves, rises a little and fades over about a second, on the Web and on DOS alike.
 
+### The sky
+
+Where the level is open to the night (the gallery at the top), you see the sky behind it. The Sky setting chooses how much of it is drawn:
+
+- **Full** — the whole night: white, cyan and yellow stars, small blue clouds drifting slowly to the right, grey headlands far away and the sea with its teal crest, each sliding past at its own speed as you move.
+- **Light** — the stars and the sea only, over a black sky. The clouds and the headlands are left out. Nothing else changes: the level, the walls and everything you can touch look the same, and the game plays the same.
+
+- **Web:** Full, unless you change the Sky row of the Options screen. The page remembers your choice on this browser, if the browser allows it to.
+- **DOS:** Light, because the whole night takes more time to draw than a 486DX2-66, the slowest computer the DOS version aims at, has in a sixtieth of a second. Full is there for a faster computer or a faster emulator setting: choose it on the Sky row of the Options screen, which saves it in `FIZZ2.CFG`, or start with `FIZZ2.EXE /SKY:FULL` for one run (`/SKY:LIGHT` is the opposite). On the slowest computers the Full sky can make the gallery stutter, and with Auto frame rate the game may then draw 30 pictures a second instead of 60.
+
 ### Sound effects
 
 Every one of those words has a sound that plays at the same moment, and so does the jump, as in Lieutenant Fizz 1: `fzzt` is Lieutenant Fizz 1's fizz (a burst of noise over a sliding tone, a buzzing zap on DOS), `fizzled` a short wobbling sputter, `bonk` a deep knock, `whoa!` a long falling cry, `ta-da!` a rising flourish that ends on a long bell-like note, the gumdrops three quick rising notes, `clunk` a low thud when Ben bumps his head (a door opening has its own sound, a slow low creak that ends in a soft latch, under the same word), `click - no fizz` a tiny high tick, `boing` a ragged, fading wobble with a quick bright blip on the Web and three struck notes on DOS (as in Lieutenant Fizz 1), the jump a short stepped rising chirp on the Web and two struck notes on DOS (as in Lieutenant Fizz 1) and `crunch` a noisy crackle with two quick notes. The chicken keeps its four clucks.
@@ -104,7 +114,7 @@ On the Web, press `F` or use the Fullscreen row of the Options screen to fill th
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn; see [Frame rate on DOS](#frame-rate-on-dos).
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn (see [Frame rate on DOS](#frame-rate-on-dos)), and `/SKY:FULL` and `/SKY:LIGHT` (see [The sky](#the-sky)).
 
 - `/LIVE` — you play the slice. Esc opens the pause menu (Resume, Options, Quit to DOS). The run ends when you choose Quit to DOS, or by itself after 30 seconds of real time (time spent in the menu counts), and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 29 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door, plays in the snack nook (snacks, a soda can that refills the empty blaster, a head bump, the pogo, the blue key and door) and walks into the exit. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
@@ -120,7 +130,7 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 
 ### Command-line switches
 
-Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/CHECKCELLS`, `/PROBE`), options (`/MODERN`, `/KEEN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/PROBE`), options (`/MODERN`, `/KEEN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`, `/SKY:x`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
 
 The help screen, as `FIZZ2.EXE /?` prints it:
 
@@ -131,7 +141,6 @@ Modes (the first one given is used; /LIVE is the default)
   /REPLAY       Run the built-in script and print its transcript
   /BENCH [n]    Time the script (first n ticks) and print the costs
   /CHECK        Show the machine check; Esc leaves, Enter plays
-  /CHECKCELLS   Draw the check screen and print its cells; no key
   /PROBE        Print what the machine has: video, sound, processor
   /?            Show this help (also /HELP and -?); nothing else runs
 Options (for this run; where one has an opposite, the last one given wins)
@@ -142,6 +151,7 @@ Options (for this run; where one has an opposite, the last one given wins)
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
   /FPS60        Draw 60 frames a second
   /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
+  /SKY:x        Sky: FULL night, or LIGHT (stars and sea, the DOS default)
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF
@@ -152,7 +162,7 @@ Sound (for this run only; FIZZ2.CFG keeps your saved choice)
 Exit status: 0 after help, 2 for a switch FIZZ2.EXE does not know.
 ```
 
-If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a sound switch with a value it does not know, such as `/MUSIC:FOO`. Three testing switches, `/PANIC`, `/CFGTEST` and `/OPTIONS` (which opens the Options screen at once, over the first picture of the level, and leaves when you press Esc), work but are left out of the list because they are not for playing.
+If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a switch with a value it does not know, such as `/MUSIC:FOO` or `/SKY:DIM`. Four testing switches, `/CHECKCELLS` (see [DOS modes](#dos-modes)), `/PANIC`, `/CFGTEST` and `/OPTIONS` (which opens the Options screen at once, over the first picture of the level, and leaves when you press Esc), work but are left out of the list because they are not for playing; the screen has room for 25 lines.
 
 ### Choosing your sound on DOS
 
@@ -166,7 +176,7 @@ You can choose for one run with these options, which combine with the other opti
 
 When two options disagree, the last one wins.
 
-To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)), whether the screen shakes and spins when Ben dies (Motion: Full or Reduced), how sound effects are placed (Enhanced, or Classic with every effect centred at full volume), the captions (On or Off) and the key layout (Keen or Modern). When you ask for none of these on the command line, the file's choice is used, and a choice you give on the command line wins over the file for that run only. `/KEEN`, `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS` are the switches for the last two. The game writes the file itself when you leave the Options screen after changing something; see [Options on DOS](#options-on-dos). A value in the file that the game does not understand resets only that one choice to its usual setting. Older files, from earlier builds, are still read.
+To keep a choice between runs, the game reads a small file called `FIZZ2.CFG` from the folder you start it in. It also holds a frame-rate choice (see [Frame rate on DOS](#frame-rate-on-dos)), whether the screen shakes and spins when Ben dies (Motion: Full or Reduced), how sound effects are placed (Enhanced, or Classic with every effect centred at full volume), the captions (On or Off), the key layout (Keen or Modern) and the sky (Light or Full; see [The sky](#the-sky)). When you ask for none of these on the command line, the file's choice is used, and a choice you give on the command line wins over the file for that run only. `/KEEN`, `/MODERN`, `/CAPTIONS` and `/NOCAPTIONS` are the switches for the last two. The game writes the file itself when you leave the Options screen after changing something; see [Options on DOS](#options-on-dos). A value in the file that the game does not understand resets only that one choice to its usual setting. Older files, from earlier builds, are still read.
 
 ### Frame rate on DOS
 
@@ -208,6 +218,7 @@ On the Options screen Up and Down choose a row, Left goes back one choice and Ri
 - **Motion** — Full or Reduced: whether the screen shakes and Ben spins when he dies.
 - **Captions** — On or Off: the words above a chicken when it clucks.
 - **Keys** — Keen or Modern. The new keys work from the next key you press.
+- **Sky** — Light or Full: how much of the night sky is drawn behind the gallery (see [The sky](#the-sky)). Light is the usual setting on DOS.
 - **Back** — returns to the pause menu.
 
 Every change takes effect as you make it. When you leave the Options screen after changing something, the game saves your choices in `FIZZ2.CFG`, the file described under [Choosing your sound on DOS](#choosing-your-sound-on-dos). A screen you visit without changing anything writes nothing. If the file cannot be written (the disk is full or write-protected, or the file is read-only), the pause menu shows `Could not write FIZZ2.CFG` in light red, your changes still hold for the rest of this run, and the game carries on.
@@ -227,6 +238,7 @@ The switches that stand for each row are in this table; for each row the file's 
 | Motion | none |
 | Captions | `/CAPTIONS`, `/NOCAPTIONS` |
 | Keys | `/KEEN`, `/MODERN` |
+| Sky | `/SKY:FULL`, `/SKY:LIGHT` |
 
 It has not been tried on a real computer: how long the save takes on a floppy disk, and how the keys repeat when you hold one down in the menu, are untested.
 
@@ -253,7 +265,7 @@ The level is drawn as if you were looking at it from a little above and in front
 - **Stone and brick.** Solid walls and floors are grey stone, darker and plainer deeper inside the walls, and red brick; their light-grey tops are floors you can stand on. You cannot pass through them.
 - **Doors.** The red door and the blue door are tall wooden doors with an iron lock. Each has a white badge so that you can tell them apart without the colours: a triangle on the red door and a circle on the blue one. An open door is not drawn at all, and you see the room behind it.
 - **Spikes.** Grey spikes with white tips, in two rows, stand on the floor.
-- **Open air.** The gallery is open to a night sky of white, cyan and yellow stars with a few small blue clouds drifting by, grey headlands far away and a blue sea with a teal crest. They are far off, so they slide past more slowly than the walls and ledges as you move.
+- **Open air.** The gallery is open to a night sky of white, cyan and yellow stars over a blue sea with a teal crest. They are far off, so they slide past more slowly than the walls and ledges as you move. With the Sky setting on Full there are also a few small blue clouds drifting by and grey headlands far away; DOS starts on Light, without them (see [The sky](#the-sky)).
 
 Snacks and keys are small pictures that bob in place.
 
@@ -385,6 +397,7 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 | Captions | On, Off | The words where things happen, the same as `V`; the sounds stay |
 | Keys | Keen, Modern | Which set of keys you play with |
 | Fullscreen | Off, On | The same as `F`; it is left out where the browser cannot go fullscreen |
+| Sky | Full, Light | How much of the night sky is drawn behind the gallery; see [The sky](#the-sky) |
 | Back | | Goes back one screen |
 
 `Esc` goes back one screen from Options, so it takes you to Paused, and again to the game. If you start with `?audio=classic` or `?audio=enhanced` at the end of the address, the Placement row shows a `*` and a line under the rows says it was set by the address and that changing it applies to this visit; change the row and the star goes. The page keeps all of your choices on this browser, if the browser allows it to, and reads the settings saved by older versions of the page the first time. If the setting for reduced motion is on, or Motion is Reduced, the plate and the can hold still. A screen reader is told the screen's name, then each row and its value as you move, and each change as you make it. Nobody has used the screens with a screen reader or in a real browser yet.
@@ -417,7 +430,7 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values, the sound effects and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place each sound by where it happens on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
-- **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS`, `/SKY:x` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the DOS version starts with the Light sky and the Web version with the Full one (see [The sky](#the-sky)); the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 

@@ -13,7 +13,7 @@
 
 use fizz_machine::{
     Captions, FrameRate, FxChoice, Keys, Motion, MusicChoice, PlacementMode, Prefs, Resolved,
-    SoundState,
+    SkyDetail, SoundState,
 };
 use fizz_machine::{FxPlan, MusicPlan};
 
@@ -127,6 +127,7 @@ pub struct Values {
     pub placement: PlacementMode,
     pub captions: Captions,
     pub keys: Keys,
+    pub sky: SkyDetail,
     /// Web only; not in `Prefs`.
     pub fullscreen: bool,
 }
@@ -145,6 +146,7 @@ impl Values {
             placement: prefs.placement,
             captions: prefs.captions,
             keys: prefs.keys,
+            sky: prefs.sky,
             fullscreen: false,
         }
     }
@@ -162,6 +164,7 @@ impl Values {
         prefs.placement = self.placement;
         prefs.captions = self.captions;
         prefs.keys = self.keys;
+        prefs.sky = self.sky;
         prefs
     }
 }
@@ -178,6 +181,8 @@ impl RowId {
     /// The Web's Sound row (On or Off for the effects).
     pub const SOUND: RowId = RowId(8);
     pub const FULLSCREEN: RowId = RowId(9);
+    /// The Sky: Full, or Light (the stars and the sea).
+    pub const SKY: RowId = RowId(14);
 }
 
 /// The note to draw when any row shows `*`.
@@ -271,7 +276,10 @@ impl Default for RowList {
     }
 }
 
-const DOS_ROWS: [RowId; 8] = [
+/// The most rows a platform's Options screen has.
+const MAX_IDS: usize = 9;
+
+const DOS_ROWS: [RowId; 9] = [
     RowId::MUSIC,
     RowId::EFFECTS,
     RowId::PLACEMENT,
@@ -279,10 +287,11 @@ const DOS_ROWS: [RowId; 8] = [
     RowId::MOTION,
     RowId::CAPTIONS,
     RowId::KEYS,
+    RowId::SKY,
     RowId::BACK,
 ];
 
-const WEB_ROWS: [RowId; 8] = [
+const WEB_ROWS: [RowId; 9] = [
     RowId::SOUND,
     RowId::MUSIC,
     RowId::PLACEMENT,
@@ -290,15 +299,16 @@ const WEB_ROWS: [RowId; 8] = [
     RowId::CAPTIONS,
     RowId::KEYS,
     RowId::FULLSCREEN,
+    RowId::SKY,
     RowId::BACK,
 ];
 
 /// The ids of the rows on `caps`' platform, in order.
-fn ids(caps: &Caps) -> ([RowId; 8], usize) {
+fn ids(caps: &Caps) -> ([RowId; MAX_IDS], usize) {
     match caps.platform {
         Platform::Dos => (DOS_ROWS, DOS_ROWS.len()),
         Platform::Web => {
-            let mut out = [RowId::BACK; 8];
+            let mut out = [RowId::BACK; MAX_IDS];
             let mut n = 0;
             for id in WEB_ROWS {
                 if id == RowId::FULLSCREEN && !caps.fullscreen {
@@ -325,6 +335,7 @@ fn label(platform: Platform, id: RowId) -> &'static str {
         (_, RowId::BACK) => "Back",
         (_, RowId::SOUND) => "Sound",
         (_, RowId::FULLSCREEN) => "Fullscreen",
+        (_, RowId::SKY) => "Sky",
         _ => "",
     }
 }
@@ -377,6 +388,7 @@ fn index(platform: Platform, id: RowId, v: &Values) -> usize {
         (_, RowId::CAPTIONS) => on(v.captions == Captions::Off),
         (_, RowId::KEYS) => on(v.keys == Keys::Modern),
         (_, RowId::FULLSCREEN) => on(v.fullscreen),
+        (_, RowId::SKY) => on(v.sky == SkyDetail::Light),
         _ => 0,
     }
 }
@@ -413,6 +425,13 @@ fn set(platform: Platform, id: RowId, v: &mut Values, i: usize) {
         (_, RowId::CAPTIONS) => v.captions = if i == 0 { Captions::On } else { Captions::Off },
         (_, RowId::KEYS) => v.keys = if i == 0 { Keys::Keen } else { Keys::Modern },
         (_, RowId::FULLSCREEN) => v.fullscreen = i == 1,
+        (_, RowId::SKY) => {
+            v.sky = if i == 0 {
+                SkyDetail::Full
+            } else {
+                SkyDetail::Light
+            }
+        }
         _ => {}
     }
 }
@@ -470,6 +489,7 @@ fn word(caps: &Caps, id: RowId, i: usize) -> Text {
         (_, RowId::CAPTIONS) => Text::join(&[on_off(i == 1)]),
         (_, RowId::KEYS) => Text::join(&[["Keen", "Modern"][i]]),
         (_, RowId::FULLSCREEN) => Text::join(&[on_off(i == 0)]),
+        (_, RowId::SKY) => Text::join(&[["Full", "Light"][i]]),
         _ => Text::EMPTY,
     }
 }
@@ -511,7 +531,7 @@ impl OptionsScreen {
         let mut entries = [Entry {
             id: RowId::BACK,
             kind: Kind::Action,
-        }; 8];
+        }; MAX_IDS];
         for (e, id) in entries.iter_mut().zip(ids).take(n) {
             e.id = id;
             e.kind = if id == RowId::BACK {
@@ -690,6 +710,7 @@ mod tests {
                 "Motion",
                 "Captions",
                 "Keys",
+                "Sky",
                 "Back"
             ]
         );
@@ -711,11 +732,12 @@ mod tests {
                 "Captions",
                 "Keys",
                 "Fullscreen",
+                "Sky",
                 "Back"
             ]
         );
         let without = ids_of(&screen(), &Caps::web(false));
-        assert_eq!(without.len(), 7);
+        assert_eq!(without.len(), 8);
         assert!(without.iter().all(|r| r.0 != "Fullscreen"));
     }
 
@@ -724,7 +746,7 @@ mod tests {
         let caps = sb16();
         let mut s = screen();
         assert_eq!(s.key(MenuKey::Up, &caps), Outcome::Moved);
-        assert_eq!(s.cursor, 7);
+        assert_eq!(s.cursor, 8);
         assert_eq!(s.key(MenuKey::Confirm, &caps), Outcome::Closed);
         assert_eq!(s.key(MenuKey::Back, &caps), Outcome::Closed);
         assert!(!s.changed);
@@ -851,7 +873,7 @@ mod tests {
             s.key(k, &caps);
         }
         assert!(!s.changed);
-        s.cursor = 7;
+        s.cursor = 8;
         s.key(MenuKey::Confirm, &caps);
         s.key(MenuKey::Left, &caps);
         assert!(!s.changed);
@@ -919,6 +941,7 @@ mod tests {
             (RowId::PLACEMENT, "Enhanced", "Classic"),
             (RowId::CAPTIONS, "On", "Off"),
             (RowId::KEYS, "Keen", "Modern"),
+            (RowId::SKY, "Light", "Full"),
         ] {
             goto(&mut s, &caps, row);
             assert_eq!(value(&s, &caps, row), first);
@@ -942,6 +965,7 @@ mod tests {
         prefs.placement = PlacementMode::Classic;
         prefs.captions = Captions::Off;
         prefs.keys = Keys::Modern;
+        prefs.sky = SkyDetail::Full;
         assert_eq!(Values::from_prefs(&prefs).to_prefs(), prefs);
         assert_eq!(Values::from_prefs(&Prefs::default()), Values::default());
         let system = Values {

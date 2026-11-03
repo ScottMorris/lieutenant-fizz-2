@@ -46,19 +46,33 @@ impl Stopwatch {
     }
 }
 
-/// The sum, count and largest of one section's samples, in PIT clocks.
+/// The sum, count and largest of one section's samples, in PIT clocks, and the tick the largest was taken at.
 #[derive(Clone, Copy, Default)]
 pub struct Stat {
     sum: u64,
     max: u64,
     count: u64,
+    max_at: u64,
 }
 
 impl Stat {
     fn add(&mut self, clocks: u64) {
+        self.add_at(clocks, 0);
+    }
+
+    /// Adds a sample taken at world tick `tick`.
+    fn add_at(&mut self, clocks: u64, tick: u64) {
         self.sum += clocks;
-        self.max = self.max.max(clocks);
+        if clocks > self.max || self.count == 0 {
+            self.max = clocks;
+            self.max_at = tick;
+        }
         self.count += 1;
+    }
+
+    /// The world tick of the largest sample (0 when the samples carried none).
+    pub fn max_tick(&self) -> u64 {
+        self.max_at
     }
 
     pub fn avg_us(&self) -> u64 {
@@ -240,9 +254,9 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
                 frame_count += 1;
             }
             step.add((t1 - t0).saturating_sub(cost));
-            draw.add((t2 - t1).saturating_sub(cost));
+            draw.add_at((t2 - t1).saturating_sub(cost), world.tick.0);
             copy.add((t3 - t2).saturating_sub(cost));
-            total.add((t3 - t0).saturating_sub(3 * cost));
+            total.add_at((t3 - t0).saturating_sub(3 * cost), world.tick.0);
         }
     }
     (

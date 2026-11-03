@@ -48,12 +48,12 @@ class Memory implements StorageLike {
   }
 }
 
-const some: Options = { sound: 'off', music: 'off', placement: 'classic', motion: 'reduced', captions: 'off', keys: 'modern' };
+const some: Options = { sound: 'off', music: 'off', placement: 'classic', motion: 'reduced', captions: 'off', keys: 'modern', sky: 'full' };
 
 describe('the blob', () => {
   test('serialises version first and parses back', () => {
     const text = serialiseOptions(some);
-    expect(text).toBe('{"v":1,"sound":"off","music":"off","placement":"classic","motion":"reduced","captions":"off","keys":"modern"}');
+    expect(text).toBe('{"v":1,"sound":"off","music":"off","placement":"classic","motion":"reduced","captions":"off","keys":"modern","sky":"full"}');
     expect(parseOptions(text)).toEqual(some);
     expect(parseOptions(serialiseOptions(DEFAULT_OPTIONS))).toEqual(DEFAULT_OPTIONS);
   });
@@ -70,7 +70,7 @@ describe('the blob', () => {
   });
 
   test('the defaults are the settings of a fresh visit', () => {
-    expect(DEFAULT_OPTIONS).toEqual({ sound: 'on', music: 'on', placement: 'enhanced', motion: 'system', captions: 'on', keys: 'keen' });
+    expect(DEFAULT_OPTIONS).toEqual({ sound: 'on', music: 'on', placement: 'enhanced', motion: 'system', captions: 'on', keys: 'keen', sky: 'full' });
   });
 });
 
@@ -170,6 +170,7 @@ describe('the module rows', () => {
   test('the ids are the module\'s', () => {
     expect([ROW.music, ROW.placement, ROW.motion, ROW.captions, ROW.keys, ROW.back, ROW.sound, ROW.fullscreen]).toEqual([0, 2, 4, 5, 6, 7, 8, 9]);
     expect([ROW.resume, ROW.options, ROW.restart]).toEqual([10, 11, 13]);
+    expect(ROW.sky).toBe(14);
   });
 
   test('pushing and pulling round-trip through the module\'s indexes', () => {
@@ -182,6 +183,10 @@ describe('the module rows', () => {
     expect(pullOptions(app)).toEqual(some);
     pushOptions(app, { ...some, motion: 'full' });
     expect(mem.get(ROW.motion)).toBe(2);
+    expect(mem.get(ROW.sky)).toBe(0);
+    pushOptions(app, { ...some, sky: 'light' });
+    expect(mem.get(ROW.sky)).toBe(1);
+    expect(pullOptions(app).sky).toBe('light');
   });
 });
 

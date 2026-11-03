@@ -57,6 +57,17 @@ pub enum Motion {
     Reduced,
 }
 
+/// How much of a level's open-air background is drawn: the Sky row of Options, byte 8 of `FIZZ2.CFG` (the detail level that
+/// Fizz 1's DOS port has for its backdrop layers), and the `/SKY:FULL` and `/SKY:LIGHT` switches. Light, the stars and the sea
+/// only, is the DOS default because the whole parallax night does not fit a 60 Hz frame on the 486DX2-66 floor; Full is the
+/// Web's default and is there for a faster machine or emulator. The rules never see it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SkyDetail {
+    #[default]
+    Light,
+    Full,
+}
+
 /// How effects are placed in the stereo field.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PlacementMode {
@@ -85,7 +96,8 @@ pub enum Keys {
     Modern,
 }
 
-/// Everything `FIZZ2.CFG` holds: the sound choices, the frame rate and the choices about motion, placement, captions and keys.
+/// Everything `FIZZ2.CFG` holds: the sound choices, the frame rate and the choices about motion, placement, captions, keys and
+/// the sky.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Prefs {
     pub sound: Settings,
@@ -94,6 +106,7 @@ pub struct Prefs {
     pub placement: PlacementMode,
     pub captions: Captions,
     pub keys: Keys,
+    pub sky: SkyDetail,
 }
 
 /// Why part of `FIZZ2.CFG` was not used. The field or fields concerned fall back to their defaults.
@@ -119,6 +132,8 @@ pub enum ConfigIssue {
     BadCaptions,
     /// The keys byte is not 0 or 1.
     BadKeys,
+    /// The sky (detail level) byte is not 0 or 1.
+    BadSky,
 }
 
 impl ConfigIssue {
@@ -135,13 +150,15 @@ impl ConfigIssue {
             ConfigIssue::BadPlacement => "cfg-placement",
             ConfigIssue::BadCaptions => "cfg-captions",
             ConfigIssue::BadKeys => "cfg-keys",
+            ConfigIssue::BadSky => "cfg-sky",
         }
     }
 }
 
 /// The `FIZZ2.CFG` file. Version 3 is 13 bytes: bytes 0 to 3 are `FZ2C`, byte 4 the version (3), byte 5 the music choice (0 Auto,
 /// 1 Off, 2 AdLib, 3 Sound Blaster), byte 6 the effects choice (0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker), byte 7 the frame
-/// rate (0 Auto, 1 30 Hz, 2 60 Hz), byte 8 the detail level (reserved, written as 0, ignored on reading), byte 9 the motion (0 Full,
+/// rate (0 Auto, 1 30 Hz, 2 60 Hz), byte 8 the detail level, which is the sky (0 Light, 1 Full; builds before the setting wrote
+/// 0 there and did not read it, so their files read as Light, the DOS default), byte 9 the motion (0 Full,
 /// 1 Reduced), byte 10 the sound placement (0 Enhanced, 1 Classic), byte 11 the captions (0 On, 1 Off) and byte 12 the key layout
 /// (0 Keen, 1 Modern). Zero always means the default. Version 2 is the first nine bytes with version 2, and version 1 the first
 /// eight (music, effects and a reserved byte); both are still read, with the fields they lack at their defaults, and saving writes
@@ -168,7 +185,8 @@ impl Config {
 
     /// Reads a file's bytes. An empty slice (no file, or an empty one) is all defaults with no issue. A wrong length, magic or
     /// version makes every field its default; an unknown value makes only its own field its default. The first issue found is
-    /// returned. An older version gives the fields it has and leaves the rest at their defaults. The reserved byte is ignored.
+    /// returned. An older version gives the fields it has and leaves the rest at their defaults. Version 1's reserved byte is
+    /// ignored.
     pub fn parse_prefs(bytes: &[u8]) -> (Prefs, Option<ConfigIssue>) {
         if bytes.is_empty() {
             return (Prefs::default(), None);
@@ -212,6 +230,11 @@ impl Config {
                 1 => prefs.frame_rate = FrameRate::Hz30,
                 2 => prefs.frame_rate = FrameRate::Hz60,
                 _ => issue = issue.or(Some(ConfigIssue::BadFrameRate)),
+            }
+            match bytes[8] {
+                0 => {}
+                1 => prefs.sky = SkyDetail::Full,
+                _ => issue = issue.or(Some(ConfigIssue::BadSky)),
             }
         }
         if version >= 3 {
@@ -268,7 +291,7 @@ impl Config {
             music,
             fx,
             frame_rate,
-            0,
+            u8::from(prefs.sky == SkyDetail::Full),
             u8::from(prefs.motion == Motion::Reduced),
             u8::from(prefs.placement == PlacementMode::Classic),
             u8::from(prefs.captions == Captions::Off),
@@ -400,6 +423,7 @@ mod tests {
     const PLACEMENTS: [PlacementMode; 2] = [PlacementMode::Enhanced, PlacementMode::Classic];
     const CAPTIONS: [Captions; 2] = [Captions::On, Captions::Off];
     const KEYS: [Keys; 2] = [Keys::Keen, Keys::Modern];
+    const SKIES: [SkyDetail; 2] = [SkyDetail::Light, SkyDetail::Full];
 
     fn sample() -> Prefs {
         Prefs {
@@ -412,6 +436,7 @@ mod tests {
             placement: PlacementMode::Classic,
             captions: Captions::Off,
             keys: Keys::Modern,
+            sky: SkyDetail::Full,
         }
     }
 
@@ -425,22 +450,25 @@ mod tests {
                         for placement in PLACEMENTS {
                             for captions in CAPTIONS {
                                 for keys in KEYS {
-                                    let p = Prefs {
-                                        sound: Settings { music, fx },
-                                        frame_rate,
-                                        motion,
-                                        placement,
-                                        captions,
-                                        keys,
-                                    };
-                                    let bytes = Config::encode_prefs(&p);
-                                    assert_eq!(bytes.len(), 13);
-                                    assert_eq!(&bytes[..4], b"FZ2C");
-                                    assert_eq!(bytes[4], 3);
-                                    assert_eq!(bytes[8], 0);
-                                    assert_eq!(Config::parse_prefs(&bytes), (p, None));
-                                    assert_eq!(Config::parse(&bytes), (p.sound, None));
-                                    count += 1;
+                                    for sky in SKIES {
+                                        let p = Prefs {
+                                            sound: Settings { music, fx },
+                                            frame_rate,
+                                            motion,
+                                            placement,
+                                            captions,
+                                            keys,
+                                            sky,
+                                        };
+                                        let bytes = Config::encode_prefs(&p);
+                                        assert_eq!(bytes.len(), 13);
+                                        assert_eq!(&bytes[..4], b"FZ2C");
+                                        assert_eq!(bytes[4], 3);
+                                        assert_eq!(bytes[8], u8::from(sky == SkyDetail::Full));
+                                        assert_eq!(Config::parse_prefs(&bytes), (p, None));
+                                        assert_eq!(Config::parse(&bytes), (p.sound, None));
+                                        count += 1;
+                                    }
                                 }
                             }
                         }
@@ -448,14 +476,14 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2);
+        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2 * 2);
     }
 
     #[test]
     fn layout_is_exact() {
         assert_eq!(
             Config::encode_prefs(&sample()),
-            [b'F', b'Z', b'2', b'C', 3, 3, 4, 2, 0, 1, 1, 1, 1]
+            [b'F', b'Z', b'2', b'C', 3, 3, 4, 2, 1, 1, 1, 1, 1]
         );
         assert_eq!(
             Config::encode(&Settings::default()),
@@ -470,12 +498,13 @@ mod tests {
         assert_eq!(Config::parse_prefs(&zeros), (Prefs::default(), None));
         let d = Prefs::default();
         assert_eq!(
-            (d.motion, d.placement, d.captions, d.keys),
+            (d.motion, d.placement, d.captions, d.keys, d.sky),
             (
                 Motion::Full,
                 PlacementMode::Enhanced,
                 Captions::On,
-                Keys::Keen
+                Keys::Keen,
+                SkyDetail::Light
             )
         );
     }
@@ -603,7 +632,7 @@ mod tests {
         let base = sample();
         // (byte, bad value, the issue, the field it resets)
         type Reset = fn(&mut Prefs);
-        let cases: [(usize, u8, ConfigIssue, Reset); 7] = [
+        let cases: [(usize, u8, ConfigIssue, Reset); 8] = [
             (5, 4, ConfigIssue::BadMusic, |p| {
                 p.sound.music = MusicChoice::Auto
             }),
@@ -613,6 +642,7 @@ mod tests {
             (7, 3, ConfigIssue::BadFrameRate, |p| {
                 p.frame_rate = FrameRate::Auto
             }),
+            (8, 2, ConfigIssue::BadSky, |p| p.sky = SkyDetail::Light),
             (9, 2, ConfigIssue::BadMotion, |p| p.motion = Motion::Full),
             (10, 2, ConfigIssue::BadPlacement, |p| {
                 p.placement = PlacementMode::Enhanced
@@ -652,10 +682,32 @@ mod tests {
     }
 
     #[test]
-    fn the_reserved_byte_is_ignored() {
+    fn the_detail_byte_is_the_sky_and_version_1_s_reserved_byte_is_ignored() {
+        // Builds before the Sky setting wrote 0 in byte 8 and never read it: their files read as Light, the DOS default.
         let mut bytes = Config::encode_prefs(&sample());
-        bytes[8] = 9;
-        assert_eq!(Config::parse_prefs(&bytes), (sample(), None));
+        bytes[8] = 0;
+        assert_eq!(
+            Config::parse_prefs(&bytes),
+            (
+                Prefs {
+                    sky: SkyDetail::Light,
+                    ..sample()
+                },
+                None
+            )
+        );
+        let v2 = [b'F', b'Z', b'2', b'C', 2, 0, 0, 1, 1];
+        assert_eq!(
+            Config::parse_prefs(&v2),
+            (
+                Prefs {
+                    frame_rate: FrameRate::Hz30,
+                    sky: SkyDetail::Full,
+                    ..Prefs::default()
+                },
+                None
+            )
+        );
         let v1 = [b'F', b'Z', b'2', b'C', 1, 1, 1, 9];
         assert_eq!(
             Config::parse(&v1),
@@ -682,6 +734,7 @@ mod tests {
             ConfigIssue::BadPlacement,
             ConfigIssue::BadCaptions,
             ConfigIssue::BadKeys,
+            ConfigIssue::BadSky,
         ];
         for (i, a) in all.iter().enumerate() {
             for b in &all[i + 1..] {
@@ -692,6 +745,7 @@ mod tests {
         assert_eq!(ConfigIssue::BadPlacement.code(), "cfg-placement");
         assert_eq!(ConfigIssue::BadCaptions.code(), "cfg-captions");
         assert_eq!(ConfigIssue::BadKeys.code(), "cfg-keys");
+        assert_eq!(ConfigIssue::BadSky.code(), "cfg-sky");
     }
 
     #[test]

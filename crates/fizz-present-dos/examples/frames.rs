@@ -7,11 +7,14 @@
 // draws a different pixel is a failed check. Run it with `cargo run -p fizz-present-dos --example frames`.
 use fizz_ep2::{SLICE_SCRIPT, level, step};
 use fizz_present_dos::{
-    DIGEST_TICKS, DrawOptions, Frame, HEIGHT, ViewFx, WIDTH, frame_digest, render_slice_with,
+    DIGEST_TICKS, Frame, HEIGHT, ViewFx, WIDTH, dos_default_options, frame_digest,
+    render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame};
 
 fn main() {
+    // The options FIZZ2.EXE /BENCH draws with when FIZZ2.CFG holds the defaults, as tools/check-dos.sh runs it.
+    let options = dos_default_options();
     let mut world = level::world();
     let mut frame = Frame::new();
     let mut puffs = ViewFx::new();
@@ -20,9 +23,9 @@ fn main() {
         for _ in 0..frames {
             step(&mut world, InputFrame::from_transition(prev, now));
             prev = now;
-            puffs.observe(&world, WIDTH, HEIGHT, &DrawOptions::default());
+            puffs.observe(&world, WIDTH, HEIGHT, &options);
             if DIGEST_TICKS.contains(&world.tick.0) {
-                render_slice_with(&world, &mut frame, &DrawOptions::default(), &puffs);
+                render_slice_with(&world, &mut frame, &options, &puffs);
                 println!("BENCH FRAME {} {:016x}", world.tick.0, frame_digest(&frame));
             }
         }

@@ -33,6 +33,8 @@ export interface Options {
   motion: 'system' | 'reduced' | 'full';
   captions: 'on' | 'off';
   keys: 'keen' | 'modern';
+  /** `full` draws the whole parallax night in open air; `light` only its stars and sea. */
+  sky: 'full' | 'light';
 }
 
 export const DEFAULT_OPTIONS: Readonly<Options> = {
@@ -42,6 +44,7 @@ export const DEFAULT_OPTIONS: Readonly<Options> = {
   motion: 'system',
   captions: 'on',
   keys: 'keen',
+  sky: 'full',
 };
 
 export interface StorageLike {
@@ -57,6 +60,7 @@ const CHOICES: { [K in keyof Options]: readonly Options[K][] } = {
   motion: ['system', 'reduced', 'full'],
   captions: ['on', 'off'],
   keys: ['keen', 'modern'],
+  sky: ['full', 'light'],
 };
 
 const FIELDS = Object.keys(CHOICES) as (keyof Options)[];
@@ -173,6 +177,7 @@ export const ROW = {
   resume: 10,
   options: 11,
   restart: 13,
+  sky: 14,
 } as const;
 
 const ROW_NAMES = new Map<number, string>(Object.entries(ROW).map(([name, id]) => [id, name]));
@@ -185,6 +190,7 @@ export const ROW_OF: { [K in keyof Options]: { row: number; words: readonly Opti
   motion: { row: ROW.motion, words: ['system', 'reduced', 'full'] },
   captions: { row: ROW.captions, words: ['on', 'off'] },
   keys: { row: ROW.keys, words: ['keen', 'modern'] },
+  sky: { row: ROW.sky, words: ['full', 'light'] },
 };
 
 /** What the page asks the module for. */

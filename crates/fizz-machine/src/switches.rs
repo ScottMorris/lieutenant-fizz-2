@@ -8,7 +8,7 @@
 // A switch is added by adding one line to `SWITCHES` (and, if it does something new, a `Kind` and the code that acts on it). The
 // help text is written from the same lines, so a switch cannot be recognised without a help line or the reverse: the tests here
 // check both ways, and `tests/help.txt` holds the exact text. Matching is case-insensitive, as DOS reads a command line.
-use crate::settings::{Captions, FrameRate, Keys, Prefs, Settings, apply_flags};
+use crate::settings::{Captions, FrameRate, Keys, Prefs, Settings, SkyDetail, apply_flags};
 use core::fmt;
 
 /// What a mode switch asks the program to do. The first one on the command line is used; `Live` is the default.
@@ -44,6 +44,9 @@ pub enum Kind {
     BenchAudio,
     /// The frame rate for this run, over `FIZZ2.CFG`'s; the last one given wins.
     FrameRate(FrameRate),
+    /// The sky for this run, `/SKY:FULL` or `/SKY:LIGHT`, over `FIZZ2.CFG`'s; the last one given wins. The value is read by
+    /// [`sky_value`].
+    Sky,
     /// A sound choice, applied by `settings::apply_flags` (which also checks the value).
     Sound,
 }
@@ -145,7 +148,7 @@ pub const SWITCHES: &[Switch] = &[
     sw(
         "/CHECKCELLS",
         Arg::None,
-        Group::Modes,
+        Group::Developer,
         Kind::Mode(Mode::CheckCells),
         "Draw the check screen and print its cells; no key",
     ),
@@ -214,6 +217,13 @@ pub const SWITCHES: &[Switch] = &[
         Group::Options,
         Kind::FrameRate(FrameRate::Auto),
         "Draw 60 or 30 a second, whichever the machine keeps up with",
+    ),
+    sw(
+        "/SKY",
+        Arg::Value("x"),
+        Group::Options,
+        Kind::Sky,
+        "Sky: FULL night, or LIGHT (stars and sea, the DOS default)",
     ),
     sw(
         "/MUSIC",
@@ -359,6 +369,8 @@ pub struct Invocation {
     pub captions: Option<Captions>,
     /// The frame rate a flag chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
     pub frame_rate: Option<FrameRate>,
+    /// The sky a `/SKY:` switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Light, in force.
+    pub sky: Option<SkyDetail>,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
     /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
@@ -379,6 +391,9 @@ impl Invocation {
         }
         if let Some(r) = self.frame_rate {
             prefs.frame_rate = r;
+        }
+        if let Some(d) = self.sky {
+            prefs.sky = d;
         }
         prefs
     }
@@ -409,6 +424,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         keys: None,
         captions: None,
         frame_rate: None,
+        sky: None,
         bench_ticks: None,
         bench_audio: false,
     };
@@ -432,6 +448,10 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
             Kind::Keys(k) => run.keys = Some(k),
             Kind::Captions(c) => run.captions = Some(c),
             Kind::FrameRate(r) => run.frame_rate = Some(r),
+            Kind::Sky => match sky_value(arg) {
+                Some(d) => run.sky = Some(d),
+                None => return Parsed::Unknown(arg),
+            },
             Kind::Sound => {
                 if apply_flags(&mut Settings::default(), [arg]).applied != 1 {
                     return Parsed::Unknown(arg);
@@ -445,6 +465,18 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         None => {}
     }
     Parsed::Run(run)
+}
+
+/// The sky a `/SKY:` argument names: `FULL` or `LIGHT`, in any case; `None` for any other value.
+pub fn sky_value(arg: &str) -> Option<SkyDetail> {
+    let value = arg.split_once(':')?.1;
+    if value.eq_ignore_ascii_case("FULL") {
+        Some(SkyDetail::Full)
+    } else if value.eq_ignore_ascii_case("LIGHT") {
+        Some(SkyDetail::Light)
+    } else {
+        None
+    }
 }
 
 /// Writes the help screen: lines ending in `\n` (the caller turns them into the console's line ends), at most 25 lines of 79
@@ -601,6 +633,7 @@ mod tests {
             keys: None,
             captions: None,
             frame_rate: None,
+            sky: None,
             bench_ticks: None,
             bench_audio: false,
         };
@@ -656,6 +689,25 @@ mod tests {
             })
         );
         assert_eq!(run(&["/FPS30:1"]), Parsed::Unknown("/FPS30:1"));
+        // The sky takes FULL or LIGHT in any case, combines with any mode, and the last one wins.
+        assert_eq!(
+            run(&["/sky:full", "/BENCH"]),
+            Parsed::Run(Invocation {
+                mode: Mode::Bench,
+                sky: Some(SkyDetail::Full),
+                ..live
+            })
+        );
+        assert_eq!(
+            run(&["/SKY:FULL", "/Sky:Light"]),
+            Parsed::Run(Invocation {
+                sky: Some(SkyDetail::Light),
+                ..live
+            })
+        );
+        for bad in ["/SKY:", "/SKY", "/SKY:DIM", "/SKY:FULLER", "/SKYFULL"] {
+            assert_eq!(run(&[bad]), Parsed::Unknown(bad), "{bad}");
+        }
         assert_eq!(
             run(&["/REPLAY", "/LIVE"]),
             Parsed::Run(Invocation {
@@ -786,6 +838,20 @@ mod tests {
                 frame_rate: FrameRate::Hz60,
                 ..file
             }
+        );
+        assert_eq!(
+            invocation(&["/SKY:FULL"]).over(&file),
+            Prefs {
+                sky: SkyDetail::Full,
+                ..file
+            }
+        );
+        assert_eq!(
+            invocation(&["/SKY:LIGHT"]).over(&Prefs {
+                sky: SkyDetail::Full,
+                ..file
+            }),
+            file
         );
         // Over a default file, /MODERN and /NOCAPTIONS apply; the last of a pair wins.
         let none = Prefs::default();

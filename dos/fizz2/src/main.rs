@@ -65,7 +65,7 @@ use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
-use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
+use fizz_machine::{Captions, Motion, PlacementMode, Prefs, SkyDetail, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
     DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, event_sound, frame_digest, key_to_buttons,
@@ -276,6 +276,8 @@ fn main() -> i32 {
         captions: prefs.captions == Captions::On,
         // Motion gates the death shake and the death spin; Reduced leaves them off.
         shake: prefs.motion == Motion::Full,
+        // The Sky: Light (the default here) draws the open air's stars and sea, Full the whole parallax night.
+        full_sky: prefs.sky == SkyDetail::Full,
     };
     match run.mode {
         Mode::Live => live(&start, false),
@@ -425,6 +427,20 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     let (cal_loops, cal_us) = bench::calibrate();
     let (world, r) = bench::run(&mut display, limit, options, false);
     let caps = bench::captions(&mut display, options, false);
+    // With the Light sky (the default here), the Full sky is timed too, so that later work on the drawing can follow what it costs
+    // at the floor; its pictures are not digested and it changes nothing the gate checks.
+    let full = if options.full_sky {
+        None
+    } else {
+        let full = DrawOptions {
+            full_sky: true,
+            ..*options
+        };
+        Some((
+            bench::run(&mut display, limit, &full, false).1,
+            bench::captions(&mut display, &full, false),
+        ))
+    };
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -448,10 +464,23 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     ] {
         println!("BENCH {} avg {} max {} units us", name, s.avg_us(), s.max_us());
     }
+    println!(
+        "BENCH DRAW WORST TICK {} TOTAL WORST TICK {}",
+        r.draw.max_tick(),
+        r.total.max_tick()
+    );
+    println!("BENCH SKY {}", if options.full_sky { "FULL" } else { "LIGHT" });
     for &(tick, digest) in &r.frames[..r.frame_count] {
         println!("BENCH FRAME {} {:016x}", tick, digest);
     }
     print_captions("BENCH", &caps);
+    if let Some((f, fc)) = &full {
+        for (name, s) in [("DRAW", &f.draw), ("TOTAL", &f.total)] {
+            println!("BENCH FULL SKY {} avg {} max {} units us", name, s.avg_us(), s.max_us());
+        }
+        println!("BENCH FULL SKY DRAW WORST TICK {}", f.draw.max_tick());
+        print_captions("BENCH FULL SKY", fc);
+    }
     println!("BENCH BUDGET {} us per tick at 60 Hz", bench::BUDGET_US);
     println!("BENCH HASH {:016x}", fizz_ep2::hash(&world).finish());
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
@@ -692,6 +721,7 @@ fn print_pass(name: &str, r: &bench::Report) {
             s.max_us()
         );
     }
+    println!("BENCH AUDIO {} DRAW WORST TICK {}", name, r.draw.max_tick());
 }
 
 /// `/BENCH /AUDIO`: the bench with the 560 Hz audio service running, first without music and then with it, each pass the whole script

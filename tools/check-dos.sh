@@ -249,6 +249,10 @@ status=0
 out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /MUSIC:FOO)" || status=$?
 [ "$status" = 2 ] || fail "a bad sound value exited $status (expected 2)"
 printf '%s\n' "$out" | grep -qF 'unknown switch /MUSIC:FOO' || fail "a bad sound value was not named"
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /SKY:DIM)" || status=$?
+[ "$status" = 2 ] || fail "a bad sky value exited $status (expected 2)"
+printf '%s\n' "$out" | grep -qF 'unknown switch /SKY:DIM' || fail "a bad sky value was not named"
 echo "HELP unknown switch exit 2"
 
 
@@ -263,7 +267,7 @@ if group view; then
 # and the rate that implies must match the configured cycles: DOSBox's normal core charges one cycle per simple instruction.
 # Measured at 3,000, 12,000, 26,800 and 80,000 cycles per millisecond the rate came out within 1% each time; the bound here is 10%.
 status=0
-out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=120 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
+out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=180 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/BENCH exited $status"
 printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1757' || fail "no 'BENCH TICKS 1757' line"
@@ -296,6 +300,12 @@ for section in STEP DRAW PRESENT TOTAL; do
   fi
 done
 caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
+# The figures above are for the DOS default, the Light sky (the stars and the sea). With it /BENCH also plays the script with the Full
+# sky and prints its draw and captions figures as `BENCH FULL SKY` lines, which are logged for later work on the drawing and not
+# held to any bound: the Full sky is for machines and emulators faster than the floor.
+printf '%s\n' "$out" | tr -d '\r' | grep -qx 'BENCH SKY LIGHT' || fail "/BENCH did not measure the Light sky, the DOS default"
+printf '%s\n' "$out" | tr -d '\r' | grep -qE '^BENCH FULL SKY DRAW avg [0-9]+ max [0-9]+ units us$' || fail "/BENCH printed no 'BENCH FULL SKY DRAW' line"
+printf '%s\n' "$out" | tr -d '\r' | grep -E '^BENCH (DRAW WORST TICK|FULL SKY (DRAW|CAPTIONS six DRAW) )' || true
 
 fi
 

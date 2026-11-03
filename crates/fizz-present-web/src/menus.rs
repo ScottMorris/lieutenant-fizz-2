@@ -6,7 +6,7 @@
 // Plain Rust with no `wasm-bindgen`, so host tests cover it; `App` wraps it. The rules and the replay never read any of this: a
 // screen being up only stops `App::frame` from stepping, and the values it holds are presentation settings. The page draws the
 // rows as DOM (`web/options.ts`) and applies each change as it happens.
-use fizz_machine::settings::{Captions, FxChoice, Keys, MusicChoice, PlacementMode};
+use fizz_machine::settings::{Captions, FxChoice, Keys, MusicChoice, PlacementMode, SkyDetail};
 use fizz_menu::{
     Caps, MenuKey, MotionPick, OVERRIDE_NOTE, OptionsScreen, Outcome, Overrides, PausedScreen,
     Platform, RowId, RowList, Values,
@@ -55,8 +55,10 @@ pub struct Menus {
 
 impl Menus {
     pub fn new() -> Menus {
+        // The Web's defaults where they differ from the DOS ones: Motion follows the system, and the sky is the full night.
         let values = Values {
             motion: MotionPick::System,
+            sky: SkyDetail::Full,
             ..Values::default()
         };
         Menus {
@@ -200,7 +202,8 @@ impl Menus {
     }
 
     /// The index of a row's current choice, in the order the row cycles through them: Sound, Music and Captions On then Off;
-    /// Placement Enhanced then Classic; Motion System, Reduced, Full; Keys Keen then Modern; Fullscreen Off then On.
+    /// Placement Enhanced then Classic; Motion System, Reduced, Full; Keys Keen then Modern; Fullscreen Off then On; Sky Full then
+    /// Light.
     pub fn value(&self, row: u8) -> u32 {
         let v = &self.options.values;
         let flag = |b: bool| u32::from(b);
@@ -216,6 +219,7 @@ impl Menus {
             RowId::CAPTIONS => flag(v.captions == Captions::Off),
             RowId::KEYS => flag(v.keys == Keys::Modern),
             RowId::FULLSCREEN => flag(v.fullscreen),
+            RowId::SKY => flag(v.sky == SkyDetail::Light),
             _ => 0,
         }
     }
@@ -251,6 +255,13 @@ impl Menus {
             RowId::CAPTIONS => v.captions = if first { Captions::On } else { Captions::Off },
             RowId::KEYS => v.keys = if first { Keys::Keen } else { Keys::Modern },
             RowId::FULLSCREEN => v.fullscreen = !first,
+            RowId::SKY => {
+                v.sky = if first {
+                    SkyDetail::Full
+                } else {
+                    SkyDetail::Light
+                }
+            }
             _ => {}
         }
     }
@@ -323,11 +334,12 @@ mod tests {
                 "Motion",
                 "Captions",
                 "Keys",
+                "Sky",
                 "Back"
             ]
         );
         m.set_fullscreen_available(true);
-        assert_eq!(m.rows().len(), 8);
+        assert_eq!(m.rows().len(), 9);
         assert_eq!(m.rows().as_slice()[3].value.as_str(), "System");
     }
 
@@ -353,7 +365,16 @@ mod tests {
     #[test]
     fn loaded_values_round_trip_through_their_indexes() {
         let mut m = Menus::new();
-        for (row, max) in [(8u8, 2), (0, 2), (2, 2), (4, 3), (5, 2), (6, 2), (9, 2)] {
+        for (row, max) in [
+            (8u8, 2),
+            (0, 2),
+            (2, 2),
+            (4, 3),
+            (5, 2),
+            (6, 2),
+            (9, 2),
+            (14, 2),
+        ] {
             for i in 0..max {
                 m.set_value(row, i);
                 assert_eq!(m.value(row), i, "row {row}");

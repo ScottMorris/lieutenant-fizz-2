@@ -126,14 +126,19 @@ pub struct DrawOptions {
     /// (Fizz 1's death shake and spin); Reduced (off) draws the camera still and Ben in a flat, flickering jump pose. A
     /// view effect only: the rules never see it. See [`death_shake_x`] and [`death_spin`].
     pub shake: bool,
+    /// The Sky setting: Full (on) draws the open air's whole parallax night (stars, drifting clouds, the far headlands and the
+    /// sea); Light (off) draws its stars and sea only, which costs a 486 about a third as much. A view effect only, and only
+    /// open air differs. See `oblique::draw_ground_sky`.
+    pub full_sky: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on, motion (shake and spin) on.
+    /// Captions on, motion (shake and spin) on, the full sky.
     fn default() -> Self {
         DrawOptions {
             captions: true,
             shake: true,
+            full_sky: true,
         }
     }
 }
@@ -473,7 +478,7 @@ pub fn draw_slice_captions(
         red_closed: map.switch(DOOR_RED_CHANNEL),
         blue_closed: map.switch(DOOR_BLUE_CHANNEL),
     };
-    oblique::draw_ground_at(frame, w, h, &ground, cam_x, cam_y, tick);
+    oblique::draw_ground_sky(frame, w, h, &ground, cam_x, cam_y, tick, options.full_sky);
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
@@ -990,6 +995,7 @@ mod tests {
                     let o = DrawOptions {
                         captions: true,
                         shake,
+                        ..DrawOptions::default()
                     };
                     draw_slice_with(&mut f, VIEW_W, VIEW_H, w, w.tick.0 as u32, &o);
                     fnv(&f)
@@ -2233,6 +2239,7 @@ mod tests {
         let o = DrawOptions {
             captions: true,
             shake,
+            ..DrawOptions::default()
         };
         draw_slice_with(&mut f, VIEW_W, VIEW_H, w, 0, &o);
         f
@@ -2404,6 +2411,7 @@ mod tests {
         let reduced = DrawOptions {
             captions: true,
             shake: false,
+            ..DrawOptions::default()
         };
         let full = DrawOptions::default();
         assert_ne!(draw(&reduced, 0), draw(&reduced, 3), "reduced flickers");

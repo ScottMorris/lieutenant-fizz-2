@@ -37,8 +37,8 @@ pub const TITLE_SCALE: i32 = 2;
 /// The one-pixel rule under the heading, in the accent colour.
 pub const RULE_Y: i32 = 36;
 /// The first row's top edge and the distance between rows.
-pub const ROWS_Y: i32 = 56;
-pub const PITCH: i32 = 14;
+pub const ROWS_Y: i32 = 50;
+pub const PITCH: i32 = 13;
 /// The left edge of the whole row column (the gutter) and its width: columns 40 to 279.
 pub const LEFT: i32 = 40;
 pub const COLUMN_W: i32 = 240;
@@ -661,21 +661,22 @@ mod tests {
         let caps = sb16();
         let values = Values::default();
         // Every selected row of the Options screen on a Sound Blaster 16 machine.
-        let mut got = [0u64; 8];
+        let mut got = [0u64; 9];
         for (cursor, d) in got.iter_mut().enumerate() {
             *d = digest_options(cursor, values, Overrides::NONE, &caps);
         }
         assert_eq!(
             got,
             [
-                0x1b59_b153_e899_1d85,
-                0x0c66_4c80_42e0_8d33,
-                0x2b2e_b204_2a59_495f,
-                0x7d60_35e9_33b4_c13c,
-                0x38dd_8393_74ce_d67e,
-                0x21fc_6064_1864_c1b5,
-                0x7108_4a30_779d_4122,
-                0x4109_da64_eaef_8268,
+                0xe976_964f_09fd_a994,
+                0x2185_22d2_6d55_e8c3,
+                0x818a_a05c_a33f_6e74,
+                0xdcb2_ab31_82fc_b1ff,
+                0xa2e3_bde4_501c_44ea,
+                0xa7e2_7a90_9d15_b041,
+                0xc165_7be5_3386_df01,
+                0x4fe4_6b7b_1744_0025,
+                0x0893_9c86_a54c_ad0e,
             ],
             "options rows"
         );
@@ -687,7 +688,7 @@ mod tests {
         view.open(&picture());
         let mut out = Frame::new();
         view.draw_paused(&PausedScreen::new(Platform::Dos), 0, &mut out);
-        assert_eq!(frame_digest(&out), 0xb68d_9b2b_3dd9_33ad);
+        assert_eq!(frame_digest(&out), 0x16e7_6fb3_9b79_589d);
     }
 
     #[test]
@@ -710,7 +711,7 @@ mod tests {
         );
         assert_eq!(
             (star, missing),
-            (0x8d29_ec8e_cdb6_e5d2, 0xe29a_fc82_e0a5_2b7c)
+            (0x99cc_5ea0_96e5_829d, 0x49b7_f42a_8a8a_188a)
         );
     }
 
@@ -775,9 +776,9 @@ mod tests {
 
     #[test]
     fn the_last_row_and_the_note_clear_each_other() {
-        // Eight rows end at y = 56 + 7 * 14 + 12 = 166, above the note at 172 and the footer at 186.
+        // Nine rows end at y = 50 + 8 * 13 + 12 = 166, above the note at 172 and the footer at 186.
         const {
-            assert!(ROWS_Y + 7 * PITCH + PLATE_H < NOTE_Y);
+            assert!(ROWS_Y + 8 * PITCH + PLATE_H < NOTE_Y);
             assert!(NOTE_Y + 9 < FOOTER_Y);
             assert!(FOOTER_Y + 9 <= HEIGHT as i32);
             // And the can's top, two above the first row, clears the rule.

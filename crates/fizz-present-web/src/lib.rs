@@ -134,6 +134,8 @@ pub struct App {
     captions: bool,
     /// Whether the view shakes when Ben dies. The page turns it off for Reduced Motion.
     shake: bool,
+    /// The Sky setting: the open air's whole parallax night (Full, the default) or its stars and sea only (Light).
+    full_sky: bool,
     /// The live captions of the last [`App::render`], empty when captions are off.
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
@@ -171,6 +173,7 @@ impl App {
             taken: Placement::CENTRE,
             captions: true,
             shake: true,
+            full_sky: true,
             live_captions: Vec::new(),
             puffs: Puffs::new(),
             event_captions: EventCaptions::new(),
@@ -272,6 +275,7 @@ impl App {
         let options = DrawOptions {
             captions: false,
             shake: self.shake,
+            full_sky: self.full_sky,
         };
         for event in self.world.events() {
             // The camera is the one the picture is drawn with, in the view the page last set.
@@ -300,6 +304,17 @@ impl App {
     /// Whether the view shakes when Ben dies.
     pub fn shake(&self) -> bool {
         self.shake
+    }
+
+    /// Draws the open air's whole parallax night (on, the default) or its stars and sea only (off): the Sky setting, Full or
+    /// Light. Only the picture changes.
+    pub fn set_full_sky(&mut self, on: bool) {
+        self.full_sky = on;
+    }
+
+    /// Whether the open air shows its whole parallax night.
+    pub fn full_sky(&self) -> bool {
+        self.full_sky
     }
 
     /// Whether the cluck captions are shown.
@@ -402,6 +417,7 @@ impl App {
             &DrawOptions {
                 captions: false,
                 shake: self.shake,
+                full_sky: self.full_sky,
             },
             &self.puffs,
         );
@@ -420,6 +436,7 @@ impl App {
                 &DrawOptions {
                     captions: false,
                     shake: self.shake,
+                    full_sky: self.full_sky,
                 },
             ));
         }
@@ -490,6 +507,7 @@ impl App {
         let options = DrawOptions {
             captions: false,
             shake: self.shake,
+            full_sky: self.full_sky,
         };
         let (x, y, w, h) = ben_view_box(&self.world, self.view_w, self.view_h, &options);
         vec![x, y, w, h]
@@ -926,6 +944,7 @@ mod tests {
         let options = DrawOptions {
             captions: false,
             shake: true,
+            full_sky: true,
         };
         let (w, h) = (WEB_VIEW_W, WEB_VIEW_H);
         let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);

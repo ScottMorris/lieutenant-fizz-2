@@ -588,3 +588,68 @@ fn indoor_frames_pay_nothing_for_the_layers_and_every_frame_is_repeatable() {
     draw_ground_at(&mut b, VIEW_W, VIEW_H, &g, cx, cy, 301);
     assert_eq!(a, b);
 }
+
+#[test]
+fn the_light_sky_is_the_full_one_without_its_clouds_and_headlands() {
+    // Light draws the same ground: only pixels of open-air cells differ, and there the Full picture's extra colours are the
+    // clouds' B and the headlands' D, over the black sky that Light shows (or a star, which a cloud or headland would hide).
+    // Light does not drift, so it is the same at every tick.
+    let mut differing = 0;
+    let mut tick = 0u64;
+    play(|w| {
+        tick += 1;
+        if tick % 30 != 1 {
+            return;
+        }
+        let (cx, cy) = camera(w, VIEW_W, VIEW_H);
+        let g = ground(w);
+        let mut full = vec![0xEEu8; VIEW_W * VIEW_H];
+        let mut light = full.clone();
+        let mut later = full.clone();
+        draw_ground_sky(&mut full, VIEW_W, VIEW_H, &g, cx, cy, tick as u32, true);
+        draw_ground_sky(&mut light, VIEW_W, VIEW_H, &g, cx, cy, tick as u32, false);
+        draw_ground_sky(&mut later, VIEW_W, VIEW_H, &g, cx, cy, 6000, false);
+        assert_eq!(light, later, "tick {tick}: the light sky does not drift");
+        for y in 0..VIEW_H {
+            for x in 0..VIEW_W {
+                let (f, l) = (full[y * VIEW_W + x], light[y * VIEW_W + x]);
+                if f == l {
+                    continue;
+                }
+                let (c, r) = (
+                    (x as i32 + cx).div_euclid(16),
+                    (y as i32 + cy).div_euclid(16),
+                );
+                assert!(
+                    !back_is_wall(&g, c, r),
+                    "tick {tick}: ({x}, {y}) differs under a wall cell"
+                );
+                assert!(
+                    matches!(f, BLUE | DARK_GREY) && matches!(l, BLACK | 15 | 11 | 14),
+                    "tick {tick}: ({x}, {y}) is {f} in Full and {l} in Light"
+                );
+                differing += 1;
+            }
+        }
+    });
+    assert!(
+        differing > 1000,
+        "the gallery shows clouds and headlands ({differing} pixels)"
+    );
+}
+
+#[test]
+fn a_light_gallery_frame_is_pinned() {
+    // Ben on the gallery: the stars and the sea, and the ground as the Full sky draws it.
+    let mut w = level::world();
+    w.ben.b.x = 20.5;
+    w.ben.b.y = 38.0;
+    let (cx, cy) = camera(&w, VIEW_W, VIEW_H);
+    let g = ground(&w);
+    let mut f = vec![0u8; VIEW_W * VIEW_H];
+    draw_ground_sky(&mut f, VIEW_W, VIEW_H, &g, cx, cy, 301, false);
+    let digest = f.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &p| {
+        (h ^ u64::from(p)).wrapping_mul(0x0000_0100_0000_01b3)
+    });
+    assert_eq!(digest, 0x0e2c_811b_ac67_44b7);
+}
