@@ -125,9 +125,9 @@ DOS_CYCLES='fixed 26800' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos RTSMOKE.EXE > /
 [ "$status" = 125 ] || fail "a rejected cpu_cycles setting exited $status (expected 125)"
 echo "GUARD rejected cpu_cycles exit $status"
 
-# 1. The replay: /REPLAY plays the slice script (1,757 ticks, about 29 seconds). The lines that start with `TICK `, `FINAL ` or
+# 1. The replay: /REPLAY plays the slice script (1,800 ticks, about 30 seconds). The lines that start with `TICK `, `FINAL ` or
 # `EVENT ` equal the golden transcript, whatever it holds, and Ben must reach the exit. The BIOS tick counter runs at 18.2065 Hz,
-# so 1,757 ticks of 60.0011 Hz is about 533 of its ticks; the bound is two either side of that.
+# so 1,800 ticks of 60.0011 Hz is about 546 of its ticks; the bound is two either side of that.
 golden=crates/fizz-ep2/slice-replay.txt
 status=0
 out="$(tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
@@ -144,7 +144,7 @@ printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY did not reach the ex
 printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "FPU control word is not 027F"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not restored"
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-{ [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || fail "BIOS TICKS '$bios' is outside 531-535"
+{ [ -n "$bios" ] && [ "$bios" -ge 544 ] && [ "$bios" -le 548 ]; } || fail "BIOS TICKS '$bios' is outside 544-548"
 
 # DOSBox's cycles per millisecond for the bench groups (view, audio, config-sound), set here so a run that selects one without the others still has it.
 CYCLES=26800
@@ -270,7 +270,7 @@ status=0
 out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=180 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/BENCH exited $status"
-printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1757' || fail "no 'BENCH TICKS 1757' line"
+printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1800' || fail "no 'BENCH TICKS 1800' line"
 printf '%s\n' "$out" | grep -qx 'BENCH BUDGET 16667 us per tick at 60 Hz' || fail "no BENCH BUDGET line"
 printf '%s\n' "$out" | grep -qx "BENCH HASH $(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')" || fail "/BENCH ended on a different hash from $golden"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH did not reach the exit"
@@ -321,7 +321,7 @@ echo "$out"
 out="$(printf '%s\n' "$out" | tr -d '\r')"
 golden_hash="$(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')"
 printf '%s\n' "$out" | grep -qx "BENCH AUDIO HASH $golden_hash $golden_hash" || fail "/BENCH /AUDIO ended on a different hash from $golden"
-printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1757 1757' || fail "/BENCH /AUDIO did not run the whole script twice"
+printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1800 1800' || fail "/BENCH /AUDIO did not run the whole script twice"
 printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TIMER PIT divisor 2131 (559.9 Hz), ARR opl3' || fail "/BENCH /AUDIO is not at 560 Hz with the OPL3 arrangement"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH /AUDIO did not reach the exit"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH /AUDIO did not restore the vectors"
@@ -890,7 +890,7 @@ frames_replay() {
   line="$(frames_line "$out")"
   n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
   t="$(printf '%s\n' "$line" | sed -n 's/^FRAMES [0-9]* TICKS \([0-9]*\) .*/\1/p')"
-  [ "$t" = 1757 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1757)"
+  [ "$t" = 1800 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1800)"
   [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ] || fail "/REPLAY frames case '$name': '$line' (expected between $lo and $hi frames)"
   printf '%s\n' "$line" | grep -qE " RATE $rate MODE $mode\$" || fail "/REPLAY frames case '$name': '$line' (expected RATE $rate MODE $mode)"
   echo "FRAMES case $name ok ($line)"
@@ -917,14 +917,14 @@ frames_live() {
   echo "FRAMES live case $name ok ($line)"
 }
 cfg_none
-frames_replay '/FPS30' 26800 30 30 870 890 /FPS30
-frames_replay '/FPS60' 26800 60 60 1757 1759 /FPS60
-frames_replay 'default is Auto and stays at 60' 26800 60 auto 1757 1759
+frames_replay '/FPS30' 26800 30 30 890 910 /FPS30
+frames_replay '/FPS60' 26800 60 60 1800 1802 /FPS60
+frames_replay 'default is Auto and stays at 60' 26800 60 auto 1800 1802
 frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 800 950
-frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1759 /FPS60
-frames_replay '/FPSAUTO' 26800 60 auto 1757 1759 /FPSAUTO
-frames_replay 'last flag wins' 26800 30 30 870 890 /FPS60 /FPS30
-frames_replay 'combines with the sound flags' 26800 30 30 870 890 /NOSOUND /FPS30 /MODERN
+frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1802 /FPS60
+frames_replay '/FPSAUTO' 26800 60 auto 1800 1802 /FPSAUTO
+frames_replay 'last flag wins' 26800 30 30 890 910 /FPS60 /FPS30
+frames_replay 'combines with the sound flags' 26800 30 30 890 910 /NOSOUND /FPS30 /MODERN
 # The file's byte, and a flag over it. V2 has frame byte 2 (60 Hz); F30 and FAUTO are the same file with 1 and 0.
 F30='FZ2C\x02\x02\x04\x01\x00'
 FAUTO='FZ2C\x02\x02\x04\x00\x00'

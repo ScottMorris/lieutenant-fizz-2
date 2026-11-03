@@ -6,7 +6,7 @@
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc opens the Paused screen (Resume, Options, Quit to DOS). The default when no mode is given
-//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,757 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,800 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
