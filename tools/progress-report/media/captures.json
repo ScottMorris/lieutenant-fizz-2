@@ -344,5 +344,25 @@
   "command": "python3 tools/progress-report/capture.py (capture-web.py)",
   "commit": "4c367e2",
   "date": "2026-11-04"
+ },
+ {
+  "file": "oblique-indoor.png",
+  "kind": "screenshot",
+  "track": "shared",
+  "source": "Host render of the shared drawing routine: `fizz_slice_view::draw_slice_with` with the default options (the full sky), one frame of 320 by 200 quantised to the 16 EGA colours; not a DOSBox or browser capture",
+  "shows": "The slice at replay tick 500 in oblique projection: Ben stands on a plank ledge with a lit yellow nosing and iron brackets over the blue-board back wall, the chicken on the ledge above, spikes on the light-grey flagstone floor below, a red brick pier on the right and dark ashlar stone beyond it.",
+  "command": "cargo run -p fizz-slice-view --example frame -- all <dir>/f, then tick 500 converted to a 16-colour PNG",
+  "commit": "cefd044",
+  "date": "2026-11-03"
+ },
+ {
+  "file": "oblique-gallery.png",
+  "kind": "screenshot",
+  "track": "shared",
+  "source": "Host render of the shared drawing routine: `fizz_slice_view::draw_slice_with` with the default options (the full sky), one frame of 320 by 200 quantised to the 16 EGA colours; not a DOSBox or browser capture",
+  "shows": "The slice at replay tick 1700, the open-air gallery with the Full sky: stars, two dithered clouds, grey headlands and the sea behind an iron railing on the far edge of the plank floor, a green exit doorway with a white up arrow, a brick block on the right, and Ben standing in front of the doorway.",
+  "command": "cargo run -p fizz-slice-view --example frame -- all <dir>/f, then tick 1700 converted to a 16-colour PNG",
+  "commit": "cefd044",
+  "date": "2026-11-03"
  }
 ]
