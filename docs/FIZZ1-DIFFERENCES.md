@@ -17,6 +17,16 @@ Each entry says what Fizz 1 does, what Fizz 2 does, why, and what to look at in 
   - Whether something takes its place (a different way up a narrow shaft, such as vines, ladders or a pogo bounce) is open.
   - The `Kick` caption, its sound and the twelve-kick joke are not built, and stay out.
 
+### The exit takes an Up press
+
+- **Fizz 1:** touching the exit tile ends the level. `tick_ben_contacts` in `episodes/episode-1/game/src/world.rs` sets the level complete the moment Ben's body overlaps an exit tile, however he got there (walking, falling or bouncing).
+- **Fizz 2:** Ben goes through the exit when Up is newly pressed while his body overlaps an exit tile and he is standing on the ground. Touching the exit alone does nothing, an Up press in mid-air does nothing, and an Up held from before he arrived does not count until it is released and pressed again. The press raises the same `Exit` event and freezes Ben as touching did, and the look-up timer is cleared so the camera does not start to look. The door takes the press before the look-up and aim-up uses of Up. The slice's golden replay presses Up at the exit (see `docs/PLATFORM.md`).
+- **Why:** owner decision, 2026-11-03: the exit is now a doorway on the far edge of the oblique floor (see `docs/OBLIQUE.md`), and Up walks into it, like a door.
+- **Review at level making:**
+  - An exit must be somewhere Ben can stand: a level cannot put an exit where he only passes through it in the air, on the pogo stick (which is never still on the ground), or while falling; the replay steps off the pogo stick before it presses Up.
+  - Levels ported from Fizz 1 whose exit is reached by a jump or a bounce need a place to land beside it.
+  - Whether Up should also work for the doors that open with a key (they open on touch, as in Fizz 1) is open.
+
 ## Small departures that are already in the game
 
 ### Doors, keys and death
