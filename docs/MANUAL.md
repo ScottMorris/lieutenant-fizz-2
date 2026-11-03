@@ -244,9 +244,18 @@ The small box in the top-left corner is the HUD, in Fizz 1's own letters. It has
 
 ### The level on DOS
 
-You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by ledges of one-way platforms, bright green on the screen, which you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door, a brown door in the wall that divides the two shafts. Through the door a second shaft climbs again to a gallery in the open air, where a yellow exit stands behind a blue door; the gallery's right end is a snack nook (see [The snack nook](#the-snack-nook)). Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
+You start on the floor of the left shaft, with spikes a few steps to your right. The shaft climbs by wooden ledges, planks that you can jump up through and land on from above. A chicken walks the long third ledge, and the red key lies at its far left end. Above that the ledges lead up to the red door in the wall that divides the two shafts, a tall door with a white triangle on it. Through the door a second shaft climbs again to a gallery in the open air, where the exit, a green archway with a white up arrow, stands behind a blue door with a white circle on it; the gallery's right end is a snack nook (see [The snack nook](#the-snack-nook)). Touching the exit ends the level: the game shows `LEVEL CLEAR` and Ben stops.
 
-Tiles are told apart by colour: dark blue is the wall behind the rooms, dark grey and light grey are solid blocks you cannot pass, bright green is a one-way platform, bright red is spikes, brown is the red door and the blue door (each has its own colour of gumdrop and door picture) and yellow is the exit. Snacks and keys are small pictures that bob in place.
+The level is drawn as if you were looking at it from a little above and in front, so every floor and ledge has a far edge, a near edge and a stretch of floor between them, and you walk along the line between them. How things look:
+
+- **Rooms.** The wall behind the rooms is dark blue boards, with a round porthole or two. A ledge casts a shadow on it, and the ledges inside the rooms are held up by iron brackets.
+- **Wooden ledges.** A ledge of brown planks with a yellow front edge is one you can jump up through and land on from above. The long gallery at the top has an iron railing along its back edge.
+- **Stone and brick.** Solid walls and floors are grey stone, darker and plainer deeper inside the walls, and red brick; their light-grey tops are floors you can stand on. You cannot pass through them.
+- **Doors.** The red door and the blue door are tall wooden doors with an iron lock. Each has a white badge so that you can tell them apart without the colours: a triangle on the red door and a circle on the blue one. An open door is not drawn at all, and you see the room behind it.
+- **Spikes.** Grey spikes with white tips, in two rows, stand on the floor.
+- **Open air.** Above the gallery the sky is black, with a band of blue where it meets the sea, and the sea is blue and teal.
+
+Snacks and keys are small pictures that bob in place.
 
 ### Moves
 
@@ -311,7 +320,7 @@ The Web page plays the first slice of Episode 2. You are Ben, climbing the insid
 
 ### The level on the Web
 
-The level is a tall room split into a left shaft and a right shaft by a wall. You start on the floor of the left shaft. Green ledges climb it in steps you can only clear with a full jump, one ledge on the left, the next on the right, so you cross the shaft each time. You can jump up through a ledge from below and land on it from above.
+The level is a tall room split into a left shaft and a right shaft by a wall. You start on the floor of the left shaft. Wooden ledges climb it in steps you can only clear with a full jump, one ledge on the left, the next on the right, so you cross the shaft each time. You can jump up through a ledge from below and land on it from above.
 
 - **The chicken** walks the long third ledge. It is a placeholder for the real art. Touching it from the side or from below kills you. Landing on its head from above stuns it for three seconds and bounces you. A Fizz Blaster shot stuns it for six seconds. While it is stunned you can walk through it.
 - **The red key** lies at the far left end of that ledge. Walk over it to pick it up. The `KEY` line reads `carried` while you have it.

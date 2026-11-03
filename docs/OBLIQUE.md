@@ -1,8 +1,10 @@
 # Oblique ground and platforms
 
-How Fizz 2 draws walkable surfaces, walls and blocks in oblique projection, so that ground reads as two parallel edges with depth between them rather than as a flat bar. This page is the specification the renderer will follow. It is a drawing rule only: the tile map, the collision, the state hash and the golden replay do not change.
+How Fizz 2 draws walkable surfaces, walls and blocks in oblique projection, so that ground reads as two parallel edges with depth between them rather than as a flat bar. This page is the specification the renderer follows. It is a drawing rule only: the tile map, the collision, the state hash and the golden replay do not change.
 
-Status: proposed, for review. The look was worked out on a design canvas (the demo level, the tile kit, Ben on the strip and a hill study) before any code. Nothing here is implemented yet.
+Status: implemented in `fizz-slice-view` for the slice level, on the Web and on DOS. The look was worked out on a design canvas (the demo level, the tile kit, Ben on the strip and a hill study) before any code. Hills are specified below and not built, because the slice has none.
+
+Where things are: the renderer is `crates/fizz-slice-view/src/oblique.rs`, the textures and pieces it copies are the generated `oblique_data.rs`, which `tools/tiles/emit-oblique.ts` writes (`bun tools/tiles/emit-oblique.ts --check` fails when the committed file is out of date), and `cargo run -p fizz-slice-view --example frame` writes a picture to look at. See [Implementation notes](#implementation-notes).
 
 ## Why
 
@@ -46,9 +48,9 @@ A strip therefore occupies the far 16 px of the tile above its collision tile an
 ## Draw order
 
 1. Background: the interior back wall (`w`), or sky and sea in open air (`.`), drawn flat on the far plane.
-2. Railings and other far-plane decoration.
+2. Far-plane decoration: portholes, the shadows and brackets under ledges, railings, and the exit doorway, whose sill is on the far edge of the floor, so the strip drawn next covers its foot.
 3. Terrain, from the bottom row up and left to right within a row. This order makes upper-right neighbours correctly hide the far parts of lower-left faces with no depth buffer.
-4. Spikes and the exit, which stand on the feet plane.
+4. Spikes, which stand on the feet plane.
 5. Items, then actors.
 
 Actors always draw over terrain. Strictly, a wall's front face would hide the 4 px of Ben nearest to it when he stands against it; readability wins.
@@ -69,7 +71,7 @@ Textures are functions of world position, so seams line up across tiles and the 
 | `^` | Spikes | A shaded back row and a lit front row standing on the floor strip, W tips the brightest line in the room |
 | `D`, `b` | Doors | One piece across the door's tiles: boards, iron bands, a yellow lock, the shape badge on the top tile |
 | `E` | Exit | A two-tile stone-arched doorway on the far edge, lit g inside, a W up arrow (see [The exit](#the-exit)) |
-| `w` | Back wall | Vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, a D skirting where it meets a floor, the odd porthole |
+| `w` | Back wall | Vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, the odd porthole |
 | `.` | Open air | A k sky with W, c and y stars, a k/B horizon dither, a B sea with a C crest; the gallery gets an iron railing on the far edge of its planks |
 
 ## The exit
@@ -95,10 +97,13 @@ A hill 32 px (two tiles) high on a 1:2 slope is the reference case.
 
 ## Implementation notes
 
-For the build after this design is approved:
-
-- The rules crates do not change. Drawing reads the same tile map and actor positions it reads today, so native, Web and DOS hashes stay as they are and `tools/check-parity.sh` is unaffected.
-- The oblique drawing belongs in `fizz-view`, which both presenters share. It keeps integer arithmetic (the row offsets are a 26-entry table) so it fits the float-free presenter rule.
-- The Web view is 208 px tall and the DOS frame 200; both are drawing inputs only. The extra 16 px above a top row and 10 px to the right of a right column are drawn into the view like any other pixels.
-- Tile pieces should be baked as sprite-like data under `assets/` rather than generated at run time on DOS, in keeping with "fidelity is lost at bake time".
-- The manual gains a line once a build shows the new look.
+- The rules crates did not change. Drawing reads the same tile map and actor positions it read before, so native, Web and DOS state hashes and `tools/check-parity.sh` are unaffected; only the pictures (and the pinned frame digests of `fizz-slice-view`) moved.
+- The renderer lives in `fizz-slice-view` and not in `fizz-view`, because it reads the slice's tile ids from `fizz-ep2`; `fizz-view`'s `draw_tilemap` and `draw_tilemap_on_sky` stay as they were for other callers. It is integer-only and `no_std` with no allocation, so Web and DOS draw the same pixels (`tools/check-dos.sh` compares frame digests with the host's).
+- The textures are baked, not drawn at run time ("fidelity is lost at bake time"). Each is a function of world position tabulated over its period: 256 px across, and 26 rows for a strip, 6 for the plank fascia, 64 for stone, 32 for brick and 96 for the back wall. A row is copied as a run from the table at the world column of the run's left edge, so seams line up across cells and between runs. The generator ports the design prototype's hash and rules, with block, board and grain sizes chosen to divide the period so the pattern closes on itself.
+- Stone has three tables, by the Chebyshev distance to the nearest opening (one tile, two tiles, three or more): ashlar, ashlar darkening, and deep rock. The distance is read from a bit mask of open cells for each map column, so the 7 by 7 neighbourhood is a few shifts and not 49 reads.
+- Cells outside the map repeat the nearest edge cell, so a view larger than the map (the Web at 1280 pixels wide against a 512 pixel map) is filled like any other part of the picture.
+- A cell's background is the back wall for a wall tile, the open sky for open air and the exit, and for anything else (a ledge, spikes, a door, the exposed edge of a solid) the background of the cell above if that is open air and the back wall otherwise. The ceiling shadow falls under a solid cell onto a wall cell; the plank shadow and brackets fall on the wall under a ledge that has a room above it, and a ledge open to the sky gets a railing instead. The portholes are slice dressing, at cells (4, 19) and (19, 33), drawn where the map still has back wall.
+- Open air is one function, `draw_open_air`: a k sky with a k and B dither where it meets the horizon at map row 39, and a B and k sea with a C crest below it.
+- Cost: every pixel is written once or twice (the replay averages 1.4 writes a pixel, at most 1.5 in any frame), as about 2,200 copies of a table row or piece row a picture; `docs/PLATFORM.md` has the host figures and says what DOS does not measure here. A cell is skipped as a background when four solid cells cover it.
+- The Web view is 208 px tall and 96 to 1280 px wide, and the DOS frame is 320 by 200; both are only drawing inputs. The extra 16 px above a top row and 10 px to the right of a right column are drawn into the view like any other pixels.
+- The manual describes what a player now sees.
