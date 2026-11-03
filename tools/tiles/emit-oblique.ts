@@ -389,14 +389,32 @@ function tableItem(name: string, doc: string, rows: number, t: Uint8Array): stri
   return `/// ${doc}\npub static ${name}: [u8; ${PERIOD * rows}] = [\n${bytes(t, PERIOD, '    ')}\n];\n`;
 }
 
+/** A piece: its pixels, and for each row the runs of opaque pixels (first column, length) so that drawing copies runs and tests no pixel. `rows` has `h + 1` entries, the index into `runs` of each row's first run. */
 function pieceItem(name: string, doc: string, p: Piece): string {
-  return `/// ${doc}\npub static ${name}: Piece = Piece {\n    w: ${p.w},\n    h: ${p.h},\n    ox: ${p.ox},\n    oy: ${p.oy},\n    pixels: &[\n${bytes(p.pixels, p.w, '        ')}\n    ],\n};\n`;
+  const rows: number[] = [0];
+  const runs: string[] = [];
+  for (let y = 0; y < p.h; y++) {
+    let x = 0;
+    while (x < p.w) {
+      if (p.pixels[y * p.w + x] === 255) {
+        x++;
+        continue;
+      }
+      let e = x;
+      while (e < p.w && p.pixels[y * p.w + e] !== 255) e++;
+      runs.push(`(${x}, ${e - x})`);
+      x = e;
+    }
+    rows.push(runs.length);
+  }
+  return `/// ${doc}\npub static ${name}: Piece = Piece {\n    w: ${p.w},\n    h: ${p.h},\n    ox: ${p.ox},\n    oy: ${p.oy},\n    pixels: &[\n${bytes(p.pixels, p.w, '        ')}\n    ],\n    rows: &[${rows.join(', ')}],\n    runs: &[${runs.join(', ')}],\n};\n`;
 }
 
 /** A side face as packed rows: each row of the piece has one run of opaque pixels, stored as (first column, length, offset into the packed pixels). */
 function sideItem(name: string, doc: string, p: Piece): string {
   const spans: string[] = [];
   const packed: number[] = [];
+  let extent = 0;
   for (let y = 0; y < p.h; y++) {
     const row = p.pixels.subarray(y * p.w, (y + 1) * p.w);
     const a = row.findIndex((c) => c !== 255);
@@ -404,11 +422,12 @@ function sideItem(name: string, doc: string, p: Piece): string {
     while (b > 0 && row[b - 1] === 255) b--;
     if (a < 0) throw new Error(`${name}: row ${y} is empty`);
     for (let x = a; x < b; x++) if (row[x] === 255) throw new Error(`${name}: row ${y} has a hole`);
+    extent = Math.max(extent, b);
     spans.push(`(${a}, ${b - a}, ${packed.length})`);
     for (let x = a; x < b; x++) packed.push(row[x]);
   }
   const pixels = bytes(Uint8Array.from(packed), 32, '        ');
-  return `/// ${doc}\npub static ${name}: Side = Side {\n    h: ${p.h},\n    ox: ${p.ox},\n    oy: ${p.oy},\n    spans: &[${spans.join(', ')}],\n    pixels: &[\n${pixels}\n    ],\n};\n`;
+  return `/// ${doc}\npub static ${name}: Side = Side {\n    w: ${extent},\n    h: ${p.h},\n    ox: ${p.ox},\n    oy: ${p.oy},\n    spans: &[${spans.join(', ')}],\n    pixels: &[\n${pixels}\n    ],\n};\n`;
 }
 
 export function emit(): string {
@@ -453,18 +472,23 @@ export function emit(): string {
 pub const PERIOD: usize = ${PERIOD};
 
 /// A small picture of EGA indices 0..=15, with 255 for transparent, row by row from the top left. \`(ox, oy)\` is where its top left lies
-/// from the reference point the piece's own documentation names.
+/// from the reference point the piece's own documentation names. Drawing copies its opaque runs: \`runs\` holds each run as
+/// (first column, length) and \`rows\` the index into \`runs\` of each row's first run (\`h + 1\` entries), so no pixel is tested at run time.
 pub struct Piece {
     pub w: u8,
     pub h: u8,
     pub ox: i8,
     pub oy: i8,
     pub pixels: &'static [u8],
+    pub rows: &'static [u16],
+    pub runs: &'static [(u8, u8)],
 }
 
 /// A right side face, every row of it one run of opaque pixels: for each row, \`(first column, length, offset into pixels)\`. The
-/// packed \`pixels\` hold only the opaque pixels, row after row. \`(ox, oy)\` is as for a [\`Piece\`].
+/// packed \`pixels\` hold only the opaque pixels, row after row. \`w\` is the column after the last opaque pixel of any row, so
+/// a face whose \`w\` columns lie in the frame needs no clipping. \`(ox, oy)\` is as for a [\`Piece\`].
 pub struct Side {
+    pub w: u8,
     pub h: u8,
     pub ox: i8,
     pub oy: i8,

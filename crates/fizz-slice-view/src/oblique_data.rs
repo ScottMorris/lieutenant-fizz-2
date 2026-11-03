@@ -9,18 +9,23 @@
 pub const PERIOD: usize = 256;
 
 /// A small picture of EGA indices 0..=15, with 255 for transparent, row by row from the top left. `(ox, oy)` is where its top left lies
-/// from the reference point the piece's own documentation names.
+/// from the reference point the piece's own documentation names. Drawing copies its opaque runs: `runs` holds each run as
+/// (first column, length) and `rows` the index into `runs` of each row's first run (`h + 1` entries), so no pixel is tested at run time.
 pub struct Piece {
     pub w: u8,
     pub h: u8,
     pub ox: i8,
     pub oy: i8,
     pub pixels: &'static [u8],
+    pub rows: &'static [u16],
+    pub runs: &'static [(u8, u8)],
 }
 
 /// A right side face, every row of it one run of opaque pixels: for each row, `(first column, length, offset into pixels)`. The
-/// packed `pixels` hold only the opaque pixels, row after row. `(ox, oy)` is as for a [`Piece`].
+/// packed `pixels` hold only the opaque pixels, row after row. `w` is the column after the last opaque pixel of any row, so
+/// a face whose `w` columns lie in the frame needs no clipping. `(ox, oy)` is as for a [`Piece`].
 pub struct Side {
+    pub w: u8,
     pub h: u8,
     pub ox: i8,
     pub oy: i8,
@@ -465,6 +470,8 @@ pub static DOOR_RED_TOP: Piece = Piece {
         0,8,12,12,12,4,12,12,12,4,4,12,12,12,8,0,
         0,8,12,12,12,4,12,12,12,12,4,4,4,12,8,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The red door, a middle 16 px, with the lock.
@@ -491,6 +498,8 @@ pub static DOOR_RED_MID: Piece = Piece {
         0,8,12,12,12,4,12,12,12,4,4,12,12,12,8,0,
         0,8,4,12,12,4,12,12,12,12,4,4,12,12,8,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The red door, bottom 16 px.
@@ -517,6 +526,8 @@ pub static DOOR_RED_BOT: Piece = Piece {
         0,8,8,8,8,8,8,8,8,8,8,8,8,8,8,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The blue door, top 16 px, with the white disc badge.
@@ -543,6 +554,8 @@ pub static DOOR_BLUE_TOP: Piece = Piece {
         0,8,9,9,9,1,9,9,9,1,1,9,9,9,8,0,
         0,8,9,9,9,1,9,9,9,9,1,1,1,9,8,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The blue door, a middle 16 px, with the lock.
@@ -569,6 +582,8 @@ pub static DOOR_BLUE_MID: Piece = Piece {
         0,8,9,9,9,1,9,9,9,1,1,9,9,9,8,0,
         0,8,1,9,9,1,9,9,9,9,1,1,9,9,8,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The blue door, bottom 16 px.
@@ -595,6 +610,8 @@ pub static DOOR_BLUE_BOT: Piece = Piece {
         0,8,8,8,8,8,8,8,8,8,8,8,8,8,8,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16), (0, 16)],
 };
 
 /// The exit doorway; `(ox, oy)` is relative to the left edge and the top of the lower exit cell.
@@ -640,6 +657,8 @@ pub static EXIT_DOORWAY: Piece = Piece {
         0,7,7,2,2,2,2,2,2,2,2,2,2,2,2,2,2,8,8,0,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
+    runs: &[(6, 8), (4, 12), (3, 14), (3, 14), (2, 16), (2, 16), (1, 18), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20), (0, 20)],
 };
 
 /// A spike tile; `(ox, oy)` is relative to the left edge and the top of the tile.
@@ -676,6 +695,8 @@ pub static SPIKES: Piece = Piece {
         255,0,7,7,7,15,8,8,8,0,7,7,7,15,8,8,8,0,255,255,255,255,255,255,255,
         0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,255,255,255,255,255,255,
     ],
+    rows: &[0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 19, 20, 21, 21, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 40, 41, 42],
+    runs: &[(10, 3), (18, 3), (10, 3), (18, 3), (10, 3), (18, 3), (9, 5), (17, 5), (9, 5), (17, 5), (9, 5), (17, 5), (8, 7), (16, 7), (8, 7), (16, 7), (8, 7), (16, 7), (7, 17), (7, 17), (6, 19), (4, 3), (12, 3), (4, 3), (12, 3), (4, 3), (12, 3), (3, 5), (11, 5), (3, 5), (11, 5), (3, 5), (11, 5), (2, 7), (10, 7), (2, 7), (10, 7), (2, 7), (10, 7), (1, 17), (1, 17), (0, 19)],
 };
 
 /// One tile of railing; `(ox, oy)` is relative to the left edge and the top of the plank cell it stands on.
@@ -699,6 +720,8 @@ pub static RAIL: Piece = Piece {
         255,255,0,7,8,0,255,255,255,255,0,7,8,0,255,255,
         255,255,0,7,8,0,255,255,255,255,0,7,8,0,255,255,
     ],
+    rows: &[0, 1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22],
+    runs: &[(0, 16), (0, 16), (0, 16), (0, 16), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4), (2, 4), (10, 4)],
 };
 
 /// An iron bracket under a plank; `(ox, oy)` is relative to its leg and the bottom edge of the plank cell.
@@ -720,6 +743,8 @@ pub static BRACKET: Piece = Piece {
         255,255,255,255,255,255,255,0,7,8,0,
         255,255,255,255,255,255,255,255,0,0,255,
     ],
+    rows: &[0, 1, 2, 4, 6, 8, 10, 12, 13, 14, 15, 16],
+    runs: &[(7, 4), (7, 4), (0, 2), (7, 4), (1, 2), (7, 4), (2, 2), (7, 4), (3, 2), (7, 4), (4, 2), (7, 4), (5, 6), (6, 5), (7, 4), (8, 2)],
 };
 
 /// A porthole; `(ox, oy)` is relative to its centre.
@@ -749,10 +774,13 @@ pub static PORTHOLE: Piece = Piece {
         255,255,255,255,255,0,0,0,0,8,0,0,0,0,255,255,255,255,255,
         255,255,255,255,255,255,255,255,255,0,255,255,255,255,255,255,255,255,255,
     ],
+    rows: &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19],
+    runs: &[(9, 1), (5, 9), (4, 11), (3, 13), (2, 15), (1, 17), (1, 17), (1, 17), (1, 17), (0, 19), (1, 17), (1, 17), (1, 17), (1, 17), (2, 15), (3, 13), (4, 11), (5, 9), (9, 1)],
 };
 
 /// The right side face of a stone prism, 16 px tall; `(ox, oy)` is relative to the near plane's right edge and the strip's far edge.
 pub static SIDE_STONE: Side = Side {
+    w: 11,
     h: 42,
     ox: 0,
     oy: 0,
@@ -770,6 +798,7 @@ pub static SIDE_STONE: Side = Side {
 
 /// The right side face of a brick block, 16 px tall.
 pub static SIDE_BRICK: Side = Side {
+    w: 11,
     h: 42,
     ox: 0,
     oy: 0,
@@ -787,6 +816,7 @@ pub static SIDE_BRICK: Side = Side {
 
 /// The right side face of a plank, 5 px tall.
 pub static SIDE_PLANK: Side = Side {
+    w: 11,
     h: 31,
     ox: 0,
     oy: 0,
@@ -800,6 +830,7 @@ pub static SIDE_PLANK: Side = Side {
 
 /// The right side face of the red door, 16 px tall.
 pub static SIDE_DOOR_RED: Side = Side {
+    w: 11,
     h: 42,
     ox: 0,
     oy: 0,
@@ -817,6 +848,7 @@ pub static SIDE_DOOR_RED: Side = Side {
 
 /// The right side face of the blue door, 16 px tall.
 pub static SIDE_DOOR_BLUE: Side = Side {
+    w: 11,
     h: 42,
     ox: 0,
     oy: 0,

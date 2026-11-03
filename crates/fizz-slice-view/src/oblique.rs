@@ -16,6 +16,8 @@
 //!
 //! # Order
 //!
+//! 0. The cell window ([`Window`]): the tiles of the cells the view reaches, and for each its look and its background, read
+//!    once for the whole draw so that no later step looks a neighbour up again.
 //! 1. The background of every cell the view touches: the back wall (`WALLBG`, and the cells under a solid or ledge that has a
 //!    room above), or open air ([`draw_open_air`]). A cell that four solid cells will cover is skipped.
 //! 2. Portholes, then the contact shadows and brackets under ledges, the railings on ledges open to the sky, and the exit.
@@ -85,24 +87,62 @@ impl Ground<'_> {
             .unwrap_or(EMPTY)
     }
 
-    /// Whether Ben can not walk through the tile: fill, a block, or a door that is shut.
-    fn solid(&self, t: u8) -> bool {
-        t == FILL
-            || t == BLOCK
-            || (t == DOOR_R && self.red_closed)
-            || (t == DOOR_B && self.blue_closed)
+    /// The class bits that make a tile solid: fill, a block, and a door that is shut.
+    fn solid_mask(&self) -> u8 {
+        C_FILL
+            | C_BLOCK
+            | if self.red_closed { C_DOOR_R } else { 0 }
+            | if self.blue_closed { C_DOOR_B } else { 0 }
     }
 }
 
+// ---------- tile classes ----------
+
+/// Fill (stone).
+const C_FILL: u8 = 1;
+/// A brick block.
+const C_BLOCK: u8 = 2;
+/// The red door, shut or open.
+const C_DOOR_R: u8 = 4;
+/// The blue door, shut or open.
+const C_DOOR_B: u8 = 8;
+/// Open sky: empty or the exit.
+const C_OPEN: u8 = 16;
+/// A one-way plank.
+const C_PLAT: u8 = 32;
+/// Spikes or lethal chocolate, which stand on the feet plane.
+const C_STAND: u8 = 64;
+/// The exit.
+const C_EXIT: u8 = 128;
+/// The solid masses that stone depth is measured from. Doors count whether shut or open, so the stone round a door does not
+/// change its look when the door opens.
+const C_MASS: u8 = C_FILL | C_BLOCK | C_DOOR_R | C_DOOR_B;
+
+/// The classes of every tile id, so a test of a tile is one load and a mask.
+static CLASS: [u8; 256] = {
+    let mut t = [0u8; 256];
+    t[FILL as usize] = C_FILL;
+    t[BLOCK as usize] = C_BLOCK;
+    t[DOOR_R as usize] = C_DOOR_R;
+    t[DOOR_B as usize] = C_DOOR_B;
+    t[EMPTY as usize] = C_OPEN;
+    t[EXIT as usize] = C_OPEN | C_EXIT;
+    t[PLAT as usize] = C_PLAT;
+    t[SPIKE as usize] = C_STAND;
+    t[CHOC as usize] = C_STAND;
+    t
+};
+
 /// Whether a tile shows the open sky.
-const fn open_air(t: u8) -> bool {
-    t == EMPTY || t == EXIT
+#[inline]
+fn open_air(t: u8) -> bool {
+    CLASS[usize::from(t)] & C_OPEN != 0
 }
 
-/// Whether a tile is part of the solid masses that stone depth is measured from. Doors count whether shut or open, so the
-/// stone round a door does not change its look when the door opens.
-const fn mass(t: u8) -> bool {
-    t == FILL || t == BLOCK || t == DOOR_R || t == DOOR_B
+/// Whether a tile is part of the solid masses that stone depth is measured from.
+#[inline]
+fn mass(t: u8) -> bool {
+    CLASS[usize::from(t)] & C_MASS != 0
 }
 
 // ---------- the frame ----------
@@ -152,6 +192,145 @@ fn count(_n: usize) {
     }
 }
 
+/// Moves `N` bytes from the start (or the end) of `src` to the start (or the end) of `dst`, as one fixed-size assignment.
+#[inline(always)]
+fn mov<const N: usize>(dst: &mut [u8], src: &[u8], end: bool) {
+    if end {
+        if let (Some(d), Some(s)) = (dst.last_chunk_mut::<N>(), src.last_chunk::<N>()) {
+            *d = *s;
+        }
+    } else if let (Some(d), Some(s)) = (dst.first_chunk_mut::<N>(), src.first_chunk::<N>()) {
+        *d = *s;
+    }
+}
+
+/// Copies `src` over `dst`, which are the same length. A run of up to 128 pixels is two moves of fixed size that overlap when
+/// the length is not a power of two, because a call to `memcpy` costs more than the bytes it moves. The short runs, which are
+/// the common ones, are the first to be tried.
+#[inline(always)]
+fn copy_to(dst: &mut [u8], src: &[u8]) {
+    let n = dst.len();
+    let src = &src[..n];
+    if n < 8 {
+        if n >= 4 {
+            mov::<4>(dst, src, false);
+            mov::<4>(dst, src, true);
+        } else if n >= 2 {
+            mov::<2>(dst, src, false);
+            mov::<2>(dst, src, true);
+        } else if n == 1 {
+            dst[0] = src[0];
+        }
+    } else if n < 16 {
+        mov::<8>(dst, src, false);
+        mov::<8>(dst, src, true);
+    } else if n < 32 {
+        mov::<16>(dst, src, false);
+        mov::<16>(dst, src, true);
+    } else if n < 64 {
+        mov::<32>(dst, src, false);
+        mov::<32>(dst, src, true);
+    } else if n <= 128 {
+        mov::<64>(dst, src, false);
+        mov::<64>(dst, src, true);
+    } else {
+        dst.copy_from_slice(src);
+    }
+}
+
+/// Sets `N` bytes at the start (or the end) of `dst` to `c`, as one fixed-size assignment.
+#[inline(always)]
+fn set<const N: usize>(dst: &mut [u8], c: u8, end: bool) {
+    if let Some(d) = if end {
+        dst.last_chunk_mut::<N>()
+    } else {
+        dst.first_chunk_mut::<N>()
+    } {
+        *d = [c; N];
+    }
+}
+
+/// Fills `dst` with `c`, as [`copy_to`] copies.
+#[inline(always)]
+fn fill_to(dst: &mut [u8], c: u8) {
+    let n = dst.len();
+    if n > 64 {
+        dst.fill(c);
+    } else if n >= 32 {
+        set::<32>(dst, c, false);
+        set::<32>(dst, c, true);
+    } else if n >= 16 {
+        set::<16>(dst, c, false);
+        set::<16>(dst, c, true);
+    } else if n >= 8 {
+        set::<8>(dst, c, false);
+        set::<8>(dst, c, true);
+    } else if n >= 4 {
+        set::<4>(dst, c, false);
+        set::<4>(dst, c, true);
+    } else {
+        for p in dst {
+            *p = c;
+        }
+    }
+}
+
+/// Runs the loop `$body` with `$copy` bound to the copy that suits runs of `$n` pixels, so the choice is made once for all the
+/// rows of a run and not again for each.
+macro_rules! by_length {
+    ($n:expr, |$copy:ident| $body:expr) => {
+        match $n {
+            129.. => {
+                let $copy = |d: &mut [u8], s: &[u8]| d.copy_from_slice(s);
+                $body
+            }
+            64..=128 => {
+                let $copy = |d: &mut [u8], s: &[u8]| {
+                    mov::<64>(d, s, false);
+                    mov::<64>(d, s, true);
+                };
+                $body
+            }
+            32..=63 => {
+                let $copy = |d: &mut [u8], s: &[u8]| {
+                    mov::<32>(d, s, false);
+                    mov::<32>(d, s, true);
+                };
+                $body
+            }
+            16..=31 => {
+                let $copy = |d: &mut [u8], s: &[u8]| {
+                    mov::<16>(d, s, false);
+                    mov::<16>(d, s, true);
+                };
+                $body
+            }
+            _ => {
+                let $copy = |d: &mut [u8], s: &[u8]| copy_to(d, s);
+                $body
+            }
+        }
+    };
+}
+
+/// Copies `dst.len()` pixels of a table row into `dst`, starting at column `u` of the row, which repeats every [`PERIOD`].
+#[inline(always)]
+fn blit(dst: &mut [u8], row: &[u8], u: usize) {
+    let n = dst.len();
+    if u + n <= PERIOD {
+        copy_to(dst, &row[u..u + n]);
+        return;
+    }
+    let first = PERIOD - u;
+    copy_to(&mut dst[..first], &row[u..PERIOD]);
+    let mut done = first;
+    while done < n {
+        let c = (n - done).min(PERIOD);
+        copy_to(&mut dst[done..done + c], &row[..c]);
+        done += c;
+    }
+}
+
 impl<'a> Canvas<'a> {
     fn new(px: &'a mut [u8], w: usize, h: usize) -> Self {
         let rows = px.len().checked_div(w).map_or(0, |r| r.min(h));
@@ -190,34 +369,160 @@ impl<'a> Canvas<'a> {
     }
 
     #[inline]
-    fn put(&mut self, x: i32, y: i32, c: u8) {
-        if let Some((i, _, _)) = self.span(x, y, 1) {
-            self.px[i] = c;
-            count(1);
-        }
-    }
-
-    #[inline]
     fn fill(&mut self, x: i32, y: i32, len: i32, c: u8) {
         if let Some((i, _, n)) = self.span(x, y, len) {
-            self.px[i..i + n].fill(c);
+            fill_to(&mut self.px[i..i + n], c);
             count(n);
         }
     }
 
-    /// Copies `len` pixels of a table row to (`x`, `y`), starting at world column `u0` of the row, which repeats every 256.
-    fn wrapped(&mut self, x: i32, y: i32, len: i32, row: &[u8], u0: i32) {
-        let Some((mut i, off, mut n)) = self.span(x, y, len) else {
+    /// Fills the rectangle `len` wide and `rows` tall with its top left at (`x`, `y`), clipped, one fill for each row.
+    fn fill_rows(&mut self, x: i32, y: i32, rows: i32, len: i32, c: u8) {
+        let (k0, k1) = ((-y).clamp(0, rows), (self.h - y).clamp(0, rows));
+        let (a, b) = (x.max(0), x.saturating_add(len).min(self.w));
+        if k0 >= k1 || a >= b {
             return;
-        };
-        count(n);
-        let mut u = (u0.wrapping_add(off as i32) & (PERIOD as i32 - 1)) as usize;
-        while n > 0 {
-            let c = n.min(PERIOD - u);
-            self.px[i..i + c].copy_from_slice(&row[u..u + c]);
-            i += c;
-            n -= c;
-            u = 0;
+        }
+        let (n, w) = ((b - a) as usize, self.w as usize);
+        let mut i = (y + k0) as usize * w + a as usize;
+        for _ in k0..k1 {
+            fill_to(&mut self.px[i..i + n], c);
+            count(n);
+            i += w;
+        }
+    }
+
+    /// Copies `rows` rows of a baked table, `len` pixels wide from `x`: pixel row `y + k` takes table row `(first + k) %
+    /// modulus` from world column `u0` (the left edge of the unclipped run), which repeats every 256. The clip is worked out
+    /// once for all the rows.
+    #[allow(clippy::too_many_arguments)]
+    fn table_rows(
+        &mut self,
+        x: i32,
+        y: i32,
+        rows: i32,
+        len: i32,
+        table: &[u8],
+        first: usize,
+        modulus: usize,
+        u0: i32,
+    ) {
+        let (k0, k1) = ((-y).clamp(0, rows), (self.h - y).clamp(0, rows));
+        let (a, b) = (x.max(0), x.saturating_add(len).min(self.w));
+        if k0 >= k1 || a >= b {
+            return;
+        }
+        let (n, w) = ((b - a) as usize, self.w as usize);
+        let u = (u0.wrapping_add(a - x) & (PERIOD as i32 - 1)) as usize;
+        let mut ri = (first + k0 as usize) % modulus;
+        let mut di = (y + k0) as usize * w + a as usize;
+        let mut left = (k1 - k0) as usize;
+        if u + n > PERIOD {
+            // The run crosses the end of the period: each row is two copies.
+            for _ in 0..left {
+                blit(&mut self.px[di..di + n], row_of(table, ri), u);
+                count(n);
+                di += w;
+                ri = if ri + 1 == modulus { 0 } else { ri + 1 };
+            }
+            return;
+        }
+        by_length!(n, |copy| while left > 0 {
+            // The rows up to the end of the table, with no check for it in the loop.
+            let chunk = left.min(modulus - ri);
+            let mut si = ri * PERIOD + u;
+            for _ in 0..chunk {
+                copy(&mut self.px[di..di + n], &table[si..si + n]);
+                count(n);
+                di += w;
+                si += PERIOD;
+            }
+            left -= chunk;
+            ri = 0;
+        });
+    }
+
+    /// Draws the top face of a run: the 26 strip rows of `table` from the far edge at row `y`, each shifted right by its
+    /// slant `O[s]` from `left`, `len` pixels wide from world column `u0`, with the black caps at either end where asked.
+    #[allow(clippy::too_many_arguments)]
+    fn top_face(
+        &mut self,
+        left: i32,
+        y: i32,
+        len: i32,
+        table: &[u8],
+        u0: i32,
+        cap_l: bool,
+        cap_r: bool,
+    ) {
+        let (s0, s1) = ((-y).clamp(0, STRIP), (self.h - y).clamp(0, STRIP));
+        if s0 >= s1 {
+            return;
+        }
+        let w = self.w as usize;
+        if left >= 0 && left.saturating_add(len + i32::from(O[0])) <= self.w {
+            // No row reaches either edge of the frame: every row is one copy and its caps.
+            let (n, u) = (len as usize, (u0 & (PERIOD as i32 - 1)) as usize);
+            let mut i = (y + s0) as usize * w + left as usize;
+            let rows = s0 as usize..s1 as usize;
+            if u + n <= PERIOD {
+                by_length!(n, |copy| for s in rows.clone() {
+                    let x = i + usize::from(O[s]);
+                    let si = s * PERIOD + u;
+                    copy(&mut self.px[x..x + n], &table[si..si + n]);
+                    count(n);
+                    if cap_l {
+                        self.px[x] = BLACK;
+                        count(1);
+                    }
+                    if cap_r {
+                        self.px[x + n - 1] = BLACK;
+                        count(1);
+                    }
+                    i += w;
+                });
+                return;
+            }
+            for s in rows {
+                let x = i + usize::from(O[s]);
+                blit(&mut self.px[x..x + n], row_of(table, s), u);
+                count(n);
+                if cap_l {
+                    self.px[x] = BLACK;
+                    count(1);
+                }
+                if cap_r {
+                    self.px[x + n - 1] = BLACK;
+                    count(1);
+                }
+                i += w;
+            }
+            return;
+        }
+        for s in s0..s1 {
+            let x = left + i32::from(O[s as usize]);
+            let (a, b) = (x.max(0), x.saturating_add(len).min(self.w));
+            let base = (y + s) as usize * w;
+            if a < b {
+                let n = (b - a) as usize;
+                let u = (u0.wrapping_add(a - x) & (PERIOD as i32 - 1)) as usize;
+                blit(
+                    &mut self.px[base + a as usize..base + a as usize + n],
+                    row_of(table, s as usize),
+                    u,
+                );
+                count(n);
+            }
+            // The caps are single pixels, written when they lie in the frame.
+            if cap_l && x >= 0 && x < self.w {
+                self.px[base + x as usize] = BLACK;
+                count(1);
+            }
+            let xr = x.saturating_add(len - 1);
+            if cap_r && xr >= 0 && xr < self.w {
+                self.px[base + xr as usize] = BLACK;
+                count(1);
+            }
         }
     }
 
@@ -227,48 +532,168 @@ impl<'a> Canvas<'a> {
         let top = y + i32::from(p.oy);
         let first = (-top).clamp(0, i32::from(p.h)) as usize;
         let last = (self.h - top).clamp(0, i32::from(p.h)) as usize;
+        if first >= last {
+            return;
+        }
+        let w = self.w as usize;
+        if left >= 0 && left + i32::from(p.w) <= self.w {
+            // The whole face is inside the frame sideways.
+            let mut i = (top + first as i32) as usize * w + left as usize;
+            for &(start, len, off) in &p.spans[first..last] {
+                let (start, n, off) = (usize::from(start), usize::from(len), usize::from(off));
+                copy_to(
+                    &mut self.px[i + start..i + start + n],
+                    &p.pixels[off..off + n],
+                );
+                count(n);
+                i += w;
+            }
+            return;
+        }
         for (sy, &(start, len, off)) in p.spans.iter().enumerate().take(last).skip(first) {
-            let (rx, rl) = (left + i32::from(start), i32::from(len));
-            let Some((i, skip, n)) = self.span(rx, top + sy as i32, rl) else {
+            let rx = left + i32::from(start);
+            let (a, b) = (rx.max(0), (rx + i32::from(len)).min(self.w));
+            if a >= b {
                 continue;
-            };
+            }
+            let n = (b - a) as usize;
+            let src = usize::from(off) + (a - rx) as usize;
+            let i = (top + sy as i32) as usize * w + a as usize;
+            copy_to(&mut self.px[i..i + n], &p.pixels[src..src + n]);
             count(n);
-            let src = usize::from(off) + skip;
-            self.px[i..i + n].copy_from_slice(&p.pixels[src..src + n]);
         }
     }
 
-    /// Draws a piece with its reference point at (`x`, `y`); the pixel 255 is transparent.
+    /// Draws a piece with its reference point at (`x`, `y`): its opaque runs, row by row.
     fn piece(&mut self, p: &Piece, x: i32, y: i32) {
-        let (pw, ph) = (usize::from(p.w), usize::from(p.h));
-        if pw == 0 || p.pixels.len() < pw * ph {
-            return;
-        }
+        let pw = usize::from(p.w);
         let left = x + i32::from(p.ox);
         let top = y + i32::from(p.oy);
-        for (sy, src) in p.pixels.chunks_exact(pw).enumerate().take(ph) {
-            let Some((i, off, n)) = self.span(left, top + sy as i32, pw as i32) else {
-                continue;
-            };
-            let mut wrote = 0;
-            for (d, &s) in self.px[i..i + n].iter_mut().zip(&src[off..off + n]) {
-                if s != 255 {
-                    *d = s;
-                    wrote += 1;
+        let first = (-top).clamp(0, i32::from(p.h)) as usize;
+        let last = (self.h - top).clamp(0, i32::from(p.h)) as usize;
+        let w = self.w as usize;
+        let inside = left >= 0 && left + i32::from(p.w) <= self.w;
+        for sy in first..last {
+            let base = (top + sy as i32) as usize * w;
+            for &(rx, len) in &p.runs[usize::from(p.rows[sy])..usize::from(p.rows[sy + 1])] {
+                let (src, n) = (sy * pw + usize::from(rx), usize::from(len));
+                if inside {
+                    let i = base + left as usize + usize::from(rx);
+                    copy_to(&mut self.px[i..i + n], &p.pixels[src..src + n]);
+                    count(n);
+                    continue;
                 }
+                let xa = left + i32::from(rx);
+                let (a, b) = (xa.max(0), (xa + i32::from(len)).min(self.w));
+                if a >= b {
+                    continue;
+                }
+                let n = (b - a) as usize;
+                let src = src + (a - xa) as usize;
+                let i = base + a as usize;
+                copy_to(&mut self.px[i..i + n], &p.pixels[src..src + n]);
+                count(n);
             }
-            count(wrote);
         }
     }
 }
 
-/// A row of a table `width` wide... the `PERIOD` bytes of row `row`.
+/// The `PERIOD` bytes of row `row` of a table.
 #[inline]
 fn row_of(table: &[u8], row: usize) -> &[u8] {
     &table[row * PERIOD..(row + 1) * PERIOD]
 }
 
-// ---------- stone depth ----------
+// ---------- what a cell is drawn as ----------
+
+/// What a run of cells shows behind the terrain.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Back {
+    /// Four solid cells will cover it; nothing is drawn.
+    Skip,
+    /// The open sky.
+    Open,
+    /// The back wall.
+    Wall,
+    /// The back wall under a solid cell, which casts a shadow.
+    WallShadow,
+}
+
+const BACKS: [Back; 4] = [Back::Skip, Back::Open, Back::Wall, Back::WallShadow];
+
+/// What a cell is drawn as. Cells with equal looks and no door art draw as one run.
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+enum Kind {
+    None,
+    Stone1,
+    Stone2,
+    Stone3,
+    Brick,
+    Plank,
+    DoorRed,
+    DoorBlue,
+}
+
+const KINDS: [Kind; 8] = [
+    Kind::None,
+    Kind::Stone1,
+    Kind::Stone2,
+    Kind::Stone3,
+    Kind::Brick,
+    Kind::Plank,
+    Kind::DoorRed,
+    Kind::DoorBlue,
+];
+
+impl Kind {
+    /// Whether neighbouring cells of this kind can be drawn as one run (a door's art differs by its place in the door).
+    fn merges(self) -> bool {
+        !matches!(self, Kind::None | Kind::DoorRed | Kind::DoorBlue)
+    }
+}
+
+/// A cell's look is its kind (bits 0 to 2) and whether it has a top face (bit 3); its background is bits 4 and 5. A cell's
+/// `info` byte holds both, so a run of equal looks is a run of equal low nibbles.
+const LOOK_MASK: u8 = 0x0F;
+const TOP_BIT: u8 = 8;
+
+/// The background of a cell: see [`Back`] and [`back_is_wall`].
+fn back_info(sm: u8, t: u8, tr: u8, tu: u8, tur: u8) -> u8 {
+    let (ct, cu) = (CLASS[usize::from(t)], CLASS[usize::from(tu)]);
+    let back = if ct & sm != 0
+        && CLASS[usize::from(tr)] & sm != 0
+        && cu & sm != 0
+        && CLASS[usize::from(tur)] & sm != 0
+    {
+        Back::Skip
+    } else if !(t == WALLBG || (ct & C_OPEN == 0 && cu & C_OPEN == 0)) {
+        Back::Open
+    } else if t == WALLBG && cu & sm != 0 {
+        Back::WallShadow
+    } else {
+        Back::Wall
+    };
+    (back as u8) << 4
+}
+
+/// The look of a cell whose tile is `t`, with the tile above it `tu`, given the depth of its stone if it is stone.
+fn look_info(g: &Ground, sm: u8, t: u8, tu: u8, depth: impl FnOnce() -> u8) -> u8 {
+    let kind = match t {
+        FILL => match depth() {
+            1 => Kind::Stone1,
+            2 => Kind::Stone2,
+            _ => Kind::Stone3,
+        },
+        BLOCK => Kind::Brick,
+        PLAT => Kind::Plank,
+        DOOR_R if g.red_closed => Kind::DoorRed,
+        DOOR_B if g.blue_closed => Kind::DoorBlue,
+        _ => Kind::None,
+    };
+    let top = kind == Kind::Plank || (kind != Kind::None && CLASS[usize::from(tu)] & sm == 0);
+    kind as u8 | if top { TOP_BIT } else { 0 }
+}
 
 /// How many tiles, up to 4, a stone cell lies from the nearest opening, as a Chebyshev distance: 1 is next to an opening,
 /// 4 is three or more cells clear on every side (deep rock). The openings are the map's own cells that are not fill, block or
@@ -294,122 +719,300 @@ fn depth_direct(g: &Ground, tc: i32, ty: i32) -> u8 {
     4
 }
 
-/// Columns of the depth cache: one 64-bit mask of open rows for each map column the view reaches, plus three either side.
-const DEPTH_COLS: usize = 128;
+// ---------- the cell window ----------
 
-/// The openings round the view as one mask for each map column, so a cell's depth is a few shifts and not 49 reads. A view too
-/// large for the masks (more than 64 map rows or [`DEPTH_COLS`] columns) falls back to [`depth_direct`], so the answer is the
-/// same either way.
-struct Depth {
-    col0: i32,
-    base: i32,
-    cols: usize,
-    masks: [u64; DEPTH_COLS],
+/// The window's arrays come in two sizes, in cells: the 320 by 200 picture of the DOS presenter and the Web's default view
+/// reach 29 by 23 cells with the margin, and the widest Web view (1280 by 416 pixels) 89 by 34. A view too large for the larger
+/// (more than [`LARGE_CELLS`] cells, [`MAX_COLS`] across or [`MAX_ROWS`] down) is drawn without a window.
+const SMALL_CELLS: usize = 768;
+const LARGE_CELLS: usize = 3840;
+const MAX_COLS: usize = 96;
+const MAX_ROWS: usize = 40;
+/// The cells the window holds beyond those the view reaches, in each direction: the neighbours that drawing a cell reads.
+const MARGIN: i32 = 3;
+
+/// The map as one draw sees it: the tile of every cell the view reaches and of a margin round them (cells outside the map
+/// repeat the nearest edge cell), and for each cell the view reaches its look and its background, worked out once. Drawing
+/// reads this and never asks the map for a neighbour twice. A view too large for the arrays has no window (`ok` is false) and
+/// every question is answered from the map directly, which is slower and gives the same answers.
+struct Window<'a, 'b> {
+    g: Ground<'a>,
+    /// The class bits that make a tile solid now (the doors shut or open).
+    sm: u8,
     ok: bool,
+    /// The column and row of the window's top left cell, and its size in cells.
+    c0: i32,
+    r0: i32,
+    nc: usize,
+    nr: usize,
+    /// The tile of each cell, `nc` to a row.
+    tile: &'b mut [u8],
+    /// The look and background of each cell the view reaches, laid out like `tile`.
+    info: &'b mut [u8],
+    /// The classes found in each row of the window.
+    classes: [u8; MAX_ROWS],
 }
 
-impl Depth {
-    /// The masks for the map columns `tc0..=tc1` and map rows `ty0..=ty1` that the view's stone cells lie in.
-    fn new(g: &Ground, tc0: i32, tc1: i32, ty0: i32, ty1: i32) -> Self {
-        let col0 = (tc0.max(0) - 3).max(0);
-        let col1 = (tc1.min(g.w - 1) + 3).min(g.w - 1);
-        let base = ty0.max(0) - 3;
-        let top = ty1.min(g.h - 1) + 3;
-        let cols = (col1 - col0 + 1).max(0) as usize;
-        let mut d = Depth {
-            col0,
-            base,
-            cols,
-            masks: [0; DEPTH_COLS],
-            ok: cols <= DEPTH_COLS && top - base < 64 && col1 >= col0,
+impl<'a, 'b> Window<'a, 'b> {
+    /// The window over the cells `c_lo..=c_hi` of the screen rows `r_lo..=r_hi`, which are the cells the view reaches, held in
+    /// the two arrays if they are big enough.
+    fn new(
+        g: &Ground<'a>,
+        tile: &'b mut [u8],
+        info: &'b mut [u8],
+        c_lo: i32,
+        c_hi: i32,
+        r_lo: i32,
+        r_hi: i32,
+    ) -> Self {
+        let (nc, nr) = (
+            (c_hi - c_lo + 1 + 2 * MARGIN).max(0) as usize,
+            (r_hi - r_lo + 1 + 2 * MARGIN).max(0) as usize,
+        );
+        let ok = nc <= MAX_COLS
+            && nr <= MAX_ROWS
+            && nc > 2 * MARGIN as usize
+            && nr > 2 * MARGIN as usize
+            && nc * nr <= tile.len().min(info.len());
+        let mut win = Window {
+            g: *g,
+            sm: g.solid_mask(),
+            ok,
+            c0: c_lo - MARGIN,
+            r0: r_lo - MARGIN,
+            nc,
+            nr,
+            tile,
+            info,
+            classes: [0; MAX_ROWS],
         };
-        if !d.ok {
-            return d;
+        if ok {
+            win.fill(c_lo, c_hi, r_lo, r_hi);
         }
-        for i in 0..cols {
-            let mut m = 0u64;
-            for ty in base.max(0)..=top.min(g.h - 1) {
-                let t = g.data[ty as usize * g.w as usize + (col0 as usize + i)];
-                if !mass(t) {
-                    m |= 1 << (ty - base);
-                }
-            }
-            d.masks[i] = m;
-        }
-        d
+        win
     }
 
-    fn at(&self, g: &Ground, tc: i32, ty: i32) -> u8 {
-        let (tc, ty) = (tc.clamp(0, g.w - 1), ty.clamp(0, g.h - 1));
-        let col1 = self.col0 + self.cols as i32 - 1;
-        let columns_held =
-            (tc - 3 >= self.col0 || self.col0 == 0) && (tc + 3 <= col1 || col1 == g.w - 1);
-        if !self.ok || !columns_held || ty - self.base < 3 || ty - self.base > 60 {
-            return depth_direct(g, tc, ty);
+    /// Reads the tiles, then works out the look and background of the cells the view reaches.
+    fn fill(&mut self, c_lo: i32, c_hi: i32, r_lo: i32, r_hi: i32) {
+        let g = self.g;
+        let (gw, gh) = (g.w as usize, g.h);
+        let (nc, nr) = (self.nc, self.nr);
+        // The cells left of the map and right of it, and the columns of the map between.
+        let left = (-self.c0).clamp(0, nc as i32) as usize;
+        let right = (self.c0 + nc as i32 - g.w).clamp(0, (nc - left) as i32) as usize;
+        let mid = nc - left - right;
+        let from = self.c0.clamp(0, g.w) as usize;
+        let mut fill_seen = false;
+        for j in 0..nr {
+            let ty = (gh - 1 - (self.r0 + j as i32)).clamp(0, gh - 1) as usize;
+            let src = &g.data[ty * gw..ty * gw + gw];
+            let dst = &mut self.tile[j * nc..(j + 1) * nc];
+            dst[..left].fill(src[0]);
+            dst[left..left + mid].copy_from_slice(&src[from..from + mid]);
+            dst[left + mid..].fill(src[gw - 1]);
+            let cls = dst.iter().fold(0, |acc, &t| acc | CLASS[usize::from(t)]);
+            self.classes[j] = cls;
+            fill_seen |= cls & C_FILL != 0;
         }
-        let p = ty - self.base;
-        let mut best = 4u8;
-        for dx in -3..=3i32 {
-            let i = tc + dx - self.col0;
-            if i < 0 || i as usize >= self.cols {
-                continue;
-            }
-            let m = self.masks[i as usize];
-            let mut r = dx.abs().max(1);
-            while r < i32::from(best) {
-                let win = ((1u64 << (2 * r + 1)) - 1) << (p - r);
-                if m & win != 0 {
-                    best = r as u8;
-                    break;
+        // Stone depth, for every cell of fill: whether an opening lies within one cell and within two, as bits of a mask for
+        // each column of the view (bit `p` is map row `tya - 2 + p`). A column's `near` mask is the openings in it and the
+        // columns either side, `far` those within two columns; a cell is at distance 1 if any of three bits of `near` round
+        // it is set, and at distance 2 if any of five of `far` are. Cells outside the map are not openings, and a column or
+        // row outside the map has the depth of the nearest edge cell.
+        let ncore = (c_hi - c_lo + 1) as usize;
+        let (txa, txb) = (c_lo.clamp(0, g.w - 1), c_hi.clamp(0, g.w - 1));
+        let (tya, tyb) = (
+            (gh - 1 - r_hi).clamp(0, gh - 1),
+            (gh - 1 - r_lo).clamp(0, gh - 1),
+        );
+        let mut near = [0u64; MAX_COLS];
+        let mut far = [0u64; MAX_COLS];
+        if fill_seen {
+            let mut m = [0u64; MAX_COLS + 4];
+            let (ca, cb) = ((txa - 2).max(0), (txb + 2).min(g.w - 1));
+            for ty in (tya - 2).max(0)..=(tyb + 2).min(gh - 1) {
+                let bit = (ty - tya + 2) as u32;
+                let src = &g.data[ty as usize * gw + ca as usize..=ty as usize * gw + cb as usize];
+                for (tx, &t) in (ca..).zip(src) {
+                    if !mass(t) {
+                        m[(tx - txa + 2) as usize] |= 1 << bit;
+                    }
                 }
-                r += 1;
+            }
+            for (i, (n, f)) in near.iter_mut().zip(far.iter_mut()).enumerate().take(ncore) {
+                let x = (c_lo + i as i32).clamp(0, g.w - 1) - txa;
+                let x = x as usize;
+                *n = m[x + 1] | m[x + 2] | m[x + 3];
+                *f = *n | m[x] | m[x + 4];
             }
         }
-        best
+        let sm = self.sm;
+        let dc0 = MARGIN as usize;
+        for r in r_lo..=r_hi {
+            let j = (r - self.r0) as usize;
+            let (cur, up) = (j * nc + dc0, (j - 1) * nc + dc0);
+            let (cur_row, up_row) = (
+                &self.tile[cur..cur + ncore + 1],
+                &self.tile[up..up + ncore + 1],
+            );
+            let p = ((gh - 1 - r).clamp(0, gh - 1) - tya + 2) as u32;
+            let out = &mut self.info[cur..cur + ncore];
+            // A cell's look and background depend only on its tile, the tile to its right and the two above them (and, for
+            // fill, on its depth), so a cell that matches the one before it is not worked out again.
+            let (mut last_key, mut last) = (u32::MAX, 0u8);
+            for (i, o) in out.iter_mut().enumerate() {
+                let (t, tr, tu, tur) = (cur_row[i], cur_row[i + 1], up_row[i], up_row[i + 1]);
+                let key = u32::from_le_bytes([t, tr, tu, tur]);
+                if key != last_key {
+                    last_key = key;
+                    // Fill is looked up as the deepest stone; its depth is put in below.
+                    last = look_info(&g, sm, t, tu, || 4) | back_info(sm, t, tr, tu, tur);
+                }
+                *o = if t == FILL {
+                    let kind = if (near[i] >> (p - 1)) & 7 != 0 {
+                        Kind::Stone1
+                    } else if (far[i] >> (p - 2)) & 31 != 0 {
+                        Kind::Stone2
+                    } else {
+                        Kind::Stone3
+                    };
+                    last & !7 | kind as u8
+                } else {
+                    last
+                };
+            }
+        }
+    }
+
+    /// The index of cell (`c`, `r`) in the window's arrays, if it lies in the window.
+    #[inline(always)]
+    fn at(&self, c: i32, r: i32) -> Option<usize> {
+        let (dc, dr) = (
+            c.wrapping_sub(self.c0) as u32,
+            r.wrapping_sub(self.r0) as u32,
+        );
+        (self.ok && dc < self.nc as u32 && dr < self.nr as u32)
+            .then(|| dr as usize * self.nc + dc as usize)
+    }
+
+    /// The tile at column `c` and screen row `r` (0 at the top of the map; the map is `h` rows). Outside the map it is the
+    /// nearest edge cell.
+    #[inline(always)]
+    fn tile(&self, c: i32, r: i32) -> u8 {
+        match self.at(c, r) {
+            Some(i) => self.tile[i],
+            None => self.g.cell(c, r),
+        }
+    }
+
+    #[inline(always)]
+    fn solid(&self, t: u8) -> bool {
+        CLASS[usize::from(t)] & self.sm != 0
+    }
+
+    /// The `info` byte of a cell the view reaches: from the window, or worked out from the map when there is none.
+    #[inline(always)]
+    fn info(&self, c: i32, r: i32) -> u8 {
+        match self.at(c, r) {
+            Some(i) => self.info[i],
+            None => self.info_direct(c, r),
+        }
+    }
+
+    /// The `info` bytes of the cells `c_lo..=c_hi` of screen row `r`, if the window holds them all.
+    #[inline(always)]
+    fn info_row(&self, r: i32, c_lo: i32, c_hi: i32) -> Option<&[u8]> {
+        let (a, b) = (self.at(c_lo, r)?, self.at(c_hi, r)?);
+        self.info.get(a..=b)
+    }
+
+    /// The `info` byte of a cell from the map alone, as [`Window::fill`] works it out.
+    #[inline(never)]
+    fn info_direct(&self, c: i32, r: i32) -> u8 {
+        let g = &self.g;
+        let (t, tr) = (g.cell(c, r), g.cell(c + 1, r));
+        let (tu, tur) = (g.cell(c, r - 1), g.cell(c + 1, r - 1));
+        look_info(g, self.sm, t, tu, || depth_direct(g, c, g.h - 1 - r))
+            | back_info(self.sm, t, tr, tu, tur)
+    }
+
+    /// Whether the background behind cell (`c`, `r`) is the back wall. A wall tile is; open air is not; any other tile (a
+    /// ledge, spikes, a door, the exposed edge of a solid) takes the background of the cell above if that is open air and the
+    /// back wall otherwise.
+    #[inline]
+    fn back_is_wall(&self, c: i32, r: i32) -> bool {
+        let (t, tu) = match self.at(c, r) {
+            Some(i) if i >= self.nc => (self.tile[i], self.tile[i - self.nc]),
+            _ => (self.tile(c, r), self.tile(c, r - 1)),
+        };
+        t == WALLBG || (!open_air(t) && !open_air(tu))
+    }
+
+    /// The first column from `c` to `c_end` inclusive of screen row `r` whose tile has one of the class bits `any`.
+    fn find(&self, r: i32, c: i32, c_end: i32, any: u8) -> Option<i32> {
+        if c > c_end {
+            return None;
+        }
+        let j = r.wrapping_sub(self.r0) as u32;
+        if self.ok && j < self.nr as u32 && c >= self.c0 && c_end < self.c0 + self.nc as i32 {
+            // A row of the window with none of the classes needs no scan; one with some is scanned as a slice.
+            if self.classes[j as usize] & any == 0 {
+                return None;
+            }
+            let from = j as usize * self.nc + (c - self.c0) as usize;
+            let row = &self.tile[from..from + (c_end - c + 1) as usize];
+            return row
+                .iter()
+                .position(|&t| CLASS[usize::from(t)] & any != 0)
+                .map(|k| c + k as i32);
+        }
+        (c..=c_end).find(|&x| CLASS[usize::from(self.tile(x, r))] & any != 0)
     }
 }
 
 // ---------- backgrounds ----------
 
-/// What a run of cells shows behind the terrain.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Back {
-    /// Four solid cells will cover it; nothing is drawn.
-    Skip,
-    /// The open sky.
-    Open,
-    /// The back wall.
-    Wall,
-    /// The back wall under a solid cell, which casts a shadow.
-    WallShadow,
+/// Two-pixel checkers, 512 long, whose even pixels are blue and black, for the dither of the sky and sea.
+static CHECK_BLUE: [u8; 512] = checker(BLUE, BLACK);
+static CHECK_BLACK: [u8; 512] = checker(BLACK, BLUE);
+
+const fn checker(even: u8, odd: u8) -> [u8; 512] {
+    let mut t = [even; 512];
+    let mut i = 1;
+    while i < 512 {
+        t[i] = odd;
+        i += 2;
+    }
+    t
 }
 
-/// Whether the background behind cell (`c`, `r`) is the back wall. A wall tile is; open air is not; any other tile (a ledge,
-/// spikes, a door, the exposed edge of a solid) takes the background of the cell above if that is open air and the back wall
-/// otherwise.
-fn back_is_wall(g: &Ground, c: i32, r: i32) -> bool {
-    match g.cell(c, r) {
-        WALLBG => true,
-        t if open_air(t) => false,
-        _ => !open_air(g.cell(c, r - 1)),
+/// The crest of the sea on its second and third rows from the top: C where `(x div 6 + 2 s) mod 3` is 0, with s the row, as a
+/// pattern that repeats every 18 pixels of world x.
+static CREST_1: [u8; 288] = crest(1);
+static CREST_2: [u8; 288] = crest(2);
+
+const fn crest(s: usize) -> [u8; 288] {
+    let mut t = [BLUE; 288];
+    let mut x = 0;
+    while x < 288 {
+        if ((x % 18) / 6 + 2 * s).is_multiple_of(3) {
+            t[x] = CYAN;
+        }
+        x += 1;
     }
+    t
 }
 
-fn back_of(g: &Ground, c: i32, r: i32) -> Back {
-    let t = g.cell(c, r);
-    if g.solid(t)
-        && g.solid(g.cell(c + 1, r))
-        && g.solid(g.cell(c, r - 1))
-        && g.solid(g.cell(c + 1, r - 1))
-    {
-        return Back::Skip;
-    }
-    if !back_is_wall(g, c, r) {
-        Back::Open
-    } else if t == WALLBG && g.solid(g.cell(c, r - 1)) {
-        Back::WallShadow
-    } else {
-        Back::Wall
+/// Fills `row` from the pattern `pat`, which repeats every `P` pixels (its length is a multiple of `P`), starting `phase`
+/// pixels into the repeat.
+#[inline]
+fn pattern<const P: usize>(row: &mut [u8], pat: &[u8], phase: usize) {
+    let (n, mut k, mut done) = (row.len(), phase, 0);
+    while done < n {
+        let c = (n - done).min(pat.len() - k);
+        row[done..done + c].copy_from_slice(&pat[k..k + c]);
+        done += c;
+        k = (k + c) % P;
     }
 }
 
@@ -442,21 +1045,9 @@ fn draw_open_air(
         if d > 0 {
             // Sky above the horizon: a checker for four rows, then a sparse dot grid for six.
             if d < 4 {
-                for (i, p) in row.iter_mut().enumerate() {
-                    *p = if (wx0 + i as i32 + wy) & 1 == 1 {
-                        BLACK
-                    } else {
-                        BLUE
-                    };
-                }
+                pattern::<2>(row, &CHECK_BLUE, ((wx0 + wy) & 1) as usize);
             } else if wy & 1 == 0 {
-                for (i, p) in row.iter_mut().enumerate() {
-                    *p = if (wx0 + i as i32) & 1 == 0 {
-                        BLUE
-                    } else {
-                        BLACK
-                    };
-                }
+                pattern::<2>(row, &CHECK_BLUE, (wx0 & 1) as usize);
             } else {
                 row.fill(BLACK);
             }
@@ -466,67 +1057,74 @@ fn draw_open_air(
             if s == 0 {
                 row.fill(CYAN);
             } else if s < 3 {
-                for (i, p) in row.iter_mut().enumerate() {
-                    *p = if (((wx0 + i as i32).div_euclid(6) + 2 * s) % 3) == 0 {
-                        CYAN
-                    } else {
-                        BLUE
-                    };
-                }
+                let pat = if s == 1 { &CREST_1 } else { &CREST_2 };
+                pattern::<18>(row, pat, wx0.rem_euclid(18) as usize);
             } else if s < 6 {
                 row.fill(BLUE);
             } else {
-                for (i, p) in row.iter_mut().enumerate() {
-                    *p = if (wx0 + i as i32 + wy) & 1 == 1 {
-                        BLUE
-                    } else {
-                        BLACK
-                    };
-                }
+                pattern::<2>(row, &CHECK_BLACK, ((wx0 + wy) & 1) as usize);
             }
         }
     }
 }
 
 /// Draws the background of every cell the view touches.
-fn backgrounds(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
+fn backgrounds(cv: &mut Canvas, g: &Ground, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
     let (r0, r1) = (cam_y.div_euclid(T), (cam_y + cv.h - 1).div_euclid(T));
     let (c0, c1) = (cam_x.div_euclid(T), (cam_x + cv.w - 1).div_euclid(T));
     for r in r0..=r1 {
         let ya = (r * T).max(cam_y) - cam_y;
         let yb = ((r + 1) * T).min(cam_y + cv.h) - cam_y;
+        let row = win.info_row(r, c0, c1);
+        let back = |c: i32| match row {
+            Some(row) => row[(c - c0) as usize] >> 4,
+            None => win.info(c, r) >> 4,
+        };
         let mut c = c0;
         while c <= c1 {
-            let kind = back_of(g, c, r);
-            let mut e = c + 1;
-            while e <= c1 && back_of(g, e, r) == kind {
+            let kind = back(c);
+            if BACKS[usize::from(kind)] == Back::Skip {
+                c += 1;
+                continue;
+            }
+            // A run takes in the cells of the same background and, between them, cells that need none: four solid cells cover
+            // those, so what is drawn under them is never seen.
+            let (mut e, mut last) = (c + 1, c + 1);
+            while e <= c1 {
+                let k = back(e);
+                if k == kind {
+                    last = e + 1;
+                } else if BACKS[usize::from(k)] != Back::Skip {
+                    break;
+                }
                 e += 1;
             }
+            let e = last;
             let x = c * T - cam_x;
             let len = (e - c) * T;
-            match kind {
+            match BACKS[usize::from(kind)] {
                 Back::Skip => {}
                 Back::Open => draw_open_air(cv, g, cam_x, cam_y, x, x + len, ya, yb),
-                Back::Wall | Back::WallShadow => {
-                    for y in ya..yb {
-                        let wy = y + cam_y;
-                        let in_cell = wy.rem_euclid(T);
-                        if kind == Back::WallShadow && in_cell < 13 {
-                            // The shadow of the solid cell above: black, thinning to a dither on its last two rows.
-                            cv.fill(x, y, len, BLACK);
-                            continue;
-                        }
-                        let src = row_of(&BACK_WALL, wy.rem_euclid(96) as usize);
-                        cv.wrapped(x, y, len, src, c * T);
-                        if kind == Back::WallShadow && in_cell < 15 {
+                Back::Wall => {
+                    let first = (ya + cam_y).rem_euclid(96) as usize;
+                    cv.table_rows(x, ya, yb - ya, len, &BACK_WALL, first, 96, c * T);
+                }
+                Back::WallShadow => {
+                    // The shadow of the solid cell above: black on the first 13 rows of the cell, thinning to a dither on
+                    // the next two.
+                    let in_cell = ya + cam_y - r * T;
+                    let black = (13 - in_cell).clamp(0, yb - ya);
+                    cv.fill_rows(x, ya, black, len, BLACK);
+                    let wall = ya + black;
+                    let first = (wall + cam_y).rem_euclid(96) as usize;
+                    cv.table_rows(x, wall, yb - wall, len, &BACK_WALL, first, 96, c * T);
+                    for k in in_cell.max(13)..(in_cell + yb - ya).min(15) {
+                        let y = r * T + k - cam_y;
+                        if let Some((row, off)) = cv.row_mut(x, y, len) {
                             // The last two rows of the shadow are a dither: black where the world column and row add to odd.
-                            if let Some((row, off)) = cv.row_mut(x, y, len) {
-                                let wx0 = x + off + cam_x;
-                                for (i, p) in row.iter_mut().enumerate() {
-                                    if (wx0 + i as i32 + wy) & 1 == 1 {
-                                        *p = BLACK;
-                                    }
-                                }
+                            let odd = (x + off + cam_x + y + cam_y) & 1;
+                            for p in row.iter_mut().skip(usize::from(odd == 0)).step_by(2) {
+                                *p = BLACK;
                             }
                         }
                     }
@@ -539,66 +1137,92 @@ fn backgrounds(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
 
 // ---------- dressing ----------
 
-/// The contact shadow under a ledge: three rows on the back wall under the plank cell (`c`, `r`), shortening towards the
-/// near edge and dithered, from the near plane's left edge to its right (and a depth further at the end of a run).
-fn plank_shadow(cv: &mut Canvas, g: &Ground, c: i32, r: i32, cam_x: i32, cam_y: i32, end: bool) {
+/// The contact shadows under the plank run `c0..c1` of screen row `r`: three rows on the back wall under the run, shortening
+/// towards the near edge and dithered, from the near plane's left edge to its right (and a depth further at the end of a run,
+/// if `end`: the cell after the run is not a plank). Each cell's shadow is the same as if it were drawn by itself, and a shadow
+/// reaches no pixel that a bracket of the run covers, so the run is drawn in one piece.
+fn plank_shadows(
+    cv: &mut Canvas,
+    win: &Window<'_, '_>,
+    c0: i32,
+    c1: i32,
+    r: i32,
+    end: bool,
+    cam: (i32, i32),
+) {
+    // The shadow lies on the back wall only under the cells whose background is the wall: the cell to the left of the run (its
+    // first four pixels), the cells of the run, and the cell after it.
+    let mut wall = [false; MAX_COLS + 4];
+    let cells = ((c1 - c0 + 2) as usize).min(wall.len());
+    for (i, w) in wall.iter_mut().enumerate().take(cells) {
+        *w = win.back_is_wall(c0 - 1 + i as i32, r + 1);
+    }
     for k in 0..3 {
-        let y = r * T + T + k - cam_y;
-        let a = c * T - FEET_DX;
+        let y = r * T + T + k - cam.1;
+        let a = c0 * T - FEET_DX;
         let b = if end {
-            c * T + T + 6 - 2 * k
+            c1 * T + 6 - 2 * k
         } else {
-            c * T + T - FEET_DX
+            c1 * T - FEET_DX
         };
+        let mut start = None;
         let mut x = a;
         while x < b {
             let cell = x.div_euclid(T);
-            let seg_end = ((cell + 1) * T).min(b);
-            if back_is_wall(g, cell, r + 1) {
-                if k == 0 {
-                    cv.fill(x - cam_x, y, seg_end - x, BLACK);
-                } else if let Some((row, off)) = cv.row_mut(x - cam_x, y, seg_end - x) {
-                    // Every other pixel, where the world column plus the row is even.
-                    let wx0 = x + off;
-                    for (i, p) in row.iter_mut().enumerate() {
-                        if (wx0 + i as i32 + k) & 1 == 0 {
-                            *p = BLACK;
-                        }
-                    }
+            let lit = wall
+                .get((cell - (c0 - 1)) as usize)
+                .copied()
+                .unwrap_or_else(|| win.back_is_wall(cell, r + 1));
+            match (lit, start) {
+                (true, None) => start = Some(x),
+                (false, Some(s)) => {
+                    shadow_row(cv, s, x, y, k, cam.0);
+                    start = None;
                 }
+                _ => {}
             }
-            x = seg_end;
+            x = ((cell + 1) * T).min(b).max(x + 1);
+        }
+        if let Some(s) = start {
+            shadow_row(cv, s, b, y, k, cam.0);
+        }
+    }
+}
+
+/// One row of a contact shadow, over the world columns `x0..x1`: black on its first row, then every other pixel, where the
+/// world column plus the row of the shadow is even.
+fn shadow_row(cv: &mut Canvas, x0: i32, x1: i32, y: i32, k: i32, cam_x: i32) {
+    if k == 0 {
+        cv.fill(x0 - cam_x, y, x1 - x0, BLACK);
+    } else if let Some((row, off)) = cv.row_mut(x0 - cam_x, y, x1 - x0) {
+        let wx0 = x0 + off;
+        for p in row.iter_mut().skip(((wx0 + k) & 1) as usize).step_by(2) {
+            *p = BLACK;
         }
     }
 }
 
 /// The brackets under a plank run: at its left end, its right end and (for a long run) its middle, where the neighbouring cell
-/// is not solid. `c` is the cell being drawn; only the brackets that lie in it are drawn, so each is drawn once.
-fn plank_brackets(cv: &mut Canvas, g: &Ground, c: i32, r: i32, cam_x: i32, cam_y: i32) {
-    let tile = |x: i32| -> u8 {
-        if x < 0 || x >= g.w {
-            EMPTY
-        } else {
-            g.cell(x, r)
-        }
-    };
-    let mut s = c;
-    while s > 0 && tile(s - 1) == PLAT {
-        s -= 1;
-    }
-    let mut e = c + 1;
-    while e < g.w && tile(e) == PLAT {
-        e += 1;
-    }
+/// is not solid. `c` is the cell being drawn and `s..e` the cells of its run; only the brackets that lie in `c` are drawn, so
+/// each is drawn once.
+fn plank_brackets(
+    cv: &mut Canvas,
+    win: &Window<'_, '_>,
+    c: i32,
+    r: i32,
+    run: (i32, i32),
+    cam: (i32, i32),
+) {
+    let (s, e) = run;
     let mut spot = |bx: i32| {
         if bx.div_euclid(T) == c {
-            cv.piece(&BRACKET, bx - cam_x, r * T + T - cam_y);
+            cv.piece(&BRACKET, bx - cam.0, r * T + T - cam.1);
         }
     };
-    if !g.solid(g.cell(s - 1, r)) {
+    if !win.solid(win.tile(s - 1, r)) {
         spot(s * T + 6);
     }
-    if !g.solid(g.cell(e, r)) {
+    if !win.solid(win.tile(e, r)) {
         spot(e * T - 10);
     }
     if e - s >= BRACKET_MID_RUN {
@@ -606,32 +1230,67 @@ fn plank_brackets(cv: &mut Canvas, g: &Ground, c: i32, r: i32, cam_x: i32, cam_y
     }
 }
 
+/// The cells of the plank run that holds cell `c` of screen row `r`, as `(first, one past the last)`; outside the map there is
+/// no plank.
+fn plank_run(win: &Window<'_, '_>, c: i32, r: i32) -> (i32, i32) {
+    let tile = |x: i32| -> u8 {
+        if x < 0 || x >= win.g.w {
+            EMPTY
+        } else {
+            win.tile(x, r)
+        }
+    };
+    let mut s = c;
+    while s > 0 && tile(s - 1) == PLAT {
+        s -= 1;
+    }
+    let mut e = c + 1;
+    while e < win.g.w && tile(e) == PLAT {
+        e += 1;
+    }
+    (s, e)
+}
+
 /// Everything drawn on the far plane before the terrain, over the cells the view touches.
-fn dressing(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
+fn dressing(cv: &mut Canvas, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
     let (c_lo, c_hi, r_lo, r_hi) = cell_range(cv, cam_x, cam_y);
+    let g = &win.g;
     for &(pc, pr) in &PORTHOLES {
         let r = g.h - 1 - pr;
-        if pc >= 0 && pc < g.w && pr >= 0 && pr < g.h && g.cell(pc, r) == WALLBG {
+        if pc >= 0 && pc < g.w && pr >= 0 && pr < g.h && win.tile(pc, r) == WALLBG {
             cv.piece(&PORTHOLE, pc * T + 8 - cam_x, r * T + 8 - cam_y);
         }
     }
     for r in r_lo - 1..=r_hi + 1 {
-        for c in c_lo - 2..=c_hi + 2 {
-            if g.cell(c, r) != PLAT {
-                continue;
+        let mut next = c_lo - 2;
+        while let Some(c) = win.find(r, next, c_hi + 2, C_PLAT) {
+            // The planks from `c` to the end of the stretch of them that the view reaches.
+            let mut e = c + 1;
+            while e <= c_hi + 2 && win.tile(e, r) == PLAT {
+                e += 1;
             }
-            plank_shadow(cv, g, c, r, cam_x, cam_y, g.cell(c + 1, r) != PLAT);
-            if back_is_wall(g, c, r) {
-                plank_brackets(cv, g, c, r, cam_x, cam_y);
-            } else {
-                cv.piece(&RAIL, c * T - cam_x, r * T - cam_y);
+            next = e;
+            plank_shadows(cv, win, c, e, r, win.tile(e, r) != PLAT, (cam_x, cam_y));
+            let mut run = (0, i32::MIN);
+            for c in c..e {
+                if win.back_is_wall(c, r) {
+                    // A run is shared by its cells inside the map; a cell outside it is its own run.
+                    if c < 0 || run.0 < 0 || c >= run.1 || c < run.0 {
+                        run = plank_run(win, c, r);
+                    }
+                    plank_brackets(cv, win, c, r, run, (cam_x, cam_y));
+                } else {
+                    cv.piece(&RAIL, c * T - cam_x, r * T - cam_y);
+                }
             }
         }
     }
     // The exit stands on the far edge of the floor: its sill is the top of its lowest cell.
     for r in r_lo - 1..=r_hi + 1 {
-        for c in c_lo - 2..=c_hi + 2 {
-            if g.cell(c, r) == EXIT && g.cell(c, r + 1) != EXIT {
+        let mut next = c_lo - 2;
+        while let Some(c) = win.find(r, next, c_hi + 2, C_EXIT) {
+            next = c + 1;
+            if win.tile(c, r) == EXIT && win.tile(c, r + 1) != EXIT {
                 cv.piece(&EXIT_DOORWAY, c * T - cam_x, r * T - cam_y);
             }
         }
@@ -639,54 +1298,6 @@ fn dressing(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
 }
 
 // ---------- terrain ----------
-
-/// What a cell is drawn as. Cells with equal looks and no door art draw as one run.
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Look {
-    kind: Kind,
-    /// Whether the cell has a top face.
-    top: bool,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Kind {
-    None,
-    Stone1,
-    Stone2,
-    Stone3,
-    Brick,
-    Plank,
-    DoorRed,
-    DoorBlue,
-}
-
-impl Kind {
-    /// Whether neighbouring cells of this kind can be drawn as one run (a door's art differs by its place in the door).
-    fn merges(self) -> bool {
-        !matches!(self, Kind::None | Kind::DoorRed | Kind::DoorBlue)
-    }
-}
-
-fn look_of(g: &Ground, depth: &Depth, c: i32, r: i32) -> Look {
-    let t = g.cell(c, r);
-    let up_solid = g.solid(g.cell(c, r - 1));
-    let kind = match t {
-        FILL => match depth.at(g, c, g.h - 1 - r) {
-            1 => Kind::Stone1,
-            2 => Kind::Stone2,
-            _ => Kind::Stone3,
-        },
-        BLOCK => Kind::Brick,
-        PLAT => Kind::Plank,
-        DOOR_R if g.red_closed => Kind::DoorRed,
-        DOOR_B if g.blue_closed => Kind::DoorBlue,
-        _ => Kind::None,
-    };
-    Look {
-        kind,
-        top: kind == Kind::Plank || (kind != Kind::None && !up_solid),
-    }
-}
 
 /// The cells whose faces can reach the view: columns and screen rows, with the faces' reach (4 px left, 6 px right, 16 px
 /// up and 26 px down) allowed for.
@@ -699,81 +1310,91 @@ fn cell_range(cv: &Canvas, cam_x: i32, cam_y: i32) -> (i32, i32, i32, i32) {
     )
 }
 
-/// Draws the cells `c0..c1` of screen row `r`, which all look like `look`, as one run.
+/// Draws the cells `c0..c1` of screen row `r`, which all have the look `look` (the low nibble of their `info`), as one run.
 #[allow(clippy::too_many_arguments)]
 fn draw_run(
     cv: &mut Canvas,
-    g: &Ground,
+    win: &Window<'_, '_>,
     cam_x: i32,
     cam_y: i32,
     c0: i32,
     c1: i32,
     r: i32,
-    look: Look,
+    look: u8,
 ) {
+    let kind = KINDS[usize::from(look & 7)];
     let n = c1 - c0;
     let left = c0 * T - FEET_DX - cam_x;
     let y0 = r * T - cam_y;
     let u0 = c0 * T;
     let last = c1 - 1;
-    let plank = look.kind == Kind::Plank;
+    let plank = kind == Kind::Plank;
 
     phase(PHASE_TOP);
-    if look.top {
+    if look & TOP_BIT != 0 {
         // The caps are the black outline at a ledge's ends. An interior joint between two cells never has one.
+        let (tl, tr) = (win.tile(c0 - 1, r), win.tile(c1, r));
         let (cap_l, cap_r) = if plank {
-            (
-                g.cell(c0 - 1, r) != PLAT && !g.solid(g.cell(c0 - 1, r)),
-                g.cell(c1, r) != PLAT,
-            )
+            (tl != PLAT && !win.solid(tl), tr != PLAT)
         } else {
             (
-                !g.solid(g.cell(c0 - 1, r)) || g.solid(g.cell(c0 - 1, r - 1)),
-                !g.solid(g.cell(c1, r)) || g.solid(g.cell(c1, r - 1)),
+                !win.solid(tl) || win.solid(win.tile(c0 - 1, r - 1)),
+                !win.solid(tr) || win.solid(win.tile(c1, r - 1)),
             )
         };
         let table: &[u8] = if plank { &PLANK_TOP } else { &STONE_TOP };
-        for s in 0..STRIP {
-            let y = y0 - BACK + s;
-            if y < 0 || y >= cv.h {
-                continue;
-            }
-            let x = left + i32::from(O[s as usize]);
-            cv.wrapped(x, y, n * T, row_of(table, s as usize), u0);
-            if cap_l {
-                cv.put(x, y, BLACK);
-            }
-            if cap_r {
-                cv.put(x + n * T - 1, y, BLACK);
-            }
-        }
+        cv.top_face(left, y0 - BACK, n * T, table, u0, cap_l, cap_r);
     }
 
     phase(PHASE_FRONT);
     let wy = r * T;
-    match look.kind {
-        Kind::Stone1 | Kind::Stone2 | Kind::Stone3 | Kind::Brick => {
-            for k in 0..T {
-                let y = y0 + (STRIP - BACK) + k;
-                let src = match look.kind {
-                    Kind::Stone1 => row_of(&STONE_SHALLOW, (wy + k).rem_euclid(64) as usize),
-                    Kind::Stone2 => row_of(&STONE_MID, (wy + k).rem_euclid(64) as usize),
-                    Kind::Stone3 => row_of(&STONE_DEEP, (wy + k).rem_euclid(64) as usize),
-                    _ => row_of(&BRICK_FRONT, (wy + k).rem_euclid(32) as usize),
-                };
-                cv.wrapped(left, y, n * T, src, u0);
-            }
-        }
-        Kind::Plank => {
-            for k in 0..PLANK_FH {
-                let y = y0 + (STRIP - BACK) + k;
-                cv.wrapped(left, y, n * T, row_of(&PLANK_FRONT, k as usize), u0);
-            }
-        }
+    let (fx, fy, fl) = (left, y0 + (STRIP - BACK), n * T);
+    match kind {
+        Kind::Stone1 => cv.table_rows(
+            fx,
+            fy,
+            T,
+            fl,
+            &STONE_SHALLOW,
+            wy.rem_euclid(64) as usize,
+            64,
+            u0,
+        ),
+        Kind::Stone2 => cv.table_rows(
+            fx,
+            fy,
+            T,
+            fl,
+            &STONE_MID,
+            wy.rem_euclid(64) as usize,
+            64,
+            u0,
+        ),
+        Kind::Stone3 => cv.table_rows(
+            fx,
+            fy,
+            T,
+            fl,
+            &STONE_DEEP,
+            wy.rem_euclid(64) as usize,
+            64,
+            u0,
+        ),
+        Kind::Brick => cv.table_rows(
+            fx,
+            fy,
+            T,
+            fl,
+            &BRICK_FRONT,
+            wy.rem_euclid(32) as usize,
+            32,
+            u0,
+        ),
+        Kind::Plank => cv.table_rows(fx, fy, PLANK_FH, fl, &PLANK_FRONT, 0, PLANK_FH as usize, u0),
         Kind::DoorRed | Kind::DoorBlue => {
-            let t = g.cell(c0, r);
-            let (above, below) = (g.cell(c0, r - 1) == t, g.cell(c0, r + 1) == t);
-            let (top, mid, bot) = if look.kind == Kind::DoorRed {
+            let t = win.tile(c0, r);
+            let (above, below) = (win.tile(c0, r - 1) == t, win.tile(c0, r + 1) == t);
+            let (top, mid, bot) = if kind == Kind::DoorRed {
                 (&DOOR_RED_TOP, &DOOR_RED_MID, &DOOR_RED_BOT)
             } else {
                 (&DOOR_BLUE_TOP, &DOOR_BLUE_MID, &DOOR_BLUE_BOT)
@@ -790,56 +1411,63 @@ fn draw_run(
 
     phase(PHASE_SIDE);
     // The right side face, where the cell to the right does not stop it.
-    let right = g.cell(c1, r);
-    let side = match look.kind {
+    let right = win.tile(c1, r);
+    let side = match kind {
         Kind::Plank => (right != PLAT).then_some(&SIDE_PLANK),
-        Kind::Brick => (!g.solid(right)).then_some(&SIDE_BRICK),
-        Kind::DoorRed => (!g.solid(right)).then_some(&SIDE_DOOR_RED),
-        Kind::DoorBlue => (!g.solid(right)).then_some(&SIDE_DOOR_BLUE),
+        Kind::Brick => (!win.solid(right)).then_some(&SIDE_BRICK),
+        Kind::DoorRed => (!win.solid(right)).then_some(&SIDE_DOOR_RED),
+        Kind::DoorBlue => (!win.solid(right)).then_some(&SIDE_DOOR_BLUE),
         Kind::None => None,
-        _ => (!g.solid(right)).then_some(&SIDE_STONE),
+        _ => (!win.solid(right)).then_some(&SIDE_STONE),
     };
     if let Some(p) = side {
         cv.side(p, last * T + T - FEET_DX - cam_x, y0 - BACK);
     }
 }
 
-fn terrain(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
+fn terrain(cv: &mut Canvas, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
     let (c_lo, c_hi, r_lo, r_hi) = cell_range(cv, cam_x, cam_y);
-    // Stone depth is read for the map rows these screen rows hold.
-    let depth = Depth::new(g, c_lo, c_hi, g.h - 1 - r_hi, g.h - 1 - r_lo);
     for r in (r_lo..=r_hi).rev() {
+        let row = win.info_row(r, c_lo, c_hi);
+        let look = |c: i32| {
+            LOOK_MASK
+                & match row {
+                    Some(row) => row[(c - c_lo) as usize],
+                    None => win.info(c, r),
+                }
+        };
         let mut c = c_lo;
         while c <= c_hi {
-            let look = look_of(g, &depth, c, r);
-            if look.kind == Kind::None {
+            let l = look(c);
+            let kind = KINDS[usize::from(l & 7)];
+            if kind == Kind::None {
                 c += 1;
                 continue;
             }
             let mut e = c + 1;
-            if look.kind.merges() {
-                while e <= c_hi && look_of(g, &depth, e, r) == look {
+            if kind.merges() {
+                while e <= c_hi && look(e) == l {
                     e += 1;
                 }
             }
-            draw_run(cv, g, cam_x, cam_y, c, e, r, look);
+            draw_run(cv, win, cam_x, cam_y, c, e, r, l);
             c = e;
         }
     }
 }
 
 /// The spikes, and any other thing that stands on the floor strip without being a surface.
-fn standing(cv: &mut Canvas, g: &Ground, cam_x: i32, cam_y: i32) {
+fn standing(cv: &mut Canvas, win: &Window<'_, '_>, cam_x: i32, cam_y: i32) {
     let (c_lo, c_hi, r_lo, r_hi) = cell_range(cv, cam_x, cam_y);
     for r in (r_lo..=r_hi).rev() {
-        for c in c_lo..=c_hi {
-            match g.cell(c, r) {
+        let mut next = c_lo;
+        while let Some(c) = win.find(r, next, c_hi, C_STAND) {
+            next = c + 1;
+            match win.tile(c, r) {
                 SPIKE => cv.piece(&SPIKES, c * T - cam_x, r * T - cam_y),
                 CHOC => {
                     // Lethal chocolate: the slice has none, so it is a flat brown square on the feet plane.
-                    for y in 0..T {
-                        cv.fill(c * T - cam_x, r * T + y - cam_y, T, BROWN);
-                    }
+                    cv.fill_rows(c * T - cam_x, r * T - cam_y, T, T, BROWN);
                 }
                 _ => {}
             }
@@ -865,13 +1493,52 @@ pub fn draw_ground(frame: &mut [u8], w: usize, h: usize, g: &Ground, cam_x: i32,
         }
         return;
     }
+    let range = cell_range(&cv, cam_x, cam_y);
+    let cells = ((range.1 - range.0 + 1 + 2 * MARGIN).max(0) as usize)
+        .saturating_mul((range.3 - range.2 + 1 + 2 * MARGIN).max(0) as usize);
+    // The window's arrays are on the stack, the smaller size when the view is the DOS one so that little has to be cleared.
+    if cells <= SMALL_CELLS {
+        draw_cells(
+            &mut cv,
+            g,
+            &mut [0; SMALL_CELLS],
+            &mut [0; SMALL_CELLS],
+            cam_x,
+            cam_y,
+        );
+    } else if cells <= LARGE_CELLS {
+        draw_cells(
+            &mut cv,
+            g,
+            &mut [0; LARGE_CELLS],
+            &mut [0; LARGE_CELLS],
+            cam_x,
+            cam_y,
+        );
+    } else {
+        draw_cells(&mut cv, g, &mut [], &mut [], cam_x, cam_y);
+    }
+}
+
+/// Draws the map into the canvas through a window held in `tile` and `info`.
+#[inline(never)]
+fn draw_cells(
+    cv: &mut Canvas,
+    g: &Ground,
+    tile: &mut [u8],
+    info: &mut [u8],
+    cam_x: i32,
+    cam_y: i32,
+) {
+    let (c_lo, c_hi, r_lo, r_hi) = cell_range(cv, cam_x, cam_y);
+    let win = Window::new(g, tile, info, c_lo, c_hi, r_lo, r_hi);
     phase(PHASE_BACK);
-    backgrounds(&mut cv, g, cam_x, cam_y);
+    backgrounds(cv, g, &win, cam_x, cam_y);
     phase(PHASE_DRESS);
-    dressing(&mut cv, g, cam_x, cam_y);
-    terrain(&mut cv, g, cam_x, cam_y);
+    dressing(cv, &win, cam_x, cam_y);
+    terrain(cv, &win, cam_x, cam_y);
     phase(PHASE_STAND);
-    standing(&mut cv, g, cam_x, cam_y);
+    standing(cv, &win, cam_x, cam_y);
 }
 
 #[cfg(test)]

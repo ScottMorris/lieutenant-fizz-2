@@ -78,6 +78,27 @@ fn every_baked_table_and_piece_is_well_formed() {
             "{name}"
         );
         assert!(p.pixels.iter().all(|&c| c <= 15 || c == 255), "{name}");
+        // The runs are exactly the maximal stretches of opaque pixels, row by row.
+        assert_eq!(p.rows.len(), usize::from(p.h) + 1, "{name}");
+        for y in 0..usize::from(p.h) {
+            let row = &p.pixels[y * usize::from(p.w)..(y + 1) * usize::from(p.w)];
+            let mut seen = Vec::new();
+            let mut x = 0;
+            while x < row.len() {
+                if row[x] == 255 {
+                    x += 1;
+                    continue;
+                }
+                let e = row[x..]
+                    .iter()
+                    .position(|&c| c == 255)
+                    .map_or(row.len(), |n| x + n);
+                seen.push((x as u8, (e - x) as u8));
+                x = e;
+            }
+            let runs = &p.runs[usize::from(p.rows[y])..usize::from(p.rows[y + 1])];
+            assert_eq!(runs, &seen[..], "{name} row {y}");
+        }
     }
     for (name, s, h) in [
         ("stone side", &SIDE_STONE, 42),
@@ -90,6 +111,8 @@ fn every_baked_table_and_piece_is_well_formed() {
         assert_eq!(s.spans.len(), h, "{name} has a span for each row");
         let used: usize = s.spans.iter().map(|&(_, len, _)| usize::from(len)).sum();
         assert_eq!(used, s.pixels.len(), "{name} packs only the spans' pixels");
+        let extent = s.spans.iter().map(|&(a, len, _)| a + len).max();
+        assert_eq!(Some(s.w), extent, "{name} says how wide it is");
         assert!(s.pixels.iter().all(|&c| c <= 15), "{name}");
     }
 }
@@ -174,27 +197,81 @@ fn bens_feet_row_is_16_px_below_the_far_edge_of_his_ledge() {
 }
 
 #[test]
-fn the_depth_cache_gives_the_direct_answer() {
+fn the_window_gives_the_direct_answer() {
+    // The window's tiles, looks and backgrounds are what the map alone gives, at cameras in the map and far outside it, with
+    // the doors shut and open.
     let w = level::world();
-    let g = ground(&w);
-    for (cx, cy) in [
-        (0, 0),
-        (0, 400),
-        (100, 300),
-        (200, 0),
-        (300, 500),
-        (-50, -50),
-        (700, 900),
-    ] {
-        let (c_lo, c_hi, r_lo, r_hi) = (cx / 16 - 2, cx / 16 + 24, cy / 16 - 2, cy / 16 + 16);
-        let d = Depth::new(&g, c_lo, c_hi, g.h - 1 - r_hi, g.h - 1 - r_lo);
-        for r in r_lo..=r_hi {
-            for c in c_lo..=c_hi {
-                let ty = g.h - 1 - r;
-                assert_eq!(d.at(&g, c, ty), depth_direct(&g, c, ty), "cell ({c}, {ty})");
+    for (red, blue) in [(true, true), (false, true), (true, false), (false, false)] {
+        let g = Ground {
+            red_closed: red,
+            blue_closed: blue,
+            ..ground(&w)
+        };
+        for (cx, cy) in [
+            (0, 0),
+            (0, 400),
+            (100, 300),
+            (200, 0),
+            (300, 500),
+            (-50, -50),
+            (700, 900),
+            (-900, 300),
+            (4000, 4000),
+            (160, 20),
+        ] {
+            let (c_lo, c_hi, r_lo, r_hi) = (cx / 16 - 2, cx / 16 + 24, cy / 16 - 2, cy / 16 + 16);
+            let (mut tile, mut info) = ([0u8; LARGE_CELLS], [0u8; LARGE_CELLS]);
+            let win = Window::new(&g, &mut tile, &mut info, c_lo, c_hi, r_lo, r_hi);
+            assert!(win.ok);
+            for r in r_lo - MARGIN..=r_hi + MARGIN {
+                for c in c_lo - MARGIN..=c_hi + MARGIN {
+                    assert_eq!(win.tile(c, r), g.cell(c, r), "tile ({c}, {r})");
+                }
+            }
+            for r in r_lo..=r_hi {
+                for c in c_lo..=c_hi {
+                    assert_eq!(
+                        win.info(c, r),
+                        win.info_direct(c, r),
+                        "cell ({c}, {r}) at ({cx}, {cy}), doors {red} {blue}"
+                    );
+                }
             }
         }
     }
+}
+
+#[test]
+fn a_view_too_large_for_the_window_is_drawn_without_one() {
+    let w = level::world();
+    let g = ground(&w);
+    let (mut tile, mut info) = ([0u8; LARGE_CELLS], [0u8; LARGE_CELLS]);
+    assert!(!Window::new(&g, &mut tile, &mut info, 0, MAX_COLS as i32, 0, 10).ok);
+    assert!(!Window::new(&g, &mut tile, &mut info, 0, 10, 0, MAX_ROWS as i32).ok);
+    // The widest and tallest Web view (1280 by 416 pixels) fits, at any camera.
+    for cam_x in [-5, 0, 7, 15, 16] {
+        for cam_y in [-5, 0, 7, 15, 16] {
+            let cv = Canvas {
+                px: &mut [],
+                w: 1280,
+                h: 416,
+            };
+            let (c_lo, c_hi, r_lo, r_hi) = cell_range(&cv, cam_x, cam_y);
+            assert!(
+                Window::new(&g, &mut tile, &mut info, c_lo, c_hi, r_lo, r_hi).ok,
+                "camera ({cam_x}, {cam_y})"
+            );
+        }
+    }
+    // A frame 40 by 3000 pixels is too tall for a window; it gives the picture that bands of it, each of which fits, give.
+    let (fw, fh) = (40usize, 3000usize);
+    let mut whole = vec![0u8; fw * fh];
+    draw_ground(&mut whole, fw, fh, &g, 100, 10);
+    let mut bands = vec![0u8; fw * fh];
+    for (i, band) in bands.chunks_exact_mut(fw * 250).enumerate() {
+        draw_ground(band, fw, 250, &g, 100, 10 + 250 * i as i32);
+    }
+    assert!(whole == bands, "banded and whole pictures differ");
 }
 
 #[test]
