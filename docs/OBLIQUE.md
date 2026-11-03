@@ -53,20 +53,30 @@ A strip therefore occupies the far 16 px of the tile above its collision tile an
 
 Actors always draw over terrain. Strictly, a wall's front face would hide the 4 px of Ben nearest to it when he stands against it; readability wins.
 
+## Light and colour
+
+Light comes from the upper left: tops and left rims are lit, undersides and right side faces are shaded. The colour roles follow the Episode 2 palette study: the world is built from the dark colours and light grey (k, B, C, R, N, D, L), and the bright colours (y, r, b, g, c, m) and large areas of W are kept for things Ben can touch. The exceptions are the lit edge that marks every walkable surface (y on planks, W on stone) and 1 or 2 px stars. Doors carry a white shape badge as well as their colour (▲ red, ● blue), so colour is never the only cue.
+
 ## Textures
 
-Textures are functions of world position, so seams line up across tiles and the board joints of a top face follow the depth slant without special cases. The demo level's set, all in the EGA palette:
+Textures are functions of world position, so seams line up across tiles and the board joints of a top face follow the depth slant without special cases. Masonry courses take block widths of 12 to 28 px over a 256 px period, so large areas don't repeat. The demo level's set, all in the EGA palette:
 
 | Letter | Piece | Look |
 | --- | --- | --- |
-| `=` | Plank ledge | Four boards across the strip, a lit nosing on the near edge, a 6 px fascia, a contact shadow on the wall below |
-| `#` | Stone mass | Dark ashlar front in running bond, light flagstone top, dithered side face |
-| `B` | Brick block | Red brick front and side, stone coping on a walkable top |
-| `^` | Spikes | A shaded back row and a lit front row, standing on the floor strip |
-| `D`, `b` | Doors | One piece across the door's tiles: boards, iron bands, a yellow lock |
-| `E` | Exit | An arch on the feet plane with a small sign |
-| `w` | Back wall | Small dithered dark-blue bricks, kept quiet behind Ben |
-| `.` | Open air | Dithered night sky with stars over a sea; the gallery gets a railing on the far edge of its planks |
+| `=` | Plank ledge | Four N boards across the strip with R grain and k joints every 32 px, a y nosing on the near edge (the one-way cue), a 6 px fascia, iron brackets and a contact shadow on the wall below |
+| `#` | Stone mass | D ashlar of mixed widths with L lit rims and k mortar; three or more tiles from any opening it becomes deep stone (k with D joints and thin B veins), so the playable edge carries the light; L flagstone tops with a W lit edge |
+| `B` | Brick block | Red bands: r lit top and left of each brick, R body, a few darker bricks, stone coping on a walkable top |
+| `^` | Spikes | A shaded back row and a lit front row standing on the floor strip, W tips the brightest line in the room |
+| `D`, `b` | Doors | One piece across the door's tiles: boards, iron bands, a yellow lock, the shape badge on the top tile |
+| `E` | Exit | A two-tile stone-arched doorway on the far edge, lit g inside, a W up arrow (see [The exit](#the-exit)) |
+| `w` | Back wall | Vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, a D skirting where it meets a floor, the odd porthole |
+| `.` | Open air | A k sky with W, c and y stars, a k/B horizon dither, a B sea with a C crest; the gallery gets an iron railing on the far edge of its planks |
+
+## The exit
+
+The exit doorway stands on the far plane: its sill sits on the far edge of the floor, and Ben walks in front of it. The exit tiles in the map do not move; the doorway is drawn over the far half of the cell above the floor and the cell above that.
+
+This goes with a rules change, planned for the code phase: Ben goes through the exit when Up is pressed (a new press, not one held over) while his body overlaps an exit tile and he is standing on the ground. Touching the exit alone no longer ends the level. The press raises the exit event and freezes Ben as touching does today, and at the exit the door takes the press before the look-up and aim-up uses of Up. Because Fizz 1 exits on touch, the change gets its entry in `docs/FIZZ1-DIFFERENCES.md` when it lands. It moves the golden replay (which gains an Up press at the exit) and its hashes on every platform together, and the manual changes from touching the exit to pressing Up in the doorway.
 
 ## Ben
 
