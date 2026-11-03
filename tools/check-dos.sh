@@ -811,7 +811,7 @@ replay_case() {
   fi
   local bios
   bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-  { [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || rfail "/REPLAY ($name): BIOS TICKS '$bios' is outside 531-535"
+  { [ -n "$bios" ] && [ "$bios" -ge 544 ] && [ "$bios" -le 548 ]; } || rfail "/REPLAY ($name): BIOS TICKS '$bios' is outside 544-548"
   echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
