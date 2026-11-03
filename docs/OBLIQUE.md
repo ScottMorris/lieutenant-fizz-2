@@ -47,7 +47,7 @@ A strip therefore occupies the far 16 px of the tile above its collision tile an
 
 ## Draw order
 
-1. Background: the interior back wall (`w`), or sky and sea in open air (`.`), drawn flat on the far plane.
+1. Background, chosen by the level's theme (see [Backgrounds and parallax](#backgrounds-and-parallax)): the back wall for interior cells (`w`), drawn flat on the far plane so it scrolls with the tiles, and for open-air cells (`.`) the theme's parallax stack, which sits behind it, scrolls at its own factors and shows only where a cell is open air.
 2. Far-plane decoration: portholes, the shadows and brackets under ledges, railings, and the exit doorway, whose sill is on the far edge of the floor, so the strip drawn next covers its foot.
 3. Terrain, from the bottom row up and left to right within a row. This order makes upper-right neighbours correctly hide the far parts of lower-left faces with no depth buffer.
 4. Spikes, which stand on the feet plane.
@@ -71,8 +71,8 @@ Textures are functions of world position, so seams line up across tiles and the 
 | `^` | Spikes | A shaded back row and a lit front row standing on the floor strip, W tips the brightest line in the room |
 | `D`, `b` | Doors | One piece across the door's tiles: boards, iron bands, a yellow lock, the shape badge on the top tile |
 | `E` | Exit | A two-tile stone-arched doorway on the far edge, lit g inside, a W up arrow (see [The exit](#the-exit)) |
-| `w` | Back wall | Vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, the odd porthole |
-| `.` | Open air | A k sky with W, c and y stars, a k/B horizon dither, a B sea with a C crest; the gallery gets an iron railing on the far edge of its planks |
+| `w` | Back wall | The theme's interior material; the slice's is vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, the odd porthole |
+| `.` | Open air | The theme's parallax stack; the slice's is the Lighthouse night (stars, clouds, headlands and sea, see [Backgrounds and parallax](#backgrounds-and-parallax)); the gallery gets an iron railing on the far edge of its planks |
 
 ## The exit
 
@@ -83,6 +83,33 @@ This goes with a rules change, planned for the code phase: Ben goes through the 
 ## Ben
 
 Ben is not redrawn here; his new sprites come from the pose workshop. The trial frames on `trial/lab-ben-sprites` are 33 px tall, one more than two tiles. The suggested trim is sprite row 26 (counting from 0 at the top of the cap), a shin row nearly identical to row 27, which keeps the cap outline, the face and the shoes intact. The run and fire frames share a 33 px box and trim on the same row.
+
+## Backgrounds and parallax
+
+Every level's theme chooses its background. Interior cells (`w`) take the theme's back-wall material, drawn on the far plane, so it scrolls with the tiles. Open-air cells (`.`) take the theme's parallax stack, which sits behind the back wall and scrolls at its own factors, and it shows only where a cell is open air.
+
+In code the slice's theme is a set of constants in `crates/fizz-slice-view/src/oblique.rs` (the `lighthouse` stack, its factors, the sprites `MTN_TOP` and `SEA_TOP`, `HORIZON_ROW` and `HORIZON_CAM_Y`) and the baked tables in `oblique_data.rs`. A later level and theme format will carry them; nothing here defines one.
+
+The layer system is `fizz_view::parallax`, platform-neutral, integer and `no_std`, after Fizz 1's `Layer` vocabulary: a layer at factor `f` is offset by `camera * (1 - f)`, so `f = 0` stays fixed on the screen and `f = 1` moves with the tiles. A factor is a number out of 256, each axis has its own, and the offset is `camera * (256 - f) / 256` rounded down (`offset`), so a screen pixel shows the layer's position plus `camera - offset` (`shift`). A draw clears its clip to black and draws the layers back to front; the slice clips it to each run of open-air cells. Three kinds exist, the ones the slice uses:
+
+| Layer | What it draws |
+| --- | --- |
+| `Stars` | W, c and y points, 2 by 2 pixels one time in five and 1 pixel otherwise, one in three 16 by 16 cells of a hashed grid, only where the frame is still black |
+| `Clouds` | The 24 by 8 cloud (a B checker inside an ellipse, no blending) in cells 3.5 tiles wide, 65% of them kept, spread up to 2 tiles along the cell and drifting right 0.2 tiles a second with the animation tick |
+| `Band` | 16 px columns of stepped heights from a baked table, a 16 by 16 sprite on top and a fill below: the far headlands (D, the `mtnTop` peak) and the sea (a C crest, a B and k checker, B) |
+
+The Lighthouse Point stack, back to front, from the parallax board (clear colour k):
+
+| Layer | Factor x | Factor y | Notes |
+| --- | --- | --- | --- |
+| Stars | 0.04 | 0.04 | W, c, y |
+| Clouds | 0.06 | 0.06 | two rows of cells |
+| Far headlands | 0.12 | 0.06 | D; heights `round(0.5 + 1.5 sin(ix 0.19 + 1.08) + sin(ix 0.067 + 2.4))` tiles, baked in `tools/tiles/emit-oblique.ts` as `HEADLAND_HEIGHTS`; no sine runs at draw time |
+| Sea | 0.18 | 0.06 | flat band, B below a C crest |
+
+The board's near-rocks layer is left out: the slice has no shore. Colours follow the palette roles: dark colours throughout, and bright ones only for the stars.
+
+The horizon is calibrated at a camera: at `HORIZON_CAM_Y` (48 px, the view's top when Ben stands on the gallery floor) the sea's crest lies on the top of map row 39. Calibrating at the top of the map would put the horizon behind the gallery floor when Ben is on it, because a layer with a vertical factor of 0.06 barely moves on the screen. From lower in the level the layers have scrolled by their factors and the horizon is higher on the screen, but there the back wall and terrain cover it.
 
 ## Hills
 
@@ -103,8 +130,8 @@ A hill 32 px (two tiles) high on a 1:2 slope is the reference case.
 - Stone has three tables, by the Chebyshev distance to the nearest opening (one tile, two tiles, three or more): ashlar, ashlar darkening, and deep rock. The distance is worked out for the whole view at once from a bit mask of the open cells for each column of the view, so a cell's distance is a shift and a mask and not 49 reads.
 - Cells outside the map repeat the nearest edge cell, so a view larger than the map (the Web at 1280 pixels wide against a 512 pixel map) is filled like any other part of the picture.
 - A cell's background is the back wall for a wall tile, the open sky for open air and the exit, and for anything else (a ledge, spikes, a door, the exposed edge of a solid) the background of the cell above if that is open air and the back wall otherwise. The ceiling shadow falls under a solid cell onto a wall cell; the plank shadow and brackets fall on the wall under a ledge that has a room above it, and a ledge open to the sky gets a railing instead. The portholes are slice dressing, at cells (4, 19) and (19, 33), drawn where the map still has back wall.
-- Open air is one function, `draw_open_air`: a k sky with a k and B dither where it meets the horizon at map row 39, and a B and k sea with a C crest below it.
-- Cost: every pixel is written once or twice (the replay averages 1.4 writes a pixel, at most 1.5 in any frame), as about 2,200 copies of a table row or piece row a picture; `docs/PLATFORM.md` has the host figures and says what DOS does not measure here. A cell is skipped as a background when four solid cells cover it.
+- Open air is one function, `draw_open_air`, which draws the theme's parallax stack clipped to each run of open-air cells, so a layer's pixel appears only where a cell is open air and indoor frames never ask a layer to draw. The stack and the calibration are in [Backgrounds and parallax](#backgrounds-and-parallax).
+- Cost: every pixel is written once or twice (the replay averages 1.7 writes a pixel, at most 2.2 in any frame, counting an open-air rectangle as two), as about 2,100 copies of a table row or piece row a picture; `docs/PLATFORM.md` has the host figures and says what DOS does not measure here. A cell is skipped as a background when four solid cells cover it.
 - The Web view is 208 px tall and 96 to 1280 px wide, and the DOS frame is 320 by 200; both are only drawing inputs. The extra 16 px above a top row and 10 px to the right of a right column are drawn into the view like any other pixels.
 - The manual describes what a player now sees.
 - A draw reads the map once. The cell window (`Window` in `oblique.rs`) holds the tile of every cell the view reaches and of three cells round them, and for each cell the view reaches its look (kind, whether it has a top face) and its background, packed in one byte, in two arrays on the stack (768 cells for the DOS picture and the Web's default view, 3,840 for the widest, which is 89 by 34 cells with the margin). The backgrounds, the dressing, the terrain and the spikes read it, and none of them asks the map for a neighbour. A view too large for the larger array is drawn without a window, asking the map for each cell as the first renderer did, with the same picture. A cell whose tile and neighbours match those of the cell before it takes its look and background without working them out again.

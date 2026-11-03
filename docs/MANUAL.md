@@ -253,7 +253,7 @@ The level is drawn as if you were looking at it from a little above and in front
 - **Stone and brick.** Solid walls and floors are grey stone, darker and plainer deeper inside the walls, and red brick; their light-grey tops are floors you can stand on. You cannot pass through them.
 - **Doors.** The red door and the blue door are tall wooden doors with an iron lock. Each has a white badge so that you can tell them apart without the colours: a triangle on the red door and a circle on the blue one. An open door is not drawn at all, and you see the room behind it.
 - **Spikes.** Grey spikes with white tips, in two rows, stand on the floor.
-- **Open air.** Above the gallery the sky is black, with a band of blue where it meets the sea, and the sea is blue and teal.
+- **Open air.** The gallery is open to a night sky of white, cyan and yellow stars with a few small blue clouds drifting by, grey headlands far away and a blue sea with a teal crest. They are far off, so they slide past more slowly than the walls and ledges as you move.
 
 Snacks and keys are small pictures that bob in place.
 
