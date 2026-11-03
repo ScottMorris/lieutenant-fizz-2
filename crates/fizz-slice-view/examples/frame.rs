@@ -17,7 +17,7 @@
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_ep2::{SLICE_SCRIPT, World, level, step};
 use fizz_sim::{Buttons, InputFrame};
-use fizz_slice_view::oblique::{Ground, draw_ground};
+use fizz_slice_view::oblique::{Ground, draw_ground, draw_ground_at};
 use fizz_slice_view::{DrawOptions, draw_slice_with};
 use std::fs;
 
@@ -171,8 +171,9 @@ fn bench(args: &[String]) {
 }
 
 #[inline(never)]
-fn draw(frame: &mut [u8], w: usize, h: usize, g: &Ground, x: i32, y: i32, _round: u32) {
-    draw_ground(frame, w, h, g, x, y);
+fn draw(frame: &mut [u8], w: usize, h: usize, g: &Ground, x: i32, y: i32, round: u32) {
+    // The clouds drift with the tick, so a timed run draws at a different tick each round.
+    draw_ground_at(frame, w, h, g, x, y, 600 + round);
 }
 
 fn main() {
