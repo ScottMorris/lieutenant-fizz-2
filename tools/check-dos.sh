@@ -718,15 +718,24 @@ if group audio; then
 # 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
 # of file and flags, and each run prints the SOUND line its settings give.
 # The channel-5 write count the opl2 case finds, which the OR-rule and pair cases are measured against. With parallel cases it arrives in a
-# file; a case that needs it waits for the file (the opl2 case is dispatched before every case that reads it).
+# file; a case that needs it waits for the file (the opl2 case is dispatched before every case that reads it). Several opl2 cases run at
+# once and each writes the count, so it is written to a file of the case's own and renamed into place, which is atomic: a plain `>` truncates
+# the file first, and a reader that came between the truncation and the write read an empty count, which the arithmetic took as 0 (CI saw
+# "expected -68 writes" for a run that wrote the right 14,622). The reader also takes only a number.
+ch5_put() {
+  local tmp="$parroot/ch5-writes.$BASHPID"
+  printf '%s' "$1" > "$tmp" && mv -f "$tmp" "$parroot/ch5-writes"
+}
 ch5_get() {
   local n=0
-  while [ ! -s "$parroot/ch5-writes" ]; do
+  CH5_WRITES=""
+  while :; do
+    [ -s "$parroot/ch5-writes" ] && CH5_WRITES="$(cat "$parroot/ch5-writes")"
+    case "$CH5_WRITES" in '' | *[!0-9]*) ;; *) return 0 ;; esac
     n=$((n + 1))
     [ "$n" -le 400 ] || fail "/REPLAY: the channel 5 write count never arrived from the opl2 case"
     sleep 0.5
   done
-  CH5_WRITES="$(cat "$parroot/ch5-writes")"
 }
 replay_case() {
   local name="$1" conf="$2" expect="$3" out status=0 got_lines
@@ -759,7 +768,7 @@ replay_case() {
     #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
     #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
     #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
-    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; printf '%s' "$writes" > "$parroot/ch5-writes" ;;
+    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; ch5_put "$writes" ;;
     opl_or) ch5_get; [ "$writes" -eq $((CH5_WRITES + 21)) ] || rfail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
       ch5_get
