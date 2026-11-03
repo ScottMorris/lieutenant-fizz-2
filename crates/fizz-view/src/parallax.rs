@@ -532,13 +532,15 @@ impl<'a> Sky<'a> {
             cam_x.clamp(-(1 << 24), 1 << 24),
             cam_y.clamp(-(1 << 24), 1 << 24),
         );
+        // The bands and clouds first, then the stars, which need only the rows above those from which a band after them is all
+        // fill: the rows below are never drawn with stars, so their stars are not worked out.
         let (mut seen_stars, mut seen_clouds) = (false, false);
         for i in 0..n {
             let ok = match sky.layers[i] {
-                Layer::Stars { fx, fy } => {
+                Layer::Stars { .. } => {
                     let first = !seen_stars;
                     seen_stars = true;
-                    first && sky.prepare_stars(fw, fh, shift(cam_x, fx), shift(cam_y, fy))
+                    first
                 }
                 Layer::Clouds { fx, fy, rows } => {
                     let first = !seen_clouds;
@@ -571,10 +573,33 @@ impl<'a> Sky<'a> {
             };
             if !ok {
                 sky.ok = false;
-                break;
+                return sky;
+            }
+        }
+        if let Some(i) = (0..n).find(|&i| matches!(sky.layers[i], Layer::Stars { .. }))
+            && let Layer::Stars { fx, fy } = sky.layers[i]
+        {
+            let below = sky.fill_from(i + 1, fh);
+            if !sky.prepare_stars(fw, below.clamp(0, fh), shift(cam_x, fx), shift(cam_y, fy)) {
+                sky.ok = false;
             }
         }
         sky
+    }
+
+    /// The first row from which a band among the layers from `from` on is fill in every column, or `h` when none is: the rows
+    /// a layer before them shows on end there. [`Sky::draw`] works out the same limit for a clip.
+    fn fill_from(&self, from: usize, h: i32) -> i32 {
+        let mut limit = h;
+        for i in from..self.n {
+            if let Layer::Band { .. } = self.layers[i] {
+                let b = &self.bands[usize::from(self.band_of[i])];
+                if b.groups.0 < b.groups.1 {
+                    limit = limit.min(b.full_y);
+                }
+            }
+        }
+        limit
     }
 
     /// The stars of the frame, by the rows of 16 pixels of layer space they lie in. A star lies in the cell row it comes from
