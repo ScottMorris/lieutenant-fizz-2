@@ -17,9 +17,33 @@ pub const LINE: i32 = 10;
 /// The width of a space, and of a character the font lacks.
 const SPACE: i32 = 3;
 
+/// For each ASCII code point, one more than the index of its glyph in [`FONT`], or 0 when the font lacks it: 128 bytes that make
+/// the lookup of nearly every character one read, where a search of the font costs seven steps (a caption looks every character
+/// up twice, for its width and for its drawing).
+static ASCII: [u8; 128] = {
+    let mut t = [0u8; 128];
+    let mut i = 0;
+    while i < FONT.len() {
+        let cp = FONT[i].cp as usize;
+        if cp < 128 {
+            assert!(i < 255);
+            t[cp] = i as u8 + 1;
+        }
+        i += 1;
+    }
+    t
+};
+
 /// The glyph for `c`, or `None` when the font lacks it (a space has none either; it only advances).
 pub fn glyph(c: char) -> Option<&'static Glyph> {
-    FONT.binary_search_by_key(&(c as u32), |g| g.cp)
+    let cp = c as u32;
+    if cp < 128 {
+        return match ASCII[cp as usize] {
+            0 => None,
+            i => Some(&FONT[usize::from(i) - 1]),
+        };
+    }
+    FONT.binary_search_by_key(&cp, |g| g.cp)
         .ok()
         .map(|i| &FONT[i])
 }
@@ -42,8 +66,9 @@ pub fn text_width(text: &str) -> i32 {
 /// bits are left alone. Any position is safe, and a frame shorter than `w * h` is treated as only as tall as it is.
 pub fn draw_text(frame: &mut [u8], w: usize, h: usize, x: i32, y: i32, text: &str, colour: u8) {
     let h = frame.len().checked_div(w).map_or(0, |rows| rows.min(h));
-    // The glyph is looked up once for both its drawing and its advance, and the pixel loop is 32-bit: this is the hot loop of a
-    // caption on a 486, where `/BENCH` found six captions costing 3.8 ms a frame with the 64-bit arithmetic and two lookups.
+    // The glyph is looked up once for both its drawing and its advance, and the pixel loop is 32-bit and visits only the set bits
+    // of a row: this is the hot loop of a caption on a 486, where `/BENCH` found six captions costing 3.8 ms a frame with 64-bit
+    // arithmetic and two lookups, and still about 3 ms testing every column of every glyph against the frame's edges.
     let (width, height) = (
         i32::try_from(w).unwrap_or(i32::MAX),
         i32::try_from(h).unwrap_or(i32::MAX),
@@ -58,21 +83,24 @@ pub fn draw_text(frame: &mut [u8], w: usize, h: usize, x: i32, y: i32, text: &st
         };
         if let Some(g) = g {
             let gw = i32::from(g.w);
-            // Skip glyphs wholly off to a side; the per-pixel test below clips the rest. `pen` is inside (-gw, w) from here on.
-            if pen < width && i64::from(pen) + i64::from(gw) > 0 {
+            // Skip glyphs wholly off to a side. `pen` is inside (-gw, w) from here on, so the columns of the glyph that lie in
+            // the frame are `lo..hi`, and a row's bits are masked to them once rather than each pixel tested against the edges.
+            if pen < width && pen > -gw {
+                let (lo, hi) = ((-pen).max(0), (width - pen).min(gw));
+                // Column `dx` is bit `gw - 1 - dx` of a row.
+                let mask = ((1u32 << (hi - lo)) - 1) << (gw - hi);
                 for (dy, &bits) in g.rows.iter().enumerate() {
-                    let py = i64::from(y) + dy as i64;
-                    if bits == 0 || py < 0 || py >= i64::from(height) {
+                    let mut b = u32::from(bits) & mask;
+                    let py = y.saturating_add(dy as i32);
+                    if b == 0 || py < 0 || py >= height {
                         continue;
                     }
-                    let row = py as usize * w;
-                    for dx in 0..gw {
-                        if bits >> (gw - 1 - dx) & 1 != 0 {
-                            let px = pen + dx;
-                            if px >= 0 && px < width {
-                                frame[row + px as usize] = colour;
-                            }
-                        }
+                    // The set bits only, lowest first: the glyph's columns from the right. Column `pen + gw - 1` may lie past
+                    // the frame's right edge, but every bit left in `b` is a column inside the row.
+                    let right = py as usize * w + (pen + gw - 1) as usize;
+                    while b != 0 {
+                        frame[right - b.trailing_zeros() as usize] = colour;
+                        b &= b - 1;
                     }
                 }
             }
@@ -142,6 +170,86 @@ pub fn draw_text_scaled(
 #[cfg(test)]
 mod tests {
     use super::*;
+    extern crate std;
+
+    /// The pixel loop as it was first written: each column of each row tested, and clipped one pixel at a time.
+    fn draw_text_reference(
+        frame: &mut [u8],
+        w: usize,
+        h: usize,
+        x: i32,
+        y: i32,
+        text: &str,
+        colour: u8,
+    ) {
+        let h = frame.len().checked_div(w).map_or(0, |rows| rows.min(h));
+        let mut pen = i64::from(x);
+        for c in text.chars() {
+            if let Some(g) = glyph(c) {
+                for (dy, &bits) in g.rows.iter().enumerate() {
+                    let py = i64::from(y) + dy as i64;
+                    if py < 0 || py >= h as i64 {
+                        continue;
+                    }
+                    for dx in 0..i64::from(g.w) {
+                        let px = pen + dx;
+                        if bits >> (i64::from(g.w) - 1 - dx) & 1 != 0 && px >= 0 && px < w as i64 {
+                            frame[py as usize * w + px as usize] = colour;
+                        }
+                    }
+                }
+            }
+            pen += i64::from(advance(c));
+        }
+    }
+
+    #[test]
+    fn the_ascii_table_finds_what_the_search_finds() {
+        for cp in 0..0x3000u32 {
+            let Some(c) = char::from_u32(cp) else {
+                continue;
+            };
+            let search = FONT
+                .binary_search_by_key(&cp, |g| g.cp)
+                .ok()
+                .map(|i| &FONT[i]);
+            assert_eq!(glyph(c).map(|g| g.cp), search.map(|g| g.cp), "{cp}");
+        }
+    }
+
+    #[test]
+    fn the_set_bit_loop_draws_the_pixels_of_the_column_by_column_one() {
+        let text = "Fzzt! gulp, BAWK? Ta-da ~#@ jq";
+        let mut seed = 7u32;
+        let mut next = move || {
+            seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            seed >> 8
+        };
+        for (w, h) in [(320usize, 200usize), (13, 9), (1, 1), (64, 3)] {
+            for _ in 0..300 {
+                let x = (next() % (w as u32 + 200)) as i32 - 150;
+                let y = (next() % (h as u32 + 24)) as i32 - 12;
+                let n = (next() as usize) % text.len();
+                let s = &text[n..];
+                let mut a = std::vec![0xEEu8; w * h + 5];
+                let mut b = a.clone();
+                draw_text(&mut a, w, h, x, y, s, 3);
+                draw_text_reference(&mut b, w, h, x, y, s, 3);
+                assert_eq!(a, b, "{s:?} at ({x}, {y}) in {w}x{h}");
+            }
+        }
+        for (x, y) in [
+            (i32::MIN, 0),
+            (i32::MAX, 0),
+            (0, i32::MIN),
+            (0, i32::MAX),
+            (i32::MAX - 3, i32::MAX - 2),
+        ] {
+            let mut a = std::vec![0u8; 320 * 200];
+            draw_text(&mut a, 320, 200, x, y, text, 3);
+            assert!(a.iter().all(|&p| p == 0));
+        }
+    }
 
     #[test]
     fn the_font_is_sorted_and_every_glyph_fits_nine_rows() {
