@@ -854,10 +854,10 @@ if group view; then
 # <auto|30|60>` after the platform lines. At 30 Hz the screen is drawn on every second tick, so n is about t/2 (the first frame is
 # drawn before tick 1, so a 60 Hz run draws t+1); the TICK, FINAL and EVENT lines are the golden's whatever the rate. The default is Auto
 # and at 26,800 cycles (about a 486DX2-66) a frame costs a fraction of a sixtieth of a second, so it stays at 60. At FRAMES_SLOW cycles a frame
-# costs 100 to 170% of a sixtieth (calibrated with the /BENCH figures: draw plus copy is about 3.5 ms at 26,800, which scales with the
-# cycles, so 20.8 ms, 125%, at 4,500) and Auto ends at 30. The file's frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag
-# wins over it, the last flag wins, and no flag writes the file.
-FRAMES_SLOW=4500
+# costs 100 to 170% of a sixtieth (calibrated with the /BENCH figures: since the oblique ground, draw plus copy is about 10.8 ms at 26,800,
+# which scales with the cycles, so 20.7 ms, 124%, at 14,000; it was 3.5 ms and 4,500 cycles with flat tiles) and Auto ends at 30. The file's
+# frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag wins over it, the last flag wins, and no flag writes the file.
+FRAMES_SLOW=14000
 frames_replay() {
   local name="$1" cycles="$2" rate="$3" mode="$4" lo="$5" hi="$6" out status=0 line n t
   shift 6
