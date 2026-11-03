@@ -63,6 +63,8 @@ pub struct Caps {
     pub auto_fx: Device,
     /// The frame rate the governor is drawing at now: 60 or 30. Shown in "Auto (60 Hz)".
     pub rate: u32,
+    /// Whether an Auto sky is Full now (DOS; the governor decides it). Shown in "Auto (Full)" or "Auto (Light)".
+    pub full_sky: bool,
     /// The Web shows the Fullscreen row only when the page can go fullscreen.
     pub fullscreen: bool,
 }
@@ -89,8 +91,15 @@ impl Caps {
                 FxPlan::Speaker => Device::Speaker,
             },
             rate,
+            full_sky: false,
             fullscreen: false,
         }
+    }
+
+    /// These capabilities with an Auto sky that is Full (`true`) or Light now.
+    pub const fn with_full_sky(mut self, full: bool) -> Caps {
+        self.full_sky = full;
+        self
     }
 
     /// The Web capabilities; `fullscreen` is whether the page can go fullscreen.
@@ -103,6 +112,7 @@ impl Caps {
             auto_music: Device::None,
             auto_fx: Device::None,
             rate: 60,
+            full_sky: true,
             fullscreen,
         }
     }
@@ -346,6 +356,7 @@ fn count(platform: Platform, id: RowId) -> usize {
         (Platform::Dos, RowId::MUSIC) => 4,
         (Platform::Dos, RowId::EFFECTS) => 5,
         (Platform::Web, RowId::MOTION) => 3,
+        (Platform::Dos, RowId::SKY) => 3,
         (_, RowId::FRAME_RATE) => 3,
         (_, RowId::BACK) => 0,
         _ => 2,
@@ -366,6 +377,9 @@ const FX: [FxChoice; 5] = [
     FxChoice::Off,
 ];
 const RATES: [FrameRate; 3] = [FrameRate::Auto, FrameRate::Hz60, FrameRate::Hz30];
+/// The Sky row's choices: DOS has Auto first (its default); the Web draws Full or Light.
+const SKY_DOS: [SkyDetail; 3] = [SkyDetail::Auto, SkyDetail::Full, SkyDetail::Light];
+const SKY_WEB: [SkyDetail; 2] = [SkyDetail::Full, SkyDetail::Light];
 const MOTION_DOS: [MotionPick; 2] = [MotionPick::Full, MotionPick::Reduced];
 const MOTION_WEB: [MotionPick; 3] = [MotionPick::System, MotionPick::Reduced, MotionPick::Full];
 
@@ -388,7 +402,8 @@ fn index(platform: Platform, id: RowId, v: &Values) -> usize {
         (_, RowId::CAPTIONS) => on(v.captions == Captions::Off),
         (_, RowId::KEYS) => on(v.keys == Keys::Modern),
         (_, RowId::FULLSCREEN) => on(v.fullscreen),
-        (_, RowId::SKY) => on(v.sky == SkyDetail::Light),
+        (Platform::Dos, RowId::SKY) => SKY_DOS.iter().position(|d| *d == v.sky).unwrap_or(0),
+        (Platform::Web, RowId::SKY) => on(v.sky == SkyDetail::Light),
         _ => 0,
     }
 }
@@ -425,13 +440,8 @@ fn set(platform: Platform, id: RowId, v: &mut Values, i: usize) {
         (_, RowId::CAPTIONS) => v.captions = if i == 0 { Captions::On } else { Captions::Off },
         (_, RowId::KEYS) => v.keys = if i == 0 { Keys::Keen } else { Keys::Modern },
         (_, RowId::FULLSCREEN) => v.fullscreen = i == 1,
-        (_, RowId::SKY) => {
-            v.sky = if i == 0 {
-                SkyDetail::Full
-            } else {
-                SkyDetail::Light
-            }
-        }
+        (Platform::Dos, RowId::SKY) => v.sky = SKY_DOS[i],
+        (Platform::Web, RowId::SKY) => v.sky = SKY_WEB[i],
         _ => {}
     }
 }
@@ -489,7 +499,14 @@ fn word(caps: &Caps, id: RowId, i: usize) -> Text {
         (_, RowId::CAPTIONS) => Text::join(&[on_off(i == 1)]),
         (_, RowId::KEYS) => Text::join(&[["Keen", "Modern"][i]]),
         (_, RowId::FULLSCREEN) => Text::join(&[on_off(i == 0)]),
-        (_, RowId::SKY) => Text::join(&[["Full", "Light"][i]]),
+        (Platform::Dos, RowId::SKY) => match SKY_DOS[i] {
+            SkyDetail::Auto => {
+                Text::join(&["Auto (", if caps.full_sky { "Full" } else { "Light" }, ")"])
+            }
+            SkyDetail::Full => Text::join(&["Full"]),
+            SkyDetail::Light => Text::join(&["Light"]),
+        },
+        (Platform::Web, RowId::SKY) => Text::join(&[["Full", "Light"][i]]),
         _ => Text::EMPTY,
     }
 }
@@ -941,13 +958,37 @@ mod tests {
             (RowId::PLACEMENT, "Enhanced", "Classic"),
             (RowId::CAPTIONS, "On", "Off"),
             (RowId::KEYS, "Keen", "Modern"),
-            (RowId::SKY, "Light", "Full"),
         ] {
             goto(&mut s, &caps, row);
             assert_eq!(value(&s, &caps, row), first);
             s.key(MenuKey::Right, &caps);
             assert_eq!(value(&s, &caps, row), second);
         }
+        // The Sky: Auto with what it chose, then Full and Light; the Web has Full and Light.
+        goto(&mut s, &caps, RowId::SKY);
+        assert_eq!(value(&s, &caps, RowId::SKY), "Auto (Light)");
+        assert_eq!(
+            value(&s, &caps.with_full_sky(true), RowId::SKY),
+            "Auto (Full)"
+        );
+        for want in ["Full", "Light", "Auto (Light)"] {
+            s.key(MenuKey::Right, &caps);
+            assert_eq!(value(&s, &caps, RowId::SKY), want);
+        }
+        let web = Caps::web(false);
+        let mut w = OptionsScreen::new(
+            Values {
+                sky: SkyDetail::Full,
+                ..Values::default()
+            },
+            Overrides::NONE,
+        );
+        goto(&mut w, &web, RowId::SKY);
+        assert_eq!(value(&w, &web, RowId::SKY), "Full");
+        w.key(MenuKey::Right, &web);
+        assert_eq!(value(&w, &web, RowId::SKY), "Light");
+        w.key(MenuKey::Right, &web);
+        assert_eq!(value(&w, &web, RowId::SKY), "Full");
         goto(&mut s, &caps, RowId::FRAME_RATE);
         s.key(MenuKey::Right, &caps);
         assert_eq!(value(&s, &caps, RowId::FRAME_RATE), "60 Hz");

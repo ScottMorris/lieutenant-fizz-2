@@ -169,8 +169,8 @@ impl Menus {
         audio::set_mix(audio::Mix::Options);
     }
 
-    fn caps(&self, rate: u32) -> Caps {
-        Caps::dos(&self.auto, rate)
+    fn caps(&self, rate: u32, full_sky: bool) -> Caps {
+        Caps::dos(&self.auto, rate).with_full_sky(full_sky)
     }
 
     /// Handles a pressed key.
@@ -195,7 +195,7 @@ impl Menus {
                 _ => Step::Stay,
             },
             Which::Options => {
-                let caps = self.caps(drawing.rate());
+                let caps = self.caps(drawing.rate(), drawing.full_sky());
                 let outcome = self.options.key(key, &caps);
                 self.values = self.options.values;
                 self.overridden = self.options.overridden;
@@ -284,7 +284,10 @@ impl Menus {
             RowId::FRAME_RATE => drawing.set_mode(v.frame_rate),
             RowId::MOTION => applied.draw.shake = v.motion != MotionPick::Reduced,
             RowId::CAPTIONS => applied.draw.captions = v.captions == Captions::On,
-            RowId::SKY => applied.draw.full_sky = v.sky == SkyDetail::Full,
+            RowId::SKY => {
+                drawing.set_sky(v.sky);
+                applied.draw.full_sky = drawing.full_sky();
+            }
             RowId::KEYS => {
                 applied.layout = match v.keys {
                     Keys::Keen => Layout::Keen,
@@ -296,13 +299,13 @@ impl Menus {
     }
 
     /// Draws the open screen into `frame`; true when `frame` changed and should be presented.
-    pub fn draw(&mut self, frame: &mut Frame, rate: u32) -> bool {
+    pub fn draw(&mut self, frame: &mut Frame, rate: u32, full_sky: bool) -> bool {
         let tick = (u64::from(timer::ticks().wrapping_sub(self.opened_at)) * 60 / 560) as u32;
         match self.which {
             Which::Closed => false,
             Which::Paused => self.view.draw_paused(&self.paused, tick, frame),
             Which::Options => {
-                let caps = self.caps(rate);
+                let caps = self.caps(rate, full_sky);
                 self.view.draw_options(&self.options, &caps, tick, frame)
             }
         }

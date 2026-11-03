@@ -44,7 +44,7 @@ pub enum Kind {
     BenchAudio,
     /// The frame rate for this run, over `FIZZ2.CFG`'s; the last one given wins.
     FrameRate(FrameRate),
-    /// The sky for this run, `/SKY:FULL` or `/SKY:LIGHT`, over `FIZZ2.CFG`'s; the last one given wins. The value is read by
+    /// The sky for this run, `/SKY:AUTO`, `/SKY:FULL` or `/SKY:LIGHT`, over `FIZZ2.CFG`'s; the last one given wins. The value is read by
     /// [`sky_value`].
     Sky,
     /// A sound choice, applied by `settings::apply_flags` (which also checks the value).
@@ -223,7 +223,7 @@ pub const SWITCHES: &[Switch] = &[
         Arg::Value("x"),
         Group::Options,
         Kind::Sky,
-        "Sky: FULL night, or LIGHT (stars and sea, the DOS default)",
+        "Sky: AUTO (the default), FULL night, or LIGHT (stars and sea)",
     ),
     sw(
         "/MUSIC",
@@ -369,7 +369,7 @@ pub struct Invocation {
     pub captions: Option<Captions>,
     /// The frame rate a flag chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
     pub frame_rate: Option<FrameRate>,
-    /// The sky a `/SKY:` switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Light, in force.
+    /// The sky a `/SKY:` switch chose, if one was given (the last wins); `None` leaves `FIZZ2.CFG`'s choice, or Auto, in force.
     pub sky: Option<SkyDetail>,
     /// `/BENCH`'s tick count, when given.
     pub bench_ticks: Option<u64>,
@@ -467,10 +467,12 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
     Parsed::Run(run)
 }
 
-/// The sky a `/SKY:` argument names: `FULL` or `LIGHT`, in any case; `None` for any other value.
+/// The sky a `/SKY:` argument names: `AUTO`, `FULL` or `LIGHT`, in any case; `None` for any other value.
 pub fn sky_value(arg: &str) -> Option<SkyDetail> {
     let value = arg.split_once(':')?.1;
-    if value.eq_ignore_ascii_case("FULL") {
+    if value.eq_ignore_ascii_case("AUTO") {
+        Some(SkyDetail::Auto)
+    } else if value.eq_ignore_ascii_case("FULL") {
         Some(SkyDetail::Full)
     } else if value.eq_ignore_ascii_case("LIGHT") {
         Some(SkyDetail::Light)
@@ -847,7 +849,14 @@ mod tests {
             }
         );
         assert_eq!(
-            invocation(&["/SKY:LIGHT"]).over(&Prefs {
+            invocation(&["/SKY:LIGHT"]).over(&file),
+            Prefs {
+                sky: SkyDetail::Light,
+                ..file
+            }
+        );
+        assert_eq!(
+            invocation(&["/sky:auto"]).over(&Prefs {
                 sky: SkyDetail::Full,
                 ..file
             }),

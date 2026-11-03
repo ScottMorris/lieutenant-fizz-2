@@ -103,13 +103,13 @@ The chip is global. `Resolved::opl` is `Opl3` exactly when an OPL3 is present an
 | 5 | music: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster |
 | 6 | effects: 0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker |
 | 7 | frame rate: 0 Auto, 1 30 Hz, 2 60 Hz (read by `/LIVE` and `/REPLAY`, see below) |
-| 8 | detail level, which is the sky: 0 Light (the stars and the sea), 1 Full (the whole parallax night); builds before the Sky setting wrote 0 and ignored it, so their files read as Light |
+| 8 | detail level, which is the sky: 0 Auto, 1 Full (the whole parallax night), 2 Light (the stars and the sea), as Fizz 1's DOS port's `FIZZ.CFG` byte 8 (0 auto, 1 high, 2 low); builds before the Sky setting wrote 0 and ignored it, so their files read as Auto |
 | 9 | motion: 0 Full, 1 Reduced (the death shake and the death spin) |
 | 10 | sound placement: 0 Enhanced, 1 Classic (Classic centres every effect at full volume) |
 | 11 | captions: 0 On, 1 Off |
 | 12 | keys: 0 Keen, 1 Modern |
 
-In every field zero is the default, so a file of zeros after the header is a player who has changed nothing. The file is DOS-only, so byte 8's default is the DOS one, Light: the Full sky does not fit a 60 Hz frame on the 486DX2-66 floor (see [PLATFORM.md](PLATFORM.md#the-sky-on-dos)), and it is this byte the Options screen's Sky row saves. It is the detail level Fizz 1's DOS port keeps for its backdrop layers. Version 2, which an earlier build wrote, is the first 9 bytes with version 2 (its byte 8 is read as the sky too); version 1 is 8 bytes: `FZ2C`, version 1, music, effects, one reserved byte. Both are still read, with the fields they lack at their defaults, and saving writes version 3. The length must match the version (8 for 1, 9 for 2, 13 for 3); the reader keeps one length per version and the layout has no spare bytes.
+In every field zero is the default, so a file of zeros after the header is a player who has changed nothing. Byte 8's default, Auto, starts with the Light sky, because the Full sky does not fit a 60 Hz frame on the 486DX2-66 floor, and lets the frame governor choose Full on a faster machine while the frame rate is Auto (see [PLATFORM.md](PLATFORM.md#the-sky-on-dos)); it is this byte the Options screen's Sky row saves. Version 2, which an earlier build wrote, is the first 9 bytes with version 2 (its byte 8 is read as the sky too); version 1 is 8 bytes: `FZ2C`, version 1, music, effects, one reserved byte. Both are still read, with the fields they lack at their defaults, and saving writes version 3. The length must match the version (8 for 1, 9 for 2, 13 for 3); the reader keeps one length per version and the layout has no spare bytes.
 
 `Config::parse` (sound only) and `Config::parse_prefs` (every field) of a missing or empty file are all defaults with no issue. A length that does not fit the version, a wrong magic or an unknown version makes every field its default and returns a `ConfigIssue`; an unknown value makes only its own field its default and returns an issue (the first one found when there are several). `Config::encode_prefs` writes the file's bytes; `Config::encode` writes sound settings with every other field at its default and is for callers that hold no other field. The file is saved whenever the player changes a setting (the Options screen that does this does not exist yet), and the check screen reads it back to set the states.
 
@@ -126,7 +126,7 @@ Flags are one-run overrides that win over the file, field by field, and never wr
 | `/FPS30`, `/FPS60`, `/FPSAUTO` | the frame rate (byte 7): 30 Hz, 60 Hz, or Auto; they win over the file, the last one wins, and they combine with the sound flags and any mode |
 | `/MODERN`, `/KEEN` | the key layout (byte 12): `/KEEN` overrides a saved Modern |
 | `/CAPTIONS`, `/NOCAPTIONS` | the captions (byte 11) |
-| `/SKY:FULL`, `/SKY:LIGHT` | the sky (byte 8); another value, such as `/SKY:DIM`, is an unknown switch (exit status 2) |
+| `/SKY:AUTO`, `/SKY:FULL`, `/SKY:LIGHT` | the sky (byte 8); another value, such as `/SKY:DIM`, is an unknown switch (exit status 2) |
 
 Motion and sound placement have no switch; the Options screen owns them. `Invocation::over(&Prefs)` in `switches.rs` replaces each field a switch chose in the file's `Prefs` and leaves the rest; the result is what the run uses, and the file's own `Prefs` are what a later save writes, so a switch is never saved.
 

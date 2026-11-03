@@ -334,6 +334,7 @@ fn shot_caps() -> Caps {
         auto_music: Device::Sb,
         auto_fx: Device::Sb,
         rate: 60,
+        full_sky: false,
         fullscreen: false,
     }
 }
@@ -668,15 +669,15 @@ mod tests {
         assert_eq!(
             got,
             [
-                0xe976_964f_09fd_a994,
-                0x2185_22d2_6d55_e8c3,
-                0x818a_a05c_a33f_6e74,
-                0xdcb2_ab31_82fc_b1ff,
-                0xa2e3_bde4_501c_44ea,
-                0xa7e2_7a90_9d15_b041,
-                0xc165_7be5_3386_df01,
-                0x4fe4_6b7b_1744_0025,
-                0x0893_9c86_a54c_ad0e,
+                0xe5fe_21c7_1b50_8707,
+                0x9c2e_f319_633b_9a7c,
+                0x7e12_2bd4_b492_4be7,
+                0x9604_b4f2_019d_e178,
+                0x5582_a350_e9b4_01a1,
+                0xc0b0_6f29_cf5d_f68e,
+                0xda33_707e_65cf_254e,
+                0x6ede_001e_70f0_2dd8,
+                0xc689_f954_7b1e_8c71,
             ],
             "options rows"
         );
@@ -711,7 +712,7 @@ mod tests {
         );
         assert_eq!(
             (star, missing),
-            (0x99cc_5ea0_96e5_829d, 0x49b7_f42a_8a8a_188a)
+            (0xc55d_70a0_bb94_4fa2, 0xfc56_d997_2421_d541)
         );
     }
 

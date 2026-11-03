@@ -57,15 +57,17 @@ pub enum Motion {
     Reduced,
 }
 
-/// How much of a level's open-air background is drawn: the Sky row of Options, byte 8 of `FIZZ2.CFG` (the detail level that
-/// Fizz 1's DOS port has for its backdrop layers), and the `/SKY:FULL` and `/SKY:LIGHT` switches. Light, the stars and the sea
-/// only, is the DOS default because the whole parallax night does not fit a 60 Hz frame on the 486DX2-66 floor; Full is the
-/// Web's default and is there for a faster machine or emulator. The rules never see it.
+/// How much of a level's open-air background is drawn: the Sky row of Options, byte 8 of `FIZZ2.CFG` (the detail level, laid out
+/// as Fizz 1's DOS port lays out its own: 0 Auto, 1 High, 2 Low) and the `/SKY:AUTO`, `/SKY:FULL` and `/SKY:LIGHT` switches.
+/// Full is the whole parallax night and Light its stars and sea only. Auto, the DOS default, starts Light, because the whole
+/// night does not fit a 60 Hz frame on the 486DX2-66 floor, and lets the frame governor choose Full on a machine fast enough
+/// (`FrameGovernor::with_auto_sky`). The Web draws Full unless the player picks Light. The rules never see it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SkyDetail {
     #[default]
-    Light,
+    Auto,
     Full,
+    Light,
 }
 
 /// How effects are placed in the stereo field.
@@ -132,7 +134,7 @@ pub enum ConfigIssue {
     BadCaptions,
     /// The keys byte is not 0 or 1.
     BadKeys,
-    /// The sky (detail level) byte is not 0 or 1.
+    /// The sky (detail level) byte is not 0 to 2.
     BadSky,
 }
 
@@ -157,8 +159,9 @@ impl ConfigIssue {
 
 /// The `FIZZ2.CFG` file. Version 3 is 13 bytes: bytes 0 to 3 are `FZ2C`, byte 4 the version (3), byte 5 the music choice (0 Auto,
 /// 1 Off, 2 AdLib, 3 Sound Blaster), byte 6 the effects choice (0 Auto, 1 Off, 2 AdLib, 3 Sound Blaster, 4 Speaker), byte 7 the frame
-/// rate (0 Auto, 1 30 Hz, 2 60 Hz), byte 8 the detail level, which is the sky (0 Light, 1 Full; builds before the setting wrote
-/// 0 there and did not read it, so their files read as Light, the DOS default), byte 9 the motion (0 Full,
+/// rate (0 Auto, 1 30 Hz, 2 60 Hz), byte 8 the detail level, which is the sky (0 Auto, 1 Full, 2 Light, as Fizz 1's DOS port's
+/// 0 auto, 1 high, 2 low; builds before the setting wrote 0 there and did not read it, so their files read as Auto), byte 9 the
+/// motion (0 Full,
 /// 1 Reduced), byte 10 the sound placement (0 Enhanced, 1 Classic), byte 11 the captions (0 On, 1 Off) and byte 12 the key layout
 /// (0 Keen, 1 Modern). Zero always means the default. Version 2 is the first nine bytes with version 2, and version 1 the first
 /// eight (music, effects and a reserved byte); both are still read, with the fields they lack at their defaults, and saving writes
@@ -234,6 +237,7 @@ impl Config {
             match bytes[8] {
                 0 => {}
                 1 => prefs.sky = SkyDetail::Full,
+                2 => prefs.sky = SkyDetail::Light,
                 _ => issue = issue.or(Some(ConfigIssue::BadSky)),
             }
         }
@@ -291,7 +295,11 @@ impl Config {
             music,
             fx,
             frame_rate,
-            u8::from(prefs.sky == SkyDetail::Full),
+            match prefs.sky {
+                SkyDetail::Auto => 0,
+                SkyDetail::Full => 1,
+                SkyDetail::Light => 2,
+            },
             u8::from(prefs.motion == Motion::Reduced),
             u8::from(prefs.placement == PlacementMode::Classic),
             u8::from(prefs.captions == Captions::Off),
@@ -423,7 +431,7 @@ mod tests {
     const PLACEMENTS: [PlacementMode; 2] = [PlacementMode::Enhanced, PlacementMode::Classic];
     const CAPTIONS: [Captions; 2] = [Captions::On, Captions::Off];
     const KEYS: [Keys; 2] = [Keys::Keen, Keys::Modern];
-    const SKIES: [SkyDetail; 2] = [SkyDetail::Light, SkyDetail::Full];
+    const SKIES: [SkyDetail; 3] = [SkyDetail::Auto, SkyDetail::Full, SkyDetail::Light];
 
     fn sample() -> Prefs {
         Prefs {
@@ -464,7 +472,7 @@ mod tests {
                                         assert_eq!(bytes.len(), 13);
                                         assert_eq!(&bytes[..4], b"FZ2C");
                                         assert_eq!(bytes[4], 3);
-                                        assert_eq!(bytes[8], u8::from(sky == SkyDetail::Full));
+                                        assert_eq!(bytes[8], sky as u8);
                                         assert_eq!(Config::parse_prefs(&bytes), (p, None));
                                         assert_eq!(Config::parse(&bytes), (p.sound, None));
                                         count += 1;
@@ -476,7 +484,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2 * 2);
+        assert_eq!(count, 4 * 5 * 3 * 2 * 2 * 2 * 2 * 3);
     }
 
     #[test]
@@ -504,7 +512,7 @@ mod tests {
                 PlacementMode::Enhanced,
                 Captions::On,
                 Keys::Keen,
-                SkyDetail::Light
+                SkyDetail::Auto
             )
         );
     }
@@ -642,7 +650,7 @@ mod tests {
             (7, 3, ConfigIssue::BadFrameRate, |p| {
                 p.frame_rate = FrameRate::Auto
             }),
-            (8, 2, ConfigIssue::BadSky, |p| p.sky = SkyDetail::Light),
+            (8, 3, ConfigIssue::BadSky, |p| p.sky = SkyDetail::Auto),
             (9, 2, ConfigIssue::BadMotion, |p| p.motion = Motion::Full),
             (10, 2, ConfigIssue::BadPlacement, |p| {
                 p.placement = PlacementMode::Enhanced
@@ -683,9 +691,20 @@ mod tests {
 
     #[test]
     fn the_detail_byte_is_the_sky_and_version_1_s_reserved_byte_is_ignored() {
-        // Builds before the Sky setting wrote 0 in byte 8 and never read it: their files read as Light, the DOS default.
+        // Builds before the Sky setting wrote 0 in byte 8 and never read it: their files read as Auto, the DOS default.
         let mut bytes = Config::encode_prefs(&sample());
         bytes[8] = 0;
+        assert_eq!(
+            Config::parse_prefs(&bytes),
+            (
+                Prefs {
+                    sky: SkyDetail::Auto,
+                    ..sample()
+                },
+                None
+            )
+        );
+        bytes[8] = 2;
         assert_eq!(
             Config::parse_prefs(&bytes),
             (

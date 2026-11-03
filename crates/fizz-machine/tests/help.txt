@@ -14,7 +14,7 @@ Options (for this run; where one has an opposite, the last one given wins)
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
   /FPS60        Draw 60 frames a second
   /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
-  /SKY:x        Sky: FULL night, or LIGHT (stars and sea, the DOS default)
+  /SKY:x        Sky: AUTO (the default), FULL night, or LIGHT (stars and sea)
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF

@@ -276,12 +276,13 @@ fn main() -> i32 {
         captions: prefs.captions == Captions::On,
         // Motion gates the death shake and the death spin; Reduced leaves them off.
         shake: prefs.motion == Motion::Full,
-        // The Sky: Light (the default here) draws the open air's stars and sea, Full the whole parallax night.
+        // The Sky: Full draws the open air's whole parallax night, Light its stars and sea. Auto, the default, starts Light, and
+        // in `/LIVE` and `/REPLAY` the frame governor may choose Full on a fast machine; `/BENCH` measures Auto's start, Light.
         full_sky: prefs.sky == SkyDetail::Full,
     };
     match run.mode {
         Mode::Live => live(&start, false),
-        Mode::Replay => replay(&options),
+        Mode::Replay => replay(&options, prefs.sky),
         Mode::Probe => machine::probe_mode(),
         Mode::Check => match check::check_mode() {
             check::Choice::Quit => 0,
@@ -329,7 +330,7 @@ fn help() -> i32 {
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
 /// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 29 seconds; the screen shows it as it goes.
 #[inline(never)]
-fn replay(options: &DrawOptions) -> i32 {
+fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
     let sound = sound::Plan::new(&machine::probe_machine());
     let session = match start_session(false, Some(&sound.resolved)) {
@@ -350,7 +351,7 @@ fn replay(options: &DrawOptions) -> i32 {
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-    let mut drawing = frames::Drawing::new();
+    let mut drawing = frames::Drawing::new(sky);
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
@@ -381,8 +382,12 @@ fn replay(options: &DrawOptions) -> i32 {
             puffs.observe(&world, VIEW_W, VIEW_H, options);
         }
         if due > 0 {
+            let options = DrawOptions {
+                full_sky: drawing.full_sky(),
+                ..*options
+            };
             drawing.maybe(world.tick.0, || {
-                draw_slice_frame(&mut display, &mut frame, &world, options, &puffs)
+                draw_slice_frame(&mut display, &mut frame, &world, &options, &puffs)
             });
         }
     }
@@ -543,7 +548,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-    let mut drawing = frames::Drawing::new();
+    let mut drawing = frames::Drawing::new(start.prefs.sky);
     let mut input = DosInput::new();
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
@@ -578,7 +583,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
                     break;
                 }
             }
-            if menus.is_open() && menus.draw(&mut frame, drawing.rate()) {
+            if menus.is_open() && menus.draw(&mut frame, drawing.rate(), drawing.full_sky()) {
                 let _ = display.wait_vretrace();
                 let _ = present(&mut display, &frame);
             }
@@ -606,6 +611,8 @@ fn live(start: &Start, options_only: bool) -> i32 {
             latch = InputLatch::new();
             menus.open_paused(&frame);
         } else if due > 0 {
+            // An Auto sky follows what the governor chose at the end of its last window.
+            applied.draw.full_sky = drawing.full_sky();
             drawing.maybe(world.tick.0, || {
                 draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs)
             });

@@ -35,9 +35,9 @@ pub const FRAME_BYTES: usize = WIDTH * HEIGHT;
 /// Tick 1190 is on the gallery, with open air over most of the top of the picture, so the sky's pixels are compared too.
 pub const DIGEST_TICKS: [u64; 12] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000, 1190];
 
-/// The shared picture's options for `FIZZ2.EXE` with a `FIZZ2.CFG` of defaults: captions on, Full motion, and the Light sky
-/// (the stars and the sea), which is the DOS default because the whole parallax night does not fit a 60 Hz frame on the
-/// 486DX2-66 floor. The Web's default sky is Full.
+/// The shared picture's options for `FIZZ2.EXE /BENCH` with a `FIZZ2.CFG` of defaults: captions on, Full motion, and the Light
+/// sky (the stars and the sea), where the default Auto sky starts, because the whole parallax night does not fit a 60 Hz frame on
+/// the 486DX2-66 floor. The Web's default sky is Full.
 pub fn dos_default_options() -> DrawOptions {
     DrawOptions {
         full_sky: false,
