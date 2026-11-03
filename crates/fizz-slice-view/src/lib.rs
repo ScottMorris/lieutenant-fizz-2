@@ -871,7 +871,24 @@ fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
 /// Ben shows a run frame while his horizontal speed is above this many tiles a second (Fizz 1's `Math.abs(p.vx) > 0.5`).
 const RUN_SPEED: f64 = 0.5;
 /// Run frames swap this many times per tile of distance (Fizz 1's `anim * 1.4`).
+#[allow(dead_code)] // trial: the lab run frames use their own cadence
 const RUN_STEPS_PER_TILE: f64 = 1.4;
+
+const LAB_RUN: [&str; 6] = ["lab_run1", "lab_run2", "lab_run3", "lab_run4", "lab_run5", "lab_run6"];
+const LAB_RUN_LEFT: [&str; 6] = ["lab_runL1", "lab_runL2", "lab_runL3", "lab_runL4", "lab_runL5", "lab_runL6"];
+/// Six frames to a cycle of 3 tiles (about 14 frames a second at his top speed of 7 tiles a second; the lab plays them at 10).
+const LAB_RUN_STEPS_PER_TILE: f64 = 2.0;
+
+const LAB_FIRE: [&str; 6] = ["lab_fire1", "lab_fire2", "lab_fire3", "lab_fire4", "lab_fire5", "lab_fire6"];
+/// The lab's fire frames last 120, 60, 100, 100, 110 and 110 ms; their running totals out of 600.
+const LAB_FIRE_ENDS: [f64; 6] = [120.0, 180.0, 280.0, 380.0, 490.0, 600.0];
+
+/// Which fire frame to show with `shoot_t` seconds of the shooting pose left: the pose's whole length is spread over the six
+/// frames in proportion to their lab timings.
+fn lab_fire_frame(shoot_t: f64) -> usize {
+    let done = ((fizz_ep2::ben::SHOOT_POSE - shoot_t) / fizz_ep2::ben::SHOOT_POSE).clamp(0.0, 1.0) * 600.0;
+    LAB_FIRE_ENDS.iter().position(|&end| done < end).unwrap_or(5)
+}
 
 /// The name of Ben's sprite, in the order Fizz 1's `ben_sprite` decides: dead, the pogo, a shot's aim pose, the air, a run
 /// frame, a look, then standing.
@@ -888,23 +905,31 @@ fn ben_pose(ben: &fizz_ep2::Ben) -> &'static str {
         match ben.aim {
             1 => "ben_aimUp",
             -1 => "ben_aimDown",
-            _ => "ben_shoot",
+            _ => LAB_FIRE[lab_fire_frame(ben.shoot_t)],
         }
     } else if !ben.b.on_ground {
         "ben_jump"
     } else if ben.b.vx.abs() > RUN_SPEED {
-        // Fizz 1: `floor(anim * 1.4) & 1` picks `run2`, where `anim` is the distance Ben has run. Here `anim` is Ben's x.
-        if (ben.b.x.abs() * RUN_STEPS_PER_TILE) as u64 % 2 == 1 {
-            "ben_run2"
+        // Trial: the lab's six run frames, one per `LAB_RUN_STEPS_PER_TILE`th of a tile of Ben's x.
+        let i = (ben.b.x.abs() * LAB_RUN_STEPS_PER_TILE) as usize % LAB_RUN.len();
+        if ben.face < 0.0 {
+            LAB_RUN_LEFT[i]
         } else {
-            "ben_run1"
+            LAB_RUN[i]
         }
     } else if ben.look_up > 0.0 {
-        "ben_lookUp"
+        "lab_lookUp"
     } else if ben.look_down > 0.0 {
-        "ben_lookDown"
+        // The lab bends partway, then fully: switch once the look is halfway up its ramp.
+        if ben.look_down < fizz_ep2::ben::LOOK_DELAY + fizz_ep2::ben::LOOK_RAMP * 0.5 {
+            "lab_bendHalf"
+        } else {
+            "lab_bendFull"
+        }
+    } else if ben.face < 0.0 {
+        "lab_standLeft"
     } else {
-        "ben_stand"
+        "lab_standRight"
     }
 }
 
@@ -927,7 +952,9 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
         return;
     }
     // The sprites face right; dead Ben is turned away from the way he was facing.
-    let flip = if dead { ben.face > 0.0 } else { ben.face < 0.0 };
+    let lab = name.starts_with("lab_stand");
+    // The lab's look and bend frames face the camera and are not flipped; its run and fire frames face right and are flipped for left (the run has its own left frames, `lab_runL`).
+    let flip = if lab || name.starts_with("lab_runL") || name == "lab_lookUp" || name.starts_with("lab_bend") { false } else if dead { ben.face > 0.0 } else { ben.face < 0.0 };
     blit_sprite(frame, w, h, s, sx, sy, flip);
 }
 

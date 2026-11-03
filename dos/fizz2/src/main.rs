@@ -81,7 +81,7 @@ entry!(main);
 const MAX_CATCH_UP: u32 = 5;
 /// `/LIVE` and `/OPTIONS` end by themselves after this many ticks of the 560 Hz service clock (30 s of the wall clock) so an
 /// emulator run cannot hang. It is wall time, not world ticks, so a run left in a menu (where the world is held) ends too.
-const LIVE_SERVICE_CAP: u32 = 30 * 560;
+const LIVE_SERVICE_CAP: u32 = 3600 * 560; // trial: an hour to play, not 30 seconds
 
 /// Bytes the transcript buffer holds. The slice's transcript, with its `EVENT` lines, is 872 bytes (about 33 bytes for each
 /// 60 ticks, 20 for each cluck and 24 for each shot end), so 8,192 leaves ample room for the lines later milestones add to it.

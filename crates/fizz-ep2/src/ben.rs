@@ -122,7 +122,7 @@ impl Ben {
     /// Ben at rest with the lower-left corner of his 0.7 by 1.4 body at `(x, y)`, facing right.
     pub fn new(x: f64, y: f64) -> Self {
         Ben {
-            b: Body::new(x, y, 0.7, 1.4),
+            b: Body::new(x, y, 0.8, 2.0),
             face: 1.0,
             pogo: false,
             cut: false,
