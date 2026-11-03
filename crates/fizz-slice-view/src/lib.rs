@@ -14,16 +14,18 @@
 //!
 //! # What is drawn, back to front
 //!
-//! 1. The sky fills the frame.
-//! 2. The tile map window, as flat colours per tile type: interior wall, solid fill, block, one-way platform, spikes, the
-//!    red door, the exit. The tiles are told apart by colour only; the art is a later milestone.
-//! 3. The red key, if it still lies in the world, bobbing one pixel.
-//! 4. The red door's sprite on each closed door tile. An open door shows the interior wall behind it.
-//! 5. The chicken (the Cluckzarg placeholder art).
-//! 6. The Fizz Blaster shots (the `bubble` sprite).
-//! 7. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
-//! 8. Ben (Fizz 1's sprites).
-//! 9. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//! 1. The ground, in oblique projection ([`oblique`], specified in `docs/OBLIQUE.md`): the back wall of the rooms or the open
+//!    sky behind everything, then the portholes, the contact shadows and brackets under the wooden ledges, the railing on the
+//!    gallery and the exit doorway, then the terrain from the bottom row up (planks you can jump up through, stone and brick
+//!    walls, and the red and blue doors with their white badges, drawn closed and not at all once open), then the spikes. It
+//!    writes every pixel of the frame and is baked data copied in runs (`tools/tiles/emit-oblique.ts`), so there is no separate
+//!    sky or tile pass.
+//! 2. The red key, if it still lies in the world, bobbing one pixel; the snacks and the blue key likewise.
+//! 3. The chicken (the Cluckzarg placeholder art).
+//! 4. The Fizz Blaster shots (the `bubble` sprite).
+//! 5. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
+//! 6. Ben (Fizz 1's sprites).
+//! 7. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
 //!
 //! # Choices that are ours
 //!
@@ -79,19 +81,20 @@
 
 mod captions;
 pub use captions::*;
+#[cfg(test)]
+extern crate std;
+pub mod oblique;
+#[rustfmt::skip]
+mod oblique_data;
 pub mod hud;
 pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
-use fizz_ep2::tiles::{
-    BLOCK, CHOC, DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE,
-    WALLBG,
-};
+use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
-    TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, pfont::draw_text, pfont::text_width,
-    screen_y, tile_px,
+    TILE_PX, blit_sprite, follow, pfont::draw_text, pfont::text_width, screen_y, tile_px,
 };
 
 /// The width of the picture in pixels.
@@ -112,43 +115,6 @@ const LIGHT_CYAN: u8 = 11;
 const LIGHT_RED: u8 = 12;
 const YELLOW: u8 = 14;
 const WHITE: u8 = 15;
-
-/// Closed doors in view that are remembered from the tile pass before drawing falls back to a second search for them.
-const DOORS: usize = 16;
-
-/// The sky behind and above the level.
-const SKY: u8 = LIGHT_BLUE;
-
-/// The flat colour of a tile, or `None` for tiles that show the sky.
-const fn tile_colour(tile: u8) -> Option<u8> {
-    match tile {
-        WALLBG => Some(BLUE),
-        FILL => Some(DARK_GREY),
-        BLOCK => Some(LIGHT_GREY),
-        PLAT => Some(LIGHT_GREEN),
-        SPIKE => Some(LIGHT_RED),
-        CHOC => Some(BROWN),
-        EXIT => Some(YELLOW),
-        _ => None,
-    }
-}
-
-/// Marks a tile type with no flat colour in [`TILE_COLOURS`] (the doors, which take their colour from the switch, and the tiles
-/// that show the sky).
-const NO_COLOUR: u8 = u8::MAX;
-
-/// `tile_colour` for every tile type, so the tile pass reads a byte in place of working through a `match` for each tile.
-static TILE_COLOURS: [u8; 256] = {
-    let mut table = [NO_COLOUR; 256];
-    let mut tile = 0;
-    while tile < 256 {
-        if let Some(colour) = tile_colour(tile as u8) {
-            table[tile] = colour;
-        }
-        tile += 1;
-    }
-    table
-};
 
 /// How a picture is drawn, beyond the world.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -499,66 +465,19 @@ pub fn draw_slice_captions(
     // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
 
-    let red_closed = map.switch(DOOR_RED_CHANNEL);
-    let blue_closed = map.switch(DOOR_BLUE_CHANNEL);
-    let door_closed = red_closed || blue_closed;
-    // The tile pass meets every visible tile, so it notes the closed doors (red or blue, by the last field) for the sprites
-    // drawn after it; a view with more than `DOORS` of them falls back to looking for them again.
-    let mut doors = [(0, 0, false); DOORS];
-    let mut door_count = 0;
-    // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
-    draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
-        // The pass only asks about tiles inside the map, so the index is valid for a map whose data holds `w * h` tiles.
-        let t = map
-            .data
-            .get((ty * map_w + tx) as usize)
-            .copied()
-            .unwrap_or(0);
-        let colour = TILE_COLOURS[usize::from(t)];
-        if colour != NO_COLOUR {
-            return Some(colour);
-        }
-        if t == DOOR_R || t == DOOR_B {
-            let blue = t == DOOR_B;
-            let closed = if blue { blue_closed } else { red_closed };
-            if closed && door_count < DOORS {
-                doors[door_count] = (tx, ty, blue);
-            }
-            door_count += usize::from(closed);
-            return Some(if closed { BROWN } else { BLUE });
-        }
-        None
-    });
+    // The ground: backgrounds, terrain and doors in oblique projection, written over the whole frame.
+    let ground = oblique::Ground {
+        data: &map.data,
+        w: map_w,
+        h: map_h,
+        red_closed: map.switch(DOOR_RED_CHANNEL),
+        blue_closed: map.switch(DOOR_BLUE_CHANNEL),
+    };
+    oblique::draw_ground(frame, w, h, &ground, cam_x, cam_y);
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
     let phase = tick as usize;
-
-    if door_closed && let (Some(red), Some(blue)) = (sprite("doorRed"), sprite("doorBlue")) {
-        if door_count <= DOORS {
-            // The door art is one tile, so only the tiles the pass visited can show it.
-            for &(tx, ty, is_blue) in &doors[..door_count] {
-                let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
-            }
-        } else {
-            let col0 = cam_x.div_euclid(TILE_PX).max(0);
-            let col1 = (cam_x + w as i32).div_euclid(TILE_PX).min(map_w - 1);
-            let row0 = cam_y.div_euclid(TILE_PX).max(0);
-            let row1 = (cam_y + h as i32).div_euclid(TILE_PX).min(map_h - 1);
-            for row in row0..=row1 {
-                let ty = map_h - 1 - row;
-                for tx in col0..=col1 {
-                    let t = map.get(tx, ty);
-                    let (is_door, is_blue) = (t == DOOR_R || t == DOOR_B, t == DOOR_B);
-                    if is_door && (if is_blue { blue_closed } else { red_closed }) {
-                        let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                        blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
-                    }
-                }
-            }
-        }
-    }
 
     // The items bob a pixel every 16 ticks, as the key does. Their sprites are anchored at the feet; an item's centre is half a
     // sprite above them.
@@ -1005,7 +924,7 @@ mod tests {
 
     const MAGENTA: u8 = 5;
     use fizz_ep2::level;
-    use fizz_ep2::tiles::FILL;
+    use fizz_ep2::tiles::{BLOCK, DOOR_B, DOOR_R, EXIT, FILL, PLAT, SPIKE, WALLBG};
     use fizz_ep2::world::{WorldFlags, step};
     use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS};
     use fizz_sim::{Buttons, InputFrame};
@@ -1015,19 +934,19 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0x17619b7882dc6dba, 0x72d540e334aa0693),
-        (217, 0x5af507e1b680861b, 0x1b12c767752c9322),
-        (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
-        (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
-        (1094, 0x49aad29e3e60055a, 0x49aad29e3e60055a),
+        (197, 0x551b20a6d1922e69, 0x6c8a7d38f14cd379),
+        (217, 0xe2b4b3606cd280b6, 0x2651474df9ae333c),
+        (853, 0x713ceac5767e59fd, 0x713ceac5767e59fd),
+        (873, 0x991efe7bea2e8eaf, 0x991efe7bea2e8eaf),
+        (1094, 0xb7012d211667f7a1, 0xb7012d211667f7a1),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
-        0x3b51f05130991d1b,
-        0xd09572075dacd138,
-        0xee955dcb5493bde3,
-        0x5e37e8e885a67c47,
-        0x9877aaedcd8dd3d5,
-        0xf2717d4dbee9a625,
+        0xe950fb35cf350efa,
+        0xc830e1f5b5914cf3,
+        0x44fb93d806ddc357,
+        0x2edea8c959ebabcc,
+        0xedb8970ee8bd1bfa,
+        0x19d9bfc90d424ede,
     ];
 
     fn fnv(bytes: &[u8]) -> u64 {
@@ -1085,31 +1004,31 @@ mod tests {
         assert_eq!(
             reduced,
             [
-                (394, 0x615ed281e842383b),
-                (395, 0x6b1c97a850b3863b),
-                (396, 0xca360c2e496e149a),
-                (400, 0xe88d2a8a227b4cfb),
-                (410, 0x38b541c3cbe84d9a),
-                (420, 0x5391f3ed0f80aa52),
-                (440, 0xe2af4a19464bd1e2),
-                (460, 0xef7685d59a2d0683),
-                (470, 0x5c83b57057b257e7),
-                (477, 0x2d540afd5307ec18),
+                (394, 0x007900d077c6194d),
+                (395, 0x800d6cb1f70c5102),
+                (396, 0x0cc57a9c4c9e60a4),
+                (400, 0x77e6def8b0c68a8d),
+                (410, 0xb1218083ca68930f),
+                (420, 0x771273d0cc52706e),
+                (440, 0xbdbd730593ebec55),
+                (460, 0xb73a6bf05fe4ca46),
+                (470, 0xb7d6e2d4429f8e84),
+                (477, 0xdc8904adf59be68a),
             ]
         );
         assert_eq!(
             full,
             [
-                (394, 0x8f2830db9603fa8c),
-                (395, 0x100cd0534a4af1d5),
-                (396, 0x41177d83a63666e9),
-                (400, 0xf77c4e3ff819c632),
-                (410, 0xcb2fa9beb221389a),
-                (420, 0x03e3aaea2f332642),
-                (440, 0xd63f0cce8bb859c2),
-                (460, 0x40e7f965a48d0f7f),
-                (470, 0x5c83b57057b257e7),
-                (477, 0x2d540afd5307ec18),
+                (394, 0x2a8b88389f90ad3c),
+                (395, 0x1b5412462b50ffa9),
+                (396, 0x739bd1e4d7762002),
+                (400, 0xc04296fef8d396b9),
+                (410, 0xb514f60f9aa88a94),
+                (420, 0xeb0f59762afc7831),
+                (440, 0xf25ee17c54e5e80f),
+                (460, 0xfc8d0fb87afeec88),
+                (470, 0xb7d6e2d4429f8e84),
+                (477, 0xdc8904adf59be68a),
             ]
         );
     }
@@ -1132,8 +1051,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0xe88d2a8a227b4cfb before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
-        // 0xf77c4e3ff819c632. The other ticks are not death frames and kept theirs.
+        // 0x77e6def8b0c68a8d before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0xc04296fef8d396b9. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -1151,34 +1070,34 @@ mod tests {
         assert_eq!(
             old,
             [
-                (0, 0x5b84b8874be44ba4),
-                (150, 0x7abd20c31ae39a54),
-                (270, 0x9bf387153127ec74),
-                (400, 0xf77c4e3ff819c632),
-                (602, 0xfea72a408c6a4ab1),
-                (700, 0xe28008760a025065),
-                (865, 0x1e0d93372eb50e10),
-                (1000, 0x1881c1623a3ec20c),
-                (1268, 0xaee3ec7a8fed2406),
-                (1450, 0xace0d5524423fa9f),
-                (1681, 0x95274a1a4dc480ff),
+                (0, 0xadc2b0e6cfde5390),
+                (150, 0x6816990dc5e9a497),
+                (270, 0xc1299af2a1cf4c1a),
+                (400, 0xc04296fef8d396b9),
+                (602, 0x91417b17ebda4c2e),
+                (700, 0x9412f4259f56cbc6),
+                (865, 0x912ea065a8cc2e5e),
+                (1000, 0x35b26d3a582a66d2),
+                (1268, 0x479dde26afaaf0cc),
+                (1450, 0x01e28223575a8186),
+                (1681, 0xfe798805dfc1bec2),
             ]
         );
         assert_eq!(
             seen,
             [
-                (0, 0x5b84b8874be44ba4),
-                (150, 0x7abd20c31ae39a54),
+                (0, 0xadc2b0e6cfde5390),
+                (150, 0x6816990dc5e9a497),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
-                (270, 0x9bf387153127ec74),
-                (400, 0xf77c4e3ff819c632),
-                (602, 0xfea72a408c6a4ab1),
-                (700, 0xe28008760a025065),
-                (865, 0x1e0d93372eb50e10),
-                (1000, 0x1881c1623a3ec20c),
-                (1268, 0xaee3ec7a8fed2406),
-                (1450, 0xace0d5524423fa9f),
-                (1681, 0x95274a1a4dc480ff),
+                (270, 0xc1299af2a1cf4c1a),
+                (400, 0xc04296fef8d396b9),
+                (602, 0x91417b17ebda4c2e),
+                (700, 0x9412f4259f56cbc6),
+                (865, 0x912ea065a8cc2e5e),
+                (1000, 0x35b26d3a582a66d2),
+                (1268, 0x479dde26afaaf0cc),
+                (1450, 0x01e28223575a8186),
+                (1681, 0xfe798805dfc1bec2),
             ]
         );
     }
@@ -1317,11 +1236,11 @@ mod tests {
         assert_eq!(
             seen,
             [
-                (100, 0xba0231d967abb0a0),
-                (110, 0x55260e66b1469bd9),
-                (118, 0x99d9df4620c971f0),
-                (122, 0x0facf9a9d78c6d75),
-                (290, 0x7d189607d70fe0f7)
+                (100, 0x266e04f494d85afa),
+                (110, 0xaf584208effcc109),
+                (118, 0xf7148a7112f00851),
+                (122, 0xf20d00551e1f1a33),
+                (290, 0x1e3d9761bcde0163)
             ]
         );
     }
@@ -1866,12 +1785,12 @@ mod tests {
         assert_eq!(
             seen,
             [
-                ("stand", 0x3685_3ba7_d340_af03),
-                ("look up", 0x0814_4c64_8495_d0e4),
-                ("look down", 0x6efd_b16a_7546_e7cd),
-                ("aim level", 0xaa84_66e3_2312_ec2e),
-                ("aim up", 0x5454_042d_e5be_5f2e),
-                ("aim down", 0x7d12_8656_0aae_d7ba),
+                ("stand", 0x2f3613629dbe437f),
+                ("look up", 0xc6c235ffbe015bb0),
+                ("look down", 0xd18f1401345cde86),
+                ("aim level", 0xb1e0ea5463506ecd),
+                ("aim up", 0xb2765016adde0555),
+                ("aim down", 0xcc0c9983691d74d5),
             ]
         );
     }
@@ -1910,18 +1829,61 @@ mod tests {
         assert_ne!(with, picture(&w, 0));
     }
 
+    /// The pixels of a door's 16 by 16 front face for the tile (`tx`, `ty`) as the picture `f` of `w` shows them.
+    fn door_front(w: &World, f: &[u8], tx: i32, ty: i32) -> Vec<u8> {
+        let (cam_x, cam_y) = camera(w, VIEW_W, VIEW_H);
+        let left = tx * TILE_PX - oblique::FEET_DX - cam_x;
+        let top = (w.map.h - 1 - ty) * TILE_PX + oblique::STRIP - oblique::BACK - cam_y;
+        assert!(
+            left >= 0
+                && left + TILE_PX <= VIEW_W as i32
+                && top >= 0
+                && top + TILE_PX <= VIEW_H as i32,
+            "door ({tx}, {ty}) is in view"
+        );
+        let mut out = Vec::new();
+        for y in 0..16usize {
+            let row = (top as usize + y) * VIEW_W + left as usize;
+            out.extend_from_slice(&f[row..row + 16]);
+        }
+        out
+    }
+
     #[test]
     fn the_door_is_drawn_closed_and_then_open() {
         let mut w = level::world();
         w.ben.b.x = 13.0;
         w.ben.b.y = 20.0;
         let closed = picture(&w, 0);
+        // The red door is three tiles, (15, 20) to (15, 22): bottom, middle and top, with the badge on the top.
+        for (ty, piece) in [
+            (22, &oblique_data::DOOR_RED_TOP),
+            (21, &oblique_data::DOOR_RED_MID),
+            (20, &oblique_data::DOOR_RED_BOT),
+        ] {
+            assert_eq!(door_front(&w, &closed, 15, ty), piece.pixels, "row {ty}");
+        }
         w.map.set_switch(fizz_ep2::tiles::DOOR_RED_CHANNEL, false);
         w.flags.set(WorldFlags::KEY_RED_USED);
         let open = picture(&w, 0);
-        let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
-        assert!(count(&closed, BROWN) > 0);
-        assert_eq!(count(&open, BROWN), 0);
+        for (ty, piece) in [
+            (22, &oblique_data::DOOR_RED_TOP),
+            (21, &oblique_data::DOOR_RED_MID),
+            (20, &oblique_data::DOOR_RED_BOT),
+        ] {
+            let front = door_front(&w, &open, 15, ty);
+            // An open door is not drawn: the back wall shows through (with the side face of the brick above it), so
+            // little of the door's art remains.
+            let same = front
+                .iter()
+                .zip(piece.pixels)
+                .filter(|(a, b)| a == b)
+                .count();
+            assert!(
+                same < 100,
+                "row {ty}: {same} of 256 pixels are still the door's"
+            );
+        }
         assert_ne!(closed, open);
     }
 
@@ -1931,9 +1893,14 @@ mod tests {
         w.ben.b.x = 26.0;
         w.ben.b.y = 38.0;
         let full = picture(&w, 0);
-        let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
-        // The blue door is drawn closed (its brown tile shows round the art), and a taken snack or key leaves the picture.
-        assert!(count(&full, BROWN) > 0, "the closed door");
+        // The blue door is drawn closed, and a taken snack or key leaves the picture.
+        for (ty, piece) in [
+            (40, &oblique_data::DOOR_BLUE_TOP),
+            (39, &oblique_data::DOOR_BLUE_MID),
+            (38, &oblique_data::DOOR_BLUE_BOT),
+        ] {
+            assert_eq!(door_front(&w, &full, 22, ty), piece.pixels, "row {ty}");
+        }
         for i in 0..w.snacks.len() {
             let mut one = w.clone();
             one.snacks[i].taken = true;
@@ -1947,16 +1914,19 @@ mod tests {
             .set_switch(fizz_ep2::tiles::DOOR_BLUE_CHANNEL, false);
         open.flags.set(WorldFlags::KEY_BLUE_USED);
         let opened = picture(&open, 0);
-        assert!(
-            count(&opened, BROWN) < count(&full, BROWN),
-            "the open door has no brown tile"
-        );
+        for ty in 38..=40 {
+            let front = door_front(&open, &opened, 22, ty);
+            assert!(
+                front.iter().all(|&p| p != LIGHT_BLUE),
+                "the open door has no light blue, row {ty}"
+            );
+        }
         assert_ne!(opened, full);
     }
 
     #[test]
-    fn more_doors_than_the_tile_pass_remembers_are_all_drawn() {
-        // 30 door tiles in view is more than `DOORS`, so the second search draws them; each shows the door art on brown.
+    fn any_number_of_doors_in_view_are_all_drawn() {
+        // Thirty door tiles in view, in columns of five: each column is a top, three middles and a bottom.
         let mut w = level::world();
         w.ben.b.x = 13.0;
         w.ben.b.y = 20.0;
@@ -1964,51 +1934,67 @@ mod tests {
         let tiles: Vec<(i32, i32)> = (4..10)
             .flat_map(|dx| (-2..3).map(move |dy| (bx + dx, by + dy)))
             .collect();
-        assert!(tiles.len() > DOORS);
+        assert_eq!(tiles.len(), 30);
         for &(tx, ty) in &tiles {
             w.map.set(tx, ty, DOOR_R);
         }
         let f = picture(&w, 0);
-        let map_h = w.map.h;
-        let target_x = tile_px(w.ben.b.x + w.ben.b.w * 0.5);
-        let target_y = screen_y(w.ben.b.y + w.ben.b.h * 0.5, map_h);
-        let cam_x = follow(target_x, w.map.w * TILE_PX, VIEW_W as i32);
-        let cam_y = follow(target_y, map_h * TILE_PX, VIEW_H as i32);
-        let door = sprite("doorRed").unwrap();
         for &(tx, ty) in &tiles {
-            let (left, top) = (tx * TILE_PX - cam_x, (map_h - 1 - ty) * TILE_PX - cam_y);
-            assert!(
-                left >= 0
-                    && left + TILE_PX <= VIEW_W as i32
-                    && top >= 0
-                    && top + TILE_PX <= VIEW_H as i32
+            let piece = if ty == by + 2 {
+                &oblique_data::DOOR_RED_TOP
+            } else if ty == by - 2 {
+                &oblique_data::DOOR_RED_BOT
+            } else {
+                &oblique_data::DOOR_RED_MID
+            };
+            assert_eq!(
+                door_front(&w, &f, tx, ty),
+                piece.pixels,
+                "door ({tx}, {ty})"
             );
-            for sy in 0..16usize {
-                for sx in 0..16usize {
-                    let p = door.pixels[sy * 16 + sx];
-                    let want = if p == fizz_view::TRANSPARENT {
-                        BROWN
-                    } else {
-                        p
-                    };
-                    let got = f[(top as usize + sy) * VIEW_W + left as usize + sx];
-                    assert_eq!(got, want, "door ({tx}, {ty}) pixel ({sx}, {sy})");
-                }
-            }
         }
     }
 
     #[test]
-    fn the_tile_types_have_distinct_colours() {
-        let colours: Vec<u8> = [WALLBG, FILL, BLOCK, PLAT, SPIKE, EXIT]
+    fn the_tile_types_look_different() {
+        // A small room of one tile type, drawn the same way each time: no two types give the same picture.
+        let types = [
+            (WALLBG, "wall"),
+            (FILL, "fill"),
+            (BLOCK, "block"),
+            (PLAT, "plank"),
+            (SPIKE, "spikes"),
+            (EXIT, "exit"),
+            (DOOR_R, "red door"),
+            (DOOR_B, "blue door"),
+        ];
+        let pictures: Vec<Vec<u8>> = types
             .iter()
-            .map(|&t| tile_colour(t).unwrap())
+            .map(|&(t, _)| {
+                let mut data = vec![WALLBG; 25];
+                for y in 1..4 {
+                    for x in 1..4 {
+                        data[y * 5 + x] = t;
+                    }
+                }
+                let g = oblique::Ground {
+                    data: &data,
+                    w: 5,
+                    h: 5,
+                    red_closed: true,
+                    blue_closed: true,
+                };
+                let mut f = vec![0xEEu8; 80 * 80];
+                oblique::draw_ground(&mut f, 80, 80, &g, 0, 0);
+                assert!(f.iter().all(|&p| p <= 15));
+                f
+            })
             .collect();
-        for (i, a) in colours.iter().enumerate() {
-            assert!(colours[i + 1..].iter().all(|b| a != b));
-            assert_ne!(*a, SKY);
+        for (i, a) in pictures.iter().enumerate() {
+            for (j, b) in pictures.iter().enumerate().skip(i + 1) {
+                assert_ne!(a, b, "{} and {} look alike", types[i].1, types[j].1);
+            }
         }
-        assert_eq!(tile_colour(0), None);
     }
 
     #[test]

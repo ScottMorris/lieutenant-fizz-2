@@ -97,6 +97,7 @@ RULES=(
   'crates/fizz-phys/*;view;crates/fizz-phys/src/lib.rs'
   'crates/fizz-sim/*;view;crates/fizz-sim/src/lib.rs'
   'tools/sprites/*;view;tools/sprites/emit-rust.ts'
+  'tools/tiles/*;view;tools/tiles/emit-oblique.ts'
   'assets/sprites/*;view;assets/sprites/ben.txt'
   'tools/font/*;view;tools/font/export-fizz1.ts'
 )
