@@ -21,7 +21,8 @@
 //   (bank 0, output bit 0x10, the left) and channel 14 (bank 1, 0x20, the right), each at the carrier level the placement gives that
 //   side. The pair's writes do not go through `route`: each channel has exactly its own output bit. The OPL3 mode was switched on
 //   by `start`, so the effect adds no enable write. Two channels double the effect's register writes.
-// - the PC speaker (`FxPlan::Speaker`): a `SpeakerPlayer` steps every fourth tick (140 Hz) and sets PIT channel 2's divisor or closes the gate.
+// - the PC speaker (`FxPlan::Speaker`): a `SpeakerPlayer` steps every fourth tick (140 Hz), counted from the effect's start, and sets
+//   PIT channel 2's divisor or closes the gate.
 // - `FxPlan::Off`, or no card and no speaker choice: the service runs and does nothing, so the clock and the simulation are the same.
 //
 // Music (`fizz-music`): `music_start` asks for the level song, and the next tick builds a `MusicPlayer` for the arrangement the plan's
@@ -158,6 +159,9 @@ struct Service {
     opl_player: Option<OplPlayer>,
     pair: Option<OplPair>,
     speaker: Option<SpeakerPlayer>,
+    /// Ticks since the speaker effect began: it steps when this is a multiple of four, so its 140 Hz frames are counted from
+    /// its own start and not from the service's, and a cut-off sound plays the same number of steps however long start-up took.
+    speaker_ticks: u32,
     ticks: u32,
 }
 
@@ -184,6 +188,7 @@ static SERVICE: IrqCell = IrqCell(UnsafeCell::new(Service {
     opl_player: None,
     pair: None,
     speaker: None,
+    speaker_ticks: 0,
     ticks: 0,
 }));
 
@@ -268,6 +273,7 @@ impl Service {
             opl_player: None,
             pair: None,
             speaker: None,
+            speaker_ticks: 0,
             ticks: 0,
         }
     }
@@ -337,7 +343,10 @@ impl Service {
                 }
                 self.pair = Some(OplPair::same(id, left, right));
             }
-            FxPlan::Speaker => self.speaker = Some(SpeakerPlayer::new(id)),
+            FxPlan::Speaker => {
+                self.speaker = Some(SpeakerPlayer::new(id));
+                self.speaker_ticks = 0;
+            }
         }
     }
 
@@ -370,9 +379,9 @@ impl Service {
             self.pair = None;
         }
         self.ticks = self.ticks.wrapping_add(1);
-        if self.ticks & 3 == 0
-            && let Some(player) = self.speaker.as_mut()
-        {
+        let speaker_step = self.speaker_ticks & 3 == 0;
+        self.speaker_ticks = self.speaker_ticks.wrapping_add(1);
+        if speaker_step && let Some(player) = self.speaker.as_mut() {
             match player.tick() {
                 Some(SpeakerStep::Divisor(d)) => speaker_set(d),
                 Some(SpeakerStep::Off) => speaker_off(),
