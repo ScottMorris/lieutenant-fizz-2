@@ -223,7 +223,7 @@ Press Esc while you play to open the pause menu: Resume, Options and Quit to DOS
 ![The Paused menu on DOS: the darkened level with the heading Paused in white above a light magenta rule, the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Quit to DOS, and a grey line of keys at the bottom.](img/dos-paused.png)
 *The Paused menu in the DOS build (commit e46fbe6), `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc was typed.*
 
-![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it and the values in light magenta on the right.](img/dos-options.png)
+![The Options screen on DOS: the darkened level with the heading Options in white, rows for Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys, Sky, Night and Back, the chosen row (Effects) on a light magenta plate with a soda can beside it and the values in light magenta on the right.](img/dos-options.png)
 *The Options screen in the DOS build (commit e46fbe6): `FIZZ2.EXE /LIVE` in DOSBox Staging under a virtual display, after Esc, Down, Enter and Down were typed, with no card and no switches, so Music is `Auto (off)` and Effects `Auto (PC speaker)`. It is a capture of the running game; a row set by a switch also shows a star and a note, described below.*
 
 On the Options screen Up and Down choose a row, Left goes back one choice and Right, Enter, Jump and Fire go forward one (past the last choice it wraps to the first), and Esc or Pogo goes back to the pause menu. The Modern keys work the same way, with `W` and `S` for Up and Down and `A` and `D` for Left and Right. The rows are:
@@ -323,7 +323,7 @@ The gallery at the top is also a small playground, where the things Ben can do e
 - **An empty blaster.** You start with five Fizz shots. After the fifth, pressing Fizz again does nothing but make the "no Fizz" click that Fizz 1 has.
 - **Soda cans.** A fizzy drink can is a refill: walking into one gives five more Fizz shots (the number in the HUD goes up by five), with the word `fsssht` and its fizzing sound, as in Fizz 1. There is no limit to how many shots you can hold. One can lies on the gallery floor by the right-hand wall, where you stand to shoot at it, so you can spend your five shots and walk into more; another lies on the right end of the shelf, where the pogo stick lands you. A can is taken once; if you die, the cans come back with the snacks, and you start again with five shots.
 
-![The DOS build in the snack nook with the blaster empty: Fizz 0 in light red in the HUD box, a soda can on the floor beside the right-hand wall and another on the shelf, with a chocolate bar, a cookie and the blue key.](img/dos-can.png)  ![The Web build in the snack nook with the blaster empty: Fizz 0 in light red in the HUD panel, a soda can on the floor at Ben's right and another on the shelf above.](images/web-can.png)
+![The DOS build on the gallery with the blaster empty: Fizz 0 in light red in the HUD box, Ben in front of the snack shelf with two soda cans before it, and the shelf holding the blue key, a cookie, a snack bar and two more cans, with the green exit doorway and the blue door to his left.](img/dos-can.png)  ![The Web build in the snack nook with the blaster empty: Fizz 0 in light red in the HUD panel, a soda can on the floor at Ben's right and another on the shelf above.](images/web-can.png)
 
 *The nook after the five Fizz shots are spent (commit e46fbe6). Left: `FIZZ2.EXE /REPLAY` in DOSBox Staging, with `click - no fizz` still fading. Right: the Web build at 1280 by 720, tick 1183. The can on the floor is the one to walk into next.*
 
@@ -426,7 +426,7 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 ![The Web Paused screen over the slice at 1280 by 720: the picture dimmed behind a dark panel titled Paused with the rows Resume (chosen, on a light magenta plate with a soda can beside it), Options and Restart, and the line Esc resumes.](images/web-paused.png)
 *The Web build (commit e46fbe6), headless Chromium at 1280 by 720, 40 ticks after load and Esc pressed: Paused with Resume chosen.*
 
-![The Web Options screen over the slice at 1280 by 720: a dark panel titled Options with eight rows, Sound selected as a light magenta plate with a can of drink beside it and the value On between two arrows.](images/web-options.png)
+![The Web Options screen over the slice at 1280 by 720: a dark panel titled Options with ten rows, Sound selected as a light magenta plate with a can of drink beside it and the value On between two arrows.](images/web-options.png)
 
 *The Web build (commit e46fbe6), headless Chromium at 1280 by 720, 40 ticks after load and Esc, Down and Enter pressed: Options with Sound selected.*
 
