@@ -77,7 +77,7 @@ This is the fourth cause of drifting counts in the replay; chapter 13 tells the 
 
 ## The captures retaken
 
-The DOSBox and Chromium captures in the manual and in this archive still showed the flat tiles. They were taken again from the head of the stack with `capture.py`, so they show the oblique ground, the exit doorway and the Sky and Night rows. The 1,800-tick replay moves every scene, so the replay grabs were picked again and each record in `media/captures.json` says what its grab shows. No grab caught the click of the empty blaster, so the empty-blaster picture is the grab just before it, and its record says so. The check screen is drawn from the text cells the program printed by a tool that needs a PSF2 VGA font, which the machine lacked until the capture run.
+The DOSBox and Chromium captures in the manual and in this archive still showed the flat tiles. They were taken again from the head of the stack with `capture.py`, so they show the oblique ground, the exit doorway and the Sky and Night rows. The 1,800-tick replay moves every scene, so the replay grabs were picked again and each record in `media/captures.json` says what its grab shows. No grab caught the click of the empty blaster, so the empty-blaster picture is a nearby grab with a fzzt caption, and its record describes that instead of the click. The check screen is drawn from the text cells the program printed by a tool that needs a PSF2 VGA font, which the machine lacked until the capture run.
 
 ## The shelves
 
