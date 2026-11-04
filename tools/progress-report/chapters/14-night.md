@@ -37,6 +37,8 @@ A light is a point in quarter pixels with a height `z`, a radius and a strength.
 | Ben's lantern | 1.1 tiles over his feet | pinned first, radius 5.5 |
 | Bubbles | each shot | cyan, radius 3 |
 
+<!-- figure shots oblique-night.png -->
+
 The lamps and lanterns are new baked pieces, drawn only at night, with their glowing parts split into their own pieces so nothing is read back from the frame. The slice never has more than 15 lights reaching the widest Web view, and a test sweeps the camera over the map to hold that.
 
 ## Detail and cost
@@ -91,7 +93,7 @@ The DOSBox and Chromium captures in the manual and in this archive still showed 
 ### Uncatalogued
 - Every timing is DOSBox at a fixed cycle count, from local runs of `tools/check-dos.sh` on a machine that ran other work; none is a CI figure and none is from a real 486.
 - Nothing has run on real hardware, and the DAC's palette writes and the lights were not seen on a real VGA card.
-- How the night reads to a player. The pictures in this archive show the Night row with the setting Off; no capture of a lit night is recorded, and no playtest is.
+- How the night reads to a player. The lit night in this chapter is a host render; no DOSBox or browser capture of it is recorded, and no playtest is.
 - The four-phase sweep that proved the speaker's cause used a busy-wait that was not committed, so the sweep cannot be repeated from the repository.
 - The Web night is the same integer code; it was not timed in a browser, and the Web tests that need `@liminal-hq/undertone` were left to CI because the package was unavailable locally.
 - Whether anyone can hear what the speaker count describes; the counts are steps, not sound.
@@ -113,4 +115,15 @@ alt: Two Options screens over the dimmed slice. On the left, DOSBox: rows Music,
 caption: The DOS screen (FIZZ2.EXE in live play after Esc, Down, Enter and Down) and the Web screen (after Esc, Down and Enter), retaken from the stack's head. Both show Night Off; no capture of a lit night is recorded.
 at: figure shots dos-options.png web-options.png
 thumb: img:media/dos-options.png
+```
+
+```figures
+id: night-lit
+kind: screenshot
+track: shared
+title: The gallery at night, lit
+alt: The open-air gallery at night at 320 by 200. The planks, bricks and railing are dim, brighter round a small lantern over the blue door and round Ben, who stands on the right firing a bubble; the green exit doorway glows, and the stars, clouds, grey headlands, sea and the pickups on the snack shelf stay bright.
+caption: Replay tick 1225 drawn at night with the Full detail by the shared routine, as a host render; the light pass is the one DOS skips on its floor.
+at: figure shots oblique-night.png
+thumb: img:media/oblique-night.png
 ```

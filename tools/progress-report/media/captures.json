@@ -364,5 +364,15 @@
   "command": "cargo run -p fizz-slice-view --example frame -- all <dir>/f, then tick 1700 converted to a 16-colour PNG",
   "commit": "cefd044",
   "date": "2026-11-03"
+ },
+ {
+  "file": "oblique-night.png",
+  "kind": "screenshot",
+  "track": "shared",
+  "source": "Host render of the shared drawing routine at night with the Full detail (the light pass on): `fizz_slice_view` through the `frame` example, one frame of 320 by 200 in the night palette; not a DOSBox or browser capture",
+  "shows": "The slice at replay tick 1225 on the open-air gallery at night: the planks, bricks and railing at the dim night ambient, lit round the lantern over the blue door and round Ben, who fires a bubble on the right; the green exit doorway, the stars, clouds, headlands and sea, and the pickups on the snack shelf stay bright.",
+  "command": "cargo run -p fizz-slice-view --example frame -- 1225 night.ppm --night, converted to PNG without quantising",
+  "commit": "ee4649c",
+  "date": "2026-11-04"
  }
 ]
