@@ -270,7 +270,10 @@ pub fn add_lights(add: &mut [u16], cols: usize, rows: usize, lights: &[Light], c
         let sx = i64::from(l.x) - i64::from(cam.0);
         let sy = i64::from(l.y) - i64::from(cam.1);
         let reach = i64::from(r);
-        let (gw, gh) = (cols as i64 * i64::from(CELL_SUB), rows as i64 * i64::from(CELL_SUB));
+        let (gw, gh) = (
+            cols as i64 * i64::from(CELL_SUB),
+            rows as i64 * i64::from(CELL_SUB),
+        );
         if sx + reach < 0 || sy + reach < 0 || sx - reach >= gw || sy - reach >= gh {
             continue;
         }
@@ -308,12 +311,18 @@ pub fn add_lights(add: &mut [u16], cols: usize, rows: usize, lights: &[Light], c
 }
 
 /// A cell's light in quarter levels, from the light added to it and the ambient level: `(ambient - 1) * 4` plus the added light
-/// over [`LIGHT_ONE`] in quarter levels, rounded, at most [`QMAX`].
+/// over [`LIGHT_ONE`] in quarter levels, rounded down, at most [`QMAX`].
 pub const fn cell_q(add: u16, ambient: u8) -> u8 {
     let base = (ambient as u32 - 1) * 4;
-    let q = base + ((add as u32 * QMAX as u32 + (LIGHT_ONE as u32 / 2)) >> 10);
+    let q = base + ((add as u32 * QMAX as u32) >> 10);
     if q > QMAX as u32 { QMAX } else { q as u8 }
 }
+
+/// The least added light that makes a cell a quarter level brighter than the ambient: [`cell_q`] rounds down, so a cell with
+/// less is at the ambient and is not shaded. Rounding down rather than to the nearest keeps a light's faint edge, a cell or two
+/// wide all round it, out of the pass.
+pub const LIT_FROM: u16 = (LIGHT_ONE as u32).div_ceil(QMAX as u32) as u16;
+const _: () = assert!(cell_q(LIT_FROM - 1, 6) == 20 && cell_q(LIT_FROM, 6) == 21);
 
 /// The 2 by 2 ordered dither, by the pixel's row and column parity: what is added to a cell's quarter level before it is
 /// divided by four (fizz-dos's `BAYER`).
@@ -356,64 +365,132 @@ pub const fn shade_byte(p: u8, level: u8) -> u8 {
     SHADE[level as usize][p as usize]
 }
 
+/// The most cells a row of the grid holds: 1280 pixels, the widest view the Web draws, is 160.
+pub const MAX_COLS: usize = 160;
+
 /// Shades a `w` by `h` frame by the cells' light: `add` holds each cell's added light ([`add_lights`]), the grid
 /// [`grid_size`] gives, and `ambient` is the level bank 0 shows. A cell whose light rounds to the ambient is not touched; in
-/// the others every pixel takes its dithered level through [`shade_byte`], four at a time where all four are lit. Pure, and the
-/// same on every platform; any size is safe.
+/// the others every pixel takes its dithered level through [`shade_byte`], four at a time where all four are lit. The levels of
+/// a row of cells are worked out once for its eight rows of pixels, as two words for each cell (one for each row parity of the
+/// dither), with the runs of cells that are lit. Pure, and the same on every platform; any size is safe, and a grid wider than
+/// [`MAX_COLS`] is shaded one byte at a time.
 pub fn shade(frame: &mut [u8], w: usize, h: usize, add: &[u16], ambient: u8) {
     let (cols, rows) = grid_size(w, h);
     if w == 0 || frame.len() < w * h || add.len() < cols * rows {
         return;
     }
     let base_q = (ambient - 1) * 4;
+    // For each lit cell of a row, the word that sets its four pixels' banks on even rows and on odd ones (the dither's two rows).
+    let mut words = [[0u32; MAX_COLS]; 2];
+    // The lit cells, as runs `(first, end)`; a row has at most half its cells' worth of runs.
+    let mut runs = [(0usize, 0usize); MAX_COLS / 2 + 1];
+    // The cells wholly inside the frame's width.
+    let whole = w / CELL;
     for cy in 0..rows {
         let cells = &add[cy * cols..][..cols];
-        if cells.iter().all(|&a| a == 0) {
+        let y0 = cy * CELL;
+        let y1 = (y0 + CELL).min(h);
+        if cols > MAX_COLS {
+            for y in y0..y1 {
+                shade_row_slow(&mut frame[y * w..][..w], y, cells, base_q, ambient);
+            }
             continue;
         }
-        let y1 = ((cy + 1) * CELL).min(h);
-        for y in cy * CELL..y1 {
-            shade_row(&mut frame[y * w..][..w], y, cells, base_q, ambient);
+        let mut n = 0;
+        let mut open = false;
+        for (cx, &a) in cells.iter().enumerate() {
+            // Under a quarter level of light is the ambient (`cell_q` rounds down), so most cells end here.
+            if a < LIT_FROM {
+                open = false;
+                continue;
+            }
+            let q = cell_q(a, ambient);
+            if q == base_q {
+                open = false;
+                continue;
+            }
+            let word = |py: usize| {
+                let (a, b) = (
+                    u32::from(bank(dithered(q, py, 0))),
+                    u32::from(bank(dithered(q, py, 1))),
+                );
+                a | b << 8 | a << 16 | b << 24
+            };
+            words[0][cx] = word(0);
+            words[1][cx] = word(1);
+            if open {
+                runs[n - 1].1 = cx + 1;
+            } else {
+                runs[n] = (cx, cx + 1);
+                n += 1;
+                open = true;
+            }
+        }
+        for y in y0..y1 {
+            let row = &mut frame[y * w..][..w];
+            let adds = &words[y & 1];
+            for &(c0, c1) in &runs[..n] {
+                let c_end = c1.min(whole);
+                if c0 < c_end {
+                    // A cell's row is two words: both lit (the usual case) take the cell's word in one OR each.
+                    let span = row[c0 * CELL..c_end * CELL].as_chunks_mut::<4>().0;
+                    for (pair, &add) in span.as_chunks_mut::<2>().0.iter_mut().zip(&adds[c0..c_end])
+                    {
+                        let (a, b) = (u32::from_le_bytes(pair[0]), u32::from_le_bytes(pair[1]));
+                        if (a | b) & 0xF0F0_F0F0 == 0 {
+                            pair[0] = (a | add).to_le_bytes();
+                            pair[1] = (b | add).to_le_bytes();
+                        } else {
+                            shade_marked(&mut pair[..], add);
+                        }
+                    }
+                }
+                // The last cell of a frame whose width is not a multiple of 8.
+                if c1 > whole {
+                    let add = adds[c1 - 1];
+                    let x0 = whole * CELL;
+                    for (i, p) in row[x0..].iter_mut().enumerate() {
+                        *p = shade_byte(*p, level_of_add(add, i));
+                    }
+                }
+            }
         }
     }
 }
 
-/// Shades one row of pixels at frame row `y` by its row of cells.
+/// The level byte `i & 1` of a cell's word sets (see [`shade`]).
 #[inline]
-fn shade_row(row: &mut [u8], y: usize, cells: &[u16], base_q: u8, ambient: u8) {
+const fn level_of_add(add: u32, i: usize) -> u8 {
+    16 - ((add >> (4 + 8 * (i & 1) as u32)) & 15) as u8
+}
+
+/// A cell's row of eight pixels, as words, that holds a marker (an actor, a glow): a byte at a time through the table. Out of the
+/// lit cells' loop, which it would slow.
+#[cold]
+#[inline(never)]
+fn shade_marked(words: &mut [[u8; 4]], add: u32) {
+    let (l0, l1) = (level_of_add(add, 0), level_of_add(add, 1));
+    for word in words {
+        *word = [
+            shade_byte(word[0], l0),
+            shade_byte(word[1], l1),
+            shade_byte(word[2], l0),
+            shade_byte(word[3], l1),
+        ];
+    }
+}
+
+/// Shades one row of pixels at frame row `y` by its row of cells, a byte at a time.
+fn shade_row_slow(row: &mut [u8], y: usize, cells: &[u16], base_q: u8, ambient: u8) {
     for (cx, &a) in cells.iter().enumerate() {
-        if a == 0 {
-            continue;
-        }
         let q = cell_q(a, ambient);
-        if q == base_q {
+        if a == 0 || q == base_q {
             continue;
         }
         let x0 = cx * CELL;
-        let Some(px) = row.get_mut(x0..(x0 + CELL).min(row.len())) else {
-            continue;
-        };
-        let (l0, l1) = (dithered(q, y, 0), dithered(q, y, 1));
-        if px.len() == CELL {
-            // Bytes 0 and 2 of a word are even columns (a cell starts on a multiple of 8), 1 and 3 odd.
-            let (b0, b1) = (u32::from(bank(l0)), u32::from(bank(l1)));
-            let add = b0 | b1 << 8 | b0 << 16 | b1 << 24;
-            for word in px.as_chunks_mut::<4>().0 {
-                let w = u32::from_le_bytes(*word);
-                *word = if w & 0xF0F0_F0F0 == 0 {
-                    (w | add).to_le_bytes()
-                } else {
-                    [
-                        shade_byte(word[0], l0),
-                        shade_byte(word[1], l1),
-                        shade_byte(word[2], l0),
-                        shade_byte(word[3], l1),
-                    ]
-                };
-            }
-        } else {
+        if let Some(px) = row.get_mut(x0..(x0 + CELL).min(row.len())) {
             for (i, p) in px.iter_mut().enumerate() {
-                *p = shade_byte(*p, if i & 1 == 0 { l0 } else { l1 });
+                *p = shade_byte(*p, dithered(q, y, i));
             }
         }
     }

@@ -391,22 +391,26 @@ function lanternPiece(): Piece {
   drawRows(
     cv,
     [
-      '...kkk...',
-      '...k.k...',
-      '....k....',
-      '..kkkkk..',
-      '.kDLLLDk.',
-      'kkkkkkkkk',
-      '.kyyyyyk.',
-      '.kyyWyyk.',
-      '.kyWWWyk.',
-      '.kyyWyyk.',
-      '.kNyyyNk.',
-      'kkkkkkkkk',
-      '.kDDDDDk.',
-      '..kkkkk..',
+      '....kkk....',
+      '....k.k....',
+      '.....k.....',
+      '....kkk....',
+      '..kkDLDkk..',
+      '.kDLLLLLDk.',
+      'kkkkkkkkkkk',
+      '.kyyyyyyyk.',
+      '.kyyyWyyyk.',
+      '.kyyWWWyyk.',
+      '.kyyWWWyyk.',
+      '.kyyyWyyyk.',
+      '.kNyyyyyNk.',
+      'kkkkkkkkkkk',
+      '.kDDDDDDDk.',
+      '..kkkkkkk..',
+      '....kDk....',
+      '.....k.....',
     ],
-    4,
+    5,
     0,
   );
   return cv.piece();
@@ -421,18 +425,36 @@ function lampPiece(): Piece {
   drawRows(
     cv,
     [
-      '..kkkkk..',
-      '.kLLLLDk.',
-      'kLyWWWyDk',
-      'kyWkWkWyk',
-      'kyyWWWyyk',
-      'kDyykyyDk',
-      '.kDyyyDk.',
-      '..kkkkk..',
+      '...kkkkkkk...',
+      '..kDLLLLLDk..',
+      '.kLkyyyyykDk.',
+      'kDkyyWWWyykDk',
+      'kLyyWWWWWyyDk',
+      'kLkkkkkkkkkDk',
+      'kLyyWWWWWyyDk',
+      'kDkyyWWWyykDk',
+      '.kDkyyyyykDk.',
+      '..kDDDDDDDk..',
+      '...kkkkkkk...',
     ],
-    4,
-    4,
+    6,
+    5,
   );
+  return cv.piece();
+}
+
+/**
+ * The pixels of `p` in the colours `letters`, as a piece with the same reference point: the part of a piece that glows at night,
+ * which the renderer draws over the piece in the glow bank, so nothing is read back from the frame.
+ */
+function glowPart(p: Piece, letters: string): Piece {
+  const keep = new Set([...letters].map(idx));
+  const cv = new Canvas();
+  for (let y = 0; y < p.h; y++)
+    for (let x = 0; x < p.w; x++) {
+      const c = p.pixels[y * p.w + x];
+      if (c !== 255 && keep.has(c)) cv.put(x + p.ox, y + p.oy, LETTERS[c]);
+    }
   return cv.piece();
 }
 
@@ -550,6 +572,11 @@ export function emit(): string {
   items.push(pieceItem('PORTHOLE', 'A porthole; `(ox, oy)` is relative to its centre.', portholePiece()));
   items.push(pieceItem('LANTERN', 'A wall lantern, lit at night; `(ox, oy)` is relative to the top of its hook.', lanternPiece()));
   items.push(pieceItem('LAMP', 'A caged lamp on the back wall, lit at night; `(ox, oy)` is relative to its centre.', lampPiece()));
+  items.push(pieceItem('LANTERN_GLOW', 'The lantern\'s glass and flame (y and W), which glow at night; placed as `LANTERN`.', glowPart(lanternPiece(), 'yW')));
+  items.push(pieceItem('LAMP_GLOW', 'The lamp\'s glass and bulb (y and W), which glow at night; placed as `LAMP`.', glowPart(lampPiece(), 'yW')));
+  items.push(pieceItem('BADGE_RED', 'The red door\'s white triangle badge, which glows at night; placed as `DOOR_RED_TOP`.', glowPart(doorPiece(true, 0), 'W')));
+  items.push(pieceItem('BADGE_BLUE', 'The blue door\'s white disc badge, which glows at night; placed as `DOOR_BLUE_TOP`.', glowPart(doorPiece(false, 0), 'W')));
+  items.push(pieceItem('EXIT_GLOW', 'The exit\'s lit opening and arrow (G, g and W), which glow at night; placed as `EXIT_DOORWAY`.', glowPart(exitPiece(), 'GgW')));
   items.push(
     wordsItem(
       'FALLOFF',

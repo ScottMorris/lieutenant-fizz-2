@@ -11,8 +11,11 @@
 //       the slice at every 100th replay tick, as <stem>-<tick>.ppm
 //   cargo run --release -p fizz-slice-view --example frame -- bench [all|indoor|gallery] [rounds] [width height]
 //       host timing of the ground over the bench cameras, indoor and gallery separately
-//   Add --open to a `ground` run to open both doors, and --night to any picture to draw it at night (for `ground`, with the
-//   level's own lights and no Ben). The colours are the palette the presenters show, the night's at night.
+//   cargo run --release -p fizz-slice-view --example frame -- script [--night]
+//       draws every tick of the replay as the DOS bench does (`frame::draw_tick`, one call a tick), for callgrind to count
+//   Add --open to a `ground` run to open both doors, --night to any picture to draw it at night (for `ground`, with the
+//   level's own lights and no Ben) and --light to draw it with the Light detail (the Sky setting; the DOS default), which at
+//   night is also the lights' shorter reach. The colours are the palette the presenters show, the night's at night.
 //
 // The size defaults to 320 by 200. Convert with any PPM reader, for example `python3 -c "from PIL import Image; Image.open('f.ppm').save('f.png')"`.
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
@@ -153,6 +156,12 @@ fn bench(args: &[String]) {
 }
 
 #[inline(never)]
+fn draw_tick(frame: &mut [u8], world: &World, options: &DrawOptions) {
+    draw_slice_with(frame, 320, 200, world, world.tick.0 as u32, options);
+    std::hint::black_box(&frame);
+}
+
+#[inline(never)]
 fn draw(frame: &mut [u8], w: usize, h: usize, g: &Ground, x: i32, y: i32, round: u32) {
     // The clouds drift with the tick, so a timed run draws at a different tick each round.
     draw_ground_at(frame, w, h, g, x, y, 600 + round);
@@ -164,9 +173,11 @@ fn main() {
     let open = args.iter().any(|a| a == "--open");
     args.retain(|a| a != "--open");
     let night = args.iter().any(|a| a == "--night");
-    args.retain(|a| a != "--night");
+    let light_sky = args.iter().any(|a| a == "--light");
+    args.retain(|a| a != "--night" && a != "--light");
     let options = DrawOptions {
         night,
+        full_sky: !light_sky,
         ..DrawOptions::default()
     };
     match args.first().map(String::as_str) {
@@ -190,30 +201,47 @@ fn main() {
             draw_ground(&mut frame, w, h, &g, cam_x, cam_y);
             if night {
                 oblique::draw_night(&mut frame, w, h, &g, cam_x, cam_y);
-                let centre = ((cam_x + w as i32 / 2) * light::SUB, (cam_y + h as i32 / 2) * light::SUB);
                 let mut lights = light::Lights::new();
-                oblique::night_lights(&mut lights, &g, centre, 0);
+                oblique::night_lights(&mut lights, &g, (cam_x, cam_y), (w, h), 0);
                 let (cols, rows) = light::grid_size(w, h);
                 let mut add = vec![0u16; cols * rows];
-                light::add_lights(&mut add, cols, rows, lights.select(), (cam_x * light::SUB, cam_y * light::SUB));
+                light::add_lights(
+                    &mut add,
+                    cols,
+                    rows,
+                    lights.select(),
+                    (cam_x * light::SUB, cam_y * light::SUB),
+                );
                 light::shade(&mut frame, w, h, &add, oblique::NIGHT_AMBIENT);
             }
             write_ppm(&args[3], &frame, w, h, &options);
         }
         Some("bench") => bench(&args),
+        Some("script") => {
+            let mut world = level::world();
+            let mut frame = vec![0u8; 320 * 200];
+            let mut prev = Buttons::NONE;
+            for &(frames, now) in SLICE_SCRIPT {
+                for _ in 0..frames {
+                    step(&mut world, InputFrame::from_transition(prev, now));
+                    prev = now;
+                    draw_tick(&mut frame, &world, &options);
+                }
+            }
+            println!("{}", frame.iter().map(|&p| u64::from(p)).sum::<u64>());
+        }
         Some("all") => {
             for tick in (0..=1700).step_by(100) {
                 let world = world_at(tick);
                 let mut frame = vec![0xEEu8; 320 * 200];
-                draw_slice_with(
-                    &mut frame,
+                draw_slice_with(&mut frame, 320, 200, &world, tick as u32, &options);
+                write_ppm(
+                    &format!("{}-{tick}.ppm", args[1]),
+                    &frame,
                     320,
                     200,
-                    &world,
-                    tick as u32,
                     &options,
                 );
-                write_ppm(&format!("{}-{tick}.ppm", args[1]), &frame, 320, 200, &options);
             }
         }
         Some(t) => {
@@ -221,14 +249,7 @@ fn main() {
             let (w, h) = size(&args, 2);
             let world = world_at(tick);
             let mut frame = vec![0xEEu8; w * h];
-            draw_slice_with(
-                &mut frame,
-                w,
-                h,
-                &world,
-                tick as u32,
-                &options,
-            );
+            draw_slice_with(&mut frame, w, h, &world, tick as u32, &options);
             write_ppm(&args[1], &frame, w, h, &options);
         }
         None => eprintln!(

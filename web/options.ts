@@ -35,6 +35,8 @@ export interface Options {
   keys: 'keen' | 'modern';
   /** `full` draws the whole parallax night in open air; `light` only its stars and sea. */
   sky: 'full' | 'light';
+  /** `on` draws the level at night, lit by its lanterns and lamps; `off` by day. */
+  night: 'off' | 'on';
 }
 
 export const DEFAULT_OPTIONS: Readonly<Options> = {
@@ -45,6 +47,7 @@ export const DEFAULT_OPTIONS: Readonly<Options> = {
   captions: 'on',
   keys: 'keen',
   sky: 'full',
+  night: 'off',
 };
 
 export interface StorageLike {
@@ -61,6 +64,7 @@ const CHOICES: { [K in keyof Options]: readonly Options[K][] } = {
   captions: ['on', 'off'],
   keys: ['keen', 'modern'],
   sky: ['full', 'light'],
+  night: ['off', 'on'],
 };
 
 const FIELDS = Object.keys(CHOICES) as (keyof Options)[];
@@ -178,6 +182,7 @@ export const ROW = {
   options: 11,
   restart: 13,
   sky: 14,
+  night: 15,
 } as const;
 
 const ROW_NAMES = new Map<number, string>(Object.entries(ROW).map(([name, id]) => [id, name]));
@@ -191,6 +196,7 @@ export const ROW_OF: { [K in keyof Options]: { row: number; words: readonly Opti
   captions: { row: ROW.captions, words: ['on', 'off'] },
   keys: { row: ROW.keys, words: ['keen', 'modern'] },
   sky: { row: ROW.sky, words: ['full', 'light'] },
+  night: { row: ROW.night, words: ['off', 'on'] },
 };
 
 /** What the page asks the module for. */

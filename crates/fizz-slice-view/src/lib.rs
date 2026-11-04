@@ -106,8 +106,7 @@ use fizz_ep2::World;
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
-    TILE_PX, blit_sprite_banked, follow, pfont::draw_text, pfont::text_width,
-    screen_y, tile_px,
+    TILE_PX, blit_sprite_banked, follow, pfont::draw_text, pfont::text_width, screen_y, tile_px,
 };
 
 /// The width of the picture in pixels.
@@ -187,8 +186,7 @@ pub fn night_lights(
     world: &World,
     ground: &oblique::Ground,
     cam: (i32, i32),
-    w: usize,
-    h: usize,
+    (w, h): (usize, usize),
     tick: u32,
 ) -> light::Lights {
     use light::{Light, SUB};
@@ -225,7 +223,7 @@ pub fn night_lights(
             },
         );
     }
-    oblique::night_lights(&mut lights, ground, centre, tick);
+    oblique::night_lights(&mut lights, ground, cam, (w, h), tick);
     lights
 }
 
@@ -237,7 +235,10 @@ const LARGE_GRID: usize = 160 * 52;
 /// The light pass over a picture drawn at night: adds the lights to the cell grid and shades the frame by it.
 fn light_pass(frame: &mut [u8], w: usize, h: usize, lights: &[light::Light], cam: (i32, i32)) {
     let (cols, rows) = light::grid_size(w, h);
-    let cam = (cam.0.saturating_mul(light::SUB), cam.1.saturating_mul(light::SUB));
+    let cam = (
+        cam.0.saturating_mul(light::SUB),
+        cam.1.saturating_mul(light::SUB),
+    );
     let mut pass = |add: &mut [u16]| {
         light::add_lights(add, cols, rows, lights, cam);
         light::shade(frame, w, h, add, oblique::NIGHT_AMBIENT);
@@ -569,6 +570,22 @@ pub fn draw_slice_captions(
     puffs: &Puffs,
     captions: &EventCaptions,
 ) {
+    draw_picture(frame, w, h, world, tick, options, puffs, captions, true);
+}
+
+/// [`draw_slice_captions`], with the light pass left out when `shade` is false (for the tests, which check the markers it reads).
+#[allow(clippy::too_many_arguments)]
+fn draw_picture(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
+    captions: &EventCaptions,
+    shade: bool,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -656,8 +673,10 @@ pub fn draw_slice_captions(
 
     draw_ben(frame, w, h, world, phase, &at, options.shake, actor);
 
-    if night {
-        let mut lights = night_lights(world, &ground, (cam_x, cam_y), w, h, tick);
+    // The light pass is the Full detail's (the Sky setting): with Light, the detail the 486DX2-66 floor draws, the night is the
+    // palette's ambient, the glowing art and the actors' floor, and no cell is shaded.
+    if night && shade && options.full_sky {
+        let mut lights = night_lights(world, &ground, (cam_x, cam_y), (w, h), tick);
         light_pass(frame, w, h, lights.select(), (cam_x, cam_y));
     }
 
@@ -2635,3 +2654,5 @@ mod tests {
         );
     }
 }
+#[cfg(test)]
+mod night_tests;

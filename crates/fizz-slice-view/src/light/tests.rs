@@ -95,7 +95,9 @@ fn the_falloff_table_matches_its_formula() {
     assert_eq!(FALLOFF.len(), 1024);
     for (i, &f) in FALLOFF.iter().enumerate() {
         let u = ((i as f64 + 0.5) / 1024.0).sqrt();
-        let want = ((1.0 - u) * (1.0 - u) / u * 256.0 + 0.5).floor().min(65535.0);
+        let want = ((1.0 - u) * (1.0 - u) / u * 256.0 + 0.5)
+            .floor()
+            .min(65535.0);
         assert_eq!(f64::from(f), want, "step {i}");
     }
     // Falling all the way: the far end of the radius adds nothing.
@@ -154,7 +156,15 @@ fn lcg(seed: &mut u64) -> u32 {
 #[test]
 fn the_word_path_shades_as_byte_by_byte_does_at_any_size() {
     let mut seed = 7u64;
-    for &(w, h) in &[(320, 200), (96, 64), (1280, 416), (101, 67), (8, 8), (7, 3), (1, 1)] {
+    for &(w, h) in &[
+        (320, 200),
+        (96, 64),
+        (1280, 416),
+        (101, 67),
+        (8, 8),
+        (7, 3),
+        (1, 1),
+    ] {
         let (cols, rows) = grid_size(w, h);
         let mut add = vec![0u16; cols * rows];
         for a in add.iter_mut() {
@@ -221,7 +231,7 @@ fn the_dither_gives_four_steps_between_two_levels() {
         let lo = 1 + q / 4;
         let up = lv.iter().filter(|&&l| l > lo).count();
         assert_eq!(usize::from(q % 4), up, "q {q}");
-        assert!(lv.iter().all(|&l| l == lo || l == lo + 1) && lo + 1 <= LEVELS + 1);
+        assert!(lv.iter().all(|&l| l == lo || l == lo + 1) && lo <= LEVELS);
         assert!(lv.iter().all(|&l| l <= LEVELS));
     }
 }
@@ -334,7 +344,14 @@ fn lowering_a_span_darkens_by_levels_and_keeps_colours() {
     lower_span(&mut span, 2, LEVELS);
     assert_eq!(
         span,
-        [bank(12), bank(12) | 7, bank(12) | 15, bank(12) | 14, bank(1) | 2, bank(3) | 9]
+        [
+            bank(12),
+            bank(12) | 7,
+            bank(12) | 15,
+            bank(12) | 14,
+            bank(1) | 2,
+            bank(3) | 9
+        ]
     );
     let mut night = [4u8];
     lower_span(&mut night, 1, 6);

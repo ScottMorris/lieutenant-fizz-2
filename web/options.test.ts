@@ -48,12 +48,12 @@ class Memory implements StorageLike {
   }
 }
 
-const some: Options = { sound: 'off', music: 'off', placement: 'classic', motion: 'reduced', captions: 'off', keys: 'modern', sky: 'full' };
+const some: Options = { sound: 'off', music: 'off', placement: 'classic', motion: 'reduced', captions: 'off', keys: 'modern', sky: 'full', night: 'off' };
 
 describe('the blob', () => {
   test('serialises version first and parses back', () => {
     const text = serialiseOptions(some);
-    expect(text).toBe('{"v":1,"sound":"off","music":"off","placement":"classic","motion":"reduced","captions":"off","keys":"modern","sky":"full"}');
+    expect(text).toBe('{"v":1,"sound":"off","music":"off","placement":"classic","motion":"reduced","captions":"off","keys":"modern","sky":"full","night":"off"}');
     expect(parseOptions(text)).toEqual(some);
     expect(parseOptions(serialiseOptions(DEFAULT_OPTIONS))).toEqual(DEFAULT_OPTIONS);
   });
@@ -70,7 +70,7 @@ describe('the blob', () => {
   });
 
   test('the defaults are the settings of a fresh visit', () => {
-    expect(DEFAULT_OPTIONS).toEqual({ sound: 'on', music: 'on', placement: 'enhanced', motion: 'system', captions: 'on', keys: 'keen', sky: 'full' });
+    expect(DEFAULT_OPTIONS).toEqual({ sound: 'on', music: 'on', placement: 'enhanced', motion: 'system', captions: 'on', keys: 'keen', sky: 'full', night: 'off' });
   });
 });
 
@@ -171,6 +171,7 @@ describe('the module rows', () => {
     expect([ROW.music, ROW.placement, ROW.motion, ROW.captions, ROW.keys, ROW.back, ROW.sound, ROW.fullscreen]).toEqual([0, 2, 4, 5, 6, 7, 8, 9]);
     expect([ROW.resume, ROW.options, ROW.restart]).toEqual([10, 11, 13]);
     expect(ROW.sky).toBe(14);
+    expect(ROW.night).toBe(15);
   });
 
   test('pushing and pulling round-trip through the module\'s indexes', () => {
@@ -187,6 +188,11 @@ describe('the module rows', () => {
     pushOptions(app, { ...some, sky: 'light' });
     expect(mem.get(ROW.sky)).toBe(1);
     expect(pullOptions(app).sky).toBe('light');
+    expect(mem.get(ROW.night)).toBe(0);
+    pushOptions(app, { ...some, night: 'on' });
+    expect(mem.get(ROW.night)).toBe(1);
+    expect(pullOptions(app).night).toBe('on');
+    expect(parseOptions(serialiseOptions({ ...some, night: 'on' }))).toEqual({ ...some, night: 'on' });
   });
 });
 

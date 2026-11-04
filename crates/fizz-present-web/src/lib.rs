@@ -1315,6 +1315,27 @@ mod tests {
     }
 
     #[test]
+    fn at_night_the_canvas_takes_the_bytes_through_the_night_table() {
+        // The page draws the same bytes as DOS and shows each through the shared 256-entry palette the DOS DAC is given, so a
+        // byte is the same colour on both.
+        let mut app = App::new();
+        app.set_night(true);
+        assert!(app.night());
+        app.render();
+        let table = light::rgba(&light::palette(fizz_slice_view::oblique::NIGHT_AMBIENT));
+        let (pixels, _) = app.rgba.as_chunks::<4>();
+        for (px, &i) in pixels.iter().zip(&app.indexed) {
+            assert_eq!(*px, table[usize::from(i)]);
+        }
+        // Night is the Full detail on the Web by default, so the light pass shades some cells.
+        assert!(app.indexed.iter().any(|&i| i >= 0x30));
+        app.set_night(false);
+        app.render();
+        let (pixels, _) = app.rgba.as_chunks::<4>();
+        assert!(pixels.iter().all(|p| EGA_RGBA.contains(p)));
+    }
+
+    #[test]
     fn set_view_resizes_the_frame_and_clamps() {
         let mut app = App::new();
         let hash = app.hash_hex();
