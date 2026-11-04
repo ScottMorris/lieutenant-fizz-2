@@ -81,6 +81,22 @@ Where the level is open to the night (the gallery at the top), you see the sky b
 - **Web:** Full, unless you change the Sky row of the Options screen to Light. The page remembers your choice on this browser, if the browser allows it to.
 - **DOS:** Auto, which starts with Light, because the whole night takes more time to draw than a 486DX2-66, the slowest computer the DOS version aims at, has in a sixtieth of a second. While the frame rate is also on Auto, the game watches how long its pictures take and switches to Full when your computer draws the Light sky in well under half a sixtieth of a second, and back to Light if Full gets slow; the Options screen shows which it is using, as `Auto (Light)`. You can also choose Full or Light yourself on the Sky row of the Options screen, which saves it in `FIZZ2.CFG`, or for one run with `FIZZ2.EXE /SKY:FULL`, `/SKY:LIGHT` or `/SKY:AUTO`. Full on the slowest computers can make the gallery stutter, and with Auto frame rate the game may then draw 30 pictures a second instead of 60. Lieutenant Fizz 1's DOS version has the same kind of detail setting for its backgrounds.
 
+### Night
+
+The Night setting plays the level after dark, as Lieutenant Fizz 1's Night option does. It is Off unless you turn it on. At night:
+
+- The level is dim: walls, ledges and the sky show at about a third of their daytime brightness.
+- New lamps are lit: a lantern hangs over each door, a caged lamp glows on the wall of each shaft, and their glass and flames shine at full brightness.
+- Things you can touch stay bright: the keys, the snacks and cans, the door badges (the white triangle and disc), the green exit doorway and its arrow, your Fizz Blaster bubbles and the words above the chicken. The heads-up box stays as it is by day.
+- Ben and the chicken never fall darker than about two thirds of their daytime brightness, so you can always see them.
+- With the Full detail (the Sky setting on Full, or Auto when your computer is fast enough; see [The sky](#the-sky)) the lamps light what is round them: each lantern and lamp, the green doorway and every bubble you fire throws a pool of light that fades out over a few tiles, the lanterns and lamps flicker, Ben carries a lantern of his own, and the lighthouse beam sweeps along the gallery's railing and the sea behind it, lighting them as it passes. The light changes in small steps with a fine checker pattern between them, the way Fizz 1's DOS version draws it.
+- With the Light detail (the DOS default on the slowest computers) there are no pools of light: the level is evenly dim and the lamps, the things you can touch, Ben and the chicken stand out against it. That keeps the night at 60 pictures a second on a 486DX2-66.
+
+The game plays the same by night as by day: nothing moves or behaves differently, and the `TICK` and `HASH` values are the same.
+
+- **Web:** the Night row of the Options screen, Off or On. The page remembers your choice on this browser, if the browser allows it to. The Sky is Full on the Web unless you choose Light, so you see the lights.
+- **DOS:** the Night row of the Options screen, which saves it in `FIZZ2.CFG`, or for one run `FIZZ2.EXE /NIGHT` (and `/DAY` to play by day even if you saved the night). The pause menu and the Options screen are drawn in their daytime colours over the darkened picture, and the night comes back when you resume.
+
 ### Sound effects
 
 Every one of those words has a sound that plays at the same moment, and so does the jump, as in Lieutenant Fizz 1: `fzzt` is Lieutenant Fizz 1's fizz (a burst of noise over a sliding tone, a buzzing zap on DOS), `fizzled` a short wobbling sputter, `bonk` a deep knock, `whoa!` a long falling cry, `ta-da!` a rising flourish that ends on a long bell-like note, the gumdrops three quick rising notes, `clunk` a low thud when Ben bumps his head (a door opening has its own sound, a slow low creak that ends in a soft latch, under the same word), `click - no fizz` a tiny high tick, `boing` a ragged, fading wobble with a quick bright blip on the Web and three struck notes on DOS (as in Lieutenant Fizz 1), the jump a short stepped rising chirp on the Web and two struck notes on DOS (as in Lieutenant Fizz 1) and `crunch` a noisy crackle with two quick notes. The chicken keeps its four clucks.
@@ -114,7 +130,7 @@ On the Web, press `F` or use the Fullscreen row of the Options screen to fill th
 
 ### DOS modes
 
-Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn (see [Frame rate on DOS](#frame-rate-on-dos)), and `/SKY:AUTO`, `/SKY:FULL` and `/SKY:LIGHT` (see [The sky](#the-sky)).
+Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mode, you get `/LIVE`. Add `/MODERN` as well, or by itself, to use the Modern keys in `/LIVE`, as in `FIZZ2.EXE /MODERN`; `/KEEN` does the same for the Keen keys. `/NOCAPTIONS` and `/CAPTIONS` work the same way; see [Captions](#captions). So do `/FPS30`, `/FPS60` and `/FPSAUTO`, which choose how often the picture is drawn (see [Frame rate on DOS](#frame-rate-on-dos)), `/SKY:AUTO`, `/SKY:FULL` and `/SKY:LIGHT` (see [The sky](#the-sky)), and `/NIGHT` and `/DAY` (see [Night](#night)).
 
 - `/LIVE` — you play the slice. Esc opens the pause menu (Resume, Options, Quit to DOS). The run ends when you choose Quit to DOS, or by itself after 30 seconds of real time (time spent in the menu counts), and then prints the final tick, the hash, and whether Ben moved from where he started.
 - `/REPLAY` — plays a built-in run through the whole slice by itself, with no keyboard input: about 29 seconds in which Ben shoots and stomps the chicken, dies once on the spikes, takes the key, opens the door, plays in the snack nook (snacks, a soda can that refills the empty blaster, a head bump, the pogo, the blue key and door) stands in the exit doorway and presses Up to go through it. It then prints the list of hashes it reached and a few lines about the machine, including `EXIT yes` when Ben got out. Use it to check that your copy agrees with the Web version, and to watch the level without playing it.
@@ -130,7 +146,7 @@ Add one of these after the program name, such as `FIZZ2.EXE /REPLAY`. With no mo
 
 ### Command-line switches
 
-Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/PROBE`), options (`/MODERN`, `/KEEN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`, `/SKY:x`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
+Type `FIZZ2.EXE /?` (or `/HELP`, or `-?`) to see every switch on one screen. It prints the list and stops, without starting the game or changing your screen, and it does the same even if you add other switches, as in `FIZZ2.EXE /? /LIVE`. The list groups them as modes (`/LIVE`, `/REPLAY`, `/BENCH`, `/CHECK`, `/PROBE`), options (`/MODERN`, `/KEEN`, `/CAPTIONS`, `/NOCAPTIONS`, `/FPS30`, `/FPS60`, `/FPSAUTO`, `/SKY:x`, `/NIGHT`, `/DAY`) and sound (`/MUSIC:x`, `/FX:x`, `/ADLIB`, `/SB`, `/SPEAKER`, `/NOSOUND`). Capital or small letters both work.
 
 The help screen, as `FIZZ2.EXE /?` prints it:
 
@@ -144,14 +160,14 @@ Modes (the first one given is used; /LIVE is the default)
   /PROBE        Print what the machine has: video, sound, processor
   /?            Show this help (also /HELP and -?); nothing else runs
 Options (for this run; where one has an opposite, the last one given wins)
-  /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
-  /KEEN         Use Keen's keys, even if FIZZ2.CFG saved the Modern ones
+  /MODERN /KEEN Modern keys (W A S D, Z X C), or Keen's, the default
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
   /FPS60        Draw 60 frames a second
   /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
-  /SKY:x        Sky: FULL night, or LIGHT (stars and sea, the DOS default)
+  /SKY:x        Sky: AUTO (the default), FULL night, or LIGHT (stars and sea)
+  /NIGHT /DAY   Night, lit by lanterns; or day, the default
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF
@@ -162,7 +178,7 @@ Sound (for this run only; FIZZ2.CFG keeps your saved choice)
 Exit status: 0 after help, 2 for a switch FIZZ2.EXE does not know.
 ```
 
-If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a switch with a value it does not know, such as `/MUSIC:FOO` or `/SKY:DIM`. Four testing switches, `/CHECKCELLS` (see [DOS modes](#dos-modes)), `/PANIC`, `/CFGTEST` and `/OPTIONS` (which opens the Options screen at once, over the first picture of the level, and leaves when you press Esc), work but are left out of the list because they are not for playing; the screen has room for 25 lines.
+If you type something the game does not know, such as `FIZZ2.EXE /LIVEE`, it prints one line naming it, `FIZZ2.EXE: unknown switch /LIVEE, try FIZZ2.EXE /?`, and stops with exit status 2 instead of starting. The same goes for a switch with a value it does not know, such as `/MUSIC:FOO` or `/SKY:DIM`, or a value given to a switch that takes none, such as `/NIGHT:ON`. Where two switches are opposites they share a line of the list, as `/MODERN /KEEN` and `/NIGHT /DAY` do. Four testing switches, `/CHECKCELLS` (see [DOS modes](#dos-modes)), `/PANIC`, `/CFGTEST` and `/OPTIONS` (which opens the Options screen at once, over the first picture of the level, and leaves when you press Esc), work but are left out of the list because they are not for playing; the screen has room for 25 lines.
 
 ### Choosing your sound on DOS
 
@@ -218,7 +234,8 @@ On the Options screen Up and Down choose a row, Left goes back one choice and Ri
 - **Motion** — Full or Reduced: whether the screen shakes and Ben spins when he dies.
 - **Captions** — On or Off: the words above a chicken when it clucks.
 - **Keys** — Keen or Modern. The new keys work from the next key you press.
-- **Sky** — Auto, Full or Light: how much of the night sky is drawn behind the gallery (see [The sky](#the-sky)). Auto shows which it is using, as `Auto (Light)`.
+- **Sky** — Auto, Full or Light: how much of the night sky is drawn behind the gallery (see [The sky](#the-sky)). Auto shows which it is using, as `Auto (Light)`. At night it also chooses whether the lamps throw light (see [Night](#night)).
+- **Night** — Off or On: play the level after dark (see [Night](#night)). The night shows when you go back to the game.
 - **Back** — returns to the pause menu.
 
 Every change takes effect as you make it. When you leave the Options screen after changing something, the game saves your choices in `FIZZ2.CFG`, the file described under [Choosing your sound on DOS](#choosing-your-sound-on-dos). A screen you visit without changing anything writes nothing. If the file cannot be written (the disk is full or write-protected, or the file is read-only), the pause menu shows `Could not write FIZZ2.CFG` in light red, your changes still hold for the rest of this run, and the game carries on.
@@ -239,6 +256,7 @@ The switches that stand for each row are in this table; for each row the file's 
 | Captions | `/CAPTIONS`, `/NOCAPTIONS` |
 | Keys | `/KEEN`, `/MODERN` |
 | Sky | `/SKY:AUTO`, `/SKY:FULL`, `/SKY:LIGHT` |
+| Night | `/NIGHT`, `/DAY` |
 
 It has not been tried on a real computer: how long the save takes on a floppy disk, and how the keys repeat when you hold one down in the menu, are untested.
 
@@ -399,7 +417,8 @@ The selected row is a bright light magenta plate (the grape colour of Fizz 2) th
 | Captions | On, Off | The words where things happen, the same as `V`; the sounds stay |
 | Keys | Keen, Modern | Which set of keys you play with |
 | Fullscreen | Off, On | The same as `F`; it is left out where the browser cannot go fullscreen |
-| Sky | Full, Light | How much of the night sky is drawn behind the gallery; see [The sky](#the-sky) |
+| Sky | Full, Light | How much of the night sky is drawn behind the gallery, and at night whether the lamps throw light; see [The sky](#the-sky) |
+| Night | Off, On | Play the level after dark; see [Night](#night) |
 | Back | | Goes back one screen |
 
 `Esc` goes back one screen from Options, so it takes you to Paused, and again to the game. If you start with `?audio=classic` or `?audio=enhanced` at the end of the address, the Placement row shows a `*` and a line under the rows says it was set by the address and that changing it applies to this visit; change the row and the star goes. The page keeps all of your choices on this browser, if the browser allows it to, and reads the settings saved by older versions of the page the first time. If the setting for reduced motion is on, or Motion is Reduced, the plate and the can hold still. A screen reader is told the screen's name, then each row and its value as you move, and each change as you make it. Nobody has used the screens with a screen reader or in a real browser yet.
@@ -432,7 +451,7 @@ Both versions draw the same level with the same camera that follows Ben as he mo
 The two versions run the same rules engine and draw the same slice with the same picture routine, so the same moves give the same `TICK` and `HASH` on both.
 
 - **Same:** the level, the colours, the moves, the two sets of keys, the 60-steps-a-second pace, the `TICK` and `HASH` values, the sound effects and the placeholder song. The sound is made differently on each (see [Hearing the cluck on DOS](#hearing-the-cluck-on-dos) and [Sound on the Web](#sound-on-the-web)), and both place each sound by where it happens on the screen (see [Where a cluck comes from](#where-a-cluck-comes-from)). The song is Fizz 1's Crater Fields, used as a placeholder; on DOS it plays on an AdLib or a Sound Blaster, never on the PC speaker.
-- **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS`, `/SKY:x` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the DOS version's sky starts on Auto (Light unless the computer is fast) and the Web version's on Full (see [The sky](#the-sky)); the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
+- **Different:** the DOS version opens its Paused menu and Options screen with Esc (it ends a run through Quit to DOS), the modes and switches listed under [DOS modes](#dos-modes) (`/LIVE`, `/REPLAY`, `/BENCH`, `/PROBE` and `/PANIC`, with `/MODERN`, `/KEEN`, `/NOCAPTIONS`, `/SKY:x`, `/NIGHT`, `/DAY` and the frame-rate switches as switches) and a 30-second wall-clock limit in `/LIVE`; the DOS version's sky starts on Auto (Light unless the computer is fast) and the Web version's on Full (see [The sky](#the-sky)), so at night the DOS version on a slow computer shows the lamps glowing without the pools of light they throw on the Web (see [Night](#night)); the Web version has Paused and Options screens (Esc or the Pause key), a panel with a goal line, and runs for as long as the page is open. The Web version fills a browser window of any size; the DOS version fills a 320 by 200 VGA screen.
 
 ## Coming
 
