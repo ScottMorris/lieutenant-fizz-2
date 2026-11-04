@@ -620,8 +620,16 @@ mod tests {
                 s.name
             );
             if let Some(o) = paired_by {
-                assert_eq!((o.group, s.pair, o.hidden), (s.group, None, false), "{}", s.name);
-                assert!(text.lines().any(|l| l.split_whitespace().nth(1) == Some(s.name)));
+                assert_eq!(
+                    (o.group, s.pair, o.hidden),
+                    (s.group, None, false),
+                    "{}",
+                    s.name
+                );
+                assert!(
+                    text.lines()
+                        .any(|l| l.split_whitespace().nth(1) == Some(s.name))
+                );
             }
             if let Some(p) = s.pair {
                 assert!(lookup(p).is_some_and(|o| o.hidden), "{p}");
@@ -878,7 +886,10 @@ mod tests {
     fn night_and_day_set_the_night_for_the_run_and_the_last_wins() {
         assert_eq!(invocation(&["/night"]).night, Some(Night::On));
         assert_eq!(invocation(&["/NIGHT", "/Day"]).night, Some(Night::Off));
-        assert_eq!(invocation(&["/DAY", "/NIGHT", "/BENCH"]).night, Some(Night::On));
+        assert_eq!(
+            invocation(&["/DAY", "/NIGHT", "/BENCH"]).night,
+            Some(Night::On)
+        );
         assert_eq!(invocation(&["/BENCH"]).night, None);
         assert_eq!(invocation(&["/BENCH"]).mode, Mode::Bench);
         let file = Prefs {
