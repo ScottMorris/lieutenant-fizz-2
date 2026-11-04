@@ -80,7 +80,7 @@ The full night did not fit the 486DX2-66 floor's frame (chapter 13 has the numbe
 
 ## What is built and where it stands
 
-All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check` and `parity`) green at their heads when the snapshot of this edition was taken; #145's `check` was green and its `parity` job, which runs the DOS gate, was still running. Nothing in this stack has run on real hardware, and the DOS screenshots in the manual and in this archive still show the flat look; they need `tools/progress-report/capture.py` on a machine with DOSBox and Chromium.
+All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check` and `parity`) green at their heads when the snapshot of this edition was taken; #145's `check` and `parity` jobs, the latter running the DOS gate, both finished green at its head. Nothing in this stack has run on real hardware. The DOS and Web screenshots in the manual and in this archive were taken again from the head of the night branch (#146, chapter 14) and show the oblique ground.
 
 ## The shelves
 
@@ -92,7 +92,6 @@ All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check
 
 ### Uncatalogued
 - How the new look reads to the owner or to a player on a screen. The pictures above are host renders, the frame digests were re-pinned after looking at frames, and no playtest of the stack is recorded.
-- The DOS and Web screenshots in the manual and the archive, which still show the flat tiles.
 - The Full and Light skies in a browser or on DOS hardware: the Web path is the same integer code and was not timed, and DOS figures are DOSBox's.
 - The design canvases are private pages that this archive links and cannot check.
 
@@ -100,7 +99,7 @@ All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check
 - Hills, as specified in `docs/OBLIQUE.md` for levels that have room for one.
 - A theme format that carries a level's back wall and open-air stack, in place of the constants in `oblique.rs`.
 - The near-rocks layer, for a level with a shore, and Ben's trial frames trimmed to 32 px (sprite row 26).
-- Dynamic lights: night mode with palette banks and integer lights is in progress on the local branch `feat/night-lights`, which has two commits (a Night choice in the settings and its drawing) and no pull request; it is not merged and has no result to report.
+- Dynamic lights: night mode with palette banks and integer lights is #146 ({{pr146.state}}), stacked on #145 and told in chapter 14.
 
 > **From the workbench — Oblique projection.** In an oblique projection the front face of an object is drawn at true size and the receding edges run off at an angle, in cabinet projection at half their length. It is the projection of most side-view technical sketches and of many early games, which is why a flat front face and a slanted top read at once. The specification keeps the front faces flat and gives the depth edges their own slant.
 > Source: [Oblique projection, Wikipedia](https://en.wikipedia.org/wiki/Oblique_projection)

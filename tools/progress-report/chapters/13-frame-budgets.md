@@ -129,10 +129,10 @@ A review of Fizz 1's DOS port for performance ideas sorted them into those taken
 ## The shelves
 
 ### Catalogued
-- The frame figures in the first table come from the `BENCH` lines of the DOS gate in CI (`tools/check-dos.sh`, run by the `parity` job) on the pull requests' heads: #143 ({{pr143.state}}, CI {{pr143.ci}}), #144 ({{pr144.state}}, CI {{pr144.ci}}) and #145 ({{pr145.state}}, CI {{pr145.ci}}, its `parity` job still running when the snapshot was taken). The instruction counts come from `tools/bench-draw.sh`.
+- The frame figures in the first table come from the `BENCH` lines of the DOS gate in CI (`tools/check-dos.sh`, run by the `parity` job) on the pull requests' heads: #143 ({{pr143.state}}, CI {{pr143.ci}}), #144 ({{pr144.state}}, CI {{pr144.ci}}) and #145 ({{pr145.state}}, CI {{pr145.ci}}). The instruction counts come from `tools/bench-draw.sh`.
 - The pictures are unchanged by every optimisation: the pinned frame digests in `fizz-slice-view` and the DOS frame digests (`BENCH FRAME`, compared with the host's by `tools/check-dos.sh`) stand, and the new tests compare the window, the prepared sky, the text loop and the HUD cache with the paths they replace.
 - The DOS memory floor is 4 MB: `tools/check-dos.sh` runs `/PROBE` at 16 and 4 MB and `/REPLAY` at `memsize = 4`, and `docs/DOS-CHECK.md` has the free-memory figures (2,008 KB at 4 MB).
-- The audio totals of the 1,800-tick replay (7,375, 7,396, 14,682 and 1,392) are pinned by `tools/check-dos.sh` and were measured one case at a time in the pinned image; the parity hash is `{{ms.parityHash}}` on native, Web and DOS (`tools/check-parity.sh`).
+- The audio totals of the 1,800-tick replay (7,375, 7,396, 14,682 and 1,392) were pinned at #145's head; #146 counts the speaker's steps from each effect's start and pins 1,398 (chapter 14). The totals are pinned by `tools/check-dos.sh` and were measured one case at a time in the pinned image; the parity hash is `{{ms.parityHash}}` on native, Web and DOS (`tools/check-parity.sh`).
 - The channel-5 count file is handed between parallel cases atomically; the stress run of four writers and 2,000 reads is recorded in the commit that changed it.
 - The Sky setting is covered by `fizz-machine` tests for the byte, the switches and the Options row, a test that Full and Light differ only under open air, and the governor's window thresholds; the `BENCH SKY` and `BENCH FULL SKY` lines are in the DOS gate.
 
@@ -147,7 +147,7 @@ A review of Fizz 1's DOS port for performance ideas sorted them into those taken
 ### Wish list
 - Persistent extents with force-rerender spans for the sky, and the coverage mask that skips sky under terrain inside them.
 - The Fizz 1 DOS ports above: the 486 cycle estimator for Milestone 5, integer sprite placement, a kept scene, a dirty-span copy, and DAC fades and banked translucency.
-- A light pass for DOS (palette banks and integer lights, shaded during the copy to video memory) that `docs/OBLIQUE.md` sketches; night mode is in progress on `feat/night-lights` and is not merged.
+- A light pass for DOS (palette banks and integer lights, shaded during the copy to video memory) that `docs/OBLIQUE.md` sketches; night mode with palette banks and integer lights is #146 ({{pr146.state}}) and chapter 14.
 - Shrinking the baked tables if a machine under 4 MB matters again.
 
 > **From the workbench — Callgrind.** Callgrind is a Valgrind tool that runs a program on a simulated CPU and records how many instructions each function and call executes, with the call graph. Counting instructions gives the same number on every run, which a timer on a shared machine cannot, so a change of a few percent can be seen. The count says nothing about cache or bus behaviour.
