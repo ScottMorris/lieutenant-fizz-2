@@ -253,6 +253,10 @@ status=0
 out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /SKY:DIM)" || status=$?
 [ "$status" = 2 ] || fail "a bad sky value exited $status (expected 2)"
 printf '%s\n' "$out" | grep -qF 'unknown switch /SKY:DIM' || fail "a bad sky value was not named"
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /NIGHT:ON)" || status=$?
+[ "$status" = 2 ] || fail "/NIGHT with a value exited $status (expected 2)"
+printf '%s\n' "$out" | grep -qF 'unknown switch /NIGHT:ON' || fail "/NIGHT:ON was not named"
 echo "HELP unknown switch exit 2"
 
 
@@ -267,7 +271,7 @@ if group view; then
 # and the rate that implies must match the configured cycles: DOSBox's normal core charges one cycle per simple instruction.
 # Measured at 3,000, 12,000, 26,800 and 80,000 cycles per millisecond the rate came out within 1% each time; the bound here is 10%.
 status=0
-out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=180 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
+out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=300 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/BENCH exited $status"
 printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1800' || fail "no 'BENCH TICKS 1800' line"
@@ -278,9 +282,16 @@ printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/BENCH: FPU control word 
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH did not restore the vectors"
 # The DOS build's drawing path (its own memset and memcpy among others) must draw the pixels the portable code draws: the digests of
 # the picture below the HUD strip at seven ticks equal the ones the host computes from the same shared routines.
-host_frames="$(cargo run -q --release -p fizz-present-dos --example frames)"
+host_all="$(cargo run -q --release -p fizz-present-dos --example frames)"
+host_frames="$(printf '%s\n' "$host_all" | grep '^BENCH FRAME ' || true)"
 dos_frames="$(printf '%s\n' "$out" | tr -d '\r' | grep '^BENCH FRAME ' || true)"
 [ -n "$host_frames" ] && [ "$dos_frames" = "$host_frames" ] || fail "/BENCH frame digests differ from the host's: DOS '$dos_frames', host '$host_frames'"
+# The night passes' pictures too: the dressing, the markers and the shade pass draw on DOS what they draw on the host.
+for kind in 'NIGHT FRAME' 'NIGHT FULL FRAME'; do
+  host_night="$(printf '%s\n' "$host_all" | grep "^BENCH $kind " || true)"
+  dos_night="$(printf '%s\n' "$out" | tr -d '\r' | grep "^BENCH $kind " || true)"
+  [ -n "$host_night" ] && [ "$dos_night" = "$host_night" ] || fail "/BENCH ${kind,,} digests differ from the host's: DOS '$dos_night', host '$host_night'"
+done
 cal="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^BENCH CALIBRATE \([0-9]*\) loops in \([0-9]*\) us (2 instructions per loop)$/\1 \2/p')"
 [ -n "$cal" ] || fail "no 'BENCH CALIBRATE <n> loops in <n> us (2 instructions per loop)' line"
 set -- $cal
@@ -306,6 +317,18 @@ caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
 printf '%s\n' "$out" | tr -d '\r' | grep -qx 'BENCH SKY LIGHT' || fail "/BENCH did not measure the Light sky, the DOS default"
 printf '%s\n' "$out" | tr -d '\r' | grep -qE '^BENCH FULL SKY DRAW avg [0-9]+ max [0-9]+ units us$' || fail "/BENCH printed no 'BENCH FULL SKY DRAW' line"
 printf '%s\n' "$out" | tr -d '\r' | grep -E '^BENCH (DRAW WORST TICK|FULL SKY (DRAW|CAPTIONS six DRAW) )' || true
+# By day (the default) /BENCH plays the script a third time at night, with the same Light detail, and prints `BENCH NIGHT` lines. That
+# night (the palette's ambient and the glowing art, no light pass) must hold 60 Hz on the floor: its worst tick, the step, the drawing
+# and the copy to the screen, stays under the 16,667 us step, and the six-captions picture at night passes the same check as by day.
+# A fourth play at night with the Full detail, which adds the light pass, prints `BENCH NIGHT FULL` lines, logged without a bound
+# like the Full sky's: it is for machines and emulators faster than the floor.
+printf '%s\n' "$out" | tr -d '\r' | grep -qx 'BENCH NIGHT OFF' || fail "/BENCH did not measure the day first, the default"
+night_total="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^BENCH NIGHT TOTAL avg [0-9]* max \([0-9]*\) units us$/\1/p')"
+[ -n "$night_total" ] || fail "/BENCH printed no 'BENCH NIGHT TOTAL avg <n> max <n> units us' line"
+[ "$night_total" -lt 16667 ] || fail "BENCH NIGHT TOTAL worst tick $night_total us is over the 60 Hz step"
+caps_check 'BENCH NIGHT' "$(printf '%s\n' "$out" | tr -d '\r')"
+printf '%s\n' "$out" | tr -d '\r' | grep -qE '^BENCH NIGHT FULL DRAW avg [0-9]+ max [0-9]+ units us$' || fail "/BENCH printed no 'BENCH NIGHT FULL DRAW' line"
+printf '%s\n' "$out" | tr -d '\r' | grep -E '^BENCH NIGHT (DRAW|PRESENT|TOTAL|FULL (DRAW|TOTAL)) ' || true
 
 fi
 
@@ -650,6 +673,13 @@ cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
 sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
 cfg_put 'FZ2C\x03\x02\x04\x02\x00'
 sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
+# Version 4 adds the night (byte 13, 0 Off, 1 On); a bad value resets only the night and has its own code.
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00\x01'
+sound_case 'file v4' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00\x09'
+sound_case 'corrupt: night byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-night' /PROBE
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00'
+sound_case 'corrupt: v4 header on a v3 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put ''
 sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 # /LIVE prints the line too (Esc opens Paused; Up and Enter choose Quit to DOS).
@@ -664,8 +694,8 @@ cfg_none
 sound_case 'flags leave no file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with flags created FIZZ2.CFG"
 # The save path: /CFGTEST (a test mode, not for players) saves the settings the flags give with the 60 Hz frame rate, reads the file back
-# and prints it. The bytes are the documented version 3 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
-# set the keys and captions bytes), and a version 1 or 2 file is replaced by a version 3 one.
+# and prints it. The bytes are the documented version 4 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
+# set the keys and captions bytes and /NIGHT the night's), and a version 1 or 2 file is replaced by a version 4 one.
 cfgtest_case() {
   local name="$1" hex="$2" out status=0
   shift 2
@@ -680,17 +710,19 @@ cfgtest_case() {
   echo "CFGTEST case $name ok ($hex)"
 }
 cfg_none
-cfgtest_case 'sb and speaker' 465A3243030304020001010000 /MUSIC:SB /FX:SPEAKER
-cfgtest_case 'nosound' 465A3243030101020001010000 /NOSOUND
-cfgtest_case 'modern keys, no captions' 465A3243030000020001010101 /MODERN /NOCAPTIONS
+cfgtest_case 'sb and speaker' 465A324304030402000101000000 /MUSIC:SB /FX:SPEAKER
+cfgtest_case 'nosound' 465A324304010102000101000000 /NOSOUND
+cfgtest_case 'modern keys, no captions' 465A324304000002000101010100 /MODERN /NOCAPTIONS
+cfgtest_case 'night' 465A324304000002000101000001 /NIGHT
+cfgtest_case 'night, then day wins' 465A324304000002000101000000 /NIGHT /DAY
 cfg_put 'FZ2C\x01\x03\x03\x00'
-cfgtest_case 'replaces a version 1 file' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'replaces a version 1 file' 465A324304020202000101000000 /ADLIB
 cfg_put "$V2"
-cfgtest_case 'replaces a version 2 file' 465A3243030000020001010000
-cfgtest_case 'no flags is Auto' 465A3243030000020001010000
+cfgtest_case 'replaces a version 2 file' 465A324304000002000101000000
+cfgtest_case 'no flags is Auto' 465A324304000002000101000000
 # The save is crash-safe: it writes FIZZ2.NEW, verifies it, deletes FIZZ2.CFG and renames. No FIZZ2.NEW is left behind, and the INT 24h
 # vector (the critical-error handler the save installs) is back where it was.
-cfgtest_case 'save leaves no FIZZ2.NEW' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'save leaves no FIZZ2.NEW' 465A324304020202000101000000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left FIZZ2.NEW behind"
 out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB | tr -d '\r')"
 printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "/CFGTEST did not restore INT 24h"
@@ -716,9 +748,9 @@ sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speake
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
 printf 'junk' > "$cfgdir/FIZZ2.NEW"
 sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
-cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'a save replaces the leftover' 465A324304020202000101000000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
-cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
+cfgtest_case 'no flags is Auto again' 465A324304000002000101000000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 
@@ -951,9 +983,10 @@ fi
 if group menu; then
 # 3h. The Options screen in play. Esc in /LIVE opens Paused (Resume, Options, Quit to DOS), and Options is inside it; the world is held
 # while either is up, a change applies at once and FIZZ2.CFG is written when Options is left with something changed. Keys are typed
-# through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys,
-# Back. From Paused, `down enter` opens Options; leaving Options puts the cursor on Options, so `down enter` is then Quit to DOS.
-# Bytes: FZ2C, version 3, music, effects, frame rate (0 Auto, 1 30 Hz, 2 60 Hz), reserved, motion, placement (1 Classic), captions, keys.
+# through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys, Sky,
+# Night (8), Back. From Paused, `down enter` opens Options; leaving Options puts the cursor on Options, so `down enter` is then Quit to DOS.
+# Bytes: FZ2C, version 4, music, effects, frame rate (0 Auto, 1 30 Hz, 2 60 Hz), sky (0 Auto), motion, placement (1 Classic), captions,
+# keys, night.
 OPEN='esc down enter'
 QUIT='esc down enter'
 options_run() {
@@ -969,7 +1002,7 @@ saved_line() { printf '%s\n' "$OUT" | grep '^OPTIONS SAVED' || true; }
 cfg_none
 options_run "$OPEN down down right $QUIT" /LIVE
 [ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "leaving Options with a change did not save"
-[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Classic placement saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000000000001000000' ] || fail "Classic placement saved $(cfg_hex)"
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "the Options save left FIZZ2.NEW behind"
 echo "OPTIONS case placement saved ok"
 # Nothing changed, so nothing is written (a missing file stays missing).
@@ -983,14 +1016,20 @@ cfg_none
 options_run "$OPEN down down down right right $QUIT" /LIVE
 [ -n "$(frames_line "$OUT")" ] || fail "no FRAMES line"
 printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "the frame rate was not changed to 30 live: $(frames_line "$OUT")"
-[ "$(cfg_hex)" = '465a3243030000010000000000' ] || fail "30 Hz saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000001000000000000' ] || fail "30 Hz saved $(cfg_hex)"
 echo "OPTIONS case frame rate live ok ($(frames_line "$OUT"))"
+# The Night row (the ninth): On applies when the screens close and is saved in byte 13.
+cfg_none
+options_run "$OPEN down down down down down down down down right $QUIT" /LIVE
+[ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "turning the night on did not save"
+[ "$(cfg_hex)" = '465a324304000000000000000001' ] || fail "Night On saved $(cfg_hex)"
+echo "OPTIONS case night saved ok"
 # A switch is never saved: /FPS30 holds the row (starred), the player changes placement, and the file keeps the frame-rate byte it had.
 cfg_put 'FZ2C\x02\x02\x04\x02\x00'
 options_run "down down right esc" /OPTIONS /FPS30
 [ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "/OPTIONS did not save"
 printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "/OPTIONS /FPS30 did not hold 30 Hz: $(frames_line "$OUT")"
-[ "$(cfg_hex)" = '465a3243030204020000010000' ] || fail "a run with /FPS30 saved $(cfg_hex), not the file's own frame rate"
+[ "$(cfg_hex)" = '465a324304020402000001000000' ] || fail "a run with /FPS30 saved $(cfg_hex), not the file's own frame rate"
 echo "OPTIONS case a switch is not saved ok"
 # /OPTIONS opens straight into Options and Esc leaves: no ticks run and nothing is saved without a change. The layout's keys work in it
 # (Modern: S moves down, D steps forward; the /MODERN switch is not saved either).
@@ -1000,7 +1039,7 @@ printf '%s\n' "$OUT" | grep -qE '^LIVE TICKS 0 ' || fail "/OPTIONS stepped the w
 [ -z "$(saved_line)" ] || fail "/OPTIONS saved with no change"
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "/OPTIONS with no change created FIZZ2.CFG"
 options_run "s s d esc" /OPTIONS /MODERN
-[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Modern keys in /OPTIONS saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000000000001000000' ] || fail "Modern keys in /OPTIONS saved $(cfg_hex)"
 echo "OPTIONS case /OPTIONS and Modern keys ok"
 # A read-only FIZZ2.CFG: the save fails, the screen says so and the game carries on to a clean exit; the file is untouched.
 cfg_put 'FZ2C\x02\x03\x03\x01\x00'

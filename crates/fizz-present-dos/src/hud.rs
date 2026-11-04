@@ -154,6 +154,36 @@ impl Hud {
             }
         }
     }
+
+    /// [`Hud::draw`], with the strip's own pixels (the edge, the text and the keys) in the glow bank, so that
+    /// with the night palette, whose bank 0 is dark, they still show at full brightness (`fizz_slice_view::light::GLOW`). The
+    /// dimmed picture and the corners are as ever. An overlay pixel is the one whose mask keeps nothing, so its byte of `keep`
+    /// has bit 3 clear where a transparent (`0x0F`) or outside (`0xFF`) one has it set: `(!keep & 0x08) << 2` is `0x20` there alone.
+    /// The day picture's HUD is drawn by [`Hud::draw`] itself, so the day's composite is the one it always was.
+    #[inline(never)]
+    pub fn draw_glowing(&mut self, values: HudValues, pixels: &mut [u8], pitch: usize) {
+        if pitch < X + W || pixels.len() < (Y + H) * pitch {
+            return;
+        }
+        self.update(values);
+        const WORDS: usize = W / 4;
+        for row in 0..H {
+            let at = (Y + row) * pitch + X;
+            let masks = self.keep[row * WORDS..][..WORDS]
+                .iter()
+                .zip(&self.set[row * WORDS..][..WORDS]);
+            for (dst, (&keep, &set)) in pixels[at..at + W]
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(masks)
+            {
+                let word = u32::from_le_bytes([dst[0], dst[1], dst[2], dst[3]]);
+                let lift = (!keep & 0x0808_0808) << 2;
+                dst.copy_from_slice(&((word & keep) | set | lift).to_le_bytes());
+            }
+        }
+    }
 }
 
 impl Default for Hud {

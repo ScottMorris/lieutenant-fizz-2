@@ -7,7 +7,7 @@
 // Fizz 1's DOS shell. The rows, keys and look are `fizz-menu` and `fizz_present_dos::menu`; this file is the part that touches the machine.
 //
 // While a screen is up the loop does not step the world, so the game, its effects and the frame governor are held; the audio service
-// goes on, so the music keeps playing. Each change applies as the key is pressed: captions, motion and the sky go to the draw options, the
+// goes on, so the music keeps playing. Each change applies as the key is pressed: captions, motion, the sky and the night go to the draw options, the
 // key layout to the input map, the frame rate to the governor (`Drawing::set_mode`), the placement to `play_events` and a device
 // through `audio::replan` with a plan resolved from the machine the start-up probes found, the way start-up resolves it. The file
 // is written when the player leaves Options with something changed (not after each key). A row that a switch set for this run is
@@ -18,7 +18,7 @@ use alloc::boxed::Box;
 use core::sync::atomic::Ordering;
 use fizz_dos_rt::{audio, timer};
 use fizz_hal::KeyCode;
-use fizz_machine::{Captions, Keys, Motion, PlacementMode, Prefs, Probe, Resolved, Settings, SkyDetail, resolve};
+use fizz_machine::{Captions, Keys, Motion, Night, PlacementMode, Prefs, Probe, Resolved, Settings, SkyDetail, resolve};
 use fizz_menu::{Caps, MenuKey, MotionPick, OptionsScreen, Outcome, Overrides, PausedScreen, Platform, RowId, Values};
 use fizz_present_dos::menu::{MenuView, menu_key};
 use fizz_present_dos::{DrawOptions, Frame, Layout};
@@ -46,6 +46,7 @@ impl Applied {
                 // Motion gates the death shake and spin; Reduced leaves them off.
                 shake: prefs.motion == Motion::Full,
                 full_sky: prefs.sky == SkyDetail::Full,
+                night: prefs.night == Night::On,
             },
         }
     }
@@ -99,6 +100,7 @@ fn overrides(file: &Prefs, effective: &Prefs) -> Overrides {
         (file.captions != effective.captions, RowId::CAPTIONS),
         (file.keys != effective.keys, RowId::KEYS),
         (file.sky != effective.sky, RowId::SKY),
+        (file.night != effective.night, RowId::NIGHT),
     ] {
         if differs {
             o = o.with(row);
@@ -257,6 +259,9 @@ impl Menus {
         if self.overridden.has(RowId::SKY) {
             prefs.sky = self.file.sky;
         }
+        if self.overridden.has(RowId::NIGHT) {
+            prefs.night = self.file.night;
+        }
         let ok = sound::save(&prefs).is_ok();
         self.saved = Some(ok);
         if ok {
@@ -288,6 +293,8 @@ impl Menus {
                 drawing.set_sky(v.sky);
                 applied.draw.full_sky = drawing.full_sky();
             }
+            // The palette follows when the screens close (`palette` in main.rs); the menus draw in the day one.
+            RowId::NIGHT => applied.draw.night = v.night == Night::On,
             RowId::KEYS => {
                 applied.layout = match v.keys {
                     Keys::Keen => Layout::Keen,

@@ -19,7 +19,7 @@ use fizz_sim::Buttons;
 
 pub use fizz_sfx::place::Placement;
 pub use fizz_slice_view::{
-    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound,
+    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound, light,
 };
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
@@ -88,12 +88,19 @@ pub fn render_slice_with(
         &fx.puffs,
         &fx.captions,
     );
-    frame.draw_hud(fx.hud.view(world));
+    // At night the picture is shown in the night palette, whose bank 0 is dark: the HUD and the banner are drawn in the glow
+    // bank so they stay at full brightness.
+    if options.night {
+        frame.draw_hud_glowing(fx.hud.view(world));
+    } else {
+        frame.draw_hud(fx.hud.view(world));
+    }
     if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
         let text = "LEVEL CLEAR";
         let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
+        let glow = if options.night { light::GLOW } else { 0 };
         frame.fill_rect(x - 4, 146, text.len() as i32 * GLYPH as i32 + 8, 16, BLACK);
-        frame.draw_text(x, 150, text, YELLOW);
+        frame.draw_text(x, 150, text, YELLOW | glow);
     }
 }
 
