@@ -1,0 +1,10 @@
+# The DOS build's settings (dos/.cargo/config.toml): core and alloc from rust-src for the `dos-elf.json` CPU (i486, no SSE). The
+# link differs: a plain static ELF that Linux and valgrind load, with `_start` from src/main.rs, instead of dos/link.ld's image
+# for the DJGPP stub. tools/bench-draw.sh sets RUSTC_BOOTSTRAP=1 so the pinned stable toolchain accepts these options.
+[unstable]
+build-std = ["core", "alloc", "compiler_builtins"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true
+
+[target.dos-elf]
+rustflags = ["-C", "link-arg=-nostdlib", "-C", "link-arg=-static", "-C", "relocation-model=static"]

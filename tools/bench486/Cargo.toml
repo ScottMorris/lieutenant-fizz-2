@@ -1,0 +1,29 @@
+[package]
+name = "bench486"
+description = "The slice's drawing built as FIZZ2.EXE builds it (i486, opt-level \"s\", LTO), as a static 32-bit Linux program for callgrind"
+publish = false
+edition = "2024"
+license = "Apache-2.0 OR MIT"
+version = "0.1.0"
+authors = ["Liminal HQ, Scott Morris"]
+
+# A standalone project: outside the root workspace (it needs -Zbuild-std and the DOS target) and outside dos/ (it is not a DOS
+# program and links no DOS runtime). tools/bench-draw.sh --486 builds and runs it.
+[workspace]
+
+[dependencies]
+fizz-sim = { path = "../../crates/fizz-sim" }
+fizz-ep2 = { path = "../../crates/fizz-ep2" }
+fizz-slice-view = { path = "../../crates/fizz-slice-view" }
+fizz-present-dos = { path = "../../crates/fizz-present-dos" }
+
+# The DOS workspace's release profile (dos/Cargo.toml), with line tables so callgrind can name what it counts.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = 1
+
+[profile.dev]
+panic = "abort"
