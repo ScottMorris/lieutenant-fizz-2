@@ -50,18 +50,21 @@ pub enum ObjectKind {
     Choc,
     Cookie,
     Soda,
+    /// The provisional Fizz elixir, a snack of kind `SnackKind::Elixir` that gives a new life.
+    Elixir,
     Chicken,
 }
 
 impl ObjectKind {
     /// The words of the `objects` block, in lowering (kind) order.
-    pub const ALL: [ObjectKind; 7] = [
+    pub const ALL: [ObjectKind; 8] = [
         ObjectKind::KeyRed,
         ObjectKind::KeyBlue,
         ObjectKind::Cheezie,
         ObjectKind::Choc,
         ObjectKind::Cookie,
         ObjectKind::Soda,
+        ObjectKind::Elixir,
         ObjectKind::Chicken,
     ];
 
@@ -73,6 +76,7 @@ impl ObjectKind {
             ObjectKind::Choc => "choc",
             ObjectKind::Cookie => "cookie",
             ObjectKind::Soda => "soda",
+            ObjectKind::Elixir => "elixir",
             ObjectKind::Chicken => "chicken",
         }
     }

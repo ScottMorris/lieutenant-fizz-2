@@ -70,4 +70,5 @@ objects
   cookie id=shelf-cookie at=25.5,42.7
   soda id=floor-can at=28.5,38.7  // in the shooting stretch by the right-hand wall
   soda id=shelf-can at=28.5,42.7
+  elixir id=elixir at=13.5,8.7  // the provisional new-life drink, at the right end of the second ledge of the left shaft
   chicken id=hen at=8,11 dir=-1  // on the long ledge

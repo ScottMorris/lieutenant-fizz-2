@@ -21,7 +21,7 @@ This document specifies `script fizz2 0`, the text format in which Fizz 2 levels
 
 The dialect descends from Fizz 1's level script language, which rebuilt all sixteen Fizz 1 levels exactly. It keeps that language's lexical habits (one statement to a line, `key=value` fields, `//` comments, stable error codes, a lossless tree) and replaces its Fizz 1 builder vocabulary with what a Fizz 2 level holds. A Fizz 2 file starts with `script fizz2 0` and the version never changes under a file; a Fizz 1 script has no `script` line and is not read by this parser (it gets E007, which says so).
 
-Version 0 covers what `LEVL` version 2 carries: the level's size and name, the start, the floor, the tile map, the objects (keys, snacks, soda cans and the chicken, each with a name), **states**, the **door bindings** that make tiles passable by a state's value, the **rules** that change states (`when`), `lock` as a short way to write the key-and-door case, and the level's strings. It lowers to a `LevelSource` and so to the `LEVL` bytes, and the slice level written in it has the same `level::digest` as `level::SLICE_SOURCE`.
+Version 0 covers what `LEVL` version 2 carries: the level's size and name, the start, the floor, the tile map, the objects (keys, snacks, soda cans, the provisional elixir and the chicken, each with a name), **states**, the **door bindings** that make tiles passable by a state's value, the **rules** that change states (`when`), `lock` as a short way to write the key-and-door case, and the level's strings. It lowers to a `LevelSource` and so to the `LEVL` bytes, and the slice level written in it has the same `level::digest` as `level::SLICE_SOURCE`.
 
 One model is written three ways. `state` declares values by name; `door` binds switched tiles to a set of a state's values; `when` changes states in answer to inputs; and `lock` is sugar that expands to exactly one state, one door binding and one rule (see [`lock`, the sugar](#lock-the-sugar)). There are **no channels** in the dialect: a Fizz 1 channel is a two-valued state with a door wired to it, and every case it covers is written with a state.
 
@@ -63,7 +63,7 @@ map       = "map" ;                    (* then rows *)
 row       = "|" TILES "|" [ INT ] ;
 objects   = "objects" ;                (* then object lines *)
 object    = OBJWORD "id=" NAME ( "at=" PAIR | "x=" INT "y=" INT ) [ "dir=" ( "1" | "-1" ) ] ;
-OBJWORD   = "key-red" | "key-blue" | "cheezie" | "choc" | "cookie" | "soda" | "chicken" ;
+OBJWORD   = "key-red" | "key-blue" | "cheezie" | "choc" | "cookie" | "soda" | "elixir" | "chicken" ;
 STYLE     = "white" | "cyan" | "red" | "green" | "blue" | "yellow" | "grey" ;
 INPUT     = "start" | "enter" RECT | "take" ID | "shoot" RECT | ( "stomp" | "stun" | "defeat" ) ( ID | "any" )
           | "time" "at=" INT [ "every=" INT ] | "touch" ( RECT | CELL | ID ) | "use" ID | "hit" ID

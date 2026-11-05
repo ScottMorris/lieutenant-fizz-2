@@ -620,6 +620,11 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
                     x,
                     y,
                 },
+                ObjectKind::Elixir => Object::Snack {
+                    kind: SnackKind::Elixir,
+                    x,
+                    y,
+                },
                 ObjectKind::Chicken => Object::Chicken {
                     x,
                     y,
