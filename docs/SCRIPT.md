@@ -113,7 +113,7 @@ The result is then passed to `level::validate`, which must agree with the tree's
 
 ## Errors and lints
 
-Every diagnostic has a stable code, a line and a column (both from 1, the column in characters), a message and, where one exists, a fix. They print as `path:line:col: error[E003]: message (fix: ...)` and `warning[W101]`. A bad line stays in the tree, so one error does not hide the others; at most one syntax error is reported for a line. Codes are never reused. The numbering follows the Level Studio's plan, where the meaning is the same; where `fizz-script` numbers a code differently, these numbers win.
+Every diagnostic has a stable code, a line and a column (both from 1, the column in characters), a message and, where one exists, a fix. They print as `path:line:col: error[E003]: message (fix: ...)` and `warning[W101]`. A bad line stays in the tree, so one error does not hide the others; at most one syntax error is reported for a line. Codes are never reused (E119, an earlier error for two locks on one channel, was withdrawn when the simulation was found to allow it, and the finding is W123). The numbering follows the Level Studio's plan, where the meaning is the same; where `fizz-script` numbers a code differently, these numbers win.
 
 | Code | Meaning | Example |
 | --- | --- | --- |
@@ -138,7 +138,6 @@ Every diagnostic has a stable code, a line and a column (both from 1, the column
 | E111 | More than 32 locks | the 33rd |
 | E112 | A string problem: more than 32 strings, a length outside 1 to 30 bytes, a character the game cannot draw, an unknown style | a 31-byte string |
 | E117 | A lock's cell is outside the map | `at=40,1` in a 32-wide level |
-| E119 | Two locks on one door channel (two cells of one door, or two doors of one colour) | two `lock` lines at `D` cells |
 | E199 | Internal: `level::validate` refused a level this validator accepted. Report it as a bug | |
 
 | Code | Lint | Why |
@@ -148,6 +147,7 @@ Every diagnostic has a stable code, a line and a column (both from 1, the column
 | W109 | A reserved word that is accepted but not baked | `theme` |
 | W112 | A Fizz 1 field ignored in a Fizz 2 file | `ground=` |
 | W122 | A `channel=` alias on a `lock`, which the printer drops | Channels are a Fizz 1 idea; name the door's cell and let the tile say |
+| W123 | Two locks on one door channel (two cells of one door, or two doors of one colour). The simulation allows it, so it is a warning that flags a likely duplicate | two `lock` lines at `D` cells |
 | W120 | A lock for a key colour that no object in the level provides | The door can never open |
 | W121 | A door tile whose channel no lock opens | The door is a wall |
 
