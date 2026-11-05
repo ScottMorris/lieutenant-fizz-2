@@ -49,13 +49,13 @@ pub const EXIT: u8 = 17;
 /// Decorative interior wall behind a room. It is not solid.
 pub const WALLBG: u8 = 30;
 
-/// The switch bit of the slice's red door. A set bit means the door is closed.
-pub const DOOR_RED_CHANNEL: u8 = 1;
+/// The switch bit of the slice's red door (door binding 0). A set bit means the door is closed.
+pub const DOOR_RED_CHANNEL: u8 = 0;
 /// The red door's bit in `TileMap::switches`.
 pub const DOOR_RED_BIT: u32 = 1 << DOOR_RED_CHANNEL;
 
-/// The switch bit of the slice's blue door. A set bit means the door is closed.
-pub const DOOR_BLUE_CHANNEL: u8 = 2;
+/// The switch bit of the slice's blue door (door binding 1). A set bit means the door is closed.
+pub const DOOR_BLUE_CHANNEL: u8 = 1;
 /// The blue door's bit in `TileMap::switches`.
 pub const DOOR_BLUE_BIT: u32 = 1 << DOOR_BLUE_CHANNEL;
 

@@ -413,12 +413,13 @@ mod tests {
 
     #[test]
     fn the_final_hash_is_the_playground_golden() {
-        // The final hash moved when the playground's snacks, blue key and blue door joined the hashed state and the level, and
-        // again when the two soda cans joined the snack list and the script grew to refill the blaster (the hash order is in
-        // `world::hash`). Presentation state and events must never move it again.
+        // The final hash moved when the playground's snacks, blue key and blue door joined the hashed state and the level, again when
+        // the two soda cans joined the snack list and the script grew to refill the blaster, and once more (from 843736be6fdaeb76)
+        // when `LEVL` version 2 made the states and bindings data and the wall kick's `wall_t` and `kick_side` joined the hash
+        // unconditionally (the hash order is in `world::hash`). Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1800 HASH 843736be6fdaeb76\n"),
+            t.ends_with("FINAL TICK 1800 HASH eda8a62f036aeab6\n"),
             "{t}"
         );
     }
@@ -437,7 +438,24 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 33);
-        assert_eq!(h, 0xe428_10f0_fe8e_9b14);
+        assert_eq!(h, 0xa079_d2a4_717e_9b35);
+    }
+
+    #[test]
+    fn the_event_lines_are_those_of_before_the_levl_2_repin() {
+        // The re-pin for `LEVL` version 2 moved every hash line and not one event line: the digest of the 83 `EVENT` lines (FNV-1a 64
+        // over each line and a newline) is the one the golden had before, computed from the old file with a script.
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        let mut lines = 0;
+        for l in transcript().lines().filter(|l| l.starts_with("EVENT ")) {
+            for &b in l.as_bytes().iter().chain(b"\n") {
+                h ^= u64::from(b);
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+            lines += 1;
+        }
+        assert_eq!(lines, 83);
+        assert_eq!(h, 0x3256_45a3_8535_5735);
     }
 
     /// The kind of every `EVENT` line, in order.
@@ -678,7 +696,7 @@ mod tests {
                     seen = true;
                     // Before the respawn, no door had opened and Ben carried the red key.
                     assert_eq!(before.0 & !WorldFlags::KEY_RED, 0);
-                    assert_eq!(before.1, 0b110);
+                    assert_eq!(before.1, 0b11);
                     // The old respawn: both channels set from the clear open flags, both key bits cleared.
                     let mut old_switches = before.1;
                     old_switches |= 1 << crate::tiles::DOOR_RED_CHANNEL;
@@ -701,7 +719,7 @@ mod tests {
             w.snacks[1].taken = true;
             die_and_respawn(&mut w);
             assert_eq!(w.map.switches, w.start_switches());
-            assert_eq!(w.map.switches, 0b110);
+            assert_eq!(w.map.switches, 0b11);
             assert_eq!(w.flags.0, 0);
             assert!(w.snacks.iter().all(|s| !s.taken));
             assert!(w.key_in_world() && w.key_blue_in_world());

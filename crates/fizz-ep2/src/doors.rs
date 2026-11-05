@@ -7,7 +7,7 @@
 //! tiles in this rectangle are passable while this state's value is in this set. The sim does not read the state in the solidity
 //! test; it keeps a **derived bit** for each door binding in `TileMap::switches`, set while the door is closed (the state's value is
 //! not in the active set), and binds each switched cell of the rectangle to that bit (`TileMap::bind_switch`). Door binding `i`
-//! owns bit [`FIRST_DOOR_BIT`] + `i`. Neither the source nor the bytes name a bit.
+//! owns bit `i`. Neither the source nor the bytes name a bit.
 //!
 //! Until the rule phase exists (`docs/RULES.md`), the world holds no state values: a door's start bit follows from its state's start
 //! value, and the lock phase (see `rules.rs`) clears the bit when a lock fires. The loader checks what the pack cannot, because it
@@ -20,11 +20,8 @@ use fizz_pack::{BindingRec, StateRec};
 use fizz_phys::tilemap::SWITCHED;
 use fizz_phys::{TileMap, TileProps};
 
-/// The bit of the first door binding in `TileMap::switches`.
-pub const FIRST_DOOR_BIT: u8 = 1;
-
-/// The most door bindings this build can derive a bit for (one bit each, from [`FIRST_DOOR_BIT`] up).
-pub const MAX_DOORS: usize = MAX_DOOR_BINDINGS - FIRST_DOOR_BIT as usize;
+/// The most door bindings, one derived bit each in the `u32` of `TileMap::switches`.
+pub const MAX_DOORS: usize = MAX_DOOR_BINDINGS;
 
 /// Why a level's states and bindings were refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,7 +31,7 @@ pub enum DoorError {
     /// A binding that is not a door binding (the other kinds have no consumer yet), or that breaks the binding rules: a state that
     /// does not exist, a mask that is empty or has a bit above the state's values, or a rect that is inverted or outside the map.
     Binding(usize),
-    /// More door bindings than this build derives bits for.
+    /// More door bindings than there are bits.
     TooMany,
     /// Binding `i`'s rect holds a cell that is not a switched tile.
     NotSwitched(usize),
@@ -120,7 +117,7 @@ impl Doors {
                 state: b.state,
                 mask: b.mask,
                 rect: b.rect,
-                bit: FIRST_DOOR_BIT + doors.len() as u8,
+                bit: doors.len() as u8,
             });
         }
         for (at, &t) in tiles.iter().enumerate() {

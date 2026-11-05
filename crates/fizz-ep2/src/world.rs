@@ -719,23 +719,22 @@ impl World {
 ///
 /// 1. the tick (`u64`);
 /// 2. Ben: `x y vx vy face squash dead inv shoot_t` as `f64` bits, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on
-///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits and `aim` as one byte (`i8` as `u8`);
+///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits, `aim` as one byte (`i8` as `u8`), and
+///    `wall_t` and `kick_side` (the wall kick's cooldown and side) as `f64` bits;
 /// 3. the [`WorldFlags`] word (`u32`), `ammo` (`u32`) and `deaths` (`u32`);
-/// 4. `map.switches` (`u32`);
+/// 4. `map.switches` (`u32`): one bit for each door binding of the level, set while the door is closed (door binding `i` owns bit
+///    `i`; see `doors.rs`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
 ///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
 /// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits;
 /// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. The soda cans are in this list too, in the order the level
 ///    added them, so a taken can is hashed like a taken snack (the ammo it gave is in `ammo`, step 3). A snack's kind and position
 ///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
-///    the [`WorldFlags`] word and in `map.switches` (bit 2). The elixirs ([`SnackKind::Elixir`]) are not in this count or this list;
+///    the [`WorldFlags`] word and in `map.switches` (bit 1). The elixirs ([`SnackKind::Elixir`]) are not in this count or this list;
 /// 8. PROVISIONAL, written only when an elixir has been taken: one byte per elixir, 1 if it has been taken and 0 if not. It is absent
 ///    while no elixir is taken, which is every state of the golden replay, so the elixirs in the level do not move a hash until one is
 ///    taken. `lives` is not hashed at all: it is a number the HUD shows and changes no rule of this slice, and it is worked out by the
-///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block;
-/// 9. only while a wall kick still matters (`wall_t` above zero, or `kick_side` not zero): `wall_t` and `kick_side` as `f64`
-///    bits. A world that has never kicked, or whose kick has landed and cooled down, hashes as it did before kicks existed,
-///    which keeps the slice's replay golden. The `LEVL` 2 change may fold the two fields into step 2 when it re-pins.
+///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block.
 ///
 /// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
@@ -765,6 +764,8 @@ pub fn hash(w: &World) -> StateHash {
         h.write_f64(v);
     }
     h.write_u8(ben.aim as u8);
+    h.write_f64(ben.wall_t);
+    h.write_f64(ben.kick_side);
     h.write_u32(w.flags.0);
     h.write_u32(w.ammo);
     h.write_u32(w.deaths);
@@ -794,10 +795,6 @@ pub fn hash(w: &World) -> StateHash {
         for s in elixirs() {
             h.write_u8(u8::from(s.taken));
         }
-    }
-    if ben.wall_t > 0.0 || ben.kick_side != 0.0 {
-        h.write_f64(ben.wall_t);
-        h.write_f64(ben.kick_side);
     }
     h
 }
@@ -851,6 +848,8 @@ mod tests {
         w.ben.look_down = 0.75;
         w.ben.look_offset = 1.25;
         w.ben.aim = -1;
+        w.ben.wall_t = 0.5;
+        w.ben.kick_side = -1.0;
         w.flags = WorldFlags(WorldFlags::KEY_RED | WorldFlags::EXIT_REACHED);
         w.ammo = 3;
         w.deaths = 2;
@@ -892,6 +891,9 @@ mod tests {
             f(&mut b, v); // look up, look down, look offset
         }
         b.push(0xff); // aim -1 as a byte
+        for v in [0.5, -1.0] {
+            f(&mut b, v); // wall_t, kick_side
+        }
         b.extend_from_slice(&5u32.to_le_bytes()); // flags: key and exit
         b.extend_from_slice(&3u32.to_le_bytes()); // ammo
         b.extend_from_slice(&2u32.to_le_bytes()); // deaths
@@ -918,13 +920,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0xff10_8a2f_9aab_52a5);
+        assert_eq!(hash(&populated()).finish(), 0xfa69_ba97_eedc_6c95);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 31] = [
+        let edits: [fn(&mut World); 33] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -940,6 +942,8 @@ mod tests {
             |w| w.ben.look_down += 1.0,
             |w| w.ben.look_offset += 1.0,
             |w| w.ben.aim = 1,
+            |w| w.ben.wall_t += 1.0,
+            |w| w.ben.kick_side = 1.0,
             |w| w.flags.clear(WorldFlags::KEY_RED),
             |w| w.ammo += 1,
             |w| w.deaths += 1,
@@ -1337,7 +1341,7 @@ mod tests {
     }
 
     #[test]
-    fn a_wall_kick_raises_kick_at_the_chest_and_a_world_that_never_kicked_hashes_as_before() {
+    fn a_wall_kick_raises_kick_at_the_chest_and_its_state_is_always_hashed() {
         let mut w = arena_with_wall();
         let before = hash(&w).finish();
         let ev = kick(&mut w);
@@ -1351,8 +1355,8 @@ mod tests {
         assert!(w.ben.kick_side == 1.0 && w.ben.wall_t > 0.0);
         assert_ne!(hash(&w).finish(), before);
 
-        // Only the Ben-and-kick state differs between two worlds that are otherwise the same: the cooldown and the side are
-        // hashed while they matter, and not once the cooldown is spent and the side is clear.
+        // Only the Ben-and-kick state differs between two worlds that are otherwise the same, and it is hashed whatever its value:
+        // the side, the cooldown, the cooldown's length and a cooldown that has run out just below zero.
         let mut a = arena_with_wall();
         let mut b = arena_with_wall();
         assert_eq!(hash(&a).finish(), hash(&b).finish());
@@ -1369,10 +1373,10 @@ mod tests {
         );
         b.ben.wall_t = -0.01;
         a.ben.wall_t = 0.0;
-        assert_eq!(
+        assert_ne!(
             hash(&a).finish(),
             hash(&b).finish(),
-            "a spent cooldown is as good as none"
+            "a spent cooldown is hashed as it stands"
         );
     }
 
@@ -1390,11 +1394,20 @@ mod tests {
 
     #[test]
     fn the_slice_never_kicks() {
-        // The golden replay has no kick event and its hash never takes the extra bytes, so the transcript is the one pinned
-        // before kicks existed (the golden tests in `replay.rs` compare the bytes).
+        // The golden replay has no kick event, and its wall kick state stays at zero throughout (the golden tests in `replay.rs`
+        // compare the bytes).
         let mut t = String::new();
         crate::replay::replay(&mut t).unwrap();
         assert!(!t.contains(" kick "));
+        let mut w = crate::level::world();
+        let mut prev = fizz_sim::Buttons::NONE;
+        for &(frames, now) in crate::replay::SLICE_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                assert!(w.ben.wall_t == 0.0 && w.ben.kick_side == 0.0);
+            }
+        }
     }
 
     #[test]

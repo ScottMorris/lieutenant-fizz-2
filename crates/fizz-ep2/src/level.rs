@@ -802,7 +802,7 @@ mod tests {
     fn the_data_world_equals_the_hand_built_one() {
         let (a, b) = (world(), legacy_world());
         assert_same_world(&a, &b);
-        assert_eq!(a.map.switches, 0b110);
+        assert_eq!(a.map.switches, 0b11);
         assert_eq!(a.spawn(), SPAWN);
     }
 
@@ -819,7 +819,7 @@ mod tests {
             (d[1].bit, d[1].rect, d[1].mask),
             (tiles::DOOR_BLUE_CHANNEL, (22, 38, 22, 40), 0b10)
         );
-        assert_eq!(doors.start_switches(), 0b110);
+        assert_eq!(doors.start_switches(), 0b11);
         // Each door's cells are the tiles the slice draws as its door.
         let m = map();
         for &(x, y) in &DOOR {
@@ -1346,9 +1346,9 @@ mod tests {
     }
 
     #[test]
-    fn this_build_derives_a_bit_for_each_door_up_to_its_limit() {
-        use crate::doors::{FIRST_DOOR_BIT, MAX_DOORS};
-        assert_eq!(MAX_DOORS, 32 - usize::from(FIRST_DOOR_BIT));
+    fn a_bit_is_derived_for_each_door_up_to_the_pack_limit() {
+        use crate::doors::MAX_DOORS;
+        assert_eq!(MAX_DOORS, 32);
         // A strip of MAX_DOORS one-cell doors, then one more.
         let mut props = tiles::props();
         props.set_flags(DOOR_R, fizz_phys::tilemap::SWITCHED);
