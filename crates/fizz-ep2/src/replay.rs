@@ -74,13 +74,13 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     (8, R.union(J)),
     (4, IDLE),
     (4, L),
-    // Turn to face the chicken and shoot it.
-    (44, L),
+    // Turn to face the chicken and shoot it from afar: its body is as wide as its picture, so the shot has to land before Ben
+    // walks into it, and he keeps walking left while the stun takes hold.
+    (24, L),
     (4, L.union(F)),
     // Walk through the stunned chicken to the key.
-    (12, L),
+    (44, L),
     // Carry the key out to the spikes and die on them.
-    (12, L),
     (84, R),
     (4, L),
     // Wait for the respawn.

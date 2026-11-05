@@ -105,6 +105,7 @@ pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
+use fizz_ep2::chicken::CHICKEN_ANCHOR_X;
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
@@ -744,7 +745,7 @@ pub fn cluck_placement(
         return fizz_sfx::place::Placement::CENTRE;
     };
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
-    let x = tile_px(c.b.x + c.b.w * 0.5);
+    let x = tile_px(c.b.x) + CHICKEN_ANCHOR_X;
     let y = screen_y(c.b.y + c.b.h * 0.5, world.map.h);
     fizz_sfx::place::place(
         x,
@@ -807,6 +808,15 @@ pub const fn star_frame(phase: usize) -> usize {
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
+/// Where a chicken's sprite anchor (the feet, at the middle of the 24 columns) lies in the view. The body's left edge is the
+/// sprite's left edge and the anchor is a constant [`CHICKEN_ANCHOR_X`] pixels right of it, whichever frame and facing show, so a
+/// chicken stopped at a wall draws the same picture every tick and the margin the body keeps on its right is the same 4 pixels.
+/// Nothing here corrects the drawing to the collision: the body is the sprite's size (see `fizz_ep2::chicken`).
+fn chicken_anchor(c: &fizz_ep2::Chicken, at: At) -> (i32, i32) {
+    let (x, y) = at(c.b.x, c.b.y);
+    (x + CHICKEN_ANCHOR_X, y)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_chicken(
     frame: &mut [u8],
@@ -839,7 +849,7 @@ fn draw_chicken(
     let Some(s) = sprite(name) else {
         return;
     };
-    let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    let (sx, sy) = chicken_anchor(c, at);
     let flip = c.dir < 0.0;
     // Enemies are drawn where their bodies are: an enemy's collision body contains its sprite and the 4 px near-plane margin on
     // its right, so it needs no correction at a wall (docs/OBLIQUE.md).
@@ -924,7 +934,7 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
         return None;
     }
     let &(text, bright, dark) = CAPTIONS.get(usize::from(c.cluck_variant))?;
-    let (x, y) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    let (x, y) = chicken_anchor(c, at);
     if x < -CAPTION_REACH
         || x > w as i32 + CAPTION_REACH
         || y < -CAPTION_REACH
@@ -1214,6 +1224,195 @@ mod tests {
         0x4bbf033e689cffb1,
         0xa015adcb56a50c15,
     ];
+
+    // The chicken's body fits its sprite (`fizz_ep2::chicken`): the drawing is never corrected to the collision.
+
+    const BLANK: u8 = 0xee;
+
+    /// Draws chicken `c` alone into a blank 160 by 64 frame whose pixel column of tile `x` is `tile_px(x)` and returns the
+    /// frame with the first and last columns that carry an opaque pixel, `None` when the chicken drew nothing.
+    fn chicken_columns(c: &fizz_ep2::Chicken, phase: usize) -> (Vec<u8>, Option<(i32, i32)>) {
+        let (w, h) = (160usize, 64usize);
+        let mut frame = vec![BLANK; w * h];
+        let at = |x: f64, y: f64| (tile_px(x), 56 - tile_px(y));
+        draw_chicken(&mut frame, w, h, c, phase, &at, 0);
+        let cols: Vec<i32> = (0..w)
+            .filter(|&x| (0..h).any(|y| frame[y * w + x] != BLANK))
+            .map(|x| x as i32)
+            .collect();
+        let span = cols.first().copied().zip(cols.last().copied());
+        (frame, span)
+    }
+
+    /// The four body frames, as chicken states: stunned, touching Ben, and the walk's two leg positions and its legs-together
+    /// frame, which `draw_chicken` takes from the body's x (four pixels to a step).
+    fn chicken_states(x: f64, y: f64, dir: f64) -> Vec<fizz_ep2::Chicken> {
+        let base = {
+            let mut c = fizz_ep2::Chicken::new(0.0, y, dir, 0, 0);
+            c.b.x = x;
+            c.b.on_ground = true;
+            c
+        };
+        let mut stunned = base.clone();
+        stunned.stun = 3.0;
+        let mut touching = base.clone();
+        touching.touch = true;
+        // Eight x positions a step (4 px) apart walk through all three ground frames; the callers add the quarter-tile steps.
+        vec![base, stunned, touching]
+    }
+
+    #[test]
+    fn a_chicken_at_a_wall_on_its_right_is_drawn_4_px_clear_of_it_in_every_frame_and_both_facings()
+    {
+        use fizz_ep2::chicken::CHICKEN_W;
+        let wall = 8.0; // a wall tile's left edge, in tiles
+        let wall_px = tile_px(wall);
+        let mut seen = std::collections::BTreeSet::new();
+        // Walk the body back from the wall a quarter tile at a time (a step of four pixels, so each ground frame shows),
+        // starting pressed against it: the body's right edge is on the wall's collision edge.
+        for k in 0..4 {
+            for dir in [1.0, -1.0] {
+                for c in chicken_states(wall - CHICKEN_W - f64::from(k) * 0.25, 2.0, dir) {
+                    let (_, span) = chicken_columns(&c, 0);
+                    let (_, last) = span.expect("drawn");
+                    // A wall on the body's right edge is drawn with its front face 4 px left of that edge.
+                    let face = tile_px(c.b.x + CHICKEN_W) - 4;
+                    assert!(
+                        last < face,
+                        "k {k} dir {dir} stun {} touch {}: sprite ends at {last}, face at {face}",
+                        c.stun,
+                        c.touch
+                    );
+                    if k == 0 {
+                        assert_eq!(tile_px(c.b.x + CHICKEN_W), wall_px);
+                    }
+                    seen.insert((k, c.stun > 0.0, c.touch));
+                }
+            }
+        }
+        assert_eq!(seen.len(), 12);
+        // Pressed against the wall (k = 0) the margin is exactly the 4 px, or one more for the tile_px floor of the
+        // physics' 1e-6 gap.
+        let c = fizz_ep2::Chicken::new(0.0, 2.0, 1.0, 0, 0);
+        let mut c = c;
+        c.b.x = wall - CHICKEN_W - 1e-6;
+        c.touch = true;
+        let (_, span) = chicken_columns(&c, 0);
+        assert_eq!(span.unwrap().1 + 1, wall_px - 4 - 1);
+    }
+
+    #[test]
+    fn a_chicken_at_a_wall_on_its_left_never_crosses_the_wall_in_any_frame_or_facing() {
+        let wall = 3.0; // the wall tile's right edge, in tiles: a body pressed against it has its left edge here
+        let wall_px = tile_px(wall);
+        for k in 0..4 {
+            for dir in [1.0, -1.0] {
+                for c in chicken_states(wall + f64::from(k) * 0.25, 2.0, dir) {
+                    let (_, span) = chicken_columns(&c, 0);
+                    let (first, _) = span.expect("drawn");
+                    assert!(
+                        first >= wall_px,
+                        "k {k} dir {dir} stun {} touch {}: sprite starts at {first}, wall edge at {wall_px}",
+                        c.stun,
+                        c.touch
+                    );
+                    if k == 0 {
+                        assert_eq!(first, wall_px, "and touches it, with no margin");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_beak_overlay_stays_inside_the_sprite_box() {
+        // Drawn: a chicken with an open beak covers no column the closed one does not, at either facing.
+        for dir in [1.0, -1.0] {
+            let mut closed = fizz_ep2::Chicken::new(0.0, 2.0, dir, 0, 0);
+            closed.b.x = 5.0;
+            closed.b.on_ground = true;
+            let mut open = closed.clone();
+            open.cluck_age = 1;
+            open.cluck_variant = 0;
+            let (_, a) = chicken_columns(&closed, 0);
+            let (_, b) = chicken_columns(&open, 0);
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn a_chicken_pressed_into_a_wall_draws_the_same_picture_every_tick() {
+        // On the long ledge: the wall is column 15, so the body stops with its right edge on x = 15. The chicken is held
+        // walking into it (its turn is undone each tick) for ten seconds.
+        let mut w = level::world();
+        w.ben.b.x = 1.0;
+        w.ben.b.y = 2.0;
+        let mut first: Option<Vec<u8>> = None;
+        for t in 0..800 {
+            w.chickens[0].dir = 1.0;
+            w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            w.chickens[0].cluck_timer = 10_000;
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            if t < 400 {
+                continue;
+            }
+            let c = &w.chickens[0];
+            assert!(c.b.x + c.b.w > 15.0 - 1e-5, "pressed against the wall");
+            let (frame, _) = chicken_columns(c, 0);
+            match &first {
+                None => first = Some(frame),
+                Some(f) => assert_eq!(&frame, f, "tick {t}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_chicken_pressed_into_the_left_wall_draws_the_same_picture_every_tick() {
+        // The ground floor's left shaft wall is column 0, so a body held walking left stops with its left edge on x = 1.
+        let mut w = level::world();
+        w.ben.b.x = 12.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].b.x = 3.0;
+        w.chickens[0].b.y = 2.0;
+        w.chickens[0].b.px = 3.0;
+        w.chickens[0].b.py = 2.0;
+        let mut first: Option<Vec<u8>> = None;
+        for t in 0..400 {
+            w.chickens[0].dir = -1.0;
+            w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            w.chickens[0].cluck_timer = 10_000;
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            if t < 200 {
+                continue;
+            }
+            let c = &w.chickens[0];
+            assert_eq!(c.b.x, 1.0, "pressed against the wall");
+            let (frame, span) = chicken_columns(c, 0);
+            assert_eq!(span.unwrap().0, tile_px(1.0), "and drawn from its edge");
+            match &first {
+                None => first = Some(frame),
+                Some(f) => assert_eq!(&frame, f, "tick {t}"),
+            }
+        }
+    }
+
+    #[test]
+    fn the_anchor_is_a_constant_12_px_from_the_bodys_left_edge() {
+        let mut c = fizz_ep2::Chicken::new(0.0, 11.0, 1.0, 0, 0);
+        for x in [1.0, 2.25, 7.5, 13.25] {
+            c.b.x = x;
+            let at = |x: f64, y: f64| (tile_px(x), tile_px(y));
+            assert_eq!(chicken_anchor(&c, &at).0 - tile_px(x), 12);
+            c.dir = -c.dir;
+            assert_eq!(chicken_anchor(&c, &at).0 - tile_px(x), 12);
+        }
+    }
 
     fn fnv(bytes: &[u8]) -> u64 {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -2757,7 +2956,7 @@ mod tests {
         let tiles = |px: i32| f64::from(cam_x + px) / TILE_PX as f64;
         let o = DrawOptions::default();
         for (px, side) in [(20, -1), (160, 0), (300, 1)] {
-            w.chickens[0].b.x = tiles(px) - w.chickens[0].b.w * 0.5;
+            w.chickens[0].b.x = tiles(px) - f64::from(CHICKEN_ANCHOR_X) / 16.0;
             let p = cluck_placement(&w, 0, VIEW_W, VIEW_H, &o);
             assert_eq!(p.pan.signum(), side, "{px}: {p:?}");
             assert_eq!(side == 0, p.left == p.right, "{px}: {p:?}");

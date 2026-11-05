@@ -15,7 +15,7 @@
 // (see `tick_ben_contacts` and `docs/FIZZ1-DIFFERENCES.md`).
 
 use crate::ben::{Ben, FALL_DEATH_Y};
-use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
+use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN, Shape};
 use crate::rules::{KEY_BLUE as KEY_BLUE_COLOUR, KEY_RED as KEY_RED_COLOUR, RuleTable};
 use crate::shot::Shot;
 use crate::tiles::{EXIT, SPIKE, is_liquid};
@@ -239,8 +239,8 @@ pub struct World {
     key: Option<(f64, f64)>,
     /// Where the blue key lies, as its centre, while it is in the world. A world with a blue key has a blue door.
     key_blue: Option<(f64, f64)>,
-    /// Where each chicken starts: `(x, y, dir)` as passed to [`Chicken::new`].
-    chicken_spawns: Vec<(f64, f64, f64)>,
+    /// Where each chicken starts: `(x, y, dir)` as passed to [`Chicken::new`], and its body.
+    chicken_spawns: Vec<(f64, f64, f64, Shape)>,
 }
 
 impl World {
@@ -305,9 +305,15 @@ impl World {
 
     /// Adds a chicken at Fizz 1's spawn point `(x, y)`, walking in direction `dir` (1 or -1).
     pub fn add_chicken(&mut self, x: f64, y: f64, dir: f64) {
-        self.chicken_spawns.push((x, y, dir));
+        self.add_chicken_shaped(x, y, dir, Shape::SPRITE);
+    }
+
+    /// [`add_chicken`](Self::add_chicken) with an explicit body; the Fizz 1 trace tests pass [`Shape::FIZZ1`].
+    pub fn add_chicken_shaped(&mut self, x: f64, y: f64, dir: f64, shape: Shape) {
+        self.chicken_spawns.push((x, y, dir, shape));
         let id = self.chickens.len() as u32;
-        self.chickens.push(Chicken::new(x, y, dir, id, self.tick.0));
+        self.chickens
+            .push(Chicken::with_shape(x, y, dir, id, self.tick.0, shape));
     }
 
     /// The events the last [`step`](World::step) emitted, in the order they happened (chickens in list order). All of
@@ -705,7 +711,9 @@ impl World {
             .chicken_spawns
             .iter()
             .enumerate()
-            .map(|(id, &(x, y, dir))| Chicken::new(x, y, dir, id as u32, self.tick.0))
+            .map(|(id, &(x, y, dir, shape))| {
+                Chicken::with_shape(x, y, dir, id as u32, self.tick.0, shape)
+            })
             .collect();
     }
 

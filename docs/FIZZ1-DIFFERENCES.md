@@ -27,6 +27,17 @@ Each entry says what Fizz 1 does, what Fizz 2 does, why, and what to look at in 
   - Levels ported from Fizz 1 whose exit is reached by a jump or a bounce need a place to land beside it.
   - Whether Up should also work for the doors that open with a key (they open on touch, as in Fizz 1) is open.
 
+### The chicken's body fits its sprite
+
+- **Fizz 1:** the Gloop's body is 0.9 tiles wide and 0.6 tall, centred on its spawn tile (`info(Kind::Gloop)` in `episodes/episode-1/game/src/ents.rs`, `init_ent` in `world.rs`).
+- **Fizz 2:** the chicken's body is 1.75 tiles wide and 1.5 tall (`CHICKEN_W`, `CHICKEN_H` in `crates/fizz-ep2/src/chicken.rs`). The placeholder art is 24 by 24 pixels, opaque across all 24 columns and up to 24 rows above the feet, so the body is the sprite's 24 by 24 plus 4 pixels on its right, where a wall's front face is drawn 4 pixels left of its collision edge in the oblique projection (`docs/OBLIQUE.md`). The body's left edge is the sprite's left edge, and the view draws the sprite with its anchor a constant 12 pixels right of it. The spawn centres the sprite, not the body, on the spawn tile (`x + 0.5`). Everything else about the chicken is Fizz 1's line for line: the speed, the patrol turn at a wall or at a ledge's end, the stun times and the stomp rule.
+- **Why:** owner decision, 2026-11-05: the chicken itself stops earlier, and the drawing is not corrected to fit the collision. The rule is that an enemy's collision body contains its sprite's opaque pixels, plus 4 pixels on its right.
+- **Review at level making:**
+  - Measured from its middle (the sprite's anchor), the chicken turns 0.55 tiles earlier at a wall on its right than a Fizz 1 Gloop does, and 0.3 tiles earlier at a wall on its left and at a ledge's end (the ledge probe is 0.05 tiles beyond the body's front edge, as in Fizz 1). A ledge must be longer than the body (1.75 tiles) for the chicken to walk on it.
+  - The body is 1.5 tiles tall, so it needs 1.5 tiles of headroom. Ben jumping a chicken must clear 0.825 tiles of it to stomp, and a hop lower than that kills him, where a Fizz 1 Gloop was 0.33 tiles.
+  - `tests/fizz1_traces.rs` still proves the port bit for bit: it builds its chickens with `Shape::FIZZ1`, Fizz 1's size, through `World::add_chicken_shaped`. The proof is of the movement code, not of the size.
+  - A second kind of enemy gets its own body by the same rule from its own art.
+
 ## Small departures that are already in the game
 
 ### Doors, keys and death

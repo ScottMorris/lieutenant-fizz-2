@@ -13,6 +13,7 @@
 //! keeps the door as a switched tile on its own channel, so that one bit is left out of the `switches` comparison (see
 //! `tiles::DOOR_RED_BIT`).
 
+use fizz_ep2::chicken::Shape;
 use fizz_ep2::rules::{KEY_RED, Rule, RuleTable};
 use fizz_ep2::tiles::{DOOR_RED_BIT, DOOR_RED_CHANNEL, props};
 use fizz_ep2::{World, WorldFlags};
@@ -209,7 +210,7 @@ fn simulate(s: &Scenario) -> Vec<String> {
         w.ben.inv = 1e9;
     }
     for &(x, y, dir) in &s.gloops {
-        w.add_chicken(x, y, dir);
+        w.add_chicken_shaped(x, y, dir, Shape::FIZZ1);
     }
     if let Some((x, y)) = s.key {
         w.set_key(x, y);
