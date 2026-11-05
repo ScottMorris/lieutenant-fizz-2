@@ -10,13 +10,15 @@
 //! The scenarios run through the whole world, so the chicken, the shots, the red key and door and the hazards are proved
 //! by the same traces as Ben's movement, and every field a trace carries is compared, including the look timers, the aim and the first Gloop's. One
 //! departure is masked: Fizz 1 rewrites the red door's tile when it opens and never touches the switch word, while Fizz 2
-//! keeps the door as a switched tile on its own channel, so that one bit is left out of the `switches` comparison (see
+//! keeps the door as a switched tile bound to a state, whose derived bit is left out of the `switches` comparison (see
 //! `tiles::DOOR_RED_BIT`).
 
 use fizz_ep2::chicken::Shape;
-use fizz_ep2::rules::{KEY_RED, Rule, RuleTable};
-use fizz_ep2::tiles::{DOOR_RED_BIT, DOOR_RED_CHANNEL, props};
+use fizz_ep2::rules::KEY_RED;
+use fizz_ep2::tiles::{DOOR_RED_BIT, props};
 use fizz_ep2::{World, WorldFlags};
+use fizz_pack::level::TRIGGER_TOUCH;
+use fizz_pack::{ActionRec, BindingRec, CondRec, RuleRec, StateRec};
 use fizz_phys::TileMap;
 use fizz_sim::{Buttons, InputFrame};
 use std::fmt::Write as _;
@@ -192,15 +194,41 @@ fn row(tick: u32, w: &World) -> String {
     out
 }
 
-/// Fizz 1's scenarios have a red door tile (`D`) that a red key opens. In Fizz 2 that is a lock rule on the door's channel and the
-/// channel starts on (closed), both of which a level provides; the scenario worlds provide them here. The red bit is masked out of
-/// the compared switch word (see the header), so the traces still match Fizz 1's.
+/// Fizz 1's scenarios have a red door tile (`D`) that a red key opens. In Fizz 2 that is a level's `lock` sugar: a state that
+/// starts closed, a door binding over the door's rectangle, and a touch rule over it that needs the red key, sets the state open
+/// and spends the key, which runs in the rule phase. The scenario worlds provide them here when the map has a door (only
+/// `key_door` does, a one-column run). The red bit is masked out of the compared switch word (see the header), so the traces
+/// still match Fizz 1's.
 fn add_red_door(w: &mut World) {
-    w.map.bind_switch_tiles(12, DOOR_RED_CHANNEL);
-    w.set_switches(DOOR_RED_BIT);
-    let mut rules = RuleTable::new();
-    rules.push(Rule::lock(KEY_RED, DOOR_RED_CHANNEL));
-    w.set_rules(rules);
+    let cells: Vec<(u16, u16)> = (0..w.map.h)
+        .flat_map(|y| (0..w.map.w).map(move |x| (x, y)))
+        .filter(|&(x, y)| w.map.get(x, y) == tile('D').unwrap())
+        .map(|(x, y)| (x as u16, y as u16))
+        .collect();
+    let Some(&first) = cells.first() else {
+        return;
+    };
+    let rect = cells
+        .iter()
+        .fold((first.0, first.1, first.0, first.1), |r, &(x, y)| {
+            (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y))
+        });
+    let (u0, u1) = RuleRec::union_rect(rect.0, rect.1, rect.2, rect.3);
+    let lock = RuleRec {
+        trigger: TRIGGER_TOUCH,
+        u0,
+        u1,
+        cond: [CondRec::state_in(0, 0b01), CondRec::holds(KEY_RED)],
+        act: [ActionRec::set(0, 1), ActionRec::spend_key(KEY_RED)],
+        ..RuleRec::EMPTY
+    };
+    w.set_level(
+        &[StateRec::new(2, 0)],
+        &[BindingRec::door(0, 0b10, rect)],
+        &[lock],
+    )
+    .unwrap();
+    assert_eq!(w.map.switches, DOOR_RED_BIT, "the door starts closed");
 }
 
 fn simulate(s: &Scenario) -> Vec<String> {

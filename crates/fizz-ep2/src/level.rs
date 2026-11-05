@@ -321,7 +321,8 @@ pub enum SourceError {
     BadObject,
     /// A state or door binding the world cannot build.
     Door(DoorError),
-    /// A rule the rules cannot build: a trigger that has no phase yet, or a lock that breaks the lock shape.
+    /// A rule the rule phase cannot run: an input, condition, action or delay that is not built yet, or a record that does not fit
+    /// the level's states (see [`RuleError`]).
     Rule(RuleError),
     /// A string whose length is 0 or over 30, or whose style is not one of the seven, or more than 32 strings.
     BadString,
@@ -571,19 +572,24 @@ pub fn digest(src: &LevelSource) -> u64 {
     h.finish()
 }
 
+/// The level's records, in the order `World::set_level` takes them.
+struct Records<'a> {
+    states: &'a [StateRec],
+    bindings: &'a [BindingRec],
+    rules: &'a [RuleRec],
+}
+
 fn build(
     (w, h): (u16, u16),
     tile_bytes: &[u8],
     floor_solid: bool,
     spawn: (f64, f64),
     objects: impl Iterator<Item = Object>,
-    doors: &Doors,
-    rules: RuleTable,
-) -> World {
+    recs: Records,
+) -> Result<World, SourceError> {
     let mut m = TileMap::new(i32::from(w), i32::from(h), tiles::props());
     m.data.copy_from_slice(tile_bytes);
     m.floor_solid = floor_solid;
-    doors.bind(&mut m);
     let mut world = World::new(m, spawn);
     for o in objects {
         match o {
@@ -593,34 +599,34 @@ fn build(
             Object::Chicken { x, y, dir } => world.add_chicken(x, y, dir),
         }
     }
-    // The doors' start bits are the level's start state, and the state every death restores.
-    world.set_switches(doors.start_switches());
-    world.set_rules(rules);
-    world
+    // Every state starts at its start value and the doors' bits follow; a death restores both.
+    world.set_level(recs.states, recs.bindings, recs.rules)?;
+    Ok(world)
 }
 
-/// A fresh world built from level data: Ben at the spawn, the objects in place in record order, each door's derived bit set
-/// from its state's start value.
+/// A fresh world built from level data: Ben at the spawn, the objects in place in record order, every state at its start value
+/// and each door's derived bit set from it.
 pub fn world_from(src: &LevelSource) -> Result<World, SourceError> {
     validate(src)?;
-    let doors = doors_of(src)?;
-    let rules = RuleTable::from_recs(src.rules, &doors).map_err(SourceError::Rule)?;
-    Ok(build(
+    build(
         (src.w, src.h),
         src.tiles,
         src.floor_solid,
         src.spawn,
         src.objects.iter().copied(),
-        &doors,
-        rules,
-    ))
+        Records {
+            states: src.states,
+            bindings: src.bindings,
+            rules: src.rules,
+        },
+    )
 }
 
 /// A fresh world built from a `LEVL` section the pack reader has accepted. Refuses the object kinds the rules cannot build (the
 /// switch and the light among them), an unknown snack kind, a bad chicken direction, a second key of a colour, a binding that is
-/// not a door binding, switched tiles that no door binding covers, and every rule that is not a well-formed lock: the triggers
-/// other than the touch rule have no phase in the sim yet and fail with `SourceError::Rule(RuleError::Trigger)`. The level's
-/// strings are checked by the reader and not used yet.
+/// not a door binding, switched tiles that no door binding covers, and every rule the rule phase cannot run: the inputs other
+/// than `touch` over a rectangle and `enter` fail with `SourceError::Rule(RuleError::Unbuilt(trigger))`, and an unbuilt condition,
+/// action or delay with the matching `RuleError` (see `rules.rs`). The level's strings are checked by the reader and not used yet.
 pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
     let mut objects = alloc::vec::Vec::with_capacity(view.object_count());
     let (mut red, mut blue) = (false, false);
@@ -640,19 +646,19 @@ pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
     let (w, h) = (view.width() as u16, view.height() as u16);
     let states: alloc::vec::Vec<StateRec> = view.states().collect();
     let bindings: alloc::vec::Vec<BindingRec> = view.bindings().collect();
-    let doors = Doors::from_recs(&states, &bindings, view.tiles(), w, h, &tiles::props())
-        .map_err(SourceError::Door)?;
     let recs: alloc::vec::Vec<RuleRec> = view.rules().collect();
-    let rules = RuleTable::from_recs(&recs, &doors).map_err(SourceError::Rule)?;
-    Ok(build(
+    build(
         (w, h),
         view.tiles(),
         view.floor_solid(),
         view.spawn(),
         objects.into_iter(),
-        &doors,
-        rules,
-    ))
+        Records {
+            states: &states,
+            bindings: &bindings,
+            rules: &recs,
+        },
+    )
 }
 
 #[cfg(test)]
@@ -753,7 +759,6 @@ mod tests {
     }
 
     extern crate std;
-    use crate::rules::Rule;
     use fizz_pack::level::{KIND_LIGHT, SWITCH_USE, TRIGGER_ENTER, TRIGGER_START, TRIGGER_TIME};
     use fizz_pack::write::{LevelSpec, encode_level};
     use std::string::String;
@@ -768,12 +773,10 @@ mod tests {
             w.add_snack(kind, x, y);
         }
         w.add_chicken(CHICKEN.0, CHICKEN.1, CHICKEN.2);
+        w.set_level(&SLICE_STATES, &SLICE_BINDINGS, &SLICE_RULES)
+            .unwrap();
         // Both doors start closed: each door's derived bit is set.
-        w.set_switches(tiles::DOOR_RED_BIT | tiles::DOOR_BLUE_BIT);
-        let mut rules = RuleTable::new();
-        rules.push(Rule::lock(rules::KEY_RED, tiles::DOOR_RED_CHANNEL));
-        rules.push(Rule::lock(rules::KEY_BLUE, tiles::DOOR_BLUE_CHANNEL));
-        w.set_rules(rules);
+        assert_eq!(w.map.switches, tiles::DOOR_RED_BIT | tiles::DOOR_BLUE_BIT);
         w
     }
 
@@ -1175,23 +1178,30 @@ mod tests {
     #[test]
     fn the_golden_replay_opens_the_red_door_from_its_foot_and_the_blue_from_its_top() {
         // The lock is a touch over the door's whole rect, so any cell of the door's run takes the key. The golden run opens the red
-        // door with Ben's front probe on its bottom cell (15, 20) and the blue door with the probe on its top cell (22, 40). A
-        // `dooropen` event is placed at the probed column and Ben's feet plus two tiles, in sixteenths.
+        // door with Ben's front probe on its bottom cell (15, 20) and the blue door with the probe on its top cell (22, 40). The
+        // `dooropen` event is at the door's centre cell, (15, 21) and (22, 39), in sixteenths of its centre.
         let transcript = include_str!("../slice-replay.txt");
-        let probes: Vec<(i32, i32)> = transcript
-            .lines()
-            .filter_map(|l| l.strip_prefix("EVENT "))
-            .filter_map(|l| l.split_once(" dooropen "))
-            .map(|(_, xy)| {
-                let (x, y) = xy.split_once(' ').unwrap();
-                let (x, y): (f64, f64) = (x.parse().unwrap(), y.parse().unwrap());
-                (
-                    (x / 16.0).floor() as i32,
-                    (y / 16.0 - 2.0 + 0.2).floor() as i32,
-                )
-            })
-            .collect();
-        assert_eq!(probes, [(15, 20), (22, 40)]);
+        let mut w = world();
+        let mut prev = fizz_sim::Buttons::NONE;
+        let mut probes = Vec::new();
+        for &(frames, now) in crate::replay::SLICE_SCRIPT {
+            for _ in 0..frames {
+                w.step(fizz_sim::InputFrame::from_transition(prev, now));
+                prev = now;
+                for e in w.events() {
+                    if let crate::Event::DoorOpen { x, y } = *e {
+                        let b = &w.ben.b;
+                        let cx = if w.ben.face > 0.0 {
+                            (b.x + b.w + 0.1).floor() as i32
+                        } else {
+                            (b.x - 0.1).floor() as i32
+                        };
+                        probes.push(((cx, (b.y + 0.2).floor() as i32), (x, y)));
+                    }
+                }
+            }
+        }
+        assert_eq!(probes, [((15, 20), (248, 344)), ((22, 40), (360, 632))]);
         assert_eq!((DOOR[0], BLUE_DOOR[2]), ((15, 20), (22, 40)));
         assert!(
             transcript.contains("\nFINAL TICK 1800 HASH "),
@@ -1216,7 +1226,7 @@ mod tests {
         };
         assert_eq!(
             with(&[start], &[]),
-            Err(SourceError::Rule(RuleError::Trigger))
+            Err(SourceError::Rule(RuleError::Unbuilt(TRIGGER_START)))
         );
         let green = RuleRec {
             cond: [SLICE_RULES[0].cond[0], CondRec::holds(rules::KEY_GREEN)],
@@ -1228,17 +1238,23 @@ mod tests {
         };
         assert_eq!(
             with(&[green], &[]),
-            Err(SourceError::Rule(RuleError::LockColour))
+            Err(SourceError::Rule(RuleError::KeyColour))
         );
-        // A touch rule that is not a lock: the red door's lock over the blue door's rect.
+        // A touch rule that is not the lock sugar is still a rule: the red door's lock over the blue door's rect.
         let wrong_rect = RuleRec {
             u0: SLICE_RULES[1].u0,
             u1: SLICE_RULES[1].u1,
             ..SLICE_RULES[0]
         };
+        assert_eq!(with(&[wrong_rect], &[]), Ok(()));
+        let too_wide = RuleRec {
+            u0: RuleRec::union_rect(0, 0, 32, 0).0,
+            u1: RuleRec::union_rect(0, 0, 32, 0).1,
+            ..SLICE_RULES[0]
+        };
         assert_eq!(
-            with(&[wrong_rect], &[]),
-            Err(SourceError::Rule(RuleError::LockShape))
+            with(&[too_wide], &[]),
+            Err(SourceError::Rule(RuleError::Shape))
         );
         let long = StringRec {
             len: 31,
@@ -1275,10 +1291,18 @@ mod tests {
     }
 
     #[test]
-    fn the_view_loader_refuses_triggers_that_have_no_phase_yet() {
+    fn the_view_loader_builds_enter_rows_and_refuses_inputs_that_have_no_phase_yet() {
         let act = [ActionRec::set(0, 1), ActionRec::EMPTY];
         let (u0, u1) = RuleRec::union_rect(1, 1, 2, 2);
         assert_eq!(view_world(&[], &SLICE_RULES), Ok(2));
+        let enter = RuleRec {
+            trigger: TRIGGER_ENTER,
+            u0,
+            u1,
+            act,
+            ..RuleRec::EMPTY
+        };
+        assert_eq!(view_world(&[], &[enter]), Ok(1));
         for rec in [
             RuleRec {
                 trigger: TRIGGER_START,
@@ -1286,22 +1310,16 @@ mod tests {
                 ..RuleRec::EMPTY
             },
             RuleRec {
-                trigger: TRIGGER_ENTER,
-                u0,
-                u1,
-                act,
-                ..RuleRec::EMPTY
-            },
-            RuleRec {
                 trigger: TRIGGER_TIME,
                 u0: 10,
+                u1: 0,
                 act,
                 ..RuleRec::EMPTY
             },
         ] {
             assert_eq!(
                 view_world(&[], &[rec]),
-                Err(SourceError::Rule(RuleError::Trigger))
+                Err(SourceError::Rule(RuleError::Unbuilt(rec.trigger)))
             );
         }
     }
@@ -1367,7 +1385,20 @@ mod tests {
             &props,
         );
         assert_eq!(ok.unwrap().doors().last().map(|d| d.bit), Some(31));
+        // One more door, on a state of its own, is over both limits; the states are counted first.
         let over = Doors::from_recs(&states, &bindings, &tiles_row, n as u16, 1, &props);
+        assert_eq!(over, Err(DoorError::TooManyStates));
+        // The 33rd door on the 32nd state is over the door limit alone.
+        let mut shared = bindings.clone();
+        shared[MAX_DOORS].state = (MAX_DOORS - 1) as u8;
+        let over = Doors::from_recs(
+            &states[..MAX_DOORS],
+            &shared,
+            &tiles_row,
+            n as u16,
+            1,
+            &props,
+        );
         assert_eq!(over, Err(DoorError::TooMany));
     }
 }
