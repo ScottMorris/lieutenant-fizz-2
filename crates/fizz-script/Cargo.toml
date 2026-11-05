@@ -1,0 +1,12 @@
+[package]
+name = "fizz-script"
+description = "Parser, lossless syntax tree, canonical printer and validator for Lieutenant Fizz 2's level script dialect, lowering to a fizz-ep2 LevelSource"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+authors.workspace = true
+
+[dependencies]
+fizz-ep2 = { path = "../fizz-ep2" }
+fizz-pack = { path = "../fizz-pack" }
+fizz-phys = { path = "../fizz-phys" }

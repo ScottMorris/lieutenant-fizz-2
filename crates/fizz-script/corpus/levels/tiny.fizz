@@ -1,0 +1,14 @@
+script fizz2 0
+level "Tiny Lock" 4x3 id=tiny-lock
+start 1,1
+channel 1 on
+lock gate key=red channel=1 at=2,1
+string hello "Hello, Ben" style=cyan
+map
+  |....|  2
+  |..D.|  1
+  |####|  0
+objects
+  key-red id=red-key x=0 y=0
+  cheezie id=treat at=3.5,0.2
+  chicken id=hen x=3 y=2 dir=1

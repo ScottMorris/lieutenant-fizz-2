@@ -1,0 +1,26 @@
+
+script   fizz2 0
+
+// a tiny level, written untidily
+
+level "Messy" 4x3 id=messy   // header
+		start  1.0, 1
+floor open
+
+channel 2, 1, 2  on
+lock gate  key=red  channel=1  at=2,1
+string hi   "Hi there"
+map
+|....|
+   |..D.|  1   // the door
+|####|
+
+
+objects
+ // the hen
+ chicken   id=hen  at=3.5,2.5   dir=1
+ cheezie id=treat at=3.5,0.25
+ // keys first
+ key-red  id=red-key  at=0.5,0.5
+ key-blue id=blue-key x=1 y=0
+

@@ -1,0 +1,7 @@
+script fizz2 0
+level "T" 0x3 id=t
+start 1,1
+map
+  |....|  2
+  |....|  1
+  |####|  0

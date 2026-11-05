@@ -1,0 +1,43 @@
+// expect: E110 E111 E119
+script fizz2 0
+level "T" 4x3 id=t
+start 1,1
+lock l0 key=red channel=0 at=2,1
+lock l1 key=red channel=1 at=2,1
+lock l2 key=red channel=2 at=2,1
+lock l3 key=red channel=3 at=2,1
+lock l4 key=red channel=4 at=2,1
+lock l5 key=red channel=5 at=2,1
+lock l6 key=red channel=6 at=2,1
+lock l7 key=red channel=7 at=2,1
+lock l8 key=red channel=8 at=2,1
+lock l9 key=red channel=9 at=2,1
+lock l10 key=red channel=10 at=2,1
+lock l11 key=red channel=11 at=2,1
+lock l12 key=red channel=12 at=2,1
+lock l13 key=red channel=13 at=2,1
+lock l14 key=red channel=14 at=2,1
+lock l15 key=red channel=15 at=2,1
+lock l16 key=red channel=16 at=2,1
+lock l17 key=red channel=17 at=2,1
+lock l18 key=red channel=18 at=2,1
+lock l19 key=red channel=19 at=2,1
+lock l20 key=red channel=20 at=2,1
+lock l21 key=red channel=21 at=2,1
+lock l22 key=red channel=22 at=2,1
+lock l23 key=red channel=23 at=2,1
+lock l24 key=red channel=24 at=2,1
+lock l25 key=red channel=25 at=2,1
+lock l26 key=red channel=26 at=2,1
+lock l27 key=red channel=27 at=2,1
+lock l28 key=red channel=28 at=2,1
+lock l29 key=red channel=29 at=2,1
+lock l30 key=red channel=30 at=2,1
+lock l31 key=red channel=31 at=2,1
+lock l32 key=red channel=0 at=2,1
+map
+  |....|  2
+  |..D.|  1
+  |####|  0
+objects
+  key-red id=red-key x=0 y=0

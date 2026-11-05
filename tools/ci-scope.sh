@@ -82,6 +82,8 @@ RULES=(
   'crates/fizz-sfx/*;audio;crates/fizz-sfx/src/lib.rs'
   'crates/fizz-music/*;audio;crates/fizz-music/src/lib.rs'
   'crates/fizz-pack/*;audio,pack;crates/fizz-pack/src/lib.rs'
+  # The script library is a host-only tool: nothing in a DOS or Web program links it, so the host checks are all it can break.
+  'crates/fizz-script/*;base;crates/fizz-script/src/lib.rs'
   'assets/sfx/*;audio;assets/sfx/clucks.json'
   'assets/music/*;audio;assets/music/crater.ts'
   'tools/sfx/*;audio;tools/sfx/downmix.ts'
