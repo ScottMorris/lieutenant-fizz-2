@@ -38,7 +38,7 @@ const GREEN: u8 = 2;
 // placement stay here. Re-exported so the presenters and their tests keep their paths.
 pub use fizz_ep2::cues::{
     CAP_BLUE, CAP_BOING, CAP_BONK, CAP_CLICK, CAP_CLUNK, CAP_COUNT, CAP_CRUNCH, CAP_FIZZLED,
-    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_RED, CAP_TADA, CAP_WHOA,
+    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
 };
 pub use fizz_ep2::cues::{
     EFFECT_BOING, EFFECT_BOING_FM, EFFECT_BONK, EFFECT_CLUCK, EFFECT_CLUNK, EFFECT_COUNT,
@@ -74,6 +74,7 @@ pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("boing", YELLOW, BROWN),
     cap("crunch", YELLOW, BROWN),
     cap("fsssht", LIGHT_CYAN, CYAN),
+    cap("wheee!", YELLOW, BROWN),
 ];
 
 /// What an event is to a presenter.
@@ -261,31 +262,58 @@ impl EventCaptions {
             let (Some(id), Some((px, py))) = (presentation(e).caption, event_point(e)) else {
                 continue;
             };
-            if self.last[usize::from(id)].is_some_and(|t| now.wrapping_sub(t) < DEDUPE_TICKS) {
-                continue;
-            }
-            let (x, y) = (px, map_h_px - py);
-            let (sx, sy) = (x - cam_x, y - cam_y);
-            if sx < -CAPTION_REACH
-                || sx > w as i32 + CAPTION_REACH
-                || sy < -CAPTION_REACH
-                || sy > h as i32 + CAPTION_REACH
-            {
-                continue;
-            }
-            self.last[usize::from(id)] = Some(now);
-            let at = self
-                .slots
-                .iter()
-                .position(|s| s.is_none_or(|s| now.wrapping_sub(s.born) >= CAPTION_TICKS))
-                .unwrap_or(0);
-            self.slots[at] = Some(Slot {
-                caption: id,
-                x,
-                y,
-                born: now,
-            });
+            self.raise(id, (px, map_h_px - py), now, (cam_x, cam_y), (w, h));
         }
+    }
+
+    /// Raises caption `id` at `point` (the world's pixels, y down) in a `w` by `h` view drawn with `options`, by the rules `observe`
+    /// applies to an event's: dropped within [`DEDUPE_TICKS`] of the same word or more than [`CAPTION_REACH`] outside the view. The
+    /// cues no event carries (the whistle's "wheee!") come in this way.
+    pub fn raise_at(
+        &mut self,
+        world: &World,
+        id: u8,
+        point: (i32, i32),
+        w: usize,
+        h: usize,
+        options: &DrawOptions,
+    ) {
+        let now = world.tick.0 as u32;
+        let cam = camera_shaken(world, w, h, options);
+        self.raise(id, point, now, cam, (w, h));
+    }
+
+    fn raise(
+        &mut self,
+        id: u8,
+        (x, y): (i32, i32),
+        now: u32,
+        (cam_x, cam_y): (i32, i32),
+        (w, h): (usize, usize),
+    ) {
+        if self.last[usize::from(id)].is_some_and(|t| now.wrapping_sub(t) < DEDUPE_TICKS) {
+            return;
+        }
+        let (sx, sy) = (x - cam_x, y - cam_y);
+        if sx < -CAPTION_REACH
+            || sx > w as i32 + CAPTION_REACH
+            || sy < -CAPTION_REACH
+            || sy > h as i32 + CAPTION_REACH
+        {
+            return;
+        }
+        self.last[usize::from(id)] = Some(now);
+        let at = self
+            .slots
+            .iter()
+            .position(|s| s.is_none_or(|s| now.wrapping_sub(s.born) >= CAPTION_TICKS))
+            .unwrap_or(0);
+        self.slots[at] = Some(Slot {
+            caption: id,
+            x,
+            y,
+            born: now,
+        });
     }
 
     /// The captions still showing at `world.tick`, placed (unclamped, in frame pixels) for a `w` by `h` view drawn with

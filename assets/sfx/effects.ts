@@ -241,7 +241,7 @@ const door: SfxVoice[] = [
  * "whoa!" (effect 7), which it is longer and gentler than. A pure sine at c6 slides from a fifth above its note to nineteen semitones
  * under it in 0.5 s (`pitchsteps`), with a little vibrato that swells as it falls, over a soft breath of noise at the start, a quiet
  * triangle an octave up for the whistle's edge (Web only; the chip plays the voice that starts last, the sine) and a small FM glint that
- * rounds the sine. No caption. About 0.55 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
+ * rounds the sine. Its caption is "wheee!" (yellow), raised by `FallWatch`. About 0.55 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
  */
 const WHISTLE_SECONDS = 0.5;
 const whistleSteps = (): number[] => {

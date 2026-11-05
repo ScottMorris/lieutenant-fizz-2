@@ -156,6 +156,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         cues::CAP_BOING,
         cues::CAP_CRUNCH,
         cues::CAP_FSSSHT,
+        cues::CAP_WHEEE,
         cues::CAP_COUNT,
     ]);
     v.extend_from_slice(&[cues::STYLE_COUNT, RULES_SEMANTICS]);
@@ -170,9 +171,9 @@ mod pack_content_tests {
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
         // Prefix, three tables, the tile ids, the snack kinds, then the rule layer's numbers: key colours and MAX_CHANNELS (4),
-        // 18 effect ids and their count, 13 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
-        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 4 + 4 + 19 + 14 + 2);
-        assert_eq!(a.len(), 843);
+        // 18 effect ids and their count, 14 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
+        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 4 + 4 + 19 + 15 + 2);
+        assert_eq!(a.len(), 844);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
@@ -192,9 +193,9 @@ mod pack_content_tests {
         assert_eq!(fx[16], 19, "the door");
         assert_eq!(fx[17], 20, "the last named effect is the whistle");
         assert_eq!(fx[18], 21, "EFFECT_COUNT");
-        let caps = &a[at + 27..at + 41];
-        assert_eq!(caps[..13], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-        assert_eq!(caps[13], 13, "CAP_COUNT");
+        let caps = &a[at + 27..at + 42];
+        assert_eq!(caps[..14], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+        assert_eq!(caps[14], 14, "CAP_COUNT");
         assert_eq!(&a[a.len() - 2..], &[7, 1], "STYLE_COUNT, RULES_SEMANTICS");
     }
 }

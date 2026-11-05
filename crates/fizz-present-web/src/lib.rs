@@ -291,10 +291,13 @@ impl App {
                 queue_effect(&mut self.effects, id, place);
             }
         }
-        if let Some((id, place)) =
-            self.fall
-                .observe(&self.world, self.view_w, self.view_h, &options)
-        {
+        if let Some((id, place)) = self.fall.observe(
+            &self.world,
+            self.view_w,
+            self.view_h,
+            &options,
+            &mut self.event_captions,
+        ) {
             queue_effect(&mut self.effects, id, place);
         }
         self.puffs.observe(&self.world);

@@ -186,7 +186,7 @@ fn play_events(world: &World, options: &DrawOptions, fx: &mut ViewFx) {
             audio::effect(id, &place);
         }
     }
-    if let Some((id, place)) = fx.fall.observe(world, VIEW_W, VIEW_H, options) {
+    if let Some((id, place)) = fx.fall.observe(world, VIEW_W, VIEW_H, options, &mut fx.captions) {
         let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
             Placement::CENTRE
         } else {

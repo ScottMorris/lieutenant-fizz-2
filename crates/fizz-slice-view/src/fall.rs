@@ -19,11 +19,12 @@
 //!   the pogo stick was on at any point, including switching it off in the air. A death has its own cry ("whoa!") and plays nothing.
 //! - **The place** is Ben, in the view the picture is drawn with, as for any sound.
 //!
-//! The cue has no caption: the whistle is the comic sound of a fall and, like the jump, wants no word.
+//! The cue raises the caption "wheee!" ([`CAP_WHEEE`]) above Ben with the sound, through [`EventCaptions::raise_at`], since no event
+//! carries it. Like every caption it is gated only when drawn, and it is not rules state.
 
-use crate::{DrawOptions, camera_shaken};
+use crate::{DrawOptions, EventCaptions, camera_shaken};
 use fizz_ep2::World;
-use fizz_ep2::cues::EFFECT_WHISTLE;
+use fizz_ep2::cues::{CAP_WHEEE, EFFECT_WHISTLE};
 use fizz_sfx::place::{Placement, View, place};
 use fizz_view::{screen_y, tile_px};
 
@@ -64,6 +65,7 @@ impl FallWatch {
         w: usize,
         h: usize,
         options: &DrawOptions,
+        captions: &mut EventCaptions,
     ) -> Option<(u8, Placement)> {
         let ben = &world.ben;
         if ben.pogo || ben.dead > 0.0 {
@@ -85,6 +87,12 @@ impl FallWatch {
             return None;
         }
         self.spent = true;
+        // The word floats from Ben's head, like every caption, whatever the Captions setting says (the setting gates drawing only).
+        let head = (
+            tile_px(ben.b.x + ben.b.w * 0.5),
+            screen_y(ben.b.y + ben.b.h, world.map.h),
+        );
+        captions.raise_at(world, CAP_WHEEE, head, w, h, options);
         let (cam_x, cam_y) = camera_shaken(world, w, h, options);
         let at = place(
             tile_px(ben.b.x + ben.b.w * 0.5),
@@ -116,7 +124,9 @@ mod tests {
     }
 
     fn observe(watch: &mut FallWatch, w: &World) -> bool {
-        watch.observe(w, VIEW_W, VIEW_H, &opts()).is_some()
+        watch
+            .observe(w, VIEW_W, VIEW_H, &opts(), &mut EventCaptions::new())
+            .is_some()
     }
 
     /// A world with Ben standing, observed on the ground, then put in the air with vertical speed `vy`: the first step of a stretch.
@@ -136,6 +146,26 @@ mod tests {
         for vy in [0.0, -0.5, -8.0] {
             let (_, _, played) = leaves_the_ground(vy);
             assert!(played, "vy {vy}: the first step in the air");
+        }
+    }
+
+    #[test]
+    fn the_whistle_raises_wheee_above_ben_and_a_silent_stretch_raises_nothing() {
+        for (vy, words) in [(-1.0, 1), (20.0, 0)] {
+            let mut w = level::world();
+            let mut watch = FallWatch::new();
+            let mut captions = EventCaptions::new();
+            w.ben.b.on_ground = true;
+            watch.observe(&w, VIEW_W, VIEW_H, &opts(), &mut captions);
+            w.ben.b.on_ground = false;
+            w.ben.b.vy = vy;
+            watch.observe(&w, VIEW_W, VIEW_H, &opts(), &mut captions);
+            let live: Vec<_> = captions.views(&w, VIEW_W, VIEW_H, &opts()).collect();
+            assert_eq!(live.len(), words, "vy {vy}");
+            if let Some(c) = live.first() {
+                assert_eq!(c.text, "wheee!");
+                assert!(c.event);
+            }
         }
     }
 
@@ -231,13 +261,16 @@ mod tests {
     fn run(w: &mut World, input: Buttons, ticks: u32) -> Vec<u64> {
         // The watch sees Ben standing first, as a presenter's does on the ticks before he moves.
         let mut watch = FallWatch::new();
-        watch.observe(w, VIEW_W, VIEW_H, &opts());
+        watch.observe(w, VIEW_W, VIEW_H, &opts(), &mut EventCaptions::new());
         let mut prev = Buttons::NONE;
         let mut out = Vec::new();
         for _ in 0..ticks {
             step(w, InputFrame::from_transition(prev, input));
             prev = input;
-            if watch.observe(w, VIEW_W, VIEW_H, &opts()).is_some() {
+            if watch
+                .observe(w, VIEW_W, VIEW_H, &opts(), &mut EventCaptions::new())
+                .is_some()
+            {
                 out.push(w.tick.0);
             }
         }
@@ -279,7 +312,10 @@ mod tests {
             for _ in 0..frames {
                 step(&mut w, InputFrame::from_transition(prev, now));
                 prev = now;
-                if watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_some() {
+                if watch
+                    .observe(&w, VIEW_W, VIEW_H, &opts(), &mut EventCaptions::new())
+                    .is_some()
+                {
                     ticks.push(w.tick.0);
                 }
             }

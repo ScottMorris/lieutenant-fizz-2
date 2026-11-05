@@ -32,7 +32,7 @@ pub const EFFECT_FZZT_FM: u8 = 18;
 /// A door opening with its key (`Event::DoorOpen`): lower and longer than the clunk, which the head-bump keeps. The caption stays "clunk".
 pub const EFFECT_DOOR: u8 = 19;
 /// Ben's long fall: a descending slide whistle. No `Event` plays it; the presenters play it from Ben's state (`fizz_slice_view::FallWatch`), so the
-/// rules, the replay transcript and the state hash do not know it. It has no caption.
+/// rules, the replay transcript and the state hash do not know it. Its caption is `CAP_WHEEE`, which `FallWatch` raises with it.
 pub const EFFECT_WHISTLE: u8 = 20;
 /// The number of effect ids: valid ids are `0..EFFECT_COUNT`.
 pub const EFFECT_COUNT: u8 = 21;
@@ -52,8 +52,10 @@ pub const CAP_CLUNK: u8 = 9;
 pub const CAP_BOING: u8 = 10;
 pub const CAP_CRUNCH: u8 = 11;
 pub const CAP_FSSSHT: u8 = 12;
+/// "wheee!", the word of Ben's walk off a ledge (the slide whistle, which no event plays: `FallWatch` raises it).
+pub const CAP_WHEEE: u8 = 13;
 /// The number of shared captions: valid ids are `0..CAP_COUNT`.
-pub const CAP_COUNT: u8 = 13;
+pub const CAP_COUNT: u8 = 14;
 
 /// The caption styles a level's own strings choose from, in the order of a string record's style byte. A presenter maps each to
 /// a bright and a dark colour.
@@ -74,7 +76,7 @@ mod tests {
     #[test]
     fn the_counts_cover_the_last_id_and_the_style_count_is_the_readers() {
         assert_eq!(EFFECT_COUNT, EFFECT_WHISTLE + 1);
-        assert_eq!(CAP_COUNT, CAP_FSSSHT + 1);
+        assert_eq!(CAP_COUNT, CAP_WHEEE + 1);
         assert_eq!(STYLE_COUNT, STYLE_GREY + 1);
         assert_eq!(STYLE_COUNT, fizz_pack::level::STYLE_COUNT);
         const { assert!(CAP_COUNT < fizz_pack::level::CUE_LEVEL_BASE) };
