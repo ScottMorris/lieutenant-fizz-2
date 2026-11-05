@@ -105,6 +105,7 @@ Crates arrive with their first consumer and test. Milestone 0 built the platform
 | `fizz-music` | Platform data | Generated OPL2 and OPL3 register streams (4-byte records in `fizz-sfx`'s `OplStep` layout, with a loop point) for the placeholder level music "Crater Fields", lowered from the Undertone song source in `assets/music/` by `tools/music/generate.ts`. `no_std`, no `unsafe`, no dependencies; the tables, and `MusicPlayer`, the 560 Hz stepper that loops them and keys off only the music channels. See [`MUSIC.md`](MUSIC.md) | Exists (data and stepper, host-tested; the DOS audio service runs it: `MUSIC` line, `/MUSICTEST`, `/BENCH /AUDIO`) |
 | `fizz-engine` | Intent | `Game`, scene intent and events | Planned |
 | `fizz-bake` | Baking | Host tool, written in Rust: bakes scripts, art and music into per-target Fizz Asset Packs (`.FAP`) and checks them against committed manifests. See [`FAP.md`](FAP.md#the-baker) | Planned |
+| `fizz-script` | Baking | Host library (`std`, no platform types): the parser, lossless syntax tree, canonical printer and validator for the Fizz 2 script dialect, and the lowering to `fizz_ep2::level::LevelSource`, which the baker and the Level Studio share so there is one parser. See [`SCRIPT.md`](SCRIPT.md) | Planned |
 | `fizz-pack` | Baking | The Fizz Asset Pack format that `fizz-bake` writes and both platforms read: header and directory reader, checksums, the deflate decoder, `LevelView`, and a writer behind a `write` feature. `no_std`, no `alloc` in the reader, no `unsafe`, no dependencies. See [`FAP.md`](FAP.md) | Planned |
 
 `InputFrame` first appeared in this plan under `fizz-engine`. It now lives in `fizz-sim` next to `Tick`, because both presenters and the rules need it before any scene intent exists, and it has no dependency on scenes or events. `fizz-engine` keeps `Game` and the scene when they arrive.
@@ -119,7 +120,7 @@ Names are provisional. Rules that depend on a presenter are a bug.
 - **Fizz 1's DOS port** (`ScottMorris/lieutenant-fizz-dos`) supplies the 486 performance model and its palette frame technique: 16 colours by 14 brightness levels with a shade pass for lights.
 - **Desk** (`liminal-hq/desk`) supplies the hardware abstraction layer shape, the rule that shared crates forbid `unsafe` and never call DOS directly, the no-float-in-graphics rule for presenters, the toolchain and the check scripts. Its ideas are mirrored here now, kept behind `fizz-hal` and `fizz-dos-rt`, so the real Desk crates can be swapped in later.
 - **Waypoint and Spindle** supply repository conventions: the README shape, CI, release notes grouped by labels, and the pull request and issue templates.
-- **A level script format** was proved on Fizz 1: scripts rebuild its levels exactly. Fizz 2 uses a level script language as its authoring format and the baker as the single place that turns it into engine data.
+- **A level script format** was proved on Fizz 1: scripts rebuild its levels exactly. Fizz 2 uses a level script language as its authoring format and the baker as the single place that turns it into engine data. The Fizz 2 dialect, `script fizz2 0`, is specified in [`SCRIPT.md`](SCRIPT.md).
 
 ## Open questions
 
