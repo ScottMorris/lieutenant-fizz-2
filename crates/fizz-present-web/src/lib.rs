@@ -1290,12 +1290,12 @@ mod tests {
                 }
             }
         }
-        // The route's one long fall also hands the page the whistle, which no event carries; take it out to compare the events' effects.
+        // The route's three drops also hand the page the whistle, which no event carries; take it out to compare the events' effects.
         let whistles = got
             .iter()
             .filter(|&&e| e == fizz_ep2::cues::EFFECT_WHISTLE)
             .count();
-        assert_eq!(whistles, 1, "one long fall in the route");
+        assert_eq!(whistles, 3, "three drops of a tile or more in the route");
         got.retain(|&e| e != fizz_ep2::cues::EFFECT_WHISTLE);
         assert_eq!(got, want);
         assert_eq!(
@@ -1429,29 +1429,21 @@ mod tests {
 
     #[test]
     fn a_long_fall_hands_the_page_the_whistle_once() {
-        // The replay's one long drop reaches the whistle's threshold at tick 331 (see `fizz-slice-view`'s `fall.rs`). Start the app from
-        // the replay's world at the last tick Ben stood before it, let the idle world go on, and the page is handed effect 20 exactly once.
-        let mut w = fizz_ep2::level::world();
-        let mut prev = Buttons::NONE;
-        let mut standing = w.clone();
-        'run: for &(frames, now) in fizz_ep2::SLICE_SCRIPT {
-            for _ in 0..frames {
-                if w.tick.0 >= 331 {
-                    break 'run;
-                }
-                fizz_ep2::step(&mut w, InputFrame::from_transition(prev, now));
-                prev = now;
-                if w.ben.b.on_ground {
-                    standing = w.clone();
-                }
-            }
-        }
-        let w = standing;
+        // Ben stands on the stone slab of the exit gallery's roof (feet at y 42) and walks off its right end to the wooden floor
+        // (y 38), a net drop of four tiles: the page is handed effect 20 exactly once. (The replay's own long drop is at tick 326;
+        // see `fizz-slice-view`'s `fall.rs`.)
         let mut app = App::new();
-        app.world = w;
         app.frame(0.0);
+        app.world.ben.b.x = 27.0;
+        app.world.ben.b.px = 27.0;
+        app.world.ben.b.y = 42.0;
+        app.world.ben.b.py = 42.0;
+        app.world.ben.b.on_ground = true;
         let (mut now_ms, mut got) = (0.0, Vec::new());
-        for _ in 0..60 {
+        for i in 0..150 {
+            if i == 10 {
+                set_keys(&mut app, Buttons::NONE, Buttons::RIGHT);
+            }
             now_ms += FRAME_MS;
             app.frame(now_ms);
             got.extend(drain(&mut app));
