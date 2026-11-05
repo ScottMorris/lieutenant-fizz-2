@@ -260,7 +260,7 @@ def main(argv):
     # Chromium's singleton socket path must be short, so its profile lives under /tmp.
     profile = tempfile.mkdtemp(prefix="fz2cr.", dir="/tmp")
     debug = free_port()
-    proc = subprocess.Popen([chromium, "--headless", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=960,540",
+    proc = subprocess.Popen([chromium, "--headless", "--mute-audio", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=960,540",
                              "--remote-debugging-port=%d" % debug, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dict(os.environ, TMPDIR=profile))
     shots = []
     per_tick = [b for n, b in slice_script() for _ in range(n)]
