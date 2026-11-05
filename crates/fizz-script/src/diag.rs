@@ -78,6 +78,7 @@ codes! {
     W112, Warning, "a Fizz 1 field that is ignored";
     W120, Warning, "a lock whose key colour no object provides";
     W121, Warning, "a door tile that no lock opens";
+    W122, Warning, "a provisional channel alias on a lock";
 }
 
 impl fmt::Display for Code {

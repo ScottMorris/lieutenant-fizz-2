@@ -76,12 +76,17 @@ pub fn lower(src: &str) -> Result<Lowered, Vec<Diagnostic>> {
     }
 }
 
-/// The canonical text of `src`, or the syntax errors that stop it from being formatted. (A file that parses can always be
-/// formatted, even when the validator would refuse it.)
+/// The canonical text of `src`, or the syntax errors (and E110, see below) that stop it from being formatted. A file that parses
+/// is formatted even when the validator would refuse it, except for a lock whose `channel=` alias disagrees with its door.
 pub fn format(src: &str) -> Result<String, Vec<Diagnostic>> {
     let p = parse(src);
     if p.diagnostics.iter().any(Diagnostic::is_error) {
         return Err(p.diagnostics);
+    }
+    // The printer drops a lock's provisional `channel=` alias, which would hide an alias that disagrees with the door tile.
+    let (found, _) = validate::analyse(&p.ast);
+    if found.iter().any(|d| d.code == Code::E110) {
+        return Err(found);
     }
     Ok(print_canonical(&p.ast))
 }

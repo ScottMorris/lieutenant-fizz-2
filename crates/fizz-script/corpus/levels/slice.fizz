@@ -7,8 +7,8 @@ floor open
 
 // Channels 1 and 2 are the red and blue doors; on is closed.
 channel 1,2 on
-lock red-door key=red channel=1 at=15,21
-lock blue-door key=blue channel=2 at=22,39
+lock red-door key=red at=15,21
+lock blue-door key=blue at=22,39
 
 map
   |......................B........B|  47

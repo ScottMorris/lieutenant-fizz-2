@@ -248,9 +248,9 @@ The fix, where present, is a short instruction. Codes E005 and E011 to E016 of t
 - **The position rule.** A position is written `x=I y=J` exactly when both coordinates are cell centres (`I + 0.5` and `J + 0.5` with `I` and `J` non-negative integers), and `at=X,Y` for everything else, so one position has one spelling.
 - Map rows and objects indented two spaces; every map row inside the level's height carries its label, counted down from `h - 1`, right-aligned to the width of the top row's label and separated from the closing bar by two spaces. A row below the bottom of the level has no `y` and no label.
 - Objects grouped by kind in lowering order, each with the comment lines directly above it; blank lines between objects are dropped.
-- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it. A file that parses but fails validation is formatted.
+- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it, and also a file with E110, because dropping a `channel=` alias that disagrees with its door would hide the error. Any other file that parses is formatted, whatever the validator says.
 
-Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions and a wrong row label, which formatting corrects).
+Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions, W122 (the alias is dropped) and a wrong row label, which formatting corrects).
 
 ## The conformance corpus
 

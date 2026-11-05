@@ -7,7 +7,7 @@ start 1,1
 floor open
 
 channel 1,2 on
-lock gate key=red channel=1 at=2,1
+lock gate key=red at=2,1
 string hi "Hi there"
 map
   |....|  2

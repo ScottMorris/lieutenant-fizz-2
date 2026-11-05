@@ -68,17 +68,8 @@ fn statement(stmt: &Stmt, row: Option<(usize, usize)>) -> (usize, String) {
             )
         }
         Stmt::Lock {
-            name,
-            key,
-            channel,
-            cell,
-        } => (
-            0,
-            format!(
-                "lock {name} key={key} channel={channel} at={},{}",
-                cell.0, cell.1
-            ),
-        ),
+            name, key, cell, ..
+        } => (0, format!("lock {name} key={key} at={},{}", cell.0, cell.1)),
         Stmt::Str { name, text, style } => {
             let s = style
                 .as_ref()

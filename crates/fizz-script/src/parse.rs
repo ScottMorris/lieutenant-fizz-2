@@ -705,18 +705,21 @@ fn parse_lock(toks: &[Tok]) -> R<Stmt> {
             Code::E003,
             col,
             "`lock` needs a name",
-            "write `lock red-door key=red channel=1 at=15,21`",
+            "write `lock red-door key=red at=15,21`",
         );
     };
     let name_s = check_name(&name.text, name.col)?;
     let f = Fields::parse(&toks[2..], &["key", "channel", "at"])?;
     let (key, _) = f.need("key", col, "red")?;
-    let (ch, chcol) = f.need("channel", col, "1")?;
     let (at, atcol) = f.need("at", col, "15,21")?;
+    let channel = match f.get("channel") {
+        Some((v, c)) => Some(uint(v, c)?),
+        None => None,
+    };
     Ok(Stmt::Lock {
         name: name_s,
         key: key.to_string(),
-        channel: uint(ch, chcol)?,
+        channel,
         cell: ipair(at, atcol)?,
     })
 }

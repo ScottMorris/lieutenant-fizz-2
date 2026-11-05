@@ -358,10 +358,11 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
         }
     }
 
-    // The locks.
+    // The locks. The door tile at the cell decides the channel; `channel=` is a provisional alias that must agree with it.
     let mut lock_channels: Vec<(u32, usize)> = Vec::new();
+    let mut lock_info: Vec<(usize, usize, u8)> = Vec::new();
     let mut lock_recs: Vec<RuleRec> = Vec::new();
-    for (i, (at, name, key, channel, cell)) in locks.iter().enumerate() {
+    for (i, (at, name, key, alias, cell)) in locks.iter().enumerate() {
         claim(&mut names, &mut s, at, name);
         let colour = key_colour(key);
         if colour.is_none() {
@@ -382,14 +383,23 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
             );
         }
         let mut cell_ok = true;
-        if *channel >= 32 {
-            cell_ok = false;
-            s.add(
-                Code::E109,
+        if let Some(a) = alias {
+            s.add_fix(
+                Code::W122,
                 at.line,
                 at.col,
-                format!("channel {channel} is out of range: channels are 0 to 31"),
+                format!("`channel={a}` is a provisional alias: the door tile at the cell decides the channel"),
+                "remove it",
             );
+            if *a >= 32 {
+                cell_ok = false;
+                s.add(
+                    Code::E109,
+                    at.line,
+                    at.col,
+                    format!("channel {a} is out of range: channels are 0 to 31"),
+                );
+            }
         }
         if let Some((w, h)) = dims
             && (cell.0 < 0 || cell.1 < 0 || cell.0 as usize >= w || cell.1 as usize >= h)
@@ -402,37 +412,49 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
                 format!("the cell {},{} is outside the map", cell.0, cell.1),
             );
         }
-        if cell_ok
-            && let Some(t) = tile_at(cell.0, cell.1)
-            && door_channel(t) != Some(*channel as u8)
-        {
-            s.add_fix(
-                Code::E110,
-                at.line,
-                at.col,
-                format!(
-                    "the cell {},{} is not a door tile on channel {channel}",
-                    cell.0, cell.1
+        let mut channel = None;
+        if cell_ok && let Some(t) = tile_at(cell.0, cell.1) {
+            match door_channel(t) {
+                None => s.add_fix(
+                    Code::E110,
+                    at.line,
+                    at.col,
+                    format!("the cell {},{} is not a door tile", cell.0, cell.1),
+                    "point `at=` at a `D` or `b` cell",
                 ),
-                "point `at=` at a `D` (channel 1) or `b` (channel 2) cell",
-            );
+                Some(c) if alias.is_some_and(|a| a != u32::from(c)) => s.add_fix(
+                    Code::E110,
+                    at.line,
+                    at.col,
+                    format!(
+                        "the door at {},{} is on channel {c}, not channel {}",
+                        cell.0,
+                        cell.1,
+                        alias.unwrap_or(0)
+                    ),
+                    "remove `channel=`",
+                ),
+                Some(c) => channel = Some(c),
+            }
         }
-        if *channel < 32
-            && let Some(prev) = lock_channels.iter().find(|(c, _)| c == channel)
-        {
-            s.add_fix(
-                Code::E119,
-                at.line,
-                at.col,
-                format!("channel {channel} already has a lock (line {})", prev.1),
-                "keep one lock for each door",
-            );
-        }
-        if *channel < 32 {
-            lock_channels.push((*channel, at.line));
-        }
-        if let (Some(c), true) = (colour, cell_ok) {
-            lock_recs.push(Rule::lock(c, *channel as u8, (cell.0 as u16, cell.1 as u16)).to_rec());
+        if let Some(c) = channel {
+            if let Some(prev) = lock_channels.iter().find(|(p, _)| *p == u32::from(c)) {
+                s.add_fix(
+                    Code::E119,
+                    at.line,
+                    at.col,
+                    format!(
+                        "this door (channel {c}) already has a lock (line {})",
+                        prev.1
+                    ),
+                    "keep one lock for each door",
+                );
+            }
+            lock_channels.push((u32::from(c), at.line));
+            lock_info.push((at.line, at.col, c));
+            if let Some(col) = colour {
+                lock_recs.push(Rule::lock(col, c, (cell.0 as u16, cell.1 as u16)).to_rec());
+            }
         }
     }
 
@@ -494,12 +516,12 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
     }
 
     // Lints.
-    for (at, _, _, channel, _) in &locks {
-        if *channel < 32 && switches & (1 << channel) == 0 {
+    for (line, col, channel) in &lock_info {
+        if switches & (1 << channel) == 0 {
             s.add(
                 Code::W101,
-                at.line,
-                at.col,
+                *line,
+                *col,
                 format!("channel {channel} starts off, so this lock's door starts open"),
             );
         }

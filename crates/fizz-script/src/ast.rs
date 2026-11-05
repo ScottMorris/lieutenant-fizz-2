@@ -126,7 +126,8 @@ pub enum Stmt {
     Lock {
         name: String,
         key: String,
-        channel: u32,
+        /// The provisional `channel=N` alias; the door tile decides the channel.
+        channel: Option<u32>,
         cell: (i64, i64),
     },
     /// The style word is resolved by the validator.

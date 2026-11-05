@@ -210,6 +210,8 @@ fn canonical_text_keeps_the_meaning() {
         let codes =
             |r: &fizz_script::Report| r.diagnostics.iter().map(|d| d.code).collect::<Vec<_>>();
         let mut a = codes(&before);
+        // The printer drops the provisional alias, so its lint goes with it.
+        a.retain(|c| *c != fizz_script::Code::W122);
         let mut b = codes(&after);
         a.sort();
         a.dedup();

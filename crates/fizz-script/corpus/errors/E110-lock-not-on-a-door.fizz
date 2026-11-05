@@ -2,7 +2,7 @@ script fizz2 0
 level "T" 4x3 id=t
 start 1,1
 channel 1 on
-lock gate key=red channel=1 at=1,1
+lock gate key=red at=1,1
 map
   |....|  2
   |..D.|  1
