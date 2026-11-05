@@ -14,10 +14,11 @@
 //!   the last step he stood is the takeoff. A pogo stick bounces from the ground all the time and has no falls, and a death has its
 //!   own cry ("whoa!"), so neither plays the whistle, and both reset the stretch.
 //! - **The whistle** plays on the first step on which Ben is falling and his feet are [`FALL_TILES`] or more under the takeoff. It plays once
-//!   for the stretch; the next one needs a landing first. The measure is the net drop, not the fall from the top of a jump: a full
-//!   jump (3.5 tiles up, then 3.5 down) comes back to its takeoff and is silent, a drop of under a tile (a half-tile
-//!   step, the settling of a landing) is silent, landing on something higher than the takeoff is silent, and a step or jump off
-//!   a ledge a tile or more high is not, which includes the four-tile drop from the exit gallery's stone roof to its wooden floor.
+//!   for the stretch; the next one needs a landing first. A stretch that began with a jump is silent whatever its drop: the whistle is
+//!   for a fall, and a jump off a ledge is a movement Ben chose. The measure is the net drop, not the fall from the top of a jump: a
+//!   drop of under a tile (a half-tile step, the settling of a landing) is silent, landing on something higher than the takeoff is
+//!   silent, and a step off a ledge a tile or more high is not, which includes the four-tile drop from the exit gallery's stone roof to
+//!   its wooden floor.
 //! - **The place** is Ben, in the view the picture is drawn with, as for any sound.
 //!
 //! The cue has no caption: the whistle is the comic sound of a fall and, like the jump, wants no word.
@@ -40,6 +41,10 @@ pub struct FallWatch {
     takeoff: i32,
     /// The whistle has played in this stretch.
     played: bool,
+    /// Ben stood on the last step observed, so a step in the air is the first of a stretch.
+    grounded: bool,
+    /// The stretch began with a jump (Ben left the ground rising), not a step off a ledge. A jump never whistles.
+    jumped: bool,
 }
 
 impl Default for FallWatch {
@@ -54,6 +59,8 @@ impl FallWatch {
         FallWatch {
             takeoff: 0,
             played: false,
+            grounded: false,
+            jumped: false,
         }
     }
 
@@ -76,9 +83,16 @@ impl FallWatch {
         if ben.b.on_ground || ben.pogo || ben.dead > 0.0 {
             self.takeoff = y;
             self.played = false;
+            self.grounded = ben.b.on_ground;
+            self.jumped = false;
             return None;
         }
-        if self.played || ben.b.vy >= 0.0 || self.takeoff - y < FALL_SIXTEENTHS {
+        if self.grounded {
+            // The first step in the air: a jump leaves the ground rising, a step off a ledge does not.
+            self.grounded = false;
+            self.jumped = ben.b.vy > 0.0;
+        }
+        if self.played || self.jumped || ben.b.vy >= 0.0 || self.takeoff - y < FALL_SIXTEENTHS {
             return None;
         }
         self.played = true;
@@ -268,9 +282,9 @@ mod tests {
     }
 
     #[test]
-    fn the_roof_of_the_exit_gallery_is_a_whistling_drop_whether_ben_walks_or_jumps_off() {
+    fn the_roof_of_the_exit_gallery_whistles_when_ben_walks_off_and_not_when_he_jumps_off() {
         // Ben stands on the grey slab (row 41, feet at y 42) and the gallery floor is at feet y 38: a net drop of 4.
-        for input in [Buttons::RIGHT, Buttons::RIGHT | Buttons::JUMP] {
+        for (input, whistles) in [(Buttons::RIGHT, 1), (Buttons::RIGHT | Buttons::JUMP, 0)] {
             let mut w = level::world();
             w.ben.b.x = 27.0;
             w.ben.b.y = 42.0;
@@ -280,7 +294,7 @@ mod tests {
             let cues = run(&mut w, input, 90);
             assert_eq!(
                 cues.len(),
-                1,
+                whistles,
                 "{input:?}: {cues:?} {} {} {}",
                 w.ben.b.x,
                 w.ben.b.y,
