@@ -64,7 +64,7 @@ A cell holds the character in the low byte and the attribute in the high byte: f
 | --- | --- | --- |
 | Missing | `0x08` dark grey on black | `0x07` normal |
 | Available | `0x07` light grey on black | `0x0F` bright |
-| In use | `0x1F` bright white on blue, across the whole row | `0x70` inverse, across the whole row |
+| In use | `0x0F` bright white on black, brighter than the light grey of an available row and with no bar behind it | `0x70` inverse, across the whole row |
 
 A monochrome adapter in mode 7 renders only normal (`0x07`), bright (`0x0F`) and inverse (`0x70`) and shows a dark grey foreground on black as black, so there the screen uses those three values and nothing else, and the order dim, normal, highlighted is kept. The markers repeat each state in the character, so no state depends on an attribute alone. Low memory and needed items use a yellow-on-brown and a white-on-red bar on colour adapters. A VGA driving a monochrome display renders colour attributes as greys, so it keeps the colour set.
 

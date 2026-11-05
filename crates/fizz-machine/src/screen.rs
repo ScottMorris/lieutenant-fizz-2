@@ -15,7 +15,7 @@
 // background in bits 4-6, bit 7 clear so nothing blinks whatever the adapter makes of it.
 //
 // Attributes by state. Colour adapters: missing is dark grey on black (0x08), available light grey on black (0x07), in use
-// bright white on blue (0x1F) across the whole row. A monochrome adapter (MDA or Hercules, mode 7) turns every attribute into
+// bright white on black (0x0F), with no bar behind it. A monochrome adapter (MDA or Hercules, mode 7) turns every attribute into
 // normal (0x07), bright (0x0F) or inverse (0x70) and shows a dark grey foreground on black as black, so there the three states
 // are normal, bright and inverse: missing 0x07, available 0x0F, in use 0x70. The order dim, normal, highlighted is the same on
 // both. The marker in front of each row (`x`, a tick, a pointer) repeats the state in the character, so no state depends on an
@@ -77,7 +77,7 @@ const COLOUR: Theme = Theme {
     legend: 0x6F,
     found: 0x07,
     dim: 0x08,
-    in_use: 0x1F,
+    in_use: 0x0F,
     warn: 0x6E,
     needed: 0x4F,
     foot: 0x07,
