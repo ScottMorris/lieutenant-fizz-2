@@ -299,4 +299,8 @@ traces!(
     route,
     look,
     aim,
+    wall_kick_chimney,
+    wall_kick_single,
+    wall_kick_pogo,
+    wall_kick_oneway,
 );

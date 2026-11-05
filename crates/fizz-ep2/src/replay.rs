@@ -256,6 +256,7 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
             Event::Bounce { x, y } => writeln!(out, "EVENT {} bounce {x} {y}", w.tick.0)?,
             Event::HeadBump { x, y } => writeln!(out, "EVENT {} headbump {x} {y}", w.tick.0)?,
             Event::Jump { x, y } => writeln!(out, "EVENT {} jump {x} {y}", w.tick.0)?,
+            Event::Kick { x, y } => writeln!(out, "EVENT {} kick {x} {y}", w.tick.0)?,
             Event::Snack { x, y } => writeln!(out, "EVENT {} snack {x} {y}", w.tick.0)?,
             Event::Can { x, y } => writeln!(out, "EVENT {} can {x} {y}", w.tick.0)?,
             Event::Life { x, y } => writeln!(out, "EVENT {} life {x} {y}", w.tick.0)?,

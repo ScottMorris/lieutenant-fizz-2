@@ -105,7 +105,7 @@ The model is Fizz 1's, described in [`ARCHITECTURE.md`](ARCHITECTURE.md). The sk
 
 The traces are `FIZZ1 TRACE 2` files: format 2 adds `look_up`, `look_down` and `aim` columns after `switches`, and the sixteen older traces were regenerated with their old columns byte for byte unchanged. Floating-point values are written as 16 hexadecimal digits of their bit pattern. Each trace names the Fizz 1 commit it came from (`4bce036`). `tools/fizz1-trace` also checks that no scenario triggers an automatic mantle. `cd tools/fizz1-trace && cargo run --release -- --check --all` (with `FIZZ1` at that commit) fails if a committed trace differs from what Fizz 1 writes today.
 
-Proven bit for bit, all eighteen scenarios:
+Proven bit for bit, all twenty-two scenarios:
 
 | Scenario | What it proves |
 | --- | --- |
@@ -119,6 +119,7 @@ Proven bit for bit, all eighteen scenarios:
 | `look` | the look timers: Up or Down held alone while idle counts up and resets on release; no look while both are held, while running, in the air or on the pogo |
 | `aim` | the aim and the shot: level, Up on the ground (straight up from the middle of the body), Down on the ground (still level), Down in the air (straight down from the feet) |
 | `route` | a run through a small maze that ends on spikes: one-way ledges, jumps and the spike death |
+| `wall_kick_chimney`, `wall_kick_single`, `wall_kick_pogo`, `wall_kick_oneway` | the wall-kick: chained kicks between two walls, one kick per side until landing, the cooldown, no kick on the pogo stick, and a one-way platform that is not a wall |
 
 The harness runs every scenario through the whole `World` and compares every field a trace carries, Ben's (including `look_up`, `look_down` and `aim`; trace format 2 adds those three columns after `switches`) and the first Gloop's. One bit is masked in the `switches` field: Fizz 1 rewrites the red door's tile when it opens and never touches its switch word, while Fizz 2 keeps the door as a switched tile on channel 1 (a closed door is a set bit), so the door's bit is left out of that comparison. The facts the traces do not show (the door staying shut without the key, what a death keeps and drops) are covered by unit tests in `crates/fizz-ep2/src/replay.rs`.
 
@@ -161,7 +162,7 @@ Departures from Fizz 1:
 - The Gloop's "stray" reset (sent home after three seconds more than four tiles off its floor) is not ported; the slice's chicken cannot leave its floor. It would need a hashed timer.
 - The chicken's cluck timer and stream are new in Fizz 2; Fizz 1's Gloop is silent. They are described under Events and clucks above.
 - The look offset is new in Fizz 2 (see Looking up and down). Fizz 1 keeps the same memory in its camera position. Its up and down aim, the look timers and `aim` are ports and have no departure.
-- Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, wall kicks, lifts and conveyors under Ben are also not ported.
+- Mantle is not ported, so nothing starts one automatically. The trace tool refuses scenarios that would trigger it, and the port documents the omission where Fizz 1 calls `tick_mantle`. Ladders, vines, lifts and conveyors under Ben are also not ported. The wall kick is ported (`Ben::wall_side` and the kick in `tick_move`, from `tick_ben_move` and `wall_side`; the traces `wall_kick_*` prove it bit for bit); Fizz 1's refusal to kick on the tick Ben leaves a ladder or vine has nothing to apply to until those exist. `wall_t` and `kick_side` are hashed only while a kick still matters (`wall_t` above zero or a side set), so a world that has not kicked hashes as it did before kicks existed.
 
 ### Looking up and down
 

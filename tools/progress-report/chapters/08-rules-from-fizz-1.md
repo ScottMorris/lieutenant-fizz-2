@@ -18,7 +18,7 @@ The rules of the slice are Fizz 1's. `fizz-phys` holds Fizz 1's tile map, body, 
 
 `tools/fizz1-trace` is a standalone Cargo project outside the workspace, with path dependencies on Fizz 1's `lf-sim` and `lf-episode-1`. It refuses to run unless Fizz 1 is at `4bce036` with a clean tree, builds a world the way Fizz 1's own `arena()` test helper does, plays a scenario file through it, and writes one row per tick: Ben's position, velocity, facing, squash, pogo, ground and dead flags, the key count, the switch word, the look timers and the aim, and, when the scenario has one, the first Gloop's body, direction, stun and dead flag. Every floating-point field is the 16 hexadecimal digits of its bit pattern, so a row has no rounding to argue about. Format 2 adds the look timers and the aim (#47); the sixteen older traces were regenerated and their old columns are byte for byte unchanged.
 
-The scenario files, `crates/fizz-ep2/tests/fizz1/<name>.scn`, are shared: Fizz 1's tool and Fizz 2's test read the same map, start position and run-length input script. There are eighteen:
+The scenario files, `crates/fizz-ep2/tests/fizz1/<name>.scn`, are shared: Fizz 1's tool and Fizz 2's test read the same map, start position and run-length input script. There are twenty-two:
 
 - `fall`, `run`, `jump_full`, `jump_cut`: gravity and terminal speed, walking and friction, a held jump and a cut one.
 - `pogo_idle`, `pogo_held`, `pogo_ceiling`: the short bounce, the held high bounce with its squash, and a bounce stopped by a low ceiling.
@@ -26,6 +26,7 @@ The scenario files, `crates/fizz-ep2/tests/fizz1/<name>.scn`, are shared: Fizz 1
 - `gloop_patrol`, `stomp`, `stomp_pogo`, `fizz_stun`: the chicken turning at a wall and a ledge, a stomp with and without the pogo, and a shot that stuns it while a second shot passes through.
 - `key_door`, `route`: the red key and door, and a run through a small maze that ends on spikes.
 - `look`, `aim`: the look timers (Up or Down held alone while idle, and the cases where no look starts) and the four shot directions.
+- `wall_kick_chimney`, `wall_kick_single`, `wall_kick_pogo`, `wall_kick_oneway`: the wall-kick, added with Milestone 3.5's first mechanic: kicks chained between two walls, one kick per side until landing, no kick on the pogo stick, and a one-way platform that is not a wall.
 
 `crates/fizz-ep2/tests/fizz1_traces.rs` parses each scenario, runs it through `fizz_ep2::World` and compares every row with the committed trace as text, so a floating-point value matches only if all 64 bits do. The tolerance is zero, and the first mismatch panics with the tick and the name of the field. The scenarios run through the whole world rather than Ben alone, so the chicken, the shots and the key and door are proved by the same files as the movement (#27, #29). One bit is masked: Fizz 1 rewrites the red door's tile when it opens and never touches the switch word, while Fizz 2 keeps the door as a switched tile on its own channel, so that bit is left out of the `switches` comparison.
 
@@ -63,13 +64,13 @@ The event list, the camera and the presentation fields (the chicken's `cluck_age
 
 ### Uncatalogued
 - Whether Fizz 1 at `4bce036` still writes the committed traces. CI never runs `tools/fizz1-trace`, and regenerating or checking the files (`cargo run --release -- --check --all`) needs a Fizz 1 checkout.
-- What the scenarios do not reach: ladders, vines, wall kicks, moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. The tool fails loudly if a script triggers a mantle.
+- What the scenarios do not reach: ladders, vines, moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. The tool fails loudly if a script triggers a mantle.
 - The `f64` rules on a real 486 FPU, and what they cost there. DOSBox emulates the x87 and runs at a fixed cycle count that does not model its latency.
 - WebAssembly in a browser other than Chromium: the module was replayed under Node and Bun and in headless Chromium.
 
 ### Wish list
 - A scheduled CI job that regenerates the traces from a pinned Fizz 1 and fails on a difference.
-- Scenarios for wall kicks and ladders when Milestone 3.5 ports them.
+- Scenarios for ladders and vines when Milestone 3.5 ports them.
 - Fizz 1's other rules for the later levels (lights, switches, the full enemy set) proved the same way, one scenario file each.
 
 > **From the workbench — FNV-1a.** The Fowler–Noll–Vo hash starts from an offset basis and, for each byte, exclusive-ors the byte into the hash and multiplies by a prime. The 64-bit version uses the offset basis `0xcbf29ce484222325` and the prime `0x100000001b3`, the two constants the state hash of `fizz-sim` uses.
@@ -89,7 +90,7 @@ id: trace-chart
 kind: chart
 track: shared
 title: Fizz 1's traces and Fizz 2
-alt: Four curves drawn from Fizz 1's golden traces (a fall, a run, a held pogo bounce and the look timer) with a bar chart of the rows in each of the eighteen scenarios; every row is reproduced bit for bit by Fizz 2.
+alt: Four curves drawn from Fizz 1's golden traces (a fall, a run, a held pogo bounce and the look timer) with a bar chart of the rows in each of the twenty-two scenarios; every row is reproduced bit for bit by Fizz 2.
 caption: The committed Fizz 1 traces, and the test that Fizz 2 passes against all of them.
 at: figure trace-chart
 thumb: svg

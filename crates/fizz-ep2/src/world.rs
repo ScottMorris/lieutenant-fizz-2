@@ -67,6 +67,9 @@ pub enum Event {
     HeadBump { x: i32, y: i32 },
     /// A ground jump started (Fizz 1's jump sound, which has no caption).
     Jump { x: i32, y: i32 },
+    /// Ben kicked off a wall (Fizz 1's "kick"), at the point Fizz 1 raises it: 0.35 tiles right of his body's left edge and
+    /// 0.7 up. The presenters do not show or sound it yet.
+    Kick { x: i32, y: i32 },
     /// Ben took a snack, a cheezie, a chocolate or a cookie (Fizz 1's "crunch"), half a tile above the item's centre.
     Snack { x: i32, y: i32 },
     /// Ben took a soda can, a refill for the Fizz Blaster (Fizz 1's "fsssht"), half a tile above the can's centre.
@@ -439,6 +442,10 @@ impl World {
             let (x, y) = sixteenths(p);
             self.events.push(Event::Jump { x, y });
         }
+        if let Some(p) = f.kicked {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Kick { x, y });
+        }
         if let Some(p) = f.fired {
             let (x, y) = sixteenths(p);
             self.events.push(Event::Fire { x, y });
@@ -724,7 +731,10 @@ impl World {
 /// 8. PROVISIONAL, written only when an elixir has been taken: one byte per elixir, 1 if it has been taken and 0 if not. It is absent
 ///    while no elixir is taken, which is every state of the golden replay, so the elixirs in the level do not move a hash until one is
 ///    taken. `lives` is not hashed at all: it is a number the HUD shows and changes no rule of this slice, and it is worked out by the
-///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block.
+///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block;
+/// 9. only while a wall kick still matters (`wall_t` above zero, or `kick_side` not zero): `wall_t` and `kick_side` as `f64`
+///    bits. A world that has never kicked, or whose kick has landed and cooled down, hashes as it did before kicks existed,
+///    which keeps the slice's replay golden. The `LEVL` 2 change may fold the two fields into step 2 when it re-pins.
 ///
 /// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
@@ -784,6 +794,10 @@ pub fn hash(w: &World) -> StateHash {
             h.write_u8(u8::from(s.taken));
         }
     }
+    if ben.wall_t > 0.0 || ben.kick_side != 0.0 {
+        h.write_f64(ben.wall_t);
+        h.write_f64(ben.kick_side);
+    }
     h
 }
 
@@ -800,6 +814,7 @@ mod tests {
     use fizz_sim::Buttons;
 
     extern crate std;
+    use std::string::String;
     use std::vec::Vec;
 
     /// FNV-1a 64 over raw bytes, written out again here so the test does not lean on `StateHash`.
@@ -1290,6 +1305,95 @@ mod tests {
 
     fn kinds(w: &World) -> Vec<Event> {
         w.events().to_vec()
+    }
+
+    /// The arena with a solid wall of blocks at column 11, right of Ben, who stands at x 10 (his body ends at 10.7).
+    fn arena_with_wall() -> World {
+        let mut map = TileMap::new(24, 14, tiles::props());
+        for x in 0..24 {
+            map.set(x, 0, tiles::BLOCK);
+            map.set(x, 1, tiles::BLOCK);
+        }
+        for y in 2..14 {
+            map.set(11, y, tiles::BLOCK);
+        }
+        World::new(map, (10.0, 2.0))
+    }
+
+    /// Takes Ben to the wall, jumps and presses Jump again in the air against it: the tick of that second press.
+    fn kick(w: &mut World) -> Vec<Event> {
+        let (r, jr) = (Buttons::RIGHT, Buttons::JUMP.union(Buttons::RIGHT));
+        let mut prev = Buttons::NONE;
+        for held in core::iter::repeat_n(r, 5)
+            .chain([jr])
+            .chain(core::iter::repeat_n(r, 3))
+        {
+            press(w, prev, held);
+            prev = held;
+        }
+        press(w, prev, jr);
+        kinds(w)
+    }
+
+    #[test]
+    fn a_wall_kick_raises_kick_at_the_chest_and_a_world_that_never_kicked_hashes_as_before() {
+        let mut w = arena_with_wall();
+        let before = hash(&w).finish();
+        let ev = kick(&mut w);
+        let (bx, by) = (w.ben.b.x, w.ben.b.y);
+        let [Event::Kick { x, y }] = ev[..] else {
+            panic!("a kick: {ev:?}")
+        };
+        // The point is taken before the move: Ben has since been thrown up and left, by less than a tile in one tick.
+        assert!(x >= ((bx + 0.35) * 16.0) as i32 && x - ((bx + 0.35) * 16.0) as i32 <= 16);
+        assert!(y <= ((by + 0.7) * 16.0) as i32 && ((by + 0.7) * 16.0) as i32 - y <= 16);
+        assert!(w.ben.kick_side == 1.0 && w.ben.wall_t > 0.0);
+        assert_ne!(hash(&w).finish(), before);
+
+        // Only the Ben-and-kick state differs between two worlds that are otherwise the same: the cooldown and the side are
+        // hashed while they matter, and not once the cooldown is spent and the side is clear.
+        let mut a = arena_with_wall();
+        let mut b = arena_with_wall();
+        assert_eq!(hash(&a).finish(), hash(&b).finish());
+        b.ben.kick_side = 1.0;
+        assert_ne!(hash(&a).finish(), hash(&b).finish(), "the side");
+        b.ben.kick_side = 0.0;
+        b.ben.wall_t = 0.1;
+        assert_ne!(hash(&a).finish(), hash(&b).finish(), "the cooldown");
+        a.ben.wall_t = 0.2;
+        assert_ne!(
+            hash(&a).finish(),
+            hash(&b).finish(),
+            "the cooldown's length"
+        );
+        b.ben.wall_t = -0.01;
+        a.ben.wall_t = 0.0;
+        assert_eq!(
+            hash(&a).finish(),
+            hash(&b).finish(),
+            "a spent cooldown is as good as none"
+        );
+    }
+
+    #[test]
+    fn a_kick_is_written_to_the_transcript() {
+        let mut w = arena_with_wall();
+        let mut out = String::new();
+        kick(&mut w);
+        crate::replay::write_step(&mut out, &w).unwrap();
+        assert!(
+            out.contains(&std::format!("EVENT {} kick ", w.tick.0)),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_slice_never_kicks() {
+        // The golden replay has no kick event and its hash never takes the extra bytes, so the transcript is the one pinned
+        // before kicks existed (the golden tests in `replay.rs` compare the bytes).
+        let mut t = String::new();
+        crate::replay::replay(&mut t).unwrap();
+        assert!(!t.contains(" kick "));
     }
 
     #[test]

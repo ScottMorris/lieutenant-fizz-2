@@ -392,9 +392,9 @@ class DrawingTests(unittest.TestCase):
 
     def test_the_trace_chart_counts_every_committed_trace(self):
         stats, commit = charts.trace_stats(gather.ROOT)
-        self.assertEqual(len(stats), 18)
+        self.assertEqual(len(stats), 22)
         self.assertEqual(commit, "4bce036")
-        self.assertIn("18 scenarios", charts.trace_chart(self.D, gather.ROOT))
+        self.assertIn("22 scenarios", charts.trace_chart(self.D, gather.ROOT))
 
     def test_the_cluck_path_refuses_code_that_moved(self):
         original = flows.CLUCK_DOS[1]
