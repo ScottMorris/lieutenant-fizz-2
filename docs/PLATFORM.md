@@ -275,7 +275,7 @@ While a screen is up `App::frame` drops the pacer and returns 0, so no tick runs
 | --- | --- | --- |
 | `tools/check.sh` | Formatting, lints, tests, licence headers and the markdown style check | The pinned Rust toolchain |
 | `python3 -I crates/fizz-pack/tests/levl_hash.py` | Recomputes `LEVEL_HASH` and `SCHEMA_HASH` from the list in `docs/FAP.md`, independently of the Rust constants; the pins in `crates/fizz-pack/tests/pack.rs` must equal what it prints | Python 3 |
-| `python3 -I tools/levl2-slice.py` | Writes the slice's `LEVL` version 2 bytes (2,048 of them) and its level digest from the description in `docs/FAP.md`, independently of the Rust encoder; the pins in `crates/fizz-ep2/src/level.rs` must equal what it prints | Python 3 |
+| `python3 -I tools/levl2-slice.py` | Writes the slice's `LEVL` version 2 bytes (2,080 of them) and its level digest from the description in `docs/FAP.md`, independently of the Rust encoder; the pins in `crates/fizz-ep2/src/level.rs` must equal what it prints | Python 3 |
 | `cargo run -p fizz-ep2 --example replay` | Prints the native slice transcript | The pinned Rust toolchain |
 | `tools/setup-dos.sh` | Links `vendor/` to the DOS toolchain when it is absent | `DOS_TOOLCHAIN`, or a `vendor/` already in place |
 | `tools/build-dos.sh` | Builds `RTSMOKE.EXE`, `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos` | The DOS toolchain |
