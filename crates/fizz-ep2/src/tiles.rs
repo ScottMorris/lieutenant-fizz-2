@@ -10,6 +10,7 @@
 
 use crate::cues;
 use crate::rules::{KEY_BLUE, KEY_GREEN, KEY_RED, RULES_SEMANTICS};
+use fizz_pack::level::{MAX_BINDINGS, MAX_DOOR_BINDINGS, MAX_STATE_VALUES, MAX_STATES};
 use fizz_phys::TileProps;
 use fizz_phys::tilemap::{
     ONEWAY, SLOPE_L22A, SLOPE_L22B, SLOPE_L45, SLOPE_R22A, SLOPE_R22B, SLOPE_R45, SOLID, SWITCHED,
@@ -58,9 +59,6 @@ pub const DOOR_BLUE_CHANNEL: u8 = 2;
 /// The blue door's bit in `TileMap::switches`.
 pub const DOOR_BLUE_BIT: u32 = 1 << DOOR_BLUE_CHANNEL;
 
-/// The number of switch channels a map has (the width of `TileMap::switches`). A rule's channel is below this.
-pub const MAX_CHANNELS: u8 = 32;
-
 /// Whether a tile is lethal liquid. Fizz 1 also counts molten metal, which Episode 2 does not have yet.
 pub fn is_liquid(t: u8) -> bool {
     t == CHOC
@@ -90,8 +88,8 @@ pub fn props() -> TileProps {
 /// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
 /// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
 /// the tile property table (flags and slope for each of the 256 tile ids, in that order), the named tile ids, and the
-/// numbers of the snack kinds (the three snacks, the soda can and the elixir), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
-/// the sound effect ids (each named id, then `EFFECT_COUNT`), the shared caption ids (each, then `CAP_COUNT`), `STYLE_COUNT` and
+/// numbers of the snack kinds (the three snacks, the soda can and the elixir), the key colour numbers (red 0, blue 1, green 2), the state limits
+/// (`MAX_STATES`, `MAX_STATE_VALUES`, `MAX_BINDINGS` and `MAX_DOOR_BINDINGS`), the sound effect ids (each named id, then `EFFECT_COUNT`), the shared caption ids (each, then `CAP_COUNT`), `STYLE_COUNT` and
 /// the `RULES_SEMANTICS` byte, which is bumped when what a rule record means changes without its layout changing. The object kind
 /// numbers belong to `fizz-pack` itself. Changing a flag, a slope, an id or a cue number changes the number on purpose,
 /// so a pack baked before the change is refused.
@@ -117,7 +115,15 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         SnackKind::Soda.number(),
         SnackKind::Elixir.number(),
     ]);
-    v.extend_from_slice(&[KEY_RED, KEY_BLUE, KEY_GREEN, MAX_CHANNELS]);
+    v.extend_from_slice(&[
+        KEY_RED,
+        KEY_BLUE,
+        KEY_GREEN,
+        MAX_STATES as u8,
+        MAX_STATE_VALUES as u8,
+        MAX_BINDINGS as u8,
+        MAX_DOOR_BINDINGS as u8,
+    ]);
     v.extend_from_slice(&[
         cues::EFFECT_CLUCK,
         cues::EFFECT_FZZT,
@@ -169,10 +175,10 @@ mod pack_content_tests {
     #[test]
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
-        // Prefix, two tables, the tile ids, the snack kinds, then the rule layer's numbers: key colours and MAX_CHANNELS (4),
-        // 19 effect ids and their count, 15 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
-        assert_eq!(a.len(), 16 + 2 * 256 + 16 + 5 + 4 + 20 + 16 + 2);
-        assert_eq!(a.len(), 591);
+        // Prefix, two tables, the tile ids, the snack kinds, then the rule layer's numbers: the three key colours and the four state
+        // limits (7), 19 effect ids and their count, 15 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
+        assert_eq!(a.len(), 16 + 2 * 256 + 16 + 5 + 7 + 20 + 16 + 2);
+        assert_eq!(a.len(), 594);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
@@ -189,22 +195,31 @@ mod pack_content_tests {
         let at = 16 + 2 * 256 + 16;
         assert_eq!(&a[at..at + 5], &[0, 1, 2, 3, 4], "snack kinds");
         assert_eq!(
-            &a[at + 5..at + 9],
-            &[0, 1, 2, 32],
-            "key colours, MAX_CHANNELS"
+            &a[at + 5..at + 12],
+            &[0, 1, 2, 32, 8, 64, 32],
+            "key colours, then MAX_STATES, MAX_STATE_VALUES, MAX_BINDINGS and MAX_DOOR_BINDINGS"
         );
-        let fx = &a[at + 9..at + 29];
+        let fx = &a[at + 12..at + 32];
         assert_eq!(fx[0], 0);
         assert_eq!(fx[16], 19, "the door");
         assert_eq!(fx[17], 20, "the whistle");
         assert_eq!(fx[18], 21, "the last named effect is the new life");
         assert_eq!(fx[19], 22, "EFFECT_COUNT");
-        let caps = &a[at + 29..at + 45];
+        let caps = &a[at + 32..at + 48];
         assert_eq!(
             caps[..15],
             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
         );
         assert_eq!(caps[15], 15, "CAP_COUNT");
-        assert_eq!(&a[a.len() - 2..], &[7, 1], "STYLE_COUNT, RULES_SEMANTICS");
+        assert_eq!(&a[a.len() - 2..], &[7, 2], "STYLE_COUNT, RULES_SEMANTICS");
+    }
+
+    #[test]
+    fn the_compatibility_number_is_pinned() {
+        // Moved from 0xc7f3_982b on purpose (842 content bytes under the schema number 0x25e8_1944): the content lost the channel table
+        // and `MAX_CHANNELS` and gained the state limits and `RULES_SEMANTICS` 2, under the schema number of `LEVL` version 2. The new
+        // value was also recomputed in Python from the dumped content bytes. The content is 594 bytes: the elixir's snack kind, the whistle and
+        // life effects and their captions are in it.
+        assert_eq!(fizz_pack::compatibility(&pack_content()), 0x9161_5aaf);
     }
 }

@@ -231,7 +231,7 @@ pub struct World {
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
-    /// The switch channels that are on when the level starts, and again after every death.
+    /// The switch bits that are on when the level starts, and again after every death.
     start_switches: u32,
     /// The level's rules; only locks so far.
     rules: RuleTable,
@@ -273,14 +273,14 @@ impl World {
         self.spawn
     }
 
-    /// Sets the start state of the switch channels, now and after every death: a set bit is a channel that starts on (for a
+    /// Sets the start state of the switch bits, now and after every death: a set bit is a channel that starts on (for a
     /// door, closed).
     pub fn set_switches(&mut self, bits: u32) {
         self.start_switches = bits;
         self.map.switches = bits;
     }
 
-    /// The switch channels that were on when the level started.
+    /// The switch bits that were on when the level started.
     pub fn start_switches(&self) -> u32 {
         self.start_switches
     }
@@ -295,11 +295,11 @@ impl World {
         &self.rules
     }
 
-    /// Whether the door that the lock for key `colour` opens is open now: the lock's channel is off. `false` for a level with no
+    /// Whether the door that the lock for key `colour` opens is open now: the lock's door bit is off. `false` for a level with no
     /// such lock.
     pub fn lock_open(&self, colour: u8) -> bool {
         self.rules
-            .lock_channel(colour)
+            .lock_bit(colour)
             .is_some_and(|c| !self.map.switch(c))
     }
 
@@ -474,8 +474,9 @@ impl World {
     }
 
     /// The lock phase. Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs; here the level's
-    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile on
-    /// the lock's channel and that channel is on (the door is closed): the channel goes off, the key is spent and the door opens.
+    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile
+    /// in the lock's door (its cell is bound to the lock's derived bit) and that bit is set (the door is closed): the bit is
+    /// cleared, the key is spent and the door opens. The state a lock sets is not held by the world yet; the bit is the whole of it.
     fn tick_locks(&mut self) {
         let (px, py, pw) = (self.ben.b.x, self.ben.b.y, self.ben.b.w);
         for i in 0..self.rules.len() {
@@ -496,10 +497,10 @@ impl World {
             let cy = (py + 0.2).floor() as i32;
             let switched = self.map.props.flags(self.map.get(cx, cy)) & SWITCHED != 0;
             if switched
-                && self.map.switch_bit(cx, cy) == Some(lock.channel)
-                && self.map.switch(lock.channel)
+                && self.map.switch_bit(cx, cy) == Some(lock.bit)
+                && self.map.switch(lock.bit)
             {
-                self.map.set_switch(lock.channel, false);
+                self.map.set_switch(lock.bit, false);
                 self.flags.clear(key);
                 self.flags.set(used);
                 let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
@@ -678,7 +679,7 @@ impl World {
     }
 
     /// Puts Ben back at the spawn after a death (Fizz 1's `on_death`, which hands the reload to the shell) and resets the level
-    /// exactly as starting it the first time would: the switch channels go back to the level's start state (a door that was
+    /// exactly as starting it the first time would: the switch bits go back to the level's start state (a door that was
     /// opened closes), the keys leave Ben's hands and the spent marks are cleared (every key lies where it began), the snacks
     /// come back, and the chickens and the ammo start over. Rules that act on the start of a level (timers, start rules) will
     /// re-arm here when they exist; the locks hold no state of their own.

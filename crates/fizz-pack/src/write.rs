@@ -10,8 +10,9 @@
 // reproducible.
 
 use crate::level::{
-    LEVEL_HEADER_LEN, MAX_RULES, MAX_STRINGS, NAME_MAX, OBJECT_LEN, ObjectRec, RULE_LEN, RuleRec,
-    STRING_LEN, StringRec, padded_name_len,
+    BIND_DOOR, BindingRec, LEVEL_HEADER_LEN, MAX_BINDINGS, MAX_DOOR_BINDINGS, MAX_RULES,
+    MAX_STATES, MAX_STRINGS, NAME_MAX, ObjectRec, RuleRec, StateRec, StringRec, level_len,
+    padded_name_len,
 };
 use crate::pack::{
     ALIGN, CODEC_DEFLATE, CODEC_STORED, ENTRY_LEN, FORMAT_VERSION, HEADER_LEN, MAGIC, checksum,
@@ -327,16 +328,19 @@ pub fn seal(file: &mut [u8]) {
 // ---------------------------------------------------------------------------------------------------------------------------------
 // Level encoder
 
-/// The content of one `LEVL` section.
+/// The content of one `LEVL` section (version 2).
 pub struct LevelSpec<'a> {
     pub width: u16,
     pub height: u16,
-    pub switches: u32,
     pub floor_solid: bool,
     pub spawn_x_bits: u64,
     pub spawn_y_bits: u64,
     /// At most 48 bytes of printable ASCII.
     pub name: &'a str,
+    /// At most 32 states; empty for a level without states.
+    pub states: &'a [StateRec],
+    /// At most 64 bindings, at most 32 of them door bindings.
+    pub bindings: &'a [BindingRec],
     pub objects: &'a [ObjectRec],
     /// At most 32 rules; empty for a level without rules.
     pub rules: &'a [RuleRec],
@@ -346,41 +350,86 @@ pub struct LevelSpec<'a> {
     pub tiles: &'a [u8],
 }
 
-/// Encodes a `LEVL` section (panics if the name is over 48 bytes, there are more than 32 rules or strings, or the tile count is not
-/// `width * height`). It does not validate the records; `LevelView::new` does.
-pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
-    assert!(l.name.len() <= NAME_MAX && l.objects.len() <= 65535);
-    assert!(l.rules.len() <= MAX_RULES && l.strings.len() <= MAX_STRINGS);
-    assert_eq!(l.tiles.len(), usize::from(l.width) * usize::from(l.height));
-    let mut v = Vec::with_capacity(
-        LEVEL_HEADER_LEN
-            + 256
-            + l.objects.len() * OBJECT_LEN
-            + l.rules.len() * RULE_LEN
-            + l.strings.len() * STRING_LEN
-            + l.tiles.len(),
-    );
+/// Why `encode_level` refused its input. These are the limits only: the records themselves are not validated here, `LevelView::new`
+/// does that.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EncodeError {
+    /// A name over 48 bytes.
+    NameTooLong,
+    /// More than 65535 objects (the count is a `u16`).
+    TooManyObjects,
+    /// More than 32 states.
+    TooManyStates,
+    /// More than 64 bindings.
+    TooManyBindings,
+    /// More than 32 door bindings.
+    TooManyDoorBindings,
+    /// More than 32 rules.
+    TooManyRules,
+    /// More than 32 strings.
+    TooManyStrings,
+    /// A tile list that is not `width * height` bytes.
+    TileCount,
+}
+
+/// Encodes a `LEVL` section. It refuses input over a limit and a tile list of the wrong length, and does not validate the records;
+/// `LevelView::new` does.
+pub fn encode_level(l: &LevelSpec) -> Result<Vec<u8>, EncodeError> {
+    if l.name.len() > NAME_MAX {
+        return Err(EncodeError::NameTooLong);
+    }
+    if l.objects.len() > 65535 {
+        return Err(EncodeError::TooManyObjects);
+    }
+    if l.states.len() > MAX_STATES {
+        return Err(EncodeError::TooManyStates);
+    }
+    if l.bindings.len() > MAX_BINDINGS {
+        return Err(EncodeError::TooManyBindings);
+    }
+    if l.bindings.iter().filter(|b| b.kind == BIND_DOOR).count() > MAX_DOOR_BINDINGS {
+        return Err(EncodeError::TooManyDoorBindings);
+    }
+    if l.rules.len() > MAX_RULES {
+        return Err(EncodeError::TooManyRules);
+    }
+    if l.strings.len() > MAX_STRINGS {
+        return Err(EncodeError::TooManyStrings);
+    }
+    if l.tiles.len() != usize::from(l.width) * usize::from(l.height) {
+        return Err(EncodeError::TileCount);
+    }
+    let mut v = Vec::with_capacity(level_len(
+        l.name.len(),
+        l.states.len(),
+        l.bindings.len(),
+        l.objects.len(),
+        l.rules.len(),
+        l.strings.len(),
+        l.tiles.len(),
+    ));
     v.extend_from_slice(&l.width.to_le_bytes());
     v.extend_from_slice(&l.height.to_le_bytes());
-    v.extend_from_slice(&l.switches.to_le_bytes());
     v.push(u8::from(l.floor_solid));
     v.push(l.name.len() as u8);
     v.extend_from_slice(&(l.objects.len() as u16).to_le_bytes());
     v.extend_from_slice(&l.spawn_x_bits.to_le_bytes());
     v.extend_from_slice(&l.spawn_y_bits.to_le_bytes());
+    v.push(l.states.len() as u8);
+    v.push(l.bindings.len() as u8);
     v.push(l.rules.len() as u8);
     v.push(l.strings.len() as u8);
-    v.extend_from_slice(&[0; 2]);
+    v.extend_from_slice(&[0; 4]);
     v.extend_from_slice(l.name.as_bytes());
     v.resize(LEVEL_HEADER_LEN + padded_name_len(l.name.len()), 0);
+    for s in l.states {
+        v.extend_from_slice(&s.to_bytes());
+    }
+    for b in l.bindings {
+        v.extend_from_slice(&b.to_bytes());
+    }
     for o in l.objects {
-        v.push(o.kind);
-        v.push(o.sub);
-        v.extend_from_slice(&o.flags.to_le_bytes());
-        v.extend_from_slice(&o.channel.to_le_bytes());
-        v.extend_from_slice(&o.x_bits.to_le_bytes());
-        v.extend_from_slice(&o.y_bits.to_le_bytes());
-        v.extend_from_slice(&o.p_bits.to_le_bytes());
+        v.extend_from_slice(&o.to_bytes());
     }
     for r in l.rules {
         v.extend_from_slice(&r.to_bytes());
@@ -389,5 +438,5 @@ pub fn encode_level(l: &LevelSpec) -> Vec<u8> {
         v.extend_from_slice(&s.to_bytes());
     }
     v.extend_from_slice(l.tiles);
-    v
+    Ok(v)
 }

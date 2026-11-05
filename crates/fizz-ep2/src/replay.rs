@@ -712,10 +712,15 @@ mod tests {
     #[test]
     fn the_start_switches_come_from_the_level() {
         let w = level::world();
-        assert_eq!(w.start_switches(), level::SLICE_SOURCE.switches);
-        // A level that starts with the red door open: a death brings that back, not a closed door.
+        assert_eq!(
+            w.start_switches(),
+            crate::tiles::DOOR_RED_BIT | crate::tiles::DOOR_BLUE_BIT
+        );
+        // A level that starts with the red door open: a death brings that back, not a closed door. (The red door's state starts at
+        // its value 1, `open`, which is in its active set.)
+        let states = [fizz_pack::StateRec::new(2, 1), level::SLICE_STATES[1]];
         let src = level::LevelSource {
-            switches: crate::tiles::DOOR_BLUE_BIT,
+            states: &states,
             ..level::SLICE_SOURCE
         };
         let mut w = level::world_from(&src).unwrap();
@@ -745,7 +750,7 @@ mod tests {
         let mut w = World::new(map, (2.0, 1.0));
         w.set_switches(start);
         let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7, (5, 2)));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7));
         w.set_rules(rules);
         w.flags.set(WorldFlags::KEY_RED);
         w
@@ -789,7 +794,7 @@ mod tests {
         // The lock takes the blue key; Ben holds the red one.
         let mut w = custom_channel_world(1 << 7);
         let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7, (5, 2)));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7));
         w.set_rules(rules);
         walk_right(&mut w, 120);
         assert!(w.map.switch(7));
@@ -797,7 +802,7 @@ mod tests {
         // The lock reads channel 8; the tiles read 7.
         let mut w = custom_channel_world(1 << 7 | 1 << 8);
         let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 8, (5, 2)));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 8));
         w.set_rules(rules);
         walk_right(&mut w, 120);
         assert!(w.map.switch(7) && w.map.switch(8));
@@ -810,8 +815,8 @@ mod tests {
         let mut w = custom_channel_world(1 << 7);
         w.flags.set(WorldFlags::KEY_BLUE);
         let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7, (5, 2)));
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7, (5, 2)));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7));
+        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7));
         w.set_rules(rules);
         walk_right(&mut w, 120);
         assert!(w.flags.contains(WorldFlags::KEY_BLUE_USED));

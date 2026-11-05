@@ -198,7 +198,7 @@ fn add_red_door(w: &mut World) {
     w.map.bind_switch_tiles(12, DOOR_RED_CHANNEL);
     w.set_switches(DOOR_RED_BIT);
     let mut rules = RuleTable::new();
-    rules.push(Rule::lock(KEY_RED, DOOR_RED_CHANNEL, (0, 0)));
+    rules.push(Rule::lock(KEY_RED, DOOR_RED_CHANNEL));
     w.set_rules(rules);
 }
 
