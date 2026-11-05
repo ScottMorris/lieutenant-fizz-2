@@ -172,8 +172,9 @@ static CLASSIC_PLACEMENT: AtomicBool = AtomicBool::new(false);
 /// table in `captions.rs` says which), whatever the Captions setting says. The service has one effect slot on its channel, so within a
 /// step the last event's effect is the one that starts and a later effect cuts an earlier one off, as in Fizz 1's DOS port (see
 /// `docs/SOUND.md`). Positions are read after the step, with the camera the picture uses; the view and the placement are for sound
-/// only and have no effect on the rules.
-fn play_events(world: &World, options: &DrawOptions) {
+/// only and have no effect on the rules. After the events, Ben's long-fall whistle (`fx.fall`, see `FallWatch`) plays if this step crossed
+/// its threshold; no event carries it, so the transcript and hash do not know it.
+fn play_events(world: &World, options: &DrawOptions, fx: &mut ViewFx) {
     for event in world.events() {
         // A shot ending is drawn (the puff), not heard, so it gives no sound.
         if let Some((id, place)) = event_sound(world, event, VIEW_W, VIEW_H, options) {
@@ -184,6 +185,14 @@ fn play_events(world: &World, options: &DrawOptions) {
             };
             audio::effect(id, &place);
         }
+    }
+    if let Some((id, place)) = fx.fall.observe(world, VIEW_W, VIEW_H, options) {
+        let place = if CLASSIC_PLACEMENT.load(Ordering::Relaxed) {
+            Placement::CENTRE
+        } else {
+            place
+        };
+        audio::effect(id, &place);
     }
 }
 
@@ -406,7 +415,7 @@ fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
             let now = SLICE_SCRIPT[run].1;
             left = left.saturating_sub(1);
             fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
-            play_events(&world, options);
+            play_events(&world, options, &mut puffs);
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
             puffs.observe(&world, VIEW_W, VIEW_H, options);
@@ -683,7 +692,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
             }
             fizz_ep2::step(&mut world, latch.frame());
             puffs.observe(&world, VIEW_W, VIEW_H, &applied.draw);
-            play_events(&world, &applied.draw);
+            play_events(&world, &applied.draw, &mut puffs);
         }
         if opened {
             latch = InputLatch::new();

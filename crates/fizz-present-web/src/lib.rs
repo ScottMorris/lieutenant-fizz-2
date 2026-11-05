@@ -13,8 +13,8 @@ use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, HudAnim, Puffs, ben_view_box,
-    caption_view, draw_slice_puffs, event_sound, light, palette_for,
+    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, FallWatch, HudAnim, Puffs,
+    ben_view_box, caption_view, draw_slice_puffs, event_sound, light, palette_for,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -144,6 +144,8 @@ pub struct App {
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
     puffs: Puffs,
+    /// Ben's long-fall whistle: view state read after every step (no event carries it, so the replay and the hash do not know it).
+    fall: FallWatch,
     /// The event captions (fzzt, clunk and the rest): view state fed from the step events whether or not captions are shown.
     event_captions: EventCaptions,
     /// The HUD's score count-up, `+N` and key rings, fed from the step like the puffs. Motion Reduced is the shake being off.
@@ -182,6 +184,7 @@ impl App {
             colours: light::rgba(&light::DAY),
             live_captions: Vec::new(),
             puffs: Puffs::new(),
+            fall: FallWatch::new(),
             event_captions: EventCaptions::new(),
             hud: HudAnim::new(),
             menus: Menus::new(),
@@ -270,6 +273,7 @@ impl App {
         self.effect_head = 0;
         self.taken = Placement::CENTRE;
         self.puffs.clear();
+        self.fall.clear();
         self.event_captions.clear();
         self.hud = HudAnim::new();
     }
@@ -286,6 +290,12 @@ impl App {
             {
                 queue_effect(&mut self.effects, id, place);
             }
+        }
+        if let Some((id, place)) =
+            self.fall
+                .observe(&self.world, self.view_w, self.view_h, &options)
+        {
+            queue_effect(&mut self.effects, id, place);
         }
         self.puffs.observe(&self.world);
         self.hud.observe(&self.world, !self.shake);
@@ -1280,6 +1290,13 @@ mod tests {
                 }
             }
         }
+        // The route's one long fall also hands the page the whistle, which no event carries; take it out to compare the events' effects.
+        let whistles = got
+            .iter()
+            .filter(|&&e| e == fizz_ep2::cues::EFFECT_WHISTLE)
+            .count();
+        assert_eq!(whistles, 1, "one long fall in the route");
+        got.retain(|&e| e != fizz_ep2::cues::EFFECT_WHISTLE);
         assert_eq!(got, want);
         assert_eq!(
             got.len(),
@@ -1408,5 +1425,43 @@ mod tests {
         for (c, h) in EGA_RGBA.iter().zip(hex) {
             assert_eq!(format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2]), h);
         }
+    }
+
+    #[test]
+    fn a_long_fall_hands_the_page_the_whistle_once() {
+        // The replay's one long drop reaches the whistle's threshold at tick 331 (see `fizz-slice-view`'s `fall.rs`). Start the app from
+        // the replay's world at the last tick Ben stood before it, let the idle world go on, and the page is handed effect 20 exactly once.
+        let mut w = fizz_ep2::level::world();
+        let mut prev = Buttons::NONE;
+        let mut standing = w.clone();
+        'run: for &(frames, now) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..frames {
+                if w.tick.0 >= 331 {
+                    break 'run;
+                }
+                fizz_ep2::step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                if w.ben.b.on_ground {
+                    standing = w.clone();
+                }
+            }
+        }
+        let w = standing;
+        let mut app = App::new();
+        app.world = w;
+        app.frame(0.0);
+        let (mut now_ms, mut got) = (0.0, Vec::new());
+        for _ in 0..60 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            got.extend(drain(&mut app));
+        }
+        assert_eq!(
+            got.iter()
+                .filter(|&&e| e == fizz_ep2::cues::EFFECT_WHISTLE)
+                .count(),
+            1,
+            "effects handed out: {got:?}"
+        );
     }
 }

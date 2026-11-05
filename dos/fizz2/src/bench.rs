@@ -246,7 +246,7 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
             let t3 = sw.now();
             prev = now;
             if audio {
-                crate::play_events(&world, options);
+                crate::play_events(&world, options, &mut puffs);
             }
             // Outside the timed sections: the digest only proves what was drawn.
             if DIGEST_TICKS.contains(&world.tick.0) {

@@ -327,6 +327,9 @@ pub struct ViewFx {
     pub captions: EventCaptions,
     /// The HUD's score count-up, `+N` and key rings: what changes in the HUD between steps.
     pub hud: crate::HudAnim,
+    /// The slide whistle for a long fall. It makes a sound and not a picture, so a presenter reads its cue with [`crate::FallWatch::observe`]
+    /// where it plays its events' sounds; [`ViewFx::observe`] does not advance it.
+    pub fall: crate::FallWatch,
 }
 
 impl ViewFx {
@@ -335,6 +338,7 @@ impl ViewFx {
             puffs: crate::Puffs::new(),
             captions: EventCaptions::new(),
             hud: crate::HudAnim::new(),
+            fall: crate::FallWatch::new(),
         }
     }
 
