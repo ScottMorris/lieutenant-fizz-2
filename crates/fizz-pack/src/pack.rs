@@ -129,53 +129,89 @@ pub const CONTAINER_HASH: u32 = {
     h
 };
 
-/// The hash of the non-audio sections: the `LEVL` header, object, rule and string sizes, the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`,
-/// the object kind numbers, and then the rule and string limits, the cue codes, the trigger, op and flag numbers and the string
-/// charset extras (in the order of the `feed_u32` calls below).
+/// The hash of the non-audio sections, in the order the `LEVL` section of `docs/FAP.md` lists under "Compatibility numbers and
+/// hashes". It starts from the text `fizz-pack-level` and feeds little-endian `u32` values: the `LEVL` section version; the sizes of
+/// the header, state, binding, object, rule, condition, action and string records; the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`; the
+/// limits; `STYLE_COUNT`; the object kind numbers 1 to 10 and the switch and light flag bits; the binding kind numbers 1 to 4; the
+/// trigger numbers 2 to 15; the condition kind numbers 1 to 6; the action op numbers 1 to 9; the `REPEAT` flag and the state `WORLD`
+/// flag bit; the caption code bases, the cue id base, the "any" subject and the "any change" argument; and the string charset extras.
 pub const LEVEL_HASH: u32 = {
+    use crate::level::*;
     let mut h = fnv(b"fizz-pack-level");
-    h = feed_u32(h, crate::level::LEVEL_HEADER_LEN as u32);
-    h = feed_u32(h, crate::level::OBJECT_LEN as u32);
+    h = feed_u32(h, LEVEL_VERSION as u32);
+    h = feed_u32(h, LEVEL_HEADER_LEN as u32);
+    h = feed_u32(h, STATE_LEN as u32);
+    h = feed_u32(h, BINDING_LEN as u32);
+    h = feed_u32(h, OBJECT_LEN as u32);
+    h = feed_u32(h, RULE_LEN as u32);
+    h = feed_u32(h, CONDITION_LEN as u32);
+    h = feed_u32(h, ACTION_LEN as u32);
+    h = feed_u32(h, STRING_LEN as u32);
     h = feed_u32(h, TAG_LEVL);
     h = feed_u32(h, TAG_SPRT);
     h = feed_u32(h, TAG_MUSC);
     h = feed_u32(h, TAG_BDRP);
-    h = feed_u32(h, crate::level::KIND_KEY_RED as u32);
-    h = feed_u32(h, crate::level::KIND_KEY_BLUE as u32);
-    h = feed_u32(h, crate::level::KIND_SNACK as u32);
-    h = feed_u32(h, crate::level::KIND_CHICKEN as u32);
-    h = feed_u32(h, crate::level::KIND_GADGET as u32);
-    h = feed_u32(h, crate::level::KIND_SWITCH as u32);
-    h = feed_u32(h, crate::level::KIND_ENEMY as u32);
-    // The rule and string records (amended into LEVL version 1 before any pack shipped).
-    h = feed_u32(h, crate::level::RULE_LEN as u32);
-    h = feed_u32(h, crate::level::STRING_LEN as u32);
-    h = feed_u32(h, crate::level::MAX_RULES as u32);
-    h = feed_u32(h, crate::level::MAX_STRINGS as u32);
-    h = feed_u32(h, crate::level::STRING_TEXT_MAX as u32);
-    h = feed_u32(h, crate::level::MIN_PERIOD);
-    h = feed_u32(h, crate::level::STYLE_COUNT as u32);
-    h = feed_u32(h, crate::level::CUE_NONE as u32);
-    h = feed_u32(h, crate::level::CUE_LEVEL_BASE as u32);
-    h = feed_u32(h, crate::level::TRIGGER_LOCK as u32);
-    h = feed_u32(h, crate::level::TRIGGER_START as u32);
-    h = feed_u32(h, crate::level::TRIGGER_ENTER as u32);
-    h = feed_u32(h, crate::level::TRIGGER_TAKE as u32);
-    h = feed_u32(h, crate::level::TRIGGER_SHOOT as u32);
-    h = feed_u32(h, crate::level::TRIGGER_STOMP as u32);
-    h = feed_u32(h, crate::level::TRIGGER_STUN as u32);
-    h = feed_u32(h, crate::level::TRIGGER_TIME as u32);
-    h = feed_u32(h, crate::level::OP_NONE as u32);
-    h = feed_u32(h, crate::level::OP_ON as u32);
-    h = feed_u32(h, crate::level::OP_OFF as u32);
-    h = feed_u32(h, crate::level::OP_TOGGLE as u32);
-    h = feed_u32(h, crate::level::FLAG_REPEAT as u32);
-    h = feed_u32(h, crate::level::FLAG_GUARD as u32);
-    h = feed_u32(h, crate::level::FLAG_GUARD_ON as u32);
-    h = feed_u32(h, crate::level::SUBJECT_ANY as u32);
+    h = feed_u32(h, MAX_STATES as u32);
+    h = feed_u32(h, MAX_STATE_VALUES as u32);
+    h = feed_u32(h, MAX_BINDINGS as u32);
+    h = feed_u32(h, MAX_DOOR_BINDINGS as u32);
+    h = feed_u32(h, MAX_RULES as u32);
+    h = feed_u32(h, MAX_STRINGS as u32);
+    h = feed_u32(h, MAX_GROUPS as u32);
+    h = feed_u32(h, STRING_TEXT_MAX as u32);
+    h = feed_u32(h, MIN_PERIOD);
+    h = feed_u32(h, STYLE_COUNT as u32);
+    let kinds = [
+        KIND_KEY_RED,
+        KIND_KEY_BLUE,
+        KIND_SNACK,
+        KIND_CHICKEN,
+        KIND_GADGET,
+        KIND_SWITCH,
+        KIND_ENEMY,
+        KIND_LIGHT,
+        KIND_CUSTOM_ENEMY,
+        KIND_CUSTOM_ITEM,
+    ];
     let mut i = 0;
-    while i < crate::level::STRING_EXTRAS.len() {
-        h = feed_u32(h, crate::level::STRING_EXTRAS[i]);
+    while i < kinds.len() {
+        h = feed_u32(h, kinds[i] as u32);
+        i += 1;
+    }
+    h = feed_u32(h, SWITCH_HIT_SHOT as u32);
+    h = feed_u32(h, SWITCH_HIT_STOMP as u32);
+    h = feed_u32(h, SWITCH_USE as u32);
+    h = feed_u32(h, LIGHT_ATTACHED as u32);
+    h = feed_u32(h, BIND_DOOR as u32);
+    h = feed_u32(h, BIND_LIGHT as u32);
+    h = feed_u32(h, BIND_PLATFORM as u32);
+    h = feed_u32(h, BIND_PANEL as u32);
+    let mut t = TRIGGER_START;
+    while t <= TRIGGER_BECOMES {
+        h = feed_u32(h, t as u32);
+        t += 1;
+    }
+    h = feed_u32(h, COND_STATE_IN as u32);
+    h = feed_u32(h, COND_HOLDS as u32);
+    h = feed_u32(h, COND_NOT_HOLDS as u32);
+    h = feed_u32(h, COND_AMMO_AT_LEAST as u32);
+    h = feed_u32(h, COND_SCORE_AT_LEAST as u32);
+    h = feed_u32(h, COND_CLEARED as u32);
+    let mut op = OP_SET;
+    while op <= OP_CUE {
+        h = feed_u32(h, op as u32);
+        op += 1;
+    }
+    h = feed_u32(h, FLAG_REPEAT as u32);
+    h = feed_u32(h, STATE_WORLD as u32);
+    h = feed_u32(h, CAP_LEVEL_BASE as u32);
+    h = feed_u32(h, CAP_WORLD_BASE as u32);
+    h = feed_u32(h, CUE_WORLD_BASE as u32);
+    h = feed_u32(h, SUBJECT_ANY as u32);
+    h = feed_u32(h, ARG_ANY as u32);
+    let mut i = 0;
+    while i < STRING_EXTRAS.len() {
+        h = feed_u32(h, STRING_EXTRAS[i]);
         i += 1;
     }
     h
@@ -216,7 +252,7 @@ pub const SCHEMA_HASH: u32 = {
 };
 
 /// The compatibility number of a world or shared pack (`SHARED.FAP`, `LIGHT.FAP`): `SCHEMA_HASH` continued over `content`, the bytes
-/// the game crate owns. `fizz-ep2` feeds, in order, its tile property table (flags, slope and switch channel for each of the 256 tile
+/// the game crate owns. `fizz-ep2` feeds, in order, its tile property table (flags and slope for each of the 256 tile
 /// ids), its named tile ids and its snack kind numbers (see `docs/FAP.md`). `compatibility(&[])` is the bare container schema.
 pub const fn compatibility(content: &[u8]) -> u32 {
     fnv1a(SCHEMA_HASH, content)

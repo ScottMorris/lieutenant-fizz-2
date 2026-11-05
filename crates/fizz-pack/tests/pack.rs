@@ -19,13 +19,15 @@ const COMPAT: u32 = compatibility(b"tiles v1");
 const STEM: &str = "SHARED";
 
 // Pinned schema numbers, computed independently in Python (FNV-1a 32 over the same feeds).
-// LEVEL and SCHEMA moved when the LEVL rule and string records were amended in (they were 0xEB2F_AD5D and 0xD59D_3505).
+// LEVEL and SCHEMA moved when LEVL version 2 replaced version 1 (they were 0x76AA_52BB and 0x25E8_1944); `tests/levl_hash.py` recomputes
+// them. The container and audio numbers did not move.
 const PIN_CONTAINER: u32 = 0x6F16_BA34;
-const PIN_LEVEL: u32 = 0x76AA_52BB;
+const PIN_LEVEL: u32 = 0x46FA_651A;
 const PIN_AUDIO_OPL3: u32 = 0xB899_1606;
 const PIN_AUDIO_OPL2: u32 = 0x8D24_DCC8;
 const PIN_AUDIO_SPKR: u32 = 0x5A80_96D0;
-const PIN_SCHEMA: u32 = 0x25E8_1944;
+const PIN_SCHEMA: u32 = 0xA1BB_8460;
+const PIN_FIXTURE: u32 = 0xC58F_98A1;
 const PIN_COMPAT_OPL3: u32 = 0x2E1A_73F9;
 
 fn expect() -> Expect<'static> {
@@ -50,7 +52,7 @@ fn level_bytes() -> Vec<u8> {
             kind: KIND_SNACK,
             sub: 2,
             flags: 0,
-            channel: 0,
+            aux: 0,
             x_bits: 3.5f64.to_bits(),
             y_bits: 4.0f64.to_bits(),
             p_bits: 0,
@@ -59,7 +61,7 @@ fn level_bytes() -> Vec<u8> {
             kind: KIND_CHICKEN,
             sub: 0,
             flags: 0,
-            channel: 0,
+            aux: 0,
             x_bits: 8.0f64.to_bits(),
             y_bits: 3.0f64.to_bits(),
             p_bits: (-1.0f64).to_bits(),
@@ -69,24 +71,26 @@ fn level_bytes() -> Vec<u8> {
     encode_level(&LevelSpec {
         width: 12,
         height: 5,
-        switches: 0b101,
         floor_solid: true,
         spawn_x_bits: 11.7f64.to_bits(),
         spawn_y_bits: 2.0f64.to_bits(),
         name: "Slice",
+        states: &[],
+        bindings: &[],
         objects: &objects,
         rules: &[],
         strings: &[],
         tiles: &tiles,
     })
+    .unwrap()
 }
 
 /// Four sections: two LEVL (index 0 compressed if smaller, index 1 stored), one deflated MUSC, one stored OPL3.
 fn sample() -> Vec<u8> {
     let mut w = pack(TARGET_DOS, COMPAT, STEM);
     w.add_stored(TAG_OPL3, 1, 3, b"opl3 bytes");
-    w.add_compressed(TAG_LEVL, 1, 2, &level_bytes());
-    w.add_stored(TAG_LEVL, 1, 2, &level_bytes());
+    w.add_compressed(TAG_LEVL, 2, 2, &level_bytes());
+    w.add_stored(TAG_LEVL, 2, 2, &level_bytes());
     w.add_compressed(
         TAG_MUSC,
         1,
@@ -152,17 +156,14 @@ fn round_trip_levels_and_sections() {
 fn level_view_reads_every_field() {
     let b = level_bytes();
     let v = LevelView::new(&b).unwrap();
-    assert_eq!(
-        (v.width(), v.height(), v.switches(), v.floor_solid()),
-        (12, 5, 0b101, true)
-    );
+    assert_eq!((v.width(), v.height(), v.floor_solid()), (12, 5, true));
     assert_eq!(v.spawn(), (11.7, 2.0));
     assert_eq!(v.spawn_bits().0, 11.7f64.to_bits());
     assert_eq!(v.name(), b"Slice");
     assert_eq!(v.object_count(), 2);
     let c = v.object(1);
     assert_eq!(
-        (c.kind, c.sub, c.flags, c.channel, c.x(), c.y(), c.p()),
+        (c.kind, c.sub, c.flags, c.aux, c.x(), c.y(), c.p()),
         (KIND_CHICKEN, 0, 0, 0, 8.0, 3.0, -1.0)
     );
     assert_eq!(v.objects().count(), 2);
@@ -187,10 +188,10 @@ fn level_view_refuses_wrong_sizes_and_fields() {
         LevelError::TrailingBytes
     );
     let mut bad = b.clone();
-    bad[8] = 2;
+    bad[4] = 2;
     assert_eq!(LevelView::new(&bad).unwrap_err(), LevelError::BadField);
     let mut bad = b.clone();
-    bad[30] = 1;
+    bad[28] = 1;
     assert_eq!(LevelView::new(&bad).unwrap_err(), LevelError::BadField);
     // A width and height that would multiply far past the data.
     let mut huge = b.clone();
@@ -198,7 +199,7 @@ fn level_view_refuses_wrong_sizes_and_fields() {
     assert_eq!(LevelView::new(&huge).unwrap_err(), LevelError::Truncated);
     // An object count that runs past the data.
     let mut many = b;
-    many[10..12].copy_from_slice(&[0xFF; 2]);
+    many[6..8].copy_from_slice(&[0xFF; 2]);
     assert_eq!(LevelView::new(&many).unwrap_err(), LevelError::Truncated);
 }
 
@@ -208,16 +209,18 @@ fn level_with_no_objects_and_a_long_name() {
     let b = encode_level(&LevelSpec {
         width: 1,
         height: 2,
-        switches: 0,
         floor_solid: false,
         spawn_x_bits: 0,
         spawn_y_bits: 0,
         name: &name,
+        states: &[],
+        bindings: &[],
         objects: &[],
         rules: &[],
         strings: &[],
         tiles: &[7, 8],
-    });
+    })
+    .unwrap();
     let v = LevelView::new(&b).unwrap();
     assert_eq!(
         (v.name().len(), v.object_count(), v.tiles()),
@@ -257,7 +260,7 @@ fn header_refusals() {
     );
     // A pack baked with another content table is incompatible even though everything else is intact.
     let mut w = pack(TARGET_DOS, compatibility(b"tiles v2"), STEM);
-    w.add_stored(TAG_LEVL, 1, 0, b"x");
+    w.add_stored(TAG_LEVL, 2, 0, b"x");
     assert_eq!(parse(&w.finish()).unwrap_err(), Error::Incompatible);
 }
 
@@ -418,8 +421,8 @@ fn the_pack_is_deterministic_and_insertion_order_sets_the_index() {
     assert_eq!(sample(), sample());
     let (a, b) = (level_bytes(), vec![0u8; 8]);
     let mut w = pack(TARGET_DOS, COMPAT, STEM);
-    w.add_stored(TAG_LEVL, 1, 0, &a)
-        .add_stored(TAG_LEVL, 1, 0, &b);
+    w.add_stored(TAG_LEVL, 2, 0, &a)
+        .add_stored(TAG_LEVL, 2, 0, &b);
     let f = w.finish();
     let p = parse(&f).unwrap();
     assert_eq!(p.stored(&p.find(TAG_LEVL, 0).unwrap()), Ok(&a[..]));
@@ -598,7 +601,7 @@ fn tags_sort_bytewise_not_as_numbers() {
 fn placeholders_and_limits() {
     let mut w = pack(TARGET_DOS, COMPAT, STEM);
     w.add_placeholder(TAG_OPL3, 1)
-        .add_stored(TAG_LEVL, 1, 2, &level_bytes());
+        .add_stored(TAG_LEVL, 2, 2, &level_bytes());
     let f = w.finish();
     let p = parse(&f).unwrap();
     let ph = p.find(TAG_OPL3, 0).unwrap();
@@ -626,9 +629,9 @@ fn the_file_length_is_a_multiple_of_16() {
 #[test]
 fn level_count_must_match_the_directory() {
     let b = level_bytes();
-    assert!(LevelView::with_count(&b, 2).is_ok());
+    assert!(LevelView::with_directory(&b, 2, 2).is_ok());
     assert_eq!(
-        LevelView::with_count(&b, 3).unwrap_err(),
+        LevelView::with_directory(&b, 2, 3).unwrap_err(),
         LevelError::CountMismatch
     );
 }
@@ -636,21 +639,22 @@ fn level_count_must_match_the_directory() {
 #[test]
 fn level_layout_is_the_spec_layout() {
     let b = level_bytes();
-    // Spawn at 12 and 20, the rule and string counts at 28 and 29, the reserved word at 30.
-    assert_eq!(b[12..20], 11.7f64.to_le_bytes());
-    assert_eq!(b[20..28], 2.0f64.to_le_bytes());
-    assert_eq!(b[28..32], [0; 4]); // no rules, no strings, reserved zero
+    // The spawn at 8 and 16, the four counts at 24 to 27 and four reserved bytes at 28.
+    assert_eq!(b[8..16], 11.7f64.to_le_bytes());
+    assert_eq!(b[16..24], 2.0f64.to_le_bytes());
+    assert_eq!(b[24..32], [0; 8]); // no states, bindings, rules or strings, reserved zero
 }
 
 #[test]
-fn level_without_rules_or_strings_keeps_the_old_bytes() {
-    // The fixture's FNV-1a 32 was computed by an independent Python encoder of the layout before rules and strings existed, so a
-    // level with neither is byte-identical to what the encoder wrote before the amendment.
+fn the_fixture_level_bytes_are_pinned() {
+    // The fixture's FNV-1a 32 was computed by an independent Python encoder of the version 2 layout (see `docs/FAP.md`), so the
+    // writer and the layout in the document cannot drift apart together. Header 32, name 8, two objects 64, tiles 60.
     let b = level_bytes();
     assert_eq!(b.len(), 164);
-    assert_eq!(fnv(&b), 0x89F7_4BCC);
-    assert_eq!(b[28..32], [0; 4]);
+    assert_eq!(fnv(&b), PIN_FIXTURE);
+    assert_eq!(b[24..32], [0; 8]); // no states, bindings, rules or strings, then the reserved bytes
     let v = LevelView::new(&b).unwrap();
+    assert_eq!((v.state_count(), v.binding_count()), (0, 0));
     assert_eq!((v.rule_count(), v.string_count()), (0, 0));
     assert_eq!((v.rules().count(), v.strings().count()), (0, 0));
 }
@@ -666,18 +670,24 @@ fn level_content_refusals() {
     let put = |v: &mut Vec<u8>, at: usize, x: f64| v[at..at + 8].copy_from_slice(&x.to_le_bytes());
     assert_eq!(bad(&|v| v[0..2].fill(0)), LevelError::BadSize);
     assert_eq!(bad(&|v| v[2..4].fill(0)), LevelError::BadSize);
-    assert_eq!(bad(&|v| v[9] = 49), LevelError::BadName);
+    assert_eq!(bad(&|v| v[5] = 49), LevelError::BadName);
     assert_eq!(bad(&|v| v[32] = 0x07), LevelError::BadName);
     assert_eq!(bad(&|v| v[32] = 0x80), LevelError::BadName);
     assert_eq!(bad(&|v| v[39] = b'x'), LevelError::BadName); // padding not zero
-    assert_eq!(bad(&|v| put(v, 12, f64::NAN)), LevelError::BadPosition);
-    assert_eq!(bad(&|v| put(v, 12, 12.0)), LevelError::BadPosition);
-    assert_eq!(bad(&|v| put(v, 20, -0.5)), LevelError::BadPosition);
-    // Object 0 (a snack) starts at 40 and object 1 (the chicken) at 72: kind, sub, flags, channel, x, y, p.
-    assert_eq!(bad(&|v| v[40] = 0), LevelError::BadKind);
-    assert_eq!(bad(&|v| v[40] = 8), LevelError::BadKind);
-    assert_eq!(bad(&|v| v[73] = 1), LevelError::BadKind); // sub on a chicken
-    assert_eq!(bad(&|v| v[42] = 1), LevelError::BadField);
-    assert_eq!(bad(&|v| put(v, 48, 5.0 + 7.0)), LevelError::BadPosition);
-    assert_eq!(bad(&|v| put(v, 64, f64::INFINITY)), LevelError::BadPosition);
+    assert_eq!(bad(&|v| put(v, 8, f64::NAN)), LevelError::BadSpawn);
+    assert_eq!(bad(&|v| put(v, 8, 12.0)), LevelError::BadSpawn);
+    assert_eq!(bad(&|v| put(v, 16, -0.5)), LevelError::BadSpawn);
+    // Object 0 (a snack) starts at 40 and object 1 (the chicken) at 72: kind, sub, flags, aux, x, y, p.
+    assert_eq!(bad(&|v| v[40] = 0), LevelError::BadKind(0));
+    assert_eq!(bad(&|v| v[40] = 11), LevelError::BadKind(0));
+    assert_eq!(bad(&|v| v[40] = 5), LevelError::BadKind(0)); // a reserved kind
+    assert_eq!(bad(&|v| v[73] = 1), LevelError::BadObject(1)); // sub on a chicken
+    assert_eq!(bad(&|v| v[42] = 1), LevelError::BadObject(0));
+    assert_eq!(bad(&|v| v[44] = 1), LevelError::BadObject(0)); // aux on a snack
+    assert_eq!(bad(&|v| put(v, 48, 5.0 + 7.0)), LevelError::BadPosition(0));
+    assert_eq!(bad(&|v| put(v, 80, f64::NAN)), LevelError::BadPosition(1));
+    assert_eq!(
+        bad(&|v| put(v, 64, f64::INFINITY)),
+        LevelError::BadObject(0)
+    ); // p on a snack
 }

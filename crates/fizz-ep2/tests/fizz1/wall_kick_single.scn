@@ -1,0 +1,170 @@
+# One wall: the first kick works and the same side is refused until Ben lands (Jump tapped against the wall all the way).
+scenario wall_kick_single
+map
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+.......#...
+###########
+###########
+end
+start 5 2
+input
+10 -
+14 R
+1 JR
+3 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+150 -
+end

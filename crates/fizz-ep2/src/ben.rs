@@ -5,8 +5,9 @@
 //
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: `Player::level`,
 // `tick_ben` (the alive and dead branches), `tick_ben_move`, `tick_head_bump` and `fire`.
-// `fire`. Left out on purpose: mantle (automatic and in progress), ladders and vines, wall kicks, moving platforms under
-// Ben, jokes and counters, captions and sound, and the camera. What Fizz 1's `tick_ben_contacts` does with tiles, items
+// `fire`, and the wall kick from `tick_ben_move` with `wall_side` and the `kick_side` reset in `tick_ben`. Left out on
+// purpose: mantle (automatic and in progress), ladders and vines, moving platforms under Ben, jokes and counters, captions and
+// sound, and the camera. What Fizz 1's `tick_ben_contacts` does with tiles, items
 // and enemies lives in `world.rs`. Departure: velocities below 2^-1000 snap to zero.
 
 use crate::shot::Shot;
@@ -24,6 +25,13 @@ pub const HEAD_BUMP_MIN_SPEED: f64 = 1.0;
 pub const HEAD_BUMP_MIN_RISE: f64 = 0.05;
 /// Ben dies when his body's bottom is below this height: he has fallen out of the map. The world applies it.
 pub const FALL_DEATH_Y: f64 = -1.5;
+/// How fast a wall kick sends Ben up, in tiles per second (Fizz 1's `WALL_KICK_UP`). It is a full-height kick: Jump is not
+/// held to a height, so the kick never gets the jump's cut.
+pub const WALL_KICK_UP: f64 = 19.0;
+/// How fast a wall kick sends Ben away from the wall, in tiles per second (Fizz 1's `WALL_KICK_AWAY`).
+pub const WALL_KICK_AWAY: f64 = 6.0;
+/// Seconds after a kick before the next one (Fizz 1's `WALL_KICK_COOLDOWN`).
+pub const WALL_KICK_COOLDOWN: f64 = 0.25;
 /// The speed of a Fizz Blaster shot in tiles per second.
 pub const SHOT_SPEED: f64 = 16.0;
 /// Seconds a shot flies before it fizzles.
@@ -68,6 +76,8 @@ fn snap(v: f64) -> f64 {
 pub struct BenFlags {
     /// A ground jump started (Fizz 1's `Cap::Jump`): Ben's position before the move.
     pub jumped: Option<(f64, f64)>,
+    /// Ben kicked off a wall (`Cap::Kick`): his position before the move, plus 0.35 in x and 0.7 in y.
+    pub kicked: Option<(f64, f64)>,
     /// The pogo bounced off the ground (`Cap::Boing`): his position before the move, plus 0.35 in x.
     pub bounced: Option<(f64, f64)>,
     /// His head hit a ceiling on a rise that counts (`Cap::Clunk`): the top of his head, after the move.
@@ -80,7 +90,7 @@ pub struct BenFlags {
 
 /// Ben: the body and the state that drives his movement. Fields keep Fizz 1's `Player` names.
 ///
-/// Mantle is out of scope. Fizz 1 starts a mantle automatically when Ben, airborne and not on the pogo, runs into a wall
+/// Wall kicks are in: see [`Ben::kick_side`] and [`WALL_KICK_UP`]. Mantle is out of scope. Fizz 1 starts a mantle automatically when Ben, airborne and not on the pogo, runs into a wall
 /// whose lip is within reach; this port never does, so a level or scenario must keep Ben clear of such ledges. The
 /// trace tool refuses scenarios that trigger it.
 #[derive(Clone, Debug)]
@@ -104,8 +114,13 @@ pub struct Ben {
     pub bumped: bool,
     /// Where the current rise began.
     pub rise_y: f64,
-    /// Seconds before Ben may kick off a wall again. Wall kicks are not ported; the timer only counts down.
+    /// Seconds before Ben may kick off a wall again. A kick sets it to [`WALL_KICK_COOLDOWN`]. Like `squash`, it runs slightly
+    /// below zero on the tick it expires and is never clamped.
     pub wall_t: f64,
+    /// Which wall he last kicked off: -1 left, 1 right, 0 none yet. He cannot kick the same side twice running, so a single wall
+    /// cannot be climbed and only two walls facing each other can. Landing puts it back to 0 (Fizz 1 also does so when he
+    /// grabs a ladder or vine, which Fizz 2 does not have yet).
+    pub kick_side: f64,
     /// Seconds Up has been held alone while Ben is idle (Fizz 1's `Player::look_up`). Zero otherwise.
     pub look_up: f64,
     /// Seconds Down has been held alone while Ben is idle (Fizz 1's `Player::look_down`). Zero otherwise.
@@ -133,6 +148,7 @@ impl Ben {
             bumped: false,
             rise_y: 0.0,
             wall_t: 0.0,
+            kick_side: 0.0,
             look_up: 0.0,
             look_down: 0.0,
             aim: 0,
@@ -184,6 +200,9 @@ impl Ben {
         }
         if self.wall_t > 0.0 {
             self.wall_t -= dt;
+        }
+        if self.b.on_ground {
+            self.kick_side = 0.0;
         }
         self.tick_move(map, plats, input, ammo, shots, dt)
     }
@@ -277,8 +296,19 @@ impl Ben {
                 self.cut = true;
                 self.b.on_ground = false;
             }
+        } else if e.contains(Buttons::JUMP) && !self.pogo && self.wall_t <= 0.0 {
+            // In the air against a wall, Jump kicks off it: up and away. Fizz 1 also refuses the kick on the tick Ben lets go
+            // of a ladder or vine (`was_climbing`); Fizz 2 has neither yet.
+            if let Some(side) = self.wall_side(map).filter(|&s| s != self.kick_side) {
+                flags.kicked = Some((self.b.x + 0.35, self.b.y + 0.7));
+                self.b.vy = WALL_KICK_UP;
+                self.b.vx = -side * WALL_KICK_AWAY;
+                self.face = -side;
+                self.cut = false;
+                self.wall_t = WALL_KICK_COOLDOWN;
+                self.kick_side = side;
+            }
         }
-        // Fizz 1 kicks off a wall here when Jump is pressed in the air against one; not ported.
         {
             if self.cut && !jump_held && self.b.vy > 0.0 {
                 self.b.vy *= 0.45;
@@ -316,6 +346,22 @@ impl Ben {
         self.b.vx = snap(self.b.vx);
         self.b.vy = snap(self.b.vy);
         flags
+    }
+
+    /// Which side of Ben a solid wall touches at chest height (Fizz 1's `wall_side`): -1 for the left, 1 for the right, `None`
+    /// for neither. The probe is 0.08 tiles beyond his body on the row 0.7 above his feet, and it looks at solid tiles only
+    /// (one-way platforms, slopes, doors that are open and the map's edge do not count), the left side first.
+    pub fn wall_side(&self, map: &TileMap) -> Option<f64> {
+        let b = &self.b;
+        let row = libm::floor(b.y + 0.7) as i32;
+        let solid = |x: f64| map.is_solid_tile(map.get(libm::floor(x) as i32, row));
+        if solid(b.x - 0.08) {
+            Some(-1.0)
+        } else if solid(b.x + b.w + 0.08) {
+            Some(1.0)
+        } else {
+            None
+        }
     }
 
     /// Tracks the rise so a ceiling bump counts once per rise (Fizz 1's `tick_head_bump`). Returns where the
@@ -596,6 +642,220 @@ mod tests {
             hold(&map, &mut ben, &mut prev, Buttons::DOWN, 1, &mut ammo);
         }
         assert_eq!(ben.look_offset, -LOOK_REACH);
+    }
+
+    /// A floor two rows thick under a 14-row sky, with a solid wall column at each `walls` x and Ben standing at `x` on the
+    /// floor. The walls reach the top, so there is no lip to pull up onto.
+    fn shaft(walls: &[i32], x: f64) -> (TileMap, Ben) {
+        let mut map = TileMap::new(16, 16, fizz_phys::TileProps::default());
+        map.props.set_flags(1, fizz_phys::tilemap::SOLID);
+        for tx in 0..16 {
+            map.set(tx, 0, 1);
+            map.set(tx, 1, 1);
+        }
+        for &wx in walls {
+            for ty in 2..16 {
+                map.set(wx, ty, 1);
+            }
+        }
+        (map, Ben::new(x, 2.0))
+    }
+
+    /// Steps one tick with `held`, treating the edge as a press when `prev` lacked the button. Returns the tick's flags.
+    fn step(map: &TileMap, ben: &mut Ben, prev: &mut Buttons, held: Buttons) -> BenFlags {
+        let f = ben.tick(
+            map,
+            &[],
+            InputFrame::from_transition(*prev, held),
+            &mut 0,
+            &mut Vec::new(),
+        );
+        *prev = held;
+        f
+    }
+
+    /// Runs `held` for `ticks` ticks, returning how many of them kicked.
+    fn run(map: &TileMap, ben: &mut Ben, prev: &mut Buttons, held: Buttons, ticks: u32) -> u32 {
+        (0..ticks)
+            .map(|_| u32::from(step(map, ben, prev, held).kicked.is_some()))
+            .sum()
+    }
+
+    const JR: Buttons = Buttons::JUMP.union(Buttons::RIGHT);
+    const JL: Buttons = Buttons::JUMP.union(Buttons::LEFT);
+
+    /// Ben on the shaft floor, jumped, and pressed against the wall on his right with Jump released, in the air.
+    fn airborne_at_right_wall() -> (TileMap, Ben, Buttons) {
+        let (map, mut ben) = shaft(&[8], 7.0);
+        let mut prev = Buttons::NONE;
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 20);
+        assert!((ben.b.x + ben.b.w - 8.0).abs() < 1e-5, "against the wall");
+        run(&map, &mut ben, &mut prev, JR, 1);
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 3);
+        assert!(!ben.b.on_ground);
+        (map, ben, prev)
+    }
+
+    #[test]
+    fn jump_in_the_air_against_a_wall_kicks_up_and_away() {
+        let (map, mut ben, mut prev) = airborne_at_right_wall();
+        let (x, y) = (ben.b.x, ben.b.y);
+        let f = step(&map, &mut ben, &mut prev, JR);
+        assert_eq!(f.kicked, Some((x + 0.35, y + 0.7)));
+        assert_eq!(f.jumped, None);
+        // The kick sets the speeds before the tick's gravity: 19 up less one step of gravity, and 6 away from the wall.
+        assert_eq!(ben.b.vy, WALL_KICK_UP - GRAVITY * STEP);
+        assert_eq!(ben.b.vx, -WALL_KICK_AWAY);
+        assert_eq!((ben.face, ben.kick_side), (-1.0, 1.0));
+        assert_eq!(ben.wall_t, WALL_KICK_COOLDOWN);
+        assert!(!ben.cut, "a kick is always full height");
+        // Releasing Jump straight away does not shorten it.
+        let top = (0..120).fold(ben.b.y, |m, _| {
+            step(&map, &mut ben, &mut prev, Buttons::NONE);
+            m.max(ben.b.y)
+        });
+        assert!(top - y > 2.5, "rose {}", top - y);
+    }
+
+    #[test]
+    fn the_same_side_is_refused_until_landing_and_then_allowed_again() {
+        let (map, mut ben, mut prev) = airborne_at_right_wall();
+        assert_eq!(run(&map, &mut ben, &mut prev, JR, 1), 1);
+        // Back against the right wall after the cooldown, tapping Jump: refused, because that side was the last kick.
+        let mut kicked = 0;
+        for _ in 0..90 {
+            kicked += run(&map, &mut ben, &mut prev, Buttons::RIGHT, 1);
+            if ben.b.on_ground {
+                break;
+            }
+            kicked += run(&map, &mut ben, &mut prev, JR, 1);
+            if ben.b.on_ground {
+                break;
+            }
+        }
+        assert_eq!(kicked, 0, "no second kick off one wall");
+        assert!(ben.b.on_ground, "he has landed");
+        assert_eq!(
+            ben.kick_side, 1.0,
+            "cleared at the start of the next tick, as in Fizz 1"
+        );
+        // Landing makes the same wall good for a kick again.
+        run(&map, &mut ben, &mut prev, Buttons::NONE, 3);
+        assert_eq!(ben.kick_side, 0.0, "landing clears the side");
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 20);
+        run(&map, &mut ben, &mut prev, JR, 1);
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 3);
+        assert_eq!(run(&map, &mut ben, &mut prev, JR, 1), 1);
+    }
+
+    #[test]
+    fn the_cooldown_holds_off_the_next_kick() {
+        // Walls at x 3 and 7 leave a chimney three tiles wide; crossing it takes about 0.3 s, so a press that reaches the far
+        // wall inside the cooldown is refused and a later one is not.
+        let (map, mut ben) = shaft(&[3, 7], 5.0);
+        let mut prev = Buttons::NONE;
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 20);
+        run(&map, &mut ben, &mut prev, JR, 1);
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 3);
+        assert_eq!(run(&map, &mut ben, &mut prev, JR, 1), 1);
+        let kicked_at = ben.wall_t;
+        assert_eq!(kicked_at, WALL_KICK_COOLDOWN);
+        // Tap Jump every other tick towards the left wall and note when the second kick comes.
+        let mut second = None;
+        for n in 1..=60u32 {
+            run(&map, &mut ben, &mut prev, Buttons::LEFT, 1);
+            if run(&map, &mut ben, &mut prev, JL, 1) == 1 {
+                second = Some(2 * n);
+                break;
+            }
+        }
+        let n = second.expect("the left wall is reached");
+        assert!(
+            f64::from(n) * STEP >= WALL_KICK_COOLDOWN - STEP,
+            "second kick after only {n} ticks"
+        );
+        assert_eq!(ben.kick_side, -1.0);
+        assert_eq!(ben.b.vx, WALL_KICK_AWAY);
+    }
+
+    #[test]
+    fn two_facing_walls_chain_kicks_where_one_wall_gives_one() {
+        fn best(walls: &[i32]) -> f64 {
+            let (map, mut ben) = shaft(walls, 5.0);
+            let mut prev = Buttons::NONE;
+            let (mut top, mut kicks) = (0.0_f64, 0);
+            for toward in [Buttons::RIGHT, Buttons::LEFT, Buttons::RIGHT, Buttons::LEFT] {
+                for _ in 0..40 {
+                    kicks += run(&map, &mut ben, &mut prev, toward, 1);
+                    kicks += run(&map, &mut ben, &mut prev, toward.union(Buttons::JUMP), 1);
+                    top = top.max(ben.b.y);
+                }
+            }
+            assert!(kicks > 0);
+            top
+        }
+        let single = best(&[7]);
+        let double = best(&[3, 7]);
+        assert!(single < 9.0, "one wall: reached {single}");
+        assert!(
+            double > single + 1.0,
+            "two walls: {double} against {single}"
+        );
+    }
+
+    #[test]
+    fn jump_kicks_nothing_on_the_ground_on_the_pogo_in_open_air_or_with_the_button_held() {
+        // On the ground against a wall it is an ordinary jump.
+        let (map, mut ben) = shaft(&[8], 7.3);
+        let mut prev = Buttons::NONE;
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 5);
+        let f = step(&map, &mut ben, &mut prev, JR);
+        assert!(f.jumped.is_some() && f.kicked.is_none());
+        assert_eq!(ben.kick_side, 0.0);
+        // In the air with Jump still held from the ground jump, there is no new press edge.
+        assert_eq!(run(&map, &mut ben, &mut prev, JR, 20), 0);
+        // Away from any wall a press does nothing.
+        let (map, mut ben) = shaft(&[], 7.0);
+        let mut prev = Buttons::NONE;
+        run(&map, &mut ben, &mut prev, Buttons::JUMP, 1);
+        run(&map, &mut ben, &mut prev, Buttons::NONE, 3);
+        assert_eq!(run(&map, &mut ben, &mut prev, Buttons::JUMP, 1), 0);
+        // On the pogo stick Jump never kicks, even against a wall.
+        let (map, mut ben) = shaft(&[8], 7.0);
+        let mut prev = Buttons::NONE;
+        run(&map, &mut ben, &mut prev, Buttons::POGO, 1);
+        run(&map, &mut ben, &mut prev, Buttons::RIGHT, 30);
+        assert!(ben.pogo);
+        let mut kicks = 0;
+        for _ in 0..60 {
+            kicks += run(&map, &mut ben, &mut prev, Buttons::RIGHT, 1);
+            kicks += run(&map, &mut ben, &mut prev, JR, 1);
+        }
+        assert_eq!(kicks, 0);
+    }
+
+    #[test]
+    fn wall_side_reads_solid_tiles_on_the_chest_row_with_the_left_first() {
+        let (map, mut ben) = shaft(&[3, 5], 3.92);
+        // A wall within 0.08 of both sides: the left one wins.
+        ben.b.y = 4.0;
+        ben.b.x = 4.0 - 1e-9;
+        assert_eq!(ben.wall_side(&map), Some(-1.0));
+        ben.b.x = 4.1;
+        assert_eq!(ben.wall_side(&map), None, "more than 0.08 from either wall");
+        ben.b.x = 5.0 - ben.b.w;
+        assert_eq!(ben.wall_side(&map), Some(1.0));
+        // A wall that is only above or below the chest row (feet at 4.0, probe row floor(4.7) = 4) is not touched.
+        let (mut map, mut ben) = shaft(&[], 6.0);
+        map.set(7, 5, 1);
+        ben.b.y = 4.0;
+        ben.b.x = 7.0 - ben.b.w;
+        assert_eq!(ben.wall_side(&map), None);
+        map.set(7, 4, 1);
+        assert_eq!(ben.wall_side(&map), Some(1.0));
+        // A tile that is not SOLID (tile 2 has no flags here) is no wall.
+        map.set(7, 4, 2);
+        assert_eq!(ben.wall_side(&map), None);
     }
 
     #[test]

@@ -1,0 +1,370 @@
+# Kicks chained between two walls three tiles apart: one kick per side until Ben touches the other wall, a cooldown between kicks.
+scenario wall_kick_chimney
+map
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+...#...#...
+###########
+###########
+end
+start 5 2
+input
+10 -
+14 R
+1 JR
+3 R
+1 JR
+1 R
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JL
+1 L
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+1 JR
+1 R
+120 -
+end

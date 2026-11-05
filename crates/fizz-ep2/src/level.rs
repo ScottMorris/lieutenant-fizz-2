@@ -45,14 +45,18 @@
 //!   shots go, between Ben and the wall he shoots at, so the player who has spent them walks into a refill ([`SNACKS`], the
 //!   last two entries). The other lies at the right end of the shelf, where the pogo lands.
 
-use crate::rules::{self, Rule, RuleError, RuleTable};
+use crate::doors::{DoorError, Doors};
+use crate::rules::{self, RuleError, RuleTable};
 use crate::tiles::{self, BLOCK, DOOR_B, DOOR_R, EMPTY, EXIT, FILL, PLAT, SPIKE, WALLBG};
 use crate::world::{SnackKind, World};
 use fizz_pack::level::{
-    KIND_CHICKEN, KIND_ENEMY, KIND_GADGET, KIND_KEY_BLUE, KIND_KEY_RED, KIND_SNACK, KIND_SWITCH,
-    MAX_STRINGS, STRING_TEXT_MAX, STYLE_COUNT,
+    KIND_CHICKEN, KIND_CUSTOM_ENEMY, KIND_CUSTOM_ITEM, KIND_ENEMY, KIND_GADGET, KIND_KEY_BLUE,
+    KIND_KEY_RED, KIND_LIGHT, KIND_SNACK, KIND_SWITCH, MAX_STRINGS, STRING_TEXT_MAX, STYLE_COUNT,
+    TRIGGER_TOUCH,
 };
-use fizz_pack::{LevelView, ObjectRec, RuleRec, StringRec};
+use fizz_pack::{
+    ActionRec, BindingRec, CondRec, LevelView, ObjectRec, RuleRec, StateRec, StringRec,
+};
 use fizz_phys::TileMap;
 use fizz_sim::StateHash;
 
@@ -197,11 +201,17 @@ pub const SLICE: LevelData = LevelData {
     tiles: bake(&ROWS),
 };
 
-/// The slice level's map, with its tile properties.
+/// The slice level's map, with its tile properties and its doors bound to their switch bits.
 pub fn map() -> TileMap {
     let mut m = TileMap::new(SLICE.w, SLICE.h, tiles::props());
     m.data.copy_from_slice(&SLICE.tiles);
+    slice_doors().bind(&mut m);
     m
+}
+
+/// The slice's states and door bindings read against its tiles.
+fn slice_doors() -> Doors {
+    doors_of(&SLICE_SOURCE).expect("the slice level is valid")
 }
 
 /// A fresh world on the slice level: Ben at the spawn, the keys, the snacks and the chicken in place, both doors closed.
@@ -210,7 +220,8 @@ pub fn world() -> World {
 }
 
 /// What the level can hold besides tiles. The variants are the object kinds of a `LEVL` section that the rules can build;
-/// the pack's kinds 5 to 7 (gadget, switch, generic enemy) are reserved and refused.
+/// the pack's other kinds (the gadget, the switch, the light and the enemies) are refused here until the rules have a consumer
+/// for them.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Object {
     /// The red key, its centre in tiles.
@@ -234,7 +245,8 @@ impl Object {
         }
     }
 
-    /// The object as a `LEVL` record: `sub` is the snack kind number, `p` the chicken's direction, `flags` and `channel` zero.
+    /// The object as a `LEVL` record: `sub` is the snack kind number, `p` the chicken's direction, `flags` and `aux` zero (a
+    /// chicken's group is 0, none).
     pub fn to_rec(&self) -> ObjectRec {
         let (sub, x, y, p) = match *self {
             Object::KeyRed { x, y } | Object::KeyBlue { x, y } => (0, x, y, 0.0),
@@ -245,21 +257,29 @@ impl Object {
             kind: self.kind(),
             sub,
             flags: 0,
-            channel: 0,
+            aux: 0,
             x_bits: x.to_bits(),
             y_bits: y.to_bits(),
             p_bits: p.to_bits(),
         }
     }
 
-    /// Reads a record the rules can build. Kinds 5 to 7, an unknown snack `sub`, a chicken direction other than 1 or -1 and
-    /// any non-zero `flags`, `channel` or `p` (except a chicken's `p`) are refused.
+    /// Reads a record the rules can build. The kinds the rules have no consumer for, an unknown snack `sub`, a chicken direction
+    /// other than 1 or -1 and any non-zero `flags`, `aux` or `p` (except a chicken's `p`) are refused.
     pub fn from_rec(r: &ObjectRec) -> Result<Object, SourceError> {
         let (x, y, p) = (r.x(), r.y(), r.p());
-        if matches!(r.kind, KIND_GADGET | KIND_SWITCH | KIND_ENEMY) {
+        if matches!(
+            r.kind,
+            KIND_GADGET
+                | KIND_SWITCH
+                | KIND_ENEMY
+                | KIND_LIGHT
+                | KIND_CUSTOM_ENEMY
+                | KIND_CUSTOM_ITEM
+        ) {
             return Err(SourceError::ReservedKind);
         }
-        if r.flags != 0 || r.channel != 0 {
+        if r.flags != 0 || r.aux != 0 {
             return Err(SourceError::BadObject);
         }
         match r.kind {
@@ -295,10 +315,12 @@ pub enum SourceError {
     SnackKind,
     /// A chicken direction other than 1 or -1.
     ChickenDir,
-    /// An object kind of 5 to 7, which the rules cannot build yet.
+    /// An object kind the rules cannot build yet (the pack accepts the switch and the light; the rest are reserved).
     ReservedKind,
     /// Any other malformed object record (an unknown kind, or fields that must be zero).
     BadObject,
+    /// A state or door binding the world cannot build.
+    Door(DoorError),
     /// A rule the rules cannot build: a trigger that has no phase yet, or a lock that breaks the lock shape.
     Rule(RuleError),
     /// A string whose length is 0 or over 30, or whose style is not one of the seven, or more than 32 strings.
@@ -314,14 +336,16 @@ pub struct LevelSource<'a> {
     pub h: u16,
     /// Tile ids, row-major, row 0 (the bottom) first.
     pub tiles: &'a [u8],
-    /// The switch channels that start on.
-    pub switches: u32,
     pub floor_solid: bool,
     /// Ben's start: the lower-left corner of his body.
     pub spawn: (f64, f64),
+    /// The level's states: how many values each has and the value it starts at.
+    pub states: &'a [StateRec],
+    /// The level's bindings. Only door bindings can be built so far.
+    pub bindings: &'a [BindingRec],
     /// In construction order: keys, then snacks, then chickens, same-kind objects in source order.
     pub objects: &'a [Object],
-    /// The level's rules in rule order (the order the sim evaluates them). Only locks (trigger 1) can be built so far.
+    /// The level's rules in rule order (the order the sim evaluates them). Only locks can be built so far.
     pub rules: &'a [RuleRec],
     /// The level's own caption words. Carried and fingerprinted; nothing draws them yet.
     pub strings: &'a [StringRec],
@@ -382,46 +406,73 @@ pub const SLICE_OBJECTS: [Object; 11] = [
     },
 ];
 
+/// The slice's states: `red-door` and `blue-door`, each of the values `closed` (0) and `open` (1), starting closed.
+pub const SLICE_STATES: [StateRec; 2] = [StateRec::new(2, 0), StateRec::new(2, 0)];
+
+/// The slice's door bindings: each door's tiles are passable while its state is in the set `{open}` (mask `0b10`), over the whole
+/// rectangle of the door.
+pub const SLICE_BINDINGS: [BindingRec; 2] = [
+    BindingRec::door(0, 0b10, (15, 20, 15, 22)),
+    BindingRec::door(1, 0b10, (22, 38, 22, 40)),
+];
+
+const RED_RECT: (u32, u32) = RuleRec::union_rect(15, 20, 15, 22);
+const BLUE_RECT: (u32, u32) = RuleRec::union_rect(22, 38, 22, 40);
+
 /// The slice's rules: the red door's lock, then the blue door's. The order is the order the sim evaluates them, which is the
-/// order Fizz 1 tries the door colours. Each is trigger 1 (subject = key colour), slot A switching the door's channel off, with
-/// the middle cell of the door's tiles as the event cell.
+/// order Fizz 1 tries the door colours. Each is what `lock red-door key=red` lowers to: a touch rule over the door's whole
+/// rectangle that, while the door's state is in `{closed}` and Ben holds the key, sets the state to `open` and spends the key.
 pub const SLICE_RULES: [RuleRec; 2] = [
     RuleRec {
-        trigger: fizz_pack::level::TRIGGER_LOCK,
-        subject: rules::KEY_RED,
-        op: fizz_pack::level::OP_OFF,
-        channel: tiles::DOOR_RED_CHANNEL,
-        cell_a: (15, 21),
+        trigger: TRIGGER_TOUCH,
+        u0: RED_RECT.0,
+        u1: RED_RECT.1,
+        cond: [CondRec::state_in(0, 0b01), CondRec::holds(rules::KEY_RED)],
+        act: [ActionRec::set(0, 1), ActionRec::spend_key(rules::KEY_RED)],
         ..RuleRec::EMPTY
     },
     RuleRec {
-        trigger: fizz_pack::level::TRIGGER_LOCK,
-        subject: rules::KEY_BLUE,
-        op: fizz_pack::level::OP_OFF,
-        channel: tiles::DOOR_BLUE_CHANNEL,
-        cell_a: (22, 39),
+        trigger: TRIGGER_TOUCH,
+        u0: BLUE_RECT.0,
+        u1: BLUE_RECT.1,
+        cond: [CondRec::state_in(1, 0b01), CondRec::holds(rules::KEY_BLUE)],
+        act: [ActionRec::set(1, 1), ActionRec::spend_key(rules::KEY_BLUE)],
         ..RuleRec::EMPTY
     },
 ];
 
-/// The slice as a [`LevelSource`]: the data every world build goes through. Channels 1 and 2 (the red and blue doors) start
-/// on, which is closed.
+/// The slice as a [`LevelSource`]: the data every world build goes through. Both doors start closed.
 pub const SLICE_SOURCE: LevelSource<'static> = LevelSource {
     name: SLICE.name,
     w: W as u16,
     h: H as u16,
     tiles: &SLICE.tiles,
-    switches: tiles::DOOR_RED_BIT | tiles::DOOR_BLUE_BIT,
     floor_solid: false,
     spawn: SPAWN,
+    states: &SLICE_STATES,
+    bindings: &SLICE_BINDINGS,
     objects: &SLICE_OBJECTS,
     rules: &SLICE_RULES,
     strings: &[],
 };
 
+/// The source's states and door bindings read against its tiles.
+fn doors_of(src: &LevelSource) -> Result<Doors, SourceError> {
+    Doors::from_recs(
+        src.states,
+        src.bindings,
+        src.tiles,
+        src.w,
+        src.h,
+        &tiles::props(),
+    )
+    .map_err(SourceError::Door)
+}
+
 /// Checks what the pack cannot: the tile list has `w * h` bytes, the objects come in ascending kind order, there is at most
-/// one key of each colour, every chicken direction is 1 or -1, every rule can be built (see [`Rule::from_rec`]) and every string
-/// has a length and a style the pack accepts. (A snack's kind and the reserved object kinds are excluded by the [`Object`] type.)
+/// one key of each colour, every chicken direction is 1 or -1, every state and door binding can be built (see [`Doors`]), every
+/// rule can be built (see [`rules::Rule::from_rec`]) and every string has a length and a style the pack accepts. (A snack's kind
+/// and the object kinds the rules cannot build are excluded by the [`Object`] type.)
 pub fn validate(src: &LevelSource) -> Result<(), SourceError> {
     if src.w == 0 || src.h == 0 || src.tiles.len() != usize::from(src.w) * usize::from(src.h) {
         return Err(SourceError::BadSize);
@@ -447,7 +498,8 @@ pub fn validate(src: &LevelSource) -> Result<(), SourceError> {
             _ => {}
         }
     }
-    RuleTable::from_recs(src.rules, src.w, src.h).map_err(SourceError::Rule)?;
+    let doors = doors_of(src)?;
+    RuleTable::from_recs(src.rules, &doors).map_err(SourceError::Rule)?;
     check_strings(src.strings)
 }
 
@@ -464,10 +516,11 @@ fn check_strings(strings: &[StringRec]) -> Result<(), SourceError> {
 }
 
 /// The digest of a level: FNV-1a 64 (the state hash's function) over, little-endian and in this order, `w` and `h` as `u16`,
-/// the tile bytes, `switches` as `u32`, `floor_solid` as one byte, the bits of the spawn x and y, then for each object its
-/// record fields `kind`, `sub`, `flags` (`u16`), `channel` (`u32`) and the bits of `x`, `y` and `p`; then the rule count (one
-/// byte) and each rule's 32-byte record, then the string count (one byte) and each string's 32-byte record. The name is not
-/// included. A baked level and the `const` level are the same level when their digests agree.
+/// the tile bytes, `floor_solid` as one byte, the bits of the spawn x and y, the state count (one byte) and each state's 8-byte
+/// record, the binding count (one byte) and each binding's 16-byte record, then for each object its record fields `kind`, `sub`,
+/// `flags` (`u16`), `aux` (`u32`) and the bits of `x`, `y` and `p`; then the rule count (one byte) and each rule's 48-byte
+/// record, then the string count (one byte) and each string's 32-byte record. The name is not included. A baked level and the
+/// `const` level are the same level when their digests agree.
 pub fn digest(src: &LevelSource) -> u64 {
     let mut h = StateHash::new();
     h.write_u8(src.w as u8);
@@ -477,17 +530,28 @@ pub fn digest(src: &LevelSource) -> u64 {
     for &t in src.tiles {
         h.write_u8(t);
     }
-    h.write_u32(src.switches);
     h.write_u8(u8::from(src.floor_solid));
     h.write_f64(src.spawn.0);
     h.write_f64(src.spawn.1);
+    h.write_u8(src.states.len() as u8);
+    for s in src.states {
+        for b in s.to_bytes() {
+            h.write_u8(b);
+        }
+    }
+    h.write_u8(src.bindings.len() as u8);
+    for r in src.bindings {
+        for b in r.to_bytes() {
+            h.write_u8(b);
+        }
+    }
     for o in src.objects {
         let r = o.to_rec();
         h.write_u8(r.kind);
         h.write_u8(r.sub);
         h.write_u8(r.flags as u8);
         h.write_u8((r.flags >> 8) as u8);
-        h.write_u32(r.channel);
+        h.write_u32(r.aux);
         h.write_u64(r.x_bits);
         h.write_u64(r.y_bits);
         h.write_u64(r.p_bits);
@@ -510,14 +574,16 @@ pub fn digest(src: &LevelSource) -> u64 {
 fn build(
     (w, h): (u16, u16),
     tile_bytes: &[u8],
-    (switches, floor_solid): (u32, bool),
+    floor_solid: bool,
     spawn: (f64, f64),
     objects: impl Iterator<Item = Object>,
+    doors: &Doors,
     rules: RuleTable,
 ) -> World {
     let mut m = TileMap::new(i32::from(w), i32::from(h), tiles::props());
     m.data.copy_from_slice(tile_bytes);
     m.floor_solid = floor_solid;
+    doors.bind(&mut m);
     let mut world = World::new(m, spawn);
     for o in objects {
         match o {
@@ -527,29 +593,34 @@ fn build(
             Object::Chicken { x, y, dir } => world.add_chicken(x, y, dir),
         }
     }
-    // The level's switches are its start state, and the state every death restores.
-    world.set_switches(switches);
+    // The doors' start bits are the level's start state, and the state every death restores.
+    world.set_switches(doors.start_switches());
     world.set_rules(rules);
     world
 }
 
-/// A fresh world built from level data: Ben at the spawn, the objects in place in record order, the level's switches set.
+/// A fresh world built from level data: Ben at the spawn, the objects in place in record order, each door's derived bit set
+/// from its state's start value.
 pub fn world_from(src: &LevelSource) -> Result<World, SourceError> {
     validate(src)?;
+    let doors = doors_of(src)?;
+    let rules = RuleTable::from_recs(src.rules, &doors).map_err(SourceError::Rule)?;
     Ok(build(
         (src.w, src.h),
         src.tiles,
-        (src.switches, src.floor_solid),
+        src.floor_solid,
         src.spawn,
         src.objects.iter().copied(),
-        RuleTable::from_recs(src.rules, src.w, src.h).map_err(SourceError::Rule)?,
+        &doors,
+        rules,
     ))
 }
 
-/// A fresh world built from a `LEVL` section the pack reader has accepted. Refuses object kinds 5 to 7, an unknown snack
-/// kind, a bad chicken direction, a second key of a colour, and every rule that is not a well-formed lock: the triggers 2 to 8
-/// (start, enter, take, shoot, stomp, stun and time) have no phase in the sim yet and fail with `SourceError::Rule(RuleError::Trigger)`.
-/// The level's strings are checked by the reader and not used yet.
+/// A fresh world built from a `LEVL` section the pack reader has accepted. Refuses the object kinds the rules cannot build (the
+/// switch and the light among them), an unknown snack kind, a bad chicken direction, a second key of a colour, a binding that is
+/// not a door binding, switched tiles that no door binding covers, and every rule that is not a well-formed lock: the triggers
+/// other than the touch rule have no phase in the sim yet and fail with `SourceError::Rule(RuleError::Trigger)`. The level's
+/// strings are checked by the reader and not used yet.
 pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
     let mut objects = alloc::vec::Vec::with_capacity(view.object_count());
     let (mut red, mut blue) = (false, false);
@@ -567,16 +638,19 @@ pub fn world_from_view(view: &LevelView) -> Result<World, SourceError> {
         objects.push(o);
     }
     let (w, h) = (view.width() as u16, view.height() as u16);
-    let mut rules = RuleTable::new();
-    for r in view.rules() {
-        rules.push(Rule::from_rec(&r, w, h).map_err(SourceError::Rule)?);
-    }
+    let states: alloc::vec::Vec<StateRec> = view.states().collect();
+    let bindings: alloc::vec::Vec<BindingRec> = view.bindings().collect();
+    let doors = Doors::from_recs(&states, &bindings, view.tiles(), w, h, &tiles::props())
+        .map_err(SourceError::Door)?;
+    let recs: alloc::vec::Vec<RuleRec> = view.rules().collect();
+    let rules = RuleTable::from_recs(&recs, &doors).map_err(SourceError::Rule)?;
     Ok(build(
         (w, h),
         view.tiles(),
-        (view.switches(), view.floor_solid()),
+        view.floor_solid(),
         view.spawn(),
         objects.into_iter(),
+        &doors,
         rules,
     ))
 }
@@ -679,6 +753,8 @@ mod tests {
     }
 
     extern crate std;
+    use crate::rules::Rule;
+    use fizz_pack::level::{KIND_LIGHT, SWITCH_USE, TRIGGER_ENTER, TRIGGER_START, TRIGGER_TIME};
     use fizz_pack::write::{LevelSpec, encode_level};
     use std::string::String;
     use std::vec::Vec;
@@ -692,19 +768,11 @@ mod tests {
             w.add_snack(kind, x, y);
         }
         w.add_chicken(CHICKEN.0, CHICKEN.1, CHICKEN.2);
-        // Before levels were data, `World::new` set channel 1 and `set_key_blue` channel 2, and the doors were hard-wired.
-        w.set_switches(0b110);
+        // Both doors start closed: each door's derived bit is set.
+        w.set_switches(tiles::DOOR_RED_BIT | tiles::DOOR_BLUE_BIT);
         let mut rules = RuleTable::new();
-        rules.push(Rule::lock(
-            rules::KEY_RED,
-            tiles::DOOR_RED_CHANNEL,
-            (15, 21),
-        ));
-        rules.push(Rule::lock(
-            rules::KEY_BLUE,
-            tiles::DOOR_BLUE_CHANNEL,
-            (22, 39),
-        ));
+        rules.push(Rule::lock(rules::KEY_RED, tiles::DOOR_RED_CHANNEL));
+        rules.push(Rule::lock(rules::KEY_BLUE, tiles::DOOR_BLUE_CHANNEL));
         w.set_rules(rules);
         w
     }
@@ -715,6 +783,9 @@ mod tests {
         assert_eq!((a.map.w, a.map.h), (b.map.w, b.map.h));
         assert_eq!(a.map.switches, b.map.switches);
         assert_eq!(a.map.floor_solid, b.map.floor_solid);
+        for (x, y) in (0..a.map.w).flat_map(|x| (0..a.map.h).map(move |y| (x, y))) {
+            assert_eq!(a.map.switch_bit(x, y), b.map.switch_bit(x, y), "{x}, {y}");
+        }
         assert_eq!(a.snacks, b.snacks);
         assert_eq!(a.chickens.len(), b.chickens.len());
         for (x, y) in a.chicken_views().zip(b.chicken_views()) {
@@ -731,15 +802,43 @@ mod tests {
     fn the_data_world_equals_the_hand_built_one() {
         let (a, b) = (world(), legacy_world());
         assert_same_world(&a, &b);
-        assert_eq!(a.map.switches, 0b110);
+        assert_eq!(a.map.switches, 0b11);
         assert_eq!(a.spawn(), SPAWN);
     }
 
     #[test]
+    fn the_doors_are_derived_from_the_bindings() {
+        let doors = slice_doors();
+        let d = doors.doors();
+        assert_eq!(d.len(), 2);
+        assert_eq!(
+            (d[0].bit, d[0].rect, d[0].mask),
+            (tiles::DOOR_RED_CHANNEL, (15, 20, 15, 22), 0b10)
+        );
+        assert_eq!(
+            (d[1].bit, d[1].rect, d[1].mask),
+            (tiles::DOOR_BLUE_CHANNEL, (22, 38, 22, 40), 0b10)
+        );
+        assert_eq!(doors.start_switches(), 0b11);
+        // Each door's cells are the tiles the slice draws as its door.
+        let m = map();
+        for &(x, y) in &DOOR {
+            assert_eq!(m.switch_bit(x, y), Some(tiles::DOOR_RED_CHANNEL));
+        }
+        for &(x, y) in &BLUE_DOOR {
+            assert_eq!(m.switch_bit(x, y), Some(tiles::DOOR_BLUE_CHANNEL));
+        }
+        assert_eq!(m.switch_bit(14, 21), None);
+        assert_eq!(m.switch_bit(15, 19), None);
+        assert_eq!(m.switch_bit(15, 23), None);
+    }
+
+    #[test]
     fn the_slice_digest_is_pinned() {
-        // Moved from 0x4326_f908_3ff9_bde6 on purpose: the digest now covers the rules (the two locks) and the strings (none).
-        // Moved again from 0x44cc_83fb_5218_552f, on purpose: the level gained its provisional elixir (an eighth snack, kind 4).
-        assert_eq!(digest(&SLICE_SOURCE), 0xbd2e_72e6_f2ca_89fa);
+        // Moved from 0xbd2e_72e6_f2ca_89fa on purpose (the digest with the elixir): the digest now covers the states and bindings in place of the switch word, the
+        // objects' `aux` in place of their `channel`, and 48-byte rule records. Recomputed independently in Python
+        // (`tools/levl2-slice.py`).
+        assert_eq!(digest(&SLICE_SOURCE), 0xeb4c_6efa_20f3_875c);
     }
 
     fn one_string(style: u8) -> &'static [StringRec] {
@@ -747,12 +846,18 @@ mod tests {
     }
 
     const SWAPPED_RULES: [RuleRec; 2] = [SLICE_RULES[1], SLICE_RULES[0]];
-    const MOVED_CELL_RULES: [RuleRec; 2] = [
+    const MOVED_RECT_RULES: [RuleRec; 2] = [
         RuleRec {
-            cell_a: (15, 20),
+            u0: RuleRec::union_rect(15, 21, 15, 22).0,
             ..SLICE_RULES[0]
         },
         SLICE_RULES[1],
+    ];
+    const OTHER_START: [StateRec; 2] = [StateRec::new(2, 1), StateRec::new(2, 0)];
+    const THREE_VALUES: [StateRec; 2] = [StateRec::new(3, 0), StateRec::new(2, 0)];
+    const OTHER_MASK: [BindingRec; 2] = [
+        BindingRec::door(0, 0b110, (15, 20, 15, 22)),
+        SLICE_BINDINGS[1],
     ];
 
     /// The slice source with `edit` applied to owned copies of its tiles and objects.
@@ -792,14 +897,18 @@ mod tests {
             base,
             "the order of two snacks is part of the level"
         );
-        assert_ne!(changed(|_, _, s| s.switches = 0b010), base);
+        assert_ne!(changed(|_, _, s| s.states = &OTHER_START), base);
+        assert_ne!(changed(|_, _, s| s.states = &THREE_VALUES), base);
+        assert_ne!(changed(|_, _, s| s.states = &SLICE_STATES[..1]), base);
+        assert_ne!(changed(|_, _, s| s.bindings = &OTHER_MASK), base);
+        assert_ne!(changed(|_, _, s| s.bindings = &SLICE_BINDINGS[..1]), base);
         assert_ne!(changed(|_, _, s| s.rules = &SLICE_RULES[..1]), base);
         assert_ne!(
             changed(|_, _, s| s.rules = &SWAPPED_RULES),
             base,
             "the order of two rules is part of the level"
         );
-        assert_ne!(changed(|_, _, s| s.rules = &MOVED_CELL_RULES), base);
+        assert_ne!(changed(|_, _, s| s.rules = &MOVED_RECT_RULES), base);
         assert_ne!(changed(|_, _, s| s.strings = one_string(0)), base);
         assert_ne!(
             changed(|_, _, s| s.strings = one_string(2)),
@@ -846,52 +955,211 @@ mod tests {
         assert_eq!(validate(&short), Err(SourceError::BadSize));
     }
 
+    #[test]
+    fn validate_refuses_states_and_bindings_the_world_cannot_build() {
+        let with = |states: &[StateRec], bindings: &[BindingRec]| {
+            validate(&LevelSource {
+                states,
+                bindings,
+                ..SLICE_SOURCE
+            })
+        };
+        let door = |state, mask, rect| BindingRec::door(state, mask, rect);
+        assert_eq!(with(&SLICE_STATES, &SLICE_BINDINGS), Ok(()));
+        let d = |e| Err(SourceError::Door(e));
+        assert_eq!(
+            with(&[StateRec::new(1, 0), SLICE_STATES[1]], &SLICE_BINDINGS),
+            d(DoorError::State(0))
+        );
+        assert_eq!(
+            with(&[StateRec::new(2, 2), SLICE_STATES[1]], &SLICE_BINDINGS),
+            d(DoorError::State(0))
+        );
+        // A binding to a state that is not there, an empty or too wide mask, an inverted or out-of-map rect.
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[door(2, 0b10, (15, 20, 15, 22)), SLICE_BINDINGS[1]]
+            ),
+            d(DoorError::Binding(0))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[door(0, 0, (15, 20, 15, 22)), SLICE_BINDINGS[1]]
+            ),
+            d(DoorError::Binding(0))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[door(0, 0b100, (15, 20, 15, 22)), SLICE_BINDINGS[1]]
+            ),
+            d(DoorError::Binding(0))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[SLICE_BINDINGS[0], door(1, 0b10, (22, 40, 22, 38))]
+            ),
+            d(DoorError::Binding(1))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[SLICE_BINDINGS[0], door(1, 0b10, (22, 38, 32, 40))]
+            ),
+            d(DoorError::Binding(1))
+        );
+        // A binding that is not a door binding.
+        let light = BindingRec {
+            kind: fizz_pack::level::BIND_LIGHT,
+            target: 0,
+            rect: (0, 0, 0, 0),
+            ..SLICE_BINDINGS[0]
+        };
+        assert_eq!(
+            with(&SLICE_STATES, &[light, SLICE_BINDINGS[1]]),
+            d(DoorError::Binding(0))
+        );
+        // A rect over a tile that is not switched, a door's cell left unbound, and two doors on one cell.
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[door(0, 0b10, (15, 20, 15, 23)), SLICE_BINDINGS[1]]
+            ),
+            d(DoorError::NotSwitched(0))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[door(0, 0b10, (15, 21, 15, 22)), SLICE_BINDINGS[1]]
+            ),
+            d(DoorError::Unbound(15, 20))
+        );
+        assert_eq!(
+            with(&SLICE_STATES, &SLICE_BINDINGS[..1]),
+            d(DoorError::Unbound(22, 38))
+        );
+        assert_eq!(
+            with(
+                &SLICE_STATES,
+                &[SLICE_BINDINGS[0], door(1, 0b10, (15, 20, 15, 22))]
+            ),
+            d(DoorError::Overlap(1))
+        );
+    }
+
     fn encoded(src: &LevelSource) -> Vec<u8> {
         let recs: Vec<ObjectRec> = src.objects.iter().map(Object::to_rec).collect();
         encode_level(&LevelSpec {
             width: src.w,
             height: src.h,
-            switches: src.switches,
             floor_solid: src.floor_solid,
             spawn_x_bits: src.spawn.0.to_bits(),
             spawn_y_bits: src.spawn.1.to_bits(),
             name: src.name,
+            states: src.states,
+            bindings: src.bindings,
             objects: &recs,
             rules: src.rules,
             strings: src.strings,
             tiles: src.tiles,
         })
+        .unwrap()
     }
 
     #[test]
-    fn the_slice_levl_is_eleven_objects_two_locks_and_2000_bytes() {
+    fn the_slice_levl_is_2080_bytes_as_the_worked_example_says() {
+        // The worked example in docs/FAP.md: the header 32, the name 16, the states 16, the bindings 32, the objects 352, the rules
+        // 96 and the tiles 1,536.
         assert_eq!(
             encoded(&SLICE_SOURCE).len(),
-            32 + 16 + 32 * (11 + 2) + 32 * 48
+            32 + 16 + 8 * 2 + 16 * 2 + 32 * 11 + 48 * 2 + 32 * 48
         );
-        assert_eq!(encoded(&SLICE_SOURCE).len(), 2000);
+        assert_eq!(encoded(&SLICE_SOURCE).len(), 2080);
+        assert_eq!(SLICE.name.len(), 16);
+        // The same bytes `tools/levl2-slice.py` writes from the document's description.
+        assert_eq!(fizz_pack::fnv(&encoded(&SLICE_SOURCE)), 0x00AF_95F7);
+        assert_eq!(
+            encoded(&SLICE_SOURCE).len(),
+            fizz_pack::level::level_len(16, 2, 2, 11, 2, 0, 32 * 48)
+        );
+    }
+
+    #[test]
+    fn the_slice_levl_bytes_are_the_documented_ones() {
+        let b = encoded(&SLICE_SOURCE);
+        let states_at = 32 + 16;
+        assert_eq!(
+            b[states_at..states_at + 16],
+            [2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]
+        );
+        let bindings_at = states_at + 16;
+        assert_eq!(
+            b[bindings_at..bindings_at + 16],
+            [1, 0, 2, 0, 0xFF, 0xFF, 0, 0, 15, 0, 20, 0, 15, 0, 22, 0]
+        );
+        assert_eq!(
+            b[bindings_at + 16..bindings_at + 32],
+            [1, 1, 2, 0, 0xFF, 0xFF, 0, 0, 22, 0, 38, 0, 22, 0, 40, 0]
+        );
+        let rules_at = bindings_at + 32 + 352;
+        assert_eq!(
+            b[rules_at..rules_at + 48],
+            [
+                0x09, 0, 0, 0, 0xFF, 0xFF, 0,
+                0, // header: touch, no repeat, no delay, no subject, no arg
+                15, 0, 20, 0, 15, 0, 22, 0, // the door's whole rect
+                1, 0, 1, 0, // state 0 is in {closed}
+                2, 0, 0, 0, // holds key colour 0
+                1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, // set state 0 to 1
+                4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // spend key colour 0
+            ]
+        );
+        assert_eq!(
+            b[rules_at + 48..rules_at + 56],
+            [0x09, 0, 0, 0, 0xFF, 0xFF, 0, 0]
+        );
+        assert_eq!(
+            b[rules_at + 56..rules_at + 64],
+            [22, 0, 38, 0, 22, 0, 40, 0]
+        );
+        assert_eq!(b[rules_at + 64..rules_at + 72], [1, 1, 1, 0, 2, 1, 0, 0]);
+        assert_eq!(b[rules_at + 72..rules_at + 76], [1, 1, 1, 0]);
+        assert_eq!(b[rules_at + 84..rules_at + 88], [4, 1, 0, 0]);
     }
 
     #[test]
     fn the_encoded_level_builds_the_same_world_and_transcript() {
         let bytes = encoded(&SLICE_SOURCE);
-        let view = LevelView::with_count(&bytes, SLICE_OBJECTS.len() as u16).unwrap();
+        let view = LevelView::with_directory(
+            &bytes,
+            fizz_pack::level::LEVEL_VERSION,
+            SLICE_OBJECTS.len() as u16,
+        )
+        .unwrap();
         // The view's digest: rebuild the source from the records and compare.
         let objects: Vec<Object> = view
             .objects()
             .map(|r| Object::from_rec(&r).unwrap())
             .collect();
+        let states: Vec<StateRec> = view.states().collect();
+        let bindings: Vec<BindingRec> = view.bindings().collect();
         let rules: Vec<RuleRec> = view.rules().collect();
         let strings: Vec<StringRec> = view.strings().collect();
+        assert_eq!(states, SLICE_STATES);
+        assert_eq!(bindings, SLICE_BINDINGS);
         assert_eq!(rules, SLICE_RULES);
         let src = LevelSource {
             name: SLICE.name,
             w: view.width() as u16,
             h: view.height() as u16,
             tiles: view.tiles(),
-            switches: view.switches(),
             floor_solid: view.floor_solid(),
             spawn: view.spawn(),
+            states: &states,
+            bindings: &bindings,
             objects: &objects,
             rules: &rules,
             strings: &strings,
@@ -905,6 +1173,33 @@ mod tests {
     }
 
     #[test]
+    fn the_golden_replay_opens_the_red_door_from_its_foot_and_the_blue_from_its_top() {
+        // The lock is a touch over the door's whole rect, so any cell of the door's run takes the key. The golden run opens the red
+        // door with Ben's front probe on its bottom cell (15, 20) and the blue door with the probe on its top cell (22, 40). A
+        // `dooropen` event is placed at the probed column and Ben's feet plus two tiles, in sixteenths.
+        let transcript = include_str!("../slice-replay.txt");
+        let probes: Vec<(i32, i32)> = transcript
+            .lines()
+            .filter_map(|l| l.strip_prefix("EVENT "))
+            .filter_map(|l| l.split_once(" dooropen "))
+            .map(|(_, xy)| {
+                let (x, y) = xy.split_once(' ').unwrap();
+                let (x, y): (f64, f64) = (x.parse().unwrap(), y.parse().unwrap());
+                (
+                    (x / 16.0).floor() as i32,
+                    (y / 16.0 - 2.0 + 0.2).floor() as i32,
+                )
+            })
+            .collect();
+        assert_eq!(probes, [(15, 20), (22, 40)]);
+        assert_eq!((DOOR[0], BLUE_DOOR[2]), ((15, 20), (22, 40)));
+        assert!(
+            transcript.contains("\nFINAL TICK 1800 HASH "),
+            "and the run finishes"
+        );
+    }
+
+    #[test]
     fn validate_refuses_rules_and_strings_the_rules_cannot_build() {
         let with = |rules: &[RuleRec], strings: &[StringRec]| {
             validate(&LevelSource {
@@ -915,10 +1210,8 @@ mod tests {
         };
         assert_eq!(with(&SLICE_RULES, &[]), Ok(()));
         let start = RuleRec {
-            trigger: fizz_pack::level::TRIGGER_START,
-            op: fizz_pack::level::OP_ON,
-            channel: 1,
-            cell_a: (1, 1),
+            trigger: TRIGGER_START,
+            act: [ActionRec::set(0, 1), ActionRec::EMPTY],
             ..RuleRec::EMPTY
         };
         assert_eq!(
@@ -926,12 +1219,26 @@ mod tests {
             Err(SourceError::Rule(RuleError::Trigger))
         );
         let green = RuleRec {
-            subject: rules::KEY_GREEN,
+            cond: [SLICE_RULES[0].cond[0], CondRec::holds(rules::KEY_GREEN)],
+            act: [
+                SLICE_RULES[0].act[0],
+                ActionRec::spend_key(rules::KEY_GREEN),
+            ],
             ..SLICE_RULES[0]
         };
         assert_eq!(
             with(&[green], &[]),
             Err(SourceError::Rule(RuleError::LockColour))
+        );
+        // A touch rule that is not a lock: the red door's lock over the blue door's rect.
+        let wrong_rect = RuleRec {
+            u0: SLICE_RULES[1].u0,
+            u1: SLICE_RULES[1].u1,
+            ..SLICE_RULES[0]
+        };
+        assert_eq!(
+            with(&[wrong_rect], &[]),
+            Err(SourceError::Rule(RuleError::LockShape))
         );
         let long = StringRec {
             len: 31,
@@ -946,88 +1253,121 @@ mod tests {
         assert_eq!(with(&[], &[StringRec::new(6, "ok")]), Ok(()));
     }
 
+    /// The slice's bytes, with `rules` in place of its two locks and `objects` in place of its objects.
+    fn view_world(objects: &[ObjectRec], rules: &[RuleRec]) -> Result<usize, SourceError> {
+        let bytes = encode_level(&LevelSpec {
+            width: SLICE_SOURCE.w,
+            height: SLICE_SOURCE.h,
+            floor_solid: false,
+            spawn_x_bits: SPAWN.0.to_bits(),
+            spawn_y_bits: SPAWN.1.to_bits(),
+            name: "t",
+            states: &SLICE_STATES,
+            bindings: &SLICE_BINDINGS,
+            objects,
+            rules,
+            strings: &[],
+            tiles: SLICE_SOURCE.tiles,
+        })
+        .unwrap();
+        let view = LevelView::with_directory(&bytes, 2, objects.len() as u16).unwrap();
+        world_from_view(&view).map(|w| w.rules().len())
+    }
+
     #[test]
     fn the_view_loader_refuses_triggers_that_have_no_phase_yet() {
-        use fizz_pack::level::{OP_ON, TRIGGER_ENTER, TRIGGER_START, TRIGGER_TIME};
-        let build = |rules: &[RuleRec]| {
-            let bytes = encode_level(&LevelSpec {
-                width: SLICE_SOURCE.w,
-                height: SLICE_SOURCE.h,
-                switches: SLICE_SOURCE.switches,
-                floor_solid: false,
-                spawn_x_bits: SPAWN.0.to_bits(),
-                spawn_y_bits: SPAWN.1.to_bits(),
-                name: "t",
-                objects: &[],
-                rules,
-                strings: &[],
-                tiles: SLICE_SOURCE.tiles,
-            });
-            let view = LevelView::with_count(&bytes, 0).unwrap();
-            world_from_view(&view).map(|w| w.rules().len())
-        };
-        let on = RuleRec {
-            op: OP_ON,
-            channel: 1,
-            cell_a: (1, 1),
-            ..RuleRec::EMPTY
-        };
-        assert_eq!(build(&SLICE_RULES), Ok(2));
-        let (x0, y0, x1, y1) = (1, 1, 2, 2);
-        let (u0, u1) = RuleRec::union_rect(x0, y0, x1, y1);
+        let act = [ActionRec::set(0, 1), ActionRec::EMPTY];
+        let (u0, u1) = RuleRec::union_rect(1, 1, 2, 2);
+        assert_eq!(view_world(&[], &SLICE_RULES), Ok(2));
         for rec in [
             RuleRec {
                 trigger: TRIGGER_START,
-                ..on
+                act,
+                ..RuleRec::EMPTY
             },
             RuleRec {
                 trigger: TRIGGER_ENTER,
                 u0,
                 u1,
-                ..on
+                act,
+                ..RuleRec::EMPTY
             },
             RuleRec {
                 trigger: TRIGGER_TIME,
                 u0: 10,
-                ..on
+                act,
+                ..RuleRec::EMPTY
             },
         ] {
-            assert_eq!(build(&[rec]), Err(SourceError::Rule(RuleError::Trigger)));
+            assert_eq!(
+                view_world(&[], &[rec]),
+                Err(SourceError::Rule(RuleError::Trigger))
+            );
         }
     }
 
     #[test]
     fn the_view_loader_refuses_what_the_rules_cannot_build() {
-        let build = |objects: &[ObjectRec]| {
-            let bytes = encode_level(&LevelSpec {
-                width: SLICE_SOURCE.w,
-                height: SLICE_SOURCE.h,
-                switches: SLICE_SOURCE.switches,
-                floor_solid: false,
-                spawn_x_bits: SPAWN.0.to_bits(),
-                spawn_y_bits: SPAWN.1.to_bits(),
-                name: "t",
-                objects,
-                rules: &[],
-                strings: &[],
-                tiles: SLICE_SOURCE.tiles,
-            });
-            let view = LevelView::with_count(&bytes, objects.len() as u16).unwrap();
-            world_from_view(&view).map(|_| ())
-        };
         let red = SLICE_OBJECTS[0].to_rec();
-        assert_eq!(build(&[red]), Ok(()));
-        assert_eq!(build(&[red, red]), Err(SourceError::SecondKey));
-        for kind in [KIND_GADGET, KIND_SWITCH, KIND_ENEMY] {
-            assert_eq!(
-                build(&[ObjectRec { kind, ..red }]),
-                Err(SourceError::ReservedKind)
-            );
+        assert_eq!(view_world(&[red], &[]), Ok(0));
+        assert_eq!(view_world(&[red, red], &[]), Err(SourceError::SecondKey));
+        // Kinds the pack accepts and the world has no consumer for: a switch and a light.
+        let switch = ObjectRec {
+            kind: fizz_pack::level::KIND_SWITCH,
+            sub: 1,
+            flags: SWITCH_USE,
+            ..red
+        };
+        let light = ObjectRec {
+            kind: KIND_LIGHT,
+            sub: 3,
+            flags: 0,
+            aux: u32::from(fizz_pack::level::ATTACH_NONE) << 16,
+            p_bits: 4.0f64.to_bits(),
+            ..red
+        };
+        for o in [switch, light] {
+            assert_eq!(view_world(&[o], &[]), Err(SourceError::ReservedKind));
         }
+        // An unknown snack kind never reaches the loader through a view (the pack refuses it), but the record form is checked as well.
         let snack = SLICE_OBJECTS[2].to_rec();
         assert_eq!(
-            build(&[ObjectRec { sub: 9, ..snack }]),
+            Object::from_rec(&ObjectRec { sub: 9, ..snack }),
             Err(SourceError::SnackKind)
         );
+    }
+
+    #[test]
+    fn a_chicken_with_a_group_is_refused_until_groups_exist() {
+        let chicken = SLICE_OBJECTS[10].to_rec();
+        assert_eq!(view_world(&[chicken], &[]), Ok(0));
+        let grouped = ObjectRec { aux: 1, ..chicken };
+        assert_eq!(view_world(&[grouped], &[]), Err(SourceError::BadObject));
+    }
+
+    #[test]
+    fn a_bit_is_derived_for_each_door_up_to_the_pack_limit() {
+        use crate::doors::MAX_DOORS;
+        assert_eq!(MAX_DOORS, 32);
+        // A strip of MAX_DOORS one-cell doors, then one more.
+        let mut props = tiles::props();
+        props.set_flags(DOOR_R, fizz_phys::tilemap::SWITCHED);
+        let n = MAX_DOORS + 1;
+        let tiles_row = alloc::vec![DOOR_R; n];
+        let states = alloc::vec![StateRec::new(2, 0); n];
+        let bindings: Vec<BindingRec> = (0..n)
+            .map(|i| BindingRec::door(i as u8, 0b10, (i as u16, 0, i as u16, 0)))
+            .collect();
+        let ok = Doors::from_recs(
+            &states[..MAX_DOORS],
+            &bindings[..MAX_DOORS],
+            &tiles_row[..MAX_DOORS],
+            MAX_DOORS as u16,
+            1,
+            &props,
+        );
+        assert_eq!(ok.unwrap().doors().last().map(|d| d.bit), Some(31));
+        let over = Doors::from_recs(&states, &bindings, &tiles_row, n as u16, 1, &props);
+        assert_eq!(over, Err(DoorError::TooMany));
     }
 }

@@ -4,7 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: Derived from Fizz 1 `crates/sim/src/tilemap.rs` at commit `4bce036`; transformed as in fizz-dos `m2/patches/sim.patch`.
-// Edits: `use alloc::{vec, vec::Vec};` added; imports ordered by rustfmt for the 2024 edition.
+// Edits: `use alloc::{vec, vec::Vec};` added; imports ordered by rustfmt for the 2024 edition. A switched tile's channel is no
+// longer a property of its tile id: the map binds each switched cell to a bit of `switches` (`bind_switch`), so a level says which
+// state a door reads and the tile id carries only the art.
 
 use alloc::{vec, vec::Vec};
 
@@ -12,7 +14,7 @@ use alloc::{vec, vec::Vec};
 pub const SOLID: u8 = 1;
 /// Tile solid only when landing on it from above (one-way platform).
 pub const ONEWAY: u8 = 2;
-/// Tile solid only while its switch channel is on (switchable bridge, gate).
+/// Tile solid only while the switch bit bound to its cell is on (switchable bridge, gate). A cell with no bit bound is open.
 pub const SWITCHED: u8 = 4;
 /// Solid tile that carries a body standing on it to the left.
 pub const CONVEY_L: u8 = 8;
@@ -24,6 +26,9 @@ pub const LADDER: u8 = 32;
 /// A surface a body can free-climb in any direction (a crystal vine on a cave wall). Unlike a
 /// ladder it does not snap the body to a column.
 pub const CLIMB: u8 = 64;
+
+/// A cell bound to no switch bit.
+const NO_SWITCH: u8 = 0xFF;
 
 /// Speed (tiles per second) at which a conveyor tile carries a body standing on it.
 pub const CONVEYOR_SPEED: f64 = 3.0;
@@ -50,12 +55,11 @@ pub fn slope_height(shape: u8, lx: f64) -> f64 {
     }
 }
 
-/// Per-tile-id behaviour table: collision flags, slope shape and switch channel.
+/// Per-tile-id behaviour table: collision flags and slope shape.
 #[derive(Clone, Debug)]
 pub struct TileProps {
     flags: [u8; 256],
     slope: [u8; 256],
-    channel: [u8; 256],
 }
 
 impl Default for TileProps {
@@ -63,7 +67,6 @@ impl Default for TileProps {
         TileProps {
             flags: [0; 256],
             slope: [0; 256],
-            channel: [0; 256],
         }
     }
 }
@@ -75,16 +78,6 @@ impl TileProps {
 
     pub fn set_slope(&mut self, id: u8, shape: u8) {
         self.slope[id as usize] = shape;
-    }
-
-    /// Assigns a [`SWITCHED`] tile id to one of the map's 32 switch channels.
-    pub fn set_channel(&mut self, id: u8, channel: u8) {
-        debug_assert!(channel < 32, "switch channel out of range");
-        self.channel[id as usize] = channel;
-    }
-
-    pub fn channel(&self, id: u8) -> u8 {
-        self.channel[id as usize]
     }
 
     pub fn flags(&self, id: u8) -> u8 {
@@ -103,8 +96,10 @@ pub struct TileMap {
     pub h: i32,
     pub data: Vec<u8>,
     pub props: TileProps,
-    /// One bit per switch channel; a [`SWITCHED`] tile is solid while its channel's bit is set.
+    /// One bit per switch; a [`SWITCHED`] tile is solid while the bit bound to its cell is set.
     pub switches: u32,
+    /// For each cell, row-major, the switch bit a [`SWITCHED`] tile in it reads, or [`NO_SWITCH`].
+    switch_cells: Vec<u8>,
     /// What lies below row 0: solid for the overworld (a hard edge), open for levels (a pit).
     pub floor_solid: bool,
 }
@@ -117,6 +112,7 @@ impl TileMap {
             data: vec![0; (w * h) as usize],
             props,
             switches: 0,
+            switch_cells: vec![NO_SWITCH; (w * h) as usize],
             floor_solid: false,
         }
     }
@@ -140,23 +136,53 @@ impl TileMap {
         }
     }
 
-    /// Whether a switch channel is on.
-    pub fn switch(&self, channel: u8) -> bool {
-        self.switches & (1 << channel) != 0
+    /// Whether switch bit `bit` is on.
+    pub fn switch(&self, bit: u8) -> bool {
+        self.switches & (1 << bit) != 0
     }
 
-    pub fn set_switch(&mut self, channel: u8, on: bool) {
+    pub fn set_switch(&mut self, bit: u8, on: bool) {
         if on {
-            self.switches |= 1 << channel;
+            self.switches |= 1 << bit;
         } else {
-            self.switches &= !(1 << channel);
+            self.switches &= !(1 << bit);
         }
     }
 
-    /// Flips a switch channel and returns its new state.
-    pub fn toggle_switch(&mut self, channel: u8) -> bool {
-        self.switches ^= 1 << channel;
-        self.switch(channel)
+    /// Flips switch bit `bit` and returns its new state.
+    pub fn toggle_switch(&mut self, bit: u8) -> bool {
+        self.switches ^= 1 << bit;
+        self.switch(bit)
+    }
+
+    /// Binds the cell `(x, y)` to switch bit `bit` (below 32): a [`SWITCHED`] tile there is solid while the bit is set. Outside the
+    /// map this does nothing.
+    pub fn bind_switch(&mut self, x: i32, y: i32, bit: u8) {
+        debug_assert!(bit < 32, "switch bit out of range");
+        if self.in_bounds(x, y) {
+            self.switch_cells[(y * self.w + x) as usize] = bit;
+        }
+    }
+
+    /// Binds every cell holding tile id `id` to switch bit `bit`.
+    pub fn bind_switch_tiles(&mut self, id: u8, bit: u8) {
+        debug_assert!(bit < 32, "switch bit out of range");
+        for (cell, &t) in self.switch_cells.iter_mut().zip(&self.data) {
+            if t == id {
+                *cell = bit;
+            }
+        }
+    }
+
+    /// The switch bit bound to the cell `(x, y)`, if there is one.
+    pub fn switch_bit(&self, x: i32, y: i32) -> Option<u8> {
+        if !self.in_bounds(x, y) {
+            return None;
+        }
+        match self.switch_cells[(y * self.w + x) as usize] {
+            NO_SWITCH => None,
+            b => Some(b),
+        }
     }
 
     /// Horizontal speed (tiles per second, negative is left) that the tile at (x, y) imparts to a
@@ -210,7 +236,7 @@ impl TileMap {
             return true;
         }
         if f & SWITCHED != 0 {
-            return self.switch(self.props.channel(id));
+            return self.switch_bit(cx, cy).is_some_and(|b| self.switch(b));
         }
         if f & ONEWAY != 0 {
             return down && prev_bottom >= f64::from(cy) + 1.0 - 1e-6;
@@ -230,7 +256,6 @@ mod tests {
         p.set_flags(3, SWITCHED);
         p.set_slope(4, SLOPE_R45);
         p.set_flags(5, SWITCHED);
-        p.set_channel(5, 1);
         p.set_flags(6, SOLID | CONVEY_R);
         p.set_flags(7, SOLID | CONVEY_L);
         p.set_flags(8, LADDER);
@@ -253,6 +278,7 @@ mod tests {
         m.set(1, 1, 1);
         m.set(2, 1, 2);
         m.set(3, 1, 3);
+        m.bind_switch(3, 1, 0);
         assert!(m.solid(1, 1, false, 0.0));
         assert!(m.solid(-1, 0, false, 0.0), "side edges are walls");
         assert!(!m.solid(0, -1, false, 0.0), "pit below");
@@ -268,10 +294,12 @@ mod tests {
     }
 
     #[test]
-    fn switch_channels_are_independent() {
+    fn switch_bits_are_independent() {
         let mut m = TileMap::new(4, 4, props());
         m.set(0, 1, 3);
         m.set(1, 1, 5);
+        m.bind_switch(0, 1, 0);
+        m.bind_switch(1, 1, 1);
         assert!(!m.solid(0, 1, false, 0.0) && !m.solid(1, 1, false, 0.0));
         m.set_switch(1, true);
         assert!(!m.solid(0, 1, false, 0.0), "channel 0 tile stays open");
@@ -283,6 +311,31 @@ mod tests {
         assert!(!m.solid(0, 1, false, 0.0));
         m.set_switch(1, false);
         assert!(!m.solid(1, 1, false, 0.0));
+    }
+
+    #[test]
+    fn a_switched_tile_reads_the_bit_of_its_cell_and_not_of_its_id() {
+        let mut m = TileMap::new(4, 4, props());
+        // Two cells of one tile id, bound to different bits; a third, unbound, is open whatever the switches are.
+        m.set(0, 1, 3);
+        m.set(1, 1, 3);
+        m.set(2, 1, 3);
+        m.bind_switch(0, 1, 4);
+        m.bind_switch(1, 1, 5);
+        m.switches = u32::MAX;
+        assert!(m.solid(0, 1, false, 0.0) && m.solid(1, 1, false, 0.0));
+        assert!(!m.solid(2, 1, false, 0.0), "an unbound cell is open");
+        m.set_switch(4, false);
+        assert!(!m.solid(0, 1, false, 0.0) && m.solid(1, 1, false, 0.0));
+        assert_eq!((m.switch_bit(0, 1), m.switch_bit(2, 1)), (Some(4), None));
+        assert_eq!(m.switch_bit(-1, 0), None);
+        m.bind_switch(9, 9, 1); // outside the map: nothing happens
+        let mut t = TileMap::new(4, 4, props());
+        t.set(0, 0, 3);
+        t.set(3, 3, 3);
+        t.bind_switch_tiles(3, 7);
+        assert_eq!((t.switch_bit(0, 0), t.switch_bit(3, 3)), (Some(7), Some(7)));
+        assert_eq!(t.switch_bit(1, 1), None);
     }
 
     #[test]

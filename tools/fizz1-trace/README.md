@@ -113,8 +113,12 @@ There is one row for tick 0 (before any step) and one after each step. Fields ar
 | `slope` | A walk up and down a staircase of `R45` slopes. |
 | `look` | Idle on the ground, Up held for one second and released, then Down; both held together, Up while running, in the air and on the pogo (no look starts); Down again at the end. |
 | `aim` | A level shot, a shot straight up with Up held, Down held on the ground (still level), and Down held in the air (straight down). |
+| `wall_kick_chimney` | Kicks chained between two walls three tiles apart, Jump tapped every other tick: one kick per side, the cooldown, landing. |
+| `wall_kick_single` | One wall: the first kick works and the same side is refused until Ben lands. |
+| `wall_kick_pogo` | On the pogo stick Jump never kicks against a wall. |
+| `wall_kick_oneway` | A one-way platform column beside Ben is not a wall. |
 | `route` | A short run through a small vertical maze up to the first death on spikes. |
 
 ## Not covered
 
-Ladders, vines, wall kicks, moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. A new scenario is a new `.scn` file and a rerun; adding a tile letter or an entity directive means extending `src/main.rs`.
+Ladders, vines, moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. A new scenario is a new `.scn` file and a rerun; adding a tile letter or an entity directive means extending `src/main.rs`.

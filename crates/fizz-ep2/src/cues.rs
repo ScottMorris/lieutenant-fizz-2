@@ -40,7 +40,7 @@ pub const EFFECT_LIFE: u8 = 21;
 pub const EFFECT_COUNT: u8 = 22;
 
 /// The shared captions, as indices into the presenter's table of words; the index is the caption's id for dedupe, and the byte
-/// a rule's caption code holds below `fizz_pack::level::CUE_LEVEL_BASE`.
+/// a rule's caption code holds below `fizz_pack::level::CAP_LEVEL_BASE`.
 pub const CAP_FZZT: u8 = 0;
 pub const CAP_CLICK: u8 = 1;
 pub const CAP_FIZZLED: u8 = 2;
@@ -85,6 +85,6 @@ mod tests {
         assert_eq!(CAP_LIFE, CAP_WHEEE + 1);
         assert_eq!(STYLE_COUNT, STYLE_GREY + 1);
         assert_eq!(STYLE_COUNT, fizz_pack::level::STYLE_COUNT);
-        const { assert!(CAP_COUNT < fizz_pack::level::CUE_LEVEL_BASE) };
+        const { assert!(CAP_COUNT < fizz_pack::level::CAP_LEVEL_BASE) };
     }
 }

@@ -121,6 +121,11 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::HeadBump { .. } => p(EFFECT_CLUNK, Some(CAP_CLUNK)),
         Event::Bounce { .. } => p(EFFECT_BOING, Some(CAP_BOING)),
         Event::Jump { .. } => p(EFFECT_JUMP, None),
+        // Fizz 1 shows `kick` and plays a sound; neither is authored for Fizz 2 yet, so a kick is silent and wordless.
+        Event::Kick { .. } => Presentation {
+            effect: None,
+            caption: None,
+        },
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
         Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
         Event::Life { .. } => p(EFFECT_LIFE, Some(CAP_LIFE)),
@@ -143,6 +148,7 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
         | Event::Bounce { x, y }
         | Event::HeadBump { x, y }
         | Event::Jump { x, y }
+        | Event::Kick { x, y }
         | Event::Snack { x, y }
         | Event::Can { x, y }
         | Event::Life { x, y } => Some((x, y)),

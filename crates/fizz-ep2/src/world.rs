@@ -67,6 +67,9 @@ pub enum Event {
     HeadBump { x: i32, y: i32 },
     /// A ground jump started (Fizz 1's jump sound, which has no caption).
     Jump { x: i32, y: i32 },
+    /// Ben kicked off a wall (Fizz 1's "kick"), at the point Fizz 1 raises it: 0.35 tiles right of his body's left edge and
+    /// 0.7 up. The presenters do not show or sound it yet.
+    Kick { x: i32, y: i32 },
     /// Ben took a snack, a cheezie, a chocolate or a cookie (Fizz 1's "crunch"), half a tile above the item's centre.
     Snack { x: i32, y: i32 },
     /// Ben took a soda can, a refill for the Fizz Blaster (Fizz 1's "fsssht"), half a tile above the can's centre.
@@ -228,7 +231,7 @@ pub struct World {
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
-    /// The switch channels that are on when the level starts, and again after every death.
+    /// The switch bits that are on when the level starts, and again after every death.
     start_switches: u32,
     /// The level's rules; only locks so far.
     rules: RuleTable,
@@ -270,14 +273,14 @@ impl World {
         self.spawn
     }
 
-    /// Sets the start state of the switch channels, now and after every death: a set bit is a channel that starts on (for a
+    /// Sets the start state of the switch bits, now and after every death: a set bit is a channel that starts on (for a
     /// door, closed).
     pub fn set_switches(&mut self, bits: u32) {
         self.start_switches = bits;
         self.map.switches = bits;
     }
 
-    /// The switch channels that were on when the level started.
+    /// The switch bits that were on when the level started.
     pub fn start_switches(&self) -> u32 {
         self.start_switches
     }
@@ -292,11 +295,11 @@ impl World {
         &self.rules
     }
 
-    /// Whether the door that the lock for key `colour` opens is open now: the lock's channel is off. `false` for a level with no
+    /// Whether the door that the lock for key `colour` opens is open now: the lock's door bit is off. `false` for a level with no
     /// such lock.
     pub fn lock_open(&self, colour: u8) -> bool {
         self.rules
-            .lock_channel(colour)
+            .lock_bit(colour)
             .is_some_and(|c| !self.map.switch(c))
     }
 
@@ -439,6 +442,10 @@ impl World {
             let (x, y) = sixteenths(p);
             self.events.push(Event::Jump { x, y });
         }
+        if let Some(p) = f.kicked {
+            let (x, y) = sixteenths(p);
+            self.events.push(Event::Kick { x, y });
+        }
         if let Some(p) = f.fired {
             let (x, y) = sixteenths(p);
             self.events.push(Event::Fire { x, y });
@@ -467,8 +474,9 @@ impl World {
     }
 
     /// The lock phase. Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs; here the level's
-    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile on
-    /// the lock's channel and that channel is on (the door is closed): the channel goes off, the key is spent and the door opens.
+    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile
+    /// in the lock's door (its cell is bound to the lock's derived bit) and that bit is set (the door is closed): the bit is
+    /// cleared, the key is spent and the door opens. The state a lock sets is not held by the world yet; the bit is the whole of it.
     fn tick_locks(&mut self) {
         let (px, py, pw) = (self.ben.b.x, self.ben.b.y, self.ben.b.w);
         for i in 0..self.rules.len() {
@@ -486,13 +494,13 @@ impl World {
             } else {
                 (px - 0.1).floor() as i32
             };
-            let t = self.map.get(cx, (py + 0.2).floor() as i32);
-            let props = &self.map.props;
-            if props.flags(t) & SWITCHED != 0
-                && props.channel(t) == lock.channel
-                && self.map.switch(lock.channel)
+            let cy = (py + 0.2).floor() as i32;
+            let switched = self.map.props.flags(self.map.get(cx, cy)) & SWITCHED != 0;
+            if switched
+                && self.map.switch_bit(cx, cy) == Some(lock.bit)
+                && self.map.switch(lock.bit)
             {
-                self.map.set_switch(lock.channel, false);
+                self.map.set_switch(lock.bit, false);
                 self.flags.clear(key);
                 self.flags.set(used);
                 let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
@@ -671,7 +679,7 @@ impl World {
     }
 
     /// Puts Ben back at the spawn after a death (Fizz 1's `on_death`, which hands the reload to the shell) and resets the level
-    /// exactly as starting it the first time would: the switch channels go back to the level's start state (a door that was
+    /// exactly as starting it the first time would: the switch bits go back to the level's start state (a door that was
     /// opened closes), the keys leave Ben's hands and the spent marks are cleared (every key lies where it began), the snacks
     /// come back, and the chickens and the ammo start over. Rules that act on the start of a level (timers, start rules) will
     /// re-arm here when they exist; the locks hold no state of their own.
@@ -711,16 +719,18 @@ impl World {
 ///
 /// 1. the tick (`u64`);
 /// 2. Ben: `x y vx vy face squash dead inv shoot_t` as `f64` bits, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on
-///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits and `aim` as one byte (`i8` as `u8`);
+///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits, `aim` as one byte (`i8` as `u8`), and
+///    `wall_t` and `kick_side` (the wall kick's cooldown and side) as `f64` bits;
 /// 3. the [`WorldFlags`] word (`u32`), `ammo` (`u32`) and `deaths` (`u32`);
-/// 4. `map.switches` (`u32`);
+/// 4. `map.switches` (`u32`): one bit for each door binding of the level, set while the door is closed (door binding `i` owns bit
+///    `i`; see `doors.rs`);
 /// 5. the chicken count (`u32`), then per chicken `x y vx vy dir stun` as `f64` bits and a flags byte (bit 0 on the
 ///    ground, bit 1 touching Ben, bit 2 dead), then the cluck timer and the cluck stream's draw count (both `u32`);
 /// 6. the shot count (`u32`), then per shot `x y vx vy life` as `f64` bits;
 /// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. The soda cans are in this list too, in the order the level
 ///    added them, so a taken can is hashed like a taken snack (the ammo it gave is in `ammo`, step 3). A snack's kind and position
 ///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
-///    the [`WorldFlags`] word and in `map.switches` (bit 2). The elixirs ([`SnackKind::Elixir`]) are not in this count or this list;
+///    the [`WorldFlags`] word and in `map.switches` (bit 1). The elixirs ([`SnackKind::Elixir`]) are not in this count or this list;
 /// 8. PROVISIONAL, written only when an elixir has been taken: one byte per elixir, 1 if it has been taken and 0 if not. It is absent
 ///    while no elixir is taken, which is every state of the golden replay, so the elixirs in the level do not move a hash until one is
 ///    taken. `lives` is not hashed at all: it is a number the HUD shows and changes no rule of this slice, and it is worked out by the
@@ -754,6 +764,8 @@ pub fn hash(w: &World) -> StateHash {
         h.write_f64(v);
     }
     h.write_u8(ben.aim as u8);
+    h.write_f64(ben.wall_t);
+    h.write_f64(ben.kick_side);
     h.write_u32(w.flags.0);
     h.write_u32(w.ammo);
     h.write_u32(w.deaths);
@@ -800,6 +812,7 @@ mod tests {
     use fizz_sim::Buttons;
 
     extern crate std;
+    use std::string::String;
     use std::vec::Vec;
 
     /// FNV-1a 64 over raw bytes, written out again here so the test does not lean on `StateHash`.
@@ -835,6 +848,8 @@ mod tests {
         w.ben.look_down = 0.75;
         w.ben.look_offset = 1.25;
         w.ben.aim = -1;
+        w.ben.wall_t = 0.5;
+        w.ben.kick_side = -1.0;
         w.flags = WorldFlags(WorldFlags::KEY_RED | WorldFlags::EXIT_REACHED);
         w.ammo = 3;
         w.deaths = 2;
@@ -876,6 +891,9 @@ mod tests {
             f(&mut b, v); // look up, look down, look offset
         }
         b.push(0xff); // aim -1 as a byte
+        for v in [0.5, -1.0] {
+            f(&mut b, v); // wall_t, kick_side
+        }
         b.extend_from_slice(&5u32.to_le_bytes()); // flags: key and exit
         b.extend_from_slice(&3u32.to_le_bytes()); // ammo
         b.extend_from_slice(&2u32.to_le_bytes()); // deaths
@@ -902,13 +920,13 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0xff10_8a2f_9aab_52a5);
+        assert_eq!(hash(&populated()).finish(), 0xfa69_ba97_eedc_6c95);
     }
 
     #[test]
     fn every_hashed_field_changes_the_digest() {
         let base = hash(&populated()).finish();
-        let edits: [fn(&mut World); 31] = [
+        let edits: [fn(&mut World); 33] = [
             |w| w.tick = Tick(8),
             |w| w.ben.b.x += 1.0,
             |w| w.ben.b.y += 1.0,
@@ -924,6 +942,8 @@ mod tests {
             |w| w.ben.look_down += 1.0,
             |w| w.ben.look_offset += 1.0,
             |w| w.ben.aim = 1,
+            |w| w.ben.wall_t += 1.0,
+            |w| w.ben.kick_side = 1.0,
             |w| w.flags.clear(WorldFlags::KEY_RED),
             |w| w.ammo += 1,
             |w| w.deaths += 1,
@@ -1290,6 +1310,104 @@ mod tests {
 
     fn kinds(w: &World) -> Vec<Event> {
         w.events().to_vec()
+    }
+
+    /// The arena with a solid wall of blocks at column 11, right of Ben, who stands at x 10 (his body ends at 10.7).
+    fn arena_with_wall() -> World {
+        let mut map = TileMap::new(24, 14, tiles::props());
+        for x in 0..24 {
+            map.set(x, 0, tiles::BLOCK);
+            map.set(x, 1, tiles::BLOCK);
+        }
+        for y in 2..14 {
+            map.set(11, y, tiles::BLOCK);
+        }
+        World::new(map, (10.0, 2.0))
+    }
+
+    /// Takes Ben to the wall, jumps and presses Jump again in the air against it: the tick of that second press.
+    fn kick(w: &mut World) -> Vec<Event> {
+        let (r, jr) = (Buttons::RIGHT, Buttons::JUMP.union(Buttons::RIGHT));
+        let mut prev = Buttons::NONE;
+        for held in core::iter::repeat_n(r, 5)
+            .chain([jr])
+            .chain(core::iter::repeat_n(r, 3))
+        {
+            press(w, prev, held);
+            prev = held;
+        }
+        press(w, prev, jr);
+        kinds(w)
+    }
+
+    #[test]
+    fn a_wall_kick_raises_kick_at_the_chest_and_its_state_is_always_hashed() {
+        let mut w = arena_with_wall();
+        let before = hash(&w).finish();
+        let ev = kick(&mut w);
+        let (bx, by) = (w.ben.b.x, w.ben.b.y);
+        let [Event::Kick { x, y }] = ev[..] else {
+            panic!("a kick: {ev:?}")
+        };
+        // The point is taken before the move: Ben has since been thrown up and left, by less than a tile in one tick.
+        assert!(x >= ((bx + 0.35) * 16.0) as i32 && x - ((bx + 0.35) * 16.0) as i32 <= 16);
+        assert!(y <= ((by + 0.7) * 16.0) as i32 && ((by + 0.7) * 16.0) as i32 - y <= 16);
+        assert!(w.ben.kick_side == 1.0 && w.ben.wall_t > 0.0);
+        assert_ne!(hash(&w).finish(), before);
+
+        // Only the Ben-and-kick state differs between two worlds that are otherwise the same, and it is hashed whatever its value:
+        // the side, the cooldown, the cooldown's length and a cooldown that has run out just below zero.
+        let mut a = arena_with_wall();
+        let mut b = arena_with_wall();
+        assert_eq!(hash(&a).finish(), hash(&b).finish());
+        b.ben.kick_side = 1.0;
+        assert_ne!(hash(&a).finish(), hash(&b).finish(), "the side");
+        b.ben.kick_side = 0.0;
+        b.ben.wall_t = 0.1;
+        assert_ne!(hash(&a).finish(), hash(&b).finish(), "the cooldown");
+        a.ben.wall_t = 0.2;
+        assert_ne!(
+            hash(&a).finish(),
+            hash(&b).finish(),
+            "the cooldown's length"
+        );
+        b.ben.wall_t = -0.01;
+        a.ben.wall_t = 0.0;
+        assert_ne!(
+            hash(&a).finish(),
+            hash(&b).finish(),
+            "a spent cooldown is hashed as it stands"
+        );
+    }
+
+    #[test]
+    fn a_kick_is_written_to_the_transcript() {
+        let mut w = arena_with_wall();
+        let mut out = String::new();
+        kick(&mut w);
+        crate::replay::write_step(&mut out, &w).unwrap();
+        assert!(
+            out.contains(&std::format!("EVENT {} kick ", w.tick.0)),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn the_slice_never_kicks() {
+        // The golden replay has no kick event, and its wall kick state stays at zero throughout (the golden tests in `replay.rs`
+        // compare the bytes).
+        let mut t = String::new();
+        crate::replay::replay(&mut t).unwrap();
+        assert!(!t.contains(" kick "));
+        let mut w = crate::level::world();
+        let mut prev = fizz_sim::Buttons::NONE;
+        for &(frames, now) in crate::replay::SLICE_SCRIPT {
+            for _ in 0..frames {
+                step(&mut w, InputFrame::from_transition(prev, now));
+                prev = now;
+                assert!(w.ben.wall_t == 0.0 && w.ben.kick_side == 0.0);
+            }
+        }
     }
 
     #[test]

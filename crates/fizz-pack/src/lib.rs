@@ -31,7 +31,9 @@ pub mod pack;
 pub mod write;
 
 pub use inflate::{InflateError, inflate};
-pub use level::{LevelError, LevelView, ObjectRec, RuleRec, StringRec};
+pub use level::{
+    ActionRec, BindingRec, CondRec, LevelError, LevelView, ObjectRec, RuleRec, StateRec, StringRec,
+};
 pub use pack::{
     Device, Entry, Error, Expect, PackView, audio_compatibility, compatibility, fnv, stem_bytes,
 };

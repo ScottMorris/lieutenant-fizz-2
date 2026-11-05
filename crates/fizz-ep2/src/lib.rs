@@ -18,6 +18,7 @@ extern crate alloc;
 pub mod ben;
 pub mod chicken;
 pub mod cues;
+pub mod doors;
 pub mod level;
 pub mod replay;
 pub mod rules;
