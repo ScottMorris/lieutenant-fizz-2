@@ -117,7 +117,7 @@ Built: `set`, `toggle`, `next` and `spend`. `give`, `score`, `ammo`, `word` and 
 This order is part of the parity contract: native, Web and DOS must agree on it, because the state hash after each tick depends on it. Existing phases keep the order they have today (see `World::step`), except the locks, which leave Ben's contacts and become rows of the rule phase; the rule phase is added after the other phases, never between them.
 
 1. The tick counter advances and last tick's events and input record are cleared.
-2. Ben's movement: the jump or bounce, the shot, the head bump.
+2. Ben's movement: the jump or bounce, the shot, the head bump. Climbing a ladder or vine, once built, is part of this step and raises its events here; see [`CLIMBING.md`](CLIMBING.md).
 3. Ben's contacts, in Fizz 1's order without the locks: hazards and the exit, the keys, the snacks, the chickens (stomp raises its input here). `touch` and `use` are **sampled** here, from Ben's final position of the tick. If Ben dies, the contacts end.
 4. Chickens and enemies move, in index order.
 5. Shots move, from the last to the first (stun, defeat and a switch hit raise their inputs here).
