@@ -269,7 +269,7 @@ def main(argv):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     profile = tempfile.mkdtemp(prefix="fz2hud.", dir="/tmp")
     debug = capture.free_port()
-    proc = subprocess.Popen([chromium, "--headless", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=960,540",
+    proc = subprocess.Popen([chromium, "--headless", "--mute-audio", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--user-data-dir=" + profile, "--window-size=960,540",
                              "--remote-debugging-port=%d" % debug, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dict(os.environ, TMPDIR=profile))
     per_tick = [b for n, b in capture.slice_script() for _ in range(n)]
     try:

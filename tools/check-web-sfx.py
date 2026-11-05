@@ -204,7 +204,7 @@ def main(argv):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     profile = tempfile.mkdtemp(prefix="fz2sfx.", dir="/tmp")
     debug = capture.free_port()
-    proc = subprocess.Popen([chromium, "--headless", "--no-sandbox", "--disable-gpu", "--user-data-dir=" + profile, "--window-size=720,560",
+    proc = subprocess.Popen([chromium, "--headless", "--mute-audio", "--no-sandbox", "--disable-gpu", "--user-data-dir=" + profile, "--window-size=720,560",
                              "--remote-debugging-port=%d" % debug, "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=dict(os.environ, TMPDIR=profile))
     try:
         for _ in range(100):
