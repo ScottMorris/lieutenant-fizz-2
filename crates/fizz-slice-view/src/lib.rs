@@ -651,6 +651,10 @@ fn draw_picture(
         blit_sprite_banked(frame, w, h, key, sx, sy + 8 - bob, false, glow);
     }
 
+    let walls = Walls {
+        ground: &ground,
+        map_h,
+    };
     for c in &world.chickens {
         draw_chicken(frame, w, h, c, phase, &at, actor);
     }
@@ -658,6 +662,7 @@ fn draw_picture(
     if let Some(bubble) = sprite("bubble") {
         for s in &world.shots {
             let (sx, sy) = at(s.x, s.y);
+            // A bubble pops at the wall, so it is drawn where it is and is not stopped at the wall's edge.
             blit_sprite_banked(frame, w, h, bubble, sx, sy + 4, false, glow);
         }
     }
@@ -671,7 +676,7 @@ fn draw_picture(
         }
     }
 
-    draw_ben(frame, w, h, world, phase, &at, options.shake, actor);
+    draw_ben(frame, w, h, world, phase, &at, options.shake, actor, &walls);
 
     // The light pass is the Full detail's (the Sky setting): with Light, the detail the 486DX2-66 floor draws, the night is the
     // palette's ambient, the glowing art and the actors' floor, and no cell is shaded.
@@ -751,7 +756,8 @@ pub fn cluck_placement(
 
 /// Where Ben's 16 by 16 sprite lies in the `w` by `h` view the camera draws (the shaken camera when `options.shake` is on):
 /// `(left, top, width, height)` in view pixels, from his feet and centre as `draw_ben` places the sprite. For a presenter that
-/// lays something over the picture and must keep it off Ben, such as the Web page's HUD. Pure: nothing in the rules reads it.
+/// lays something over the picture and must keep it off Ben, such as the Web page's HUD. It includes the draw offset that stops him
+/// at a wall on his right (at most 6 px). Pure: nothing in the rules reads it.
 pub fn ben_view_box(
     world: &World,
     w: usize,
@@ -760,7 +766,26 @@ pub fn ben_view_box(
 ) -> (i32, i32, i32, i32) {
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
     let ben = &world.ben;
-    let x = tile_px(ben.b.x + ben.b.w * 0.5) - cam_x;
+    // The sprite is drawn offset sideways when a wall is on his right, as `draw_ben` does, and the box follows it.
+    let mut x = tile_px(ben.b.x + ben.b.w * 0.5) - cam_x;
+    if ben.dead <= 0.0 {
+        let map = &world.map;
+        let ground = oblique::Ground {
+            data: &map.data,
+            w: map.w,
+            h: map.h,
+            red_closed: map.switch(DOOR_RED_CHANNEL),
+            blue_closed: map.switch(DOOR_BLUE_CHANNEL),
+        };
+        if let Some(s) = sprite(ben_pose(ben)) {
+            let walls = Walls {
+                ground: &ground,
+                map_h: map.h,
+            };
+            let b = &ben.b;
+            x += walls.offset(s, ben.face < 0.0, (b.x, b.y, b.w, b.h));
+        }
+    }
     let y = screen_y(ben.b.y, world.map.h) - cam_y;
     (x - 8, y - 16, 16, 16)
 }
@@ -778,6 +803,7 @@ pub const fn star_frame(phase: usize) -> usize {
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
+#[allow(clippy::too_many_arguments)]
 fn draw_chicken(
     frame: &mut [u8],
     w: usize,
@@ -811,6 +837,8 @@ fn draw_chicken(
     };
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
     let flip = c.dir < 0.0;
+    // Enemies are drawn where their bodies are: an enemy's collision body contains its sprite and the 4 px near-plane margin on
+    // its right, so it needs no correction at a wall (docs/OBLIQUE.md).
     blit_sprite_banked(frame, w, h, s, sx, sy + sink, flip, bank);
     if stunned
         && let Some(stars) = sprite(if star_frame(phase) == 0 {
@@ -992,6 +1020,7 @@ fn draw_ben(
     at: At,
     spin: bool,
     bank: u8,
+    walls: &Walls,
 ) {
     let ben = &world.ben;
     let dead = ben.dead > 0.0;
@@ -1012,7 +1041,74 @@ fn draw_ben(
     }
     // The sprites face right; dead Ben is turned away from the way he was facing.
     let flip = if dead { ben.face > 0.0 } else { ben.face < 0.0 };
+    // A living Ben is drawn stopping at the front edge of a wall on his right. Dead Ben does not collide (he is knocked up
+    // and falls through the level), so he is drawn where his body is, as the turn above is.
+    let sx = if dead {
+        sx
+    } else {
+        sx + walls.offset(s, flip, (ben.b.x, ben.b.y, ben.b.w, ben.b.h))
+    };
     blit_sprite_banked(frame, w, h, s, sx, sy, flip, bank);
+}
+
+/// What Ben needs to be drawn stopping at a wall on his right: the map as the renderer reads it and its height.
+struct Walls<'a> {
+    ground: &'a oblique::Ground<'a>,
+    map_h: i32,
+}
+
+impl Walls<'_> {
+    /// The horizontal draw offset of `sprite`, anchored at frame column `x` (mirrored if `flip`), for Ben's body. See
+    /// [`oblique::wall_offset`]: the sprite's opaque right edge lands on the front line of a wall on the right. A wall on the
+    /// left adds nothing. Zero, and no scan of the sprite, unless a wall is within [`oblique::WALL_RAMP`] pixels of the body's
+    /// right.
+    fn offset(
+        &self,
+        sprite: &fizz_view::sprites_data::Sprite,
+        flip: bool,
+        (bx, by, bw, bh): (f64, f64, f64, f64),
+    ) -> i32 {
+        let right = tile_px(bx + bw);
+        let (top, bottom) = (screen_y(by + bh, self.map_h), screen_y(by, self.map_h));
+        let Some((_, edge)) = oblique::wall_gap(self.ground, right, top, bottom) else {
+            return 0;
+        };
+        let cols = drawn_columns(sprite, flip);
+        // Where the anchor is when the body touches the wall: its rounded position then. The gap that sets the ramp is the
+        // anchor's own distance from that, not the body edge's, so the sprite (anchor plus offset) moves with the anchor's
+        // whole pixel steps and never back, however the two roundings fall.
+        let at_contact = tile_px(f64::from(edge) / 16.0 - bw * 0.5);
+        let gap = at_contact - tile_px(bx + bw * 0.5);
+        oblique::wall_offset(Some((gap, edge - at_contact)), cols)
+    }
+}
+
+/// The sprite's opaque columns as drawn, relative to its anchor: `(first, past the last)`, mirrored when `flip`.
+fn drawn_columns(sprite: &fizz_view::sprites_data::Sprite, flip: bool) -> (i32, i32) {
+    let (first, last) = opaque_columns(sprite);
+    let ax = i32::from(sprite.ax);
+    if flip {
+        (ax - last - 1, ax - first)
+    } else {
+        (first - ax, last + 1 - ax)
+    }
+}
+
+/// The first and last columns of `sprite` that hold an opaque pixel (0 and 0 for an empty one).
+fn opaque_columns(sprite: &fizz_view::sprites_data::Sprite) -> (i32, i32) {
+    let (sw, sh) = (usize::from(sprite.w), usize::from(sprite.h));
+    let (mut first, mut last) = (i32::MAX, -1);
+    if sprite.pixels.len() >= sw * sh {
+        for row in sprite.pixels.chunks_exact(sw.max(1)).take(sh) {
+            for (c, &p) in row.iter().enumerate() {
+                if p != fizz_view::TRANSPARENT {
+                    first = first.min(c as i32);
+                    last = last.max(c as i32);
+                }
+            }
+        }
+    }
+    if last < 0 { (0, 0) } else { (first, last) }
 }
 
 /// Draws `sprite` as [`blit_sprite`] does, with its anchor at (`x`, `y`), mirrored if `flip_x`, then turned about the middle of
@@ -1246,7 +1342,7 @@ mod tests {
                 (865, 0x0364355a21d6a202),
                 (1000, 0x7ef3a65746089bbc),
                 (1268, 0xf41efb06e7f6764b),
-                (1450, 0x7e39314dd4926d19),
+                (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
         );
@@ -1263,7 +1359,7 @@ mod tests {
                 (865, 0x0364355a21d6a202),
                 (1000, 0x7ef3a65746089bbc),
                 (1268, 0xf41efb06e7f6764b),
-                (1450, 0x7e39314dd4926d19),
+                (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
         );
@@ -2656,3 +2752,5 @@ mod tests {
 }
 #[cfg(test)]
 mod night_tests;
+#[cfg(test)]
+mod wall_tests;
