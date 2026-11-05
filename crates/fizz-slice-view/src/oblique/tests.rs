@@ -21,6 +21,16 @@ fn ground(world: &World) -> Ground<'_> {
     }
 }
 
+/// Whether the background behind cell (`c`, `r`) is the back wall, worked out from the map alone: the oracle for
+/// `Window::back_is_wall`.
+fn back_is_wall(g: &Ground, c: i32, r: i32) -> bool {
+    match g.cell(c, r) {
+        WALLBG => true,
+        t if open_air(t) => false,
+        _ => !open_air(g.cell(c, r - 1)),
+    }
+}
+
 /// Plays the slice script and calls `each` with the world before the first tick and after every tick.
 fn play(mut each: impl FnMut(&World)) {
     let mut w = level::world();
