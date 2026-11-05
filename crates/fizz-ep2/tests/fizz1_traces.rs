@@ -195,6 +195,7 @@ fn row(tick: u32, w: &World) -> String {
 /// channel starts on (closed), both of which a level provides; the scenario worlds provide them here. The red bit is masked out of
 /// the compared switch word (see the header), so the traces still match Fizz 1's.
 fn add_red_door(w: &mut World) {
+    w.map.bind_switch_tiles(12, DOOR_RED_CHANNEL);
     w.set_switches(DOOR_RED_BIT);
     let mut rules = RuleTable::new();
     rules.push(Rule::lock(KEY_RED, DOOR_RED_CHANNEL, (0, 0)));

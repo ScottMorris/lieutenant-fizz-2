@@ -4,8 +4,9 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Provenance: ids and properties follow Fizz 1 `episodes/episode-1/game/src/tiles.rs` at commit `4bce036`, restricted to
-// the tiles the slice uses. Departure: the red and blue doors are switched tiles, each on its own channel, rather than solid tiles
-// that Fizz 1 rewrites to empty space when it opens.
+// the tiles the slice uses. Departure: the red and blue doors are switched tiles, solid while the switch bit their cell is bound to
+// is set, rather than solid tiles that Fizz 1 rewrites to empty space when it opens. A tile id carries no channel: the level binds each
+// door's cells to a bit (see `level.rs`).
 
 use crate::cues;
 use crate::rules::{KEY_BLUE, KEY_GREEN, KEY_RED, RULES_SEMANTICS};
@@ -38,21 +39,21 @@ pub const R22B: u8 = 9;
 pub const L22A: u8 = 10;
 /// The second half of a falling 22.5 degree slope.
 pub const L22B: u8 = 11;
-/// The red door: solid while [`DOOR_RED_CHANNEL`] is on.
+/// The red door: solid while the switch bit its cells are bound to is set.
 pub const DOOR_R: u8 = 12;
-/// The blue door: solid while [`DOOR_BLUE_CHANNEL`] is on.
+/// The blue door: solid while the switch bit its cells are bound to is set.
 pub const DOOR_B: u8 = 13;
 /// The exit: touching it ends the level.
 pub const EXIT: u8 = 17;
 /// Decorative interior wall behind a room. It is not solid.
 pub const WALLBG: u8 = 30;
 
-/// The switch channel of the red door. A set bit means the door is closed.
+/// The switch bit of the slice's red door. A set bit means the door is closed.
 pub const DOOR_RED_CHANNEL: u8 = 1;
 /// The red door's bit in `TileMap::switches`.
 pub const DOOR_RED_BIT: u32 = 1 << DOOR_RED_CHANNEL;
 
-/// The switch channel of the blue door. A set bit means the door is closed.
+/// The switch bit of the slice's blue door. A set bit means the door is closed.
 pub const DOOR_BLUE_CHANNEL: u8 = 2;
 /// The blue door's bit in `TileMap::switches`.
 pub const DOOR_BLUE_BIT: u32 = 1 << DOOR_BLUE_CHANNEL;
@@ -72,9 +73,7 @@ pub fn props() -> TileProps {
     p.set_flags(BLOCK, SOLID);
     p.set_flags(PLAT, ONEWAY);
     p.set_flags(DOOR_R, SWITCHED);
-    p.set_channel(DOOR_R, DOOR_RED_CHANNEL);
     p.set_flags(DOOR_B, SWITCHED);
-    p.set_channel(DOOR_B, DOOR_BLUE_CHANNEL);
     for (t, s) in [
         (R45, SLOPE_R45),
         (L45, SLOPE_L45),
@@ -90,11 +89,11 @@ pub fn props() -> TileProps {
 
 /// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
 /// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
-/// the tile property table (flags, slope and switch channel for each of the 256 tile ids, in that order), the named tile ids, and the
+/// the tile property table (flags and slope for each of the 256 tile ids, in that order), the named tile ids, and the
 /// numbers of the snack kinds (the three snacks, the soda can and the elixir), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
 /// the sound effect ids (each named id, then `EFFECT_COUNT`), the shared caption ids (each, then `CAP_COUNT`), `STYLE_COUNT` and
 /// the `RULES_SEMANTICS` byte, which is bumped when what a rule record means changes without its layout changing. The object kind
-/// numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel, an id or a cue number changes the number on purpose,
+/// numbers belong to `fizz-pack` itself. Changing a flag, a slope, an id or a cue number changes the number on purpose,
 /// so a pack baked before the change is refused.
 pub fn pack_content() -> alloc::vec::Vec<u8> {
     use crate::world::SnackKind;
@@ -106,9 +105,6 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
     }
     for id in 0..=255u8 {
         v.push(p.slope(id));
-    }
-    for id in 0..=255u8 {
-        v.push(p.channel(id));
     }
     v.extend_from_slice(&[
         EMPTY, FILL, BLOCK, PLAT, SPIKE, CHOC, R45, L45, R22A, R22B, L22A, L22B, DOOR_R, DOOR_B,
@@ -173,18 +169,24 @@ mod pack_content_tests {
     #[test]
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
-        // Prefix, three tables, the tile ids, the snack kinds, then the rule layer's numbers: key colours and MAX_CHANNELS (4),
+        // Prefix, two tables, the tile ids, the snack kinds, then the rule layer's numbers: key colours and MAX_CHANNELS (4),
         // 19 effect ids and their count, 15 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
-        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 5 + 4 + 20 + 16 + 2);
-        assert_eq!(a.len(), 847);
+        assert_eq!(a.len(), 16 + 2 * 256 + 16 + 5 + 4 + 20 + 16 + 2);
+        assert_eq!(a.len(), 591);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
         assert_ne!(a[16 + usize::from(FILL)], 0);
-        // The door channels are in the third table.
-        assert_eq!(a[16 + 512 + usize::from(DOOR_R)], DOOR_RED_CHANNEL);
-        assert_eq!(a[16 + 512 + usize::from(DOOR_B)], DOOR_BLUE_CHANNEL);
-        let at = 16 + 3 * 256 + 16;
+        // The door tiles are switched, and a tile id carries no channel.
+        assert_ne!(
+            a[16 + usize::from(DOOR_R)] & fizz_phys::tilemap::SWITCHED,
+            0
+        );
+        assert_ne!(
+            a[16 + usize::from(DOOR_B)] & fizz_phys::tilemap::SWITCHED,
+            0
+        );
+        let at = 16 + 2 * 256 + 16;
         assert_eq!(&a[at..at + 5], &[0, 1, 2, 3, 4], "snack kinds");
         assert_eq!(
             &a[at + 5..at + 9],

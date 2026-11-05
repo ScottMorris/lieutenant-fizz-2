@@ -493,10 +493,10 @@ impl World {
             } else {
                 (px - 0.1).floor() as i32
             };
-            let t = self.map.get(cx, (py + 0.2).floor() as i32);
-            let props = &self.map.props;
-            if props.flags(t) & SWITCHED != 0
-                && props.channel(t) == lock.channel
+            let cy = (py + 0.2).floor() as i32;
+            let switched = self.map.props.flags(self.map.get(cx, cy)) & SWITCHED != 0;
+            if switched
+                && self.map.switch_bit(cx, cy) == Some(lock.channel)
                 && self.map.switch(lock.channel)
             {
                 self.map.set_switch(lock.channel, false);

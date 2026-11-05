@@ -734,13 +734,13 @@ mod tests {
         use fizz_phys::tilemap::SWITCHED;
         let mut props = crate::tiles::props();
         props.set_flags(40, SWITCHED);
-        props.set_channel(40, 7);
         let mut map = fizz_phys::TileMap::new(8, 4, props);
         for x in 0..8 {
             map.set(x, 0, crate::tiles::FILL);
         }
         for y in 1..4 {
             map.set(5, y, 40);
+            map.bind_switch(5, y, 7);
         }
         let mut w = World::new(map, (2.0, 1.0));
         w.set_switches(start);

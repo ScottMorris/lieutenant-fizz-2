@@ -201,7 +201,14 @@ pub const SLICE: LevelData = LevelData {
 pub fn map() -> TileMap {
     let mut m = TileMap::new(SLICE.w, SLICE.h, tiles::props());
     m.data.copy_from_slice(&SLICE.tiles);
+    bind_doors(&mut m);
     m
+}
+
+/// Binds the door tiles' cells to the switch bits of the doors: the red door's cells to its bit and the blue door's to its own.
+fn bind_doors(m: &mut TileMap) {
+    m.bind_switch_tiles(DOOR_R, tiles::DOOR_RED_CHANNEL);
+    m.bind_switch_tiles(DOOR_B, tiles::DOOR_BLUE_CHANNEL);
 }
 
 /// A fresh world on the slice level: Ben at the spawn, the keys, the snacks and the chicken in place, both doors closed.
@@ -518,6 +525,7 @@ fn build(
     let mut m = TileMap::new(i32::from(w), i32::from(h), tiles::props());
     m.data.copy_from_slice(tile_bytes);
     m.floor_solid = floor_solid;
+    bind_doors(&mut m);
     let mut world = World::new(m, spawn);
     for o in objects {
         match o {
