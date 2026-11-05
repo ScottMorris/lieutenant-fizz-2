@@ -143,7 +143,7 @@
     122,
     127
    ],
-   "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok b5269b23afdeb5ca`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
+   "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok eda8a62f036aeab6`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
    "gaps": "that the nook is pleasant to play, and that the pogo route onto the shelf is possible for a person: the replay climbs it with scripted keys; how fsssht sounds; and the score's count-up, which a still cannot show."
   },
   {

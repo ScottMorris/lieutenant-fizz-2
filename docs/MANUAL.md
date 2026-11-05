@@ -16,6 +16,10 @@ Build the page with `tools/build-web.sh`, then serve the `dist/web` folder with 
 
 Build the program with `tools/build-dos.sh`, which writes `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos`. Keep the two files together and run `FIZZ2.EXE` in DOSBox or js-dos. It needs a VGA display and 4 MB of memory, and it targets a 486-class PC (the slowest machine in mind is about a 486DX2-66, which has not been tried on real hardware; so far it has run only in DOSBox). Sound on DOS is described under [Choosing your sound on DOS](#choosing-your-sound-on-dos); the program also shows a machine check first if you ask for it with `/CHECK`. The build needs the DOS toolchain described in [`PLATFORM.md`](PLATFORM.md); you do not need a C compiler.
 
+### Data files
+
+The game's data files (`.FAP` packs) belong to the build that made them. A data file made for an earlier build is refused, not half-read, so use the files from the same download as the program. Nothing about how the game plays depends on this: the red and blue doors open from the same places with the same keys.
+
 ## Controls
 
 There are two sets of keys, and you use one at a time. Keen is the default on the Web and on DOS.
