@@ -55,6 +55,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/ARCHITECTURE.md` | Layers, crate plan, parity policy, and what is mirrored from where |
 | `docs/PLATFORM.md` | The platform skeleton: transcript format, DOS runtime, Web build, checks, toolchain and provenance |
 | `docs/DOS-CHECK.md` | The DOS start-up check: the screen, the three sound states, settings, flags and the probe plan |
+| `docs/RULES.md` | Rules: the state table, bindings, rule inputs, conditions and actions, the order inside a tick, the death reset, raised events and the preview API |
 | `docs/SPRITES.md` | The sprite grid format, the sets and the tools that lower them to Rust |
 | `docs/OBLIQUE.md` | The oblique projection for ground, platforms, walls and hills: the numbers, registration, faces and draw order |
 | `docs/LIGHTS.md` | Night and dynamic lights: the palette banks, the markers, the integer light model, the slice's lights, detail and cost |
