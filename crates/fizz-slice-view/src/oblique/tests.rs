@@ -661,5 +661,5 @@ fn a_light_gallery_frame_is_pinned() {
     let digest = f.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &p| {
         (h ^ u64::from(p)).wrapping_mul(0x0000_0100_0000_01b3)
     });
-    assert_eq!(digest, 0x0e2c_811b_ac67_44b7);
+    assert_eq!(digest, 0xcb52_b113_fbd7_7aa9);
 }

@@ -143,21 +143,21 @@ function plankFront(u: number, k: number): string {
   return hsh(Math.floor(u / 4), k, 3) % 4 === 0 ? 'R' : 'N';
 }
 
-/** Vertical 8 px B boards with k seams, board ends, grain and D knots; the period is 256 across and 96 down. */
+/** Vertical 8 px L (whitewashed) boards with D seams, board ends and grain, and k knots; the period is 256 across and 96 down. */
 function backWall(x: number, y: number): string {
   const bx = Math.floor(x / 8);
-  if (x % 8 === 7) return 'k';
+  if (x % 8 === 7) return 'D';
   const end = (y + (hsh(bx, 0, 3) % 48)) % 48;
-  if (end === 0) return 'k'; // board ends
-  if (end === 1) return x % 8 < 3 ? 'D' : 'B';
-  if (x % 8 === 0) return 'B';
+  if (end === 0) return 'D'; // board ends
+  if (end === 1) return x % 8 < 3 ? 'k' : 'L';
+  if (x % 8 === 0) return 'L';
   const gx = 1 + (hsh(bx, Math.floor(y / 8), 9) % 6);
-  if (x % 8 === gx && hsh(bx, Math.floor(y / 8), 5) % 4 === 0 && y % 8 < 2 + (hsh(bx, Math.floor(y / 8), 6) % 5)) return 'k'; // grain
+  if (x % 8 === gx && hsh(bx, Math.floor(y / 8), 5) % 4 === 0 && y % 8 < 2 + (hsh(bx, Math.floor(y / 8), 6) % 5)) return 'D'; // grain
   const kx = 2 + (hsh(bx, Math.floor(y / 48), 2) % 3);
   const ky = hsh(bx, Math.floor(y / 48), 3) % 44;
-  if (hsh(bx, Math.floor(y / 48), 4) % 3 === 0 && (x % 8 === kx || x % 8 === kx + 1) && ky <= y % 48 && y % 48 < ky + 2) return 'D'; // knot
-  if (x % 8 === 6) return y % 2 ? 'k' : 'B'; // board shade
-  return 'B';
+  if (hsh(bx, Math.floor(y / 48), 4) % 3 === 0 && (x % 8 === kx || x % 8 === kx + 1) && ky <= y % 48 && y % 48 < ky + 2) return 'k'; // knot
+  if (x % 8 === 6) return y % 2 ? 'D' : 'L'; // board shade
+  return 'L';
 }
 
 // ---------- tables ----------
@@ -558,7 +558,7 @@ export function emit(): string {
   items.push(tableItem('STONE_MID', 'Stone wall face two tiles from an opening: ashlar darkening towards the deep rock.', 64, table(64, (u, y) => stoneFront(u, y, 2))));
   items.push(tableItem('STONE_DEEP', 'Stone wall face three or more tiles from an opening: k rock with D joints and thin B veins.', 64, table(64, (u, y) => stoneFront(u, y, 3))));
   items.push(tableItem('BRICK_FRONT', 'Brick wall face: 32 rows of R bands with r lit tops and left edges.', 32, table(32, brickFront)));
-  items.push(tableItem('BACK_WALL', 'The back wall of a room: 96 rows of vertical B boards with k seams, grain and D knots.', 96, table(96, backWall)));
+  items.push(tableItem('BACK_WALL', 'The back wall of a room: 96 rows of vertical L boards with D seams and grain, and k knots.', 96, table(96, backWall)));
   items.push(pieceItem('DOOR_RED_TOP', 'The red door, top 16 px, with the white triangle badge. A door piece is a 16 by 16 front face; `(ox, oy)` is zero.', doorPiece(true, 0)));
   items.push(pieceItem('DOOR_RED_MID', 'The red door, a middle 16 px, with the lock.', doorPiece(true, 1)));
   items.push(pieceItem('DOOR_RED_BOT', 'The red door, bottom 16 px.', doorPiece(true, 2)));
