@@ -100,6 +100,55 @@ impl Ground<'_> {
     }
 }
 
+/// How far in front of a wall Ben's drawing starts to move, in pixels: the offset is zero at this gap and full at none. It
+/// is at least as long as any overhang of a sprite past its body (about 6 px), so the sprite never moves backwards.
+pub const WALL_RAMP: i32 = 12;
+
+/// Where the near plane's edge of a wall on the right lies, relative to its collision edge: 4 px left (the front line).
+pub const FRONT_LINE: i32 = 4;
+
+/// A wall near Ben's body: the gap to it in pixels and its collision edge in map pixels.
+pub type Gap = Option<(i32, i32)>;
+
+/// The solid wall close beside Ben's body on its right, for drawing him stopping at its visible front edge.
+///
+/// The body spans map pixels `right` as its right edge and `top` to `bottom` down (exclusive). A solid cell (stone, a block, a
+/// shut door) in one of the rows the body spans is a wall. Returns the gap in pixels between the body and the wall, if it is
+/// under [`WALL_RAMP`] plus the 2 px by which the rounded edge and the rounded centre can disagree, with the wall's collision edge: `(gap, collision edge)`. A gap of 0 is contact. Planks are not solid
+/// from the side and an open door is not drawn, so neither counts; the floor and a ceiling are not in the body's rows. Cells
+/// beyond the map repeat its edge cell. Integers only. A wall on the left is deliberately not looked for: its slanted side face
+/// is visible, so Ben at his collision edge already reads as stopping at it.
+pub fn wall_gap(g: &Ground, right: i32, top: i32, bottom: i32) -> Gap {
+    if !g.usable() || bottom <= top {
+        return None;
+    }
+    let sm = g.solid_mask();
+    let (r_lo, r_hi) = (top.div_euclid(16), (bottom - 1).div_euclid(16));
+    // The first cell wholly right of the body's right edge.
+    let c = (right + 15).div_euclid(16);
+    let gap = c * 16 - right;
+    let wall = (r_lo..=r_hi).any(|r| CLASS[usize::from(g.cell(c, r))] & sm != 0);
+    (gap < WALL_RAMP + 2 && wall).then_some((gap, c * 16))
+}
+
+/// The horizontal draw offset in pixels that stops Ben's sprite at the front edge of a wall on its right.
+///
+/// `right` is [`wall_gap`] with `half` in place of the collision edge: how far the sprite's anchor lies left of the wall's
+/// collision edge when the body touches it (the caller works it out from the rounded position the anchor would have at contact,
+/// so the contact lands exactly whatever the rounding). `cols` is the sprite's opaque columns relative to its anchor as drawn
+/// (flip included): `(first, past the last)`. At contact the opaque right edge is moved onto the front line, the collision edge
+/// less [`FRONT_LINE`]. Over the last [`WALL_RAMP`] pixels of the gap the offset grows in proportion to the part of the ramp used
+/// (a whole number of pixels, no jump), so the sprite never moves backwards while the body walks up to the wall. Zero when no
+/// wall is near.
+pub fn wall_offset(right: Gap, cols: (i32, i32)) -> i32 {
+    // At contact the anchor is `half` left of the collision edge, so the opaque right edge lies `cols.1 - half` right of it and
+    // the line is `-FRONT_LINE`.
+    right.map_or(0, |(gap, half)| {
+        let over = cols.1 - half + FRONT_LINE;
+        -(over * (WALL_RAMP - gap).clamp(0, WALL_RAMP)) / WALL_RAMP
+    })
+}
+
 // ---------- tile classes ----------
 
 /// Fill (stone).
