@@ -38,12 +38,12 @@ const GREEN: u8 = 2;
 // placement stay here. Re-exported so the presenters and their tests keep their paths.
 pub use fizz_ep2::cues::{
     CAP_BLUE, CAP_BOING, CAP_BONK, CAP_CLICK, CAP_CLUNK, CAP_COUNT, CAP_CRUNCH, CAP_FIZZLED,
-    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_LIFE, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
+    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_KICK, CAP_LIFE, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
 };
 pub use fizz_ep2::cues::{
     EFFECT_BOING, EFFECT_BOING_FM, EFFECT_BONK, EFFECT_CLUCK, EFFECT_CLUNK, EFFECT_COUNT,
     EFFECT_CRUNCH, EFFECT_DOOR, EFFECT_FZZT, EFFECT_FZZT_FM, EFFECT_HURT, EFFECT_JUMP,
-    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_LIFE, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN,
+    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_KICK, EFFECT_LIFE, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN,
     EFFECT_WHISTLE, EFFECT_WIN,
 };
 
@@ -77,6 +77,7 @@ pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("fsssht", LIGHT_CYAN, CYAN),
     cap("wheee!", YELLOW, BROWN),
     cap("glug!", YELLOW, BROWN),
+    cap("kick", WHITE, LIGHT_GREY),
 ];
 
 /// What an event is to a presenter.
@@ -121,11 +122,7 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::HeadBump { .. } => p(EFFECT_CLUNK, Some(CAP_CLUNK)),
         Event::Bounce { .. } => p(EFFECT_BOING, Some(CAP_BOING)),
         Event::Jump { .. } => p(EFFECT_JUMP, None),
-        // Fizz 1 shows `kick` and plays a sound; neither is authored for Fizz 2 yet, so a kick is silent and wordless.
-        Event::Kick { .. } => Presentation {
-            effect: None,
-            caption: None,
-        },
+        Event::Kick { .. } => p(EFFECT_KICK, Some(CAP_KICK)),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
         Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
         Event::Life { .. } => p(EFFECT_LIFE, Some(CAP_LIFE)),
@@ -359,7 +356,7 @@ impl EventCaptions {
 
 /// Everything a presenter that draws the whole picture itself (the DOS one) feeds from the step events: the shot-end puffs and
 /// the event captions. One `observe` after every `fizz_ep2::step`, one `&ViewFx` to the renderer.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ViewFx {
     pub puffs: crate::Puffs,
     pub captions: EventCaptions,
@@ -368,6 +365,9 @@ pub struct ViewFx {
     /// The slide whistle for a long fall. It makes a sound and not a picture, so a presenter reads its cue with [`crate::FallWatch::observe`]
     /// where it plays its events' sounds; [`ViewFx::observe`] does not advance it.
     pub fall: crate::FallWatch,
+    /// Fizz 1's four jokes. They are not drawn or played yet; a presenter reads them with [`crate::JokeWatch::observe`], which needs the
+    /// step's input, so [`ViewFx::observe`] does not advance it either.
+    pub jokes: crate::JokeWatch,
 }
 
 impl ViewFx {
@@ -377,6 +377,7 @@ impl ViewFx {
             captions: EventCaptions::new(),
             hud: crate::HudAnim::new(),
             fall: crate::FallWatch::new(),
+            jokes: crate::JokeWatch::new(),
         }
     }
 

@@ -462,7 +462,8 @@ fn the_effect_ids_are_the_sound_tables_order() {
     // Eleven effects follow the cluck's four variants, then the alternates (boing (FM), jump (FM)), soda, the alternate fzzt (FM), which
     // no event plays, the door, which only a door plays, and the whistle, which no event plays (`FallWatch` does), and every id the table
     // hands out is one the sound data has.
-    assert_eq!(EFFECT_LIFE as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_KICK as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_KICK, EFFECT_LIFE + 1);
     assert_eq!(EFFECT_LIFE, EFFECT_WHISTLE + 1);
     assert_eq!(EFFECT_WHISTLE, EFFECT_DOOR + 1);
     assert_eq!(EFFECT_DOOR, EFFECT_FZZT_FM + 1);
@@ -545,9 +546,9 @@ fn the_replay_plays_these_effects_this_often() {
     assert_eq!(
         count[4..],
         [
-            13, 1, 1, 1, 1, 3, 4, 1, 9, count[13], 5, 0, 0, 2, 0, 2, 0, 0
+            13, 1, 1, 1, 1, 3, 4, 1, 9, count[13], 5, 0, 0, 2, 0, 2, 0, 0, 0
         ],
-        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda, fzzt (FM), door, whistle and life, which no event but the soda and the doors play (the whistle is played by `FallWatch`, not by an event, and the replay takes no lantern)"
+        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda, fzzt (FM), door, whistle, life and kick, which no event but the soda and the doors play (the whistle is played by `FallWatch`, not by an event, and the replay takes no elixir and never kicks)"
     );
     assert!(count[13] >= 20, "the route jumps a lot: {}", count[13]);
 }
@@ -604,4 +605,60 @@ fn a_sound_is_placed_where_its_event_happened_and_a_shot_ending_is_silent() {
         event_sound(&w, &cluck, VIEW_W, VIEW_H, &o),
         Some((2, crate::cluck_placement(&w, 0, VIEW_W, VIEW_H, &o)))
     );
+}
+
+/// Ben in the air with a solid wall a hair from his right side, in the first tick in which a fresh Jump press kicks off it.
+fn a_wall_kick() -> World {
+    use fizz_ep2::tiles::{self, BLOCK};
+    let mut map = fizz_phys::TileMap::new(24, 14, tiles::props());
+    for x in 0..24 {
+        map.set(x, 0, BLOCK);
+        map.set(x, 1, BLOCK);
+    }
+    for y in 2..14 {
+        map.set(11, y, BLOCK);
+    }
+    let mut w = World::new(map, (10.0, 2.0));
+    let mut prev = Buttons::NONE;
+    let held = [Buttons::RIGHT; 5]
+        .into_iter()
+        .chain([Buttons::JUMP | Buttons::RIGHT])
+        .chain([Buttons::RIGHT; 3])
+        .chain([Buttons::JUMP | Buttons::RIGHT]);
+    for now in held {
+        step(&mut w, InputFrame::from_transition(prev, now));
+        prev = now;
+    }
+    w
+}
+
+#[test]
+fn a_wall_kick_raises_the_white_kick_word_and_its_effect_at_the_chest() {
+    let w = a_wall_kick();
+    let [Event::Kick { x, y }] = *w.events() else {
+        panic!("one kick: {:?}", w.events())
+    };
+    let p = presentation(&Event::Kick { x, y });
+    assert_eq!((p.effect, p.caption), (Some(EFFECT_KICK), Some(CAP_KICK)));
+    let word = EVENT_CAPTIONS[usize::from(CAP_KICK)];
+    assert_eq!(word.text, "kick");
+    assert_eq!(
+        (word.bright, word.dark),
+        (WHITE, LIGHT_GREY),
+        "Fizz 1's 0xffffff"
+    );
+    let mut caps = EventCaptions::new();
+    caps.observe(&w, VIEW_W, VIEW_H, &opts());
+    let views: Vec<_> = caps
+        .views(&w, VIEW_W, VIEW_H, &opts())
+        .filter(|v| v.text == "kick")
+        .collect();
+    assert_eq!(
+        views.len(),
+        1,
+        "the word is raised once, on the kick's tick"
+    );
+    assert_eq!((views[0].age, views[0].bright), (0, WHITE));
+    let (id, _) = event_sound(&w, &w.events()[0], VIEW_W, VIEW_H, &opts()).expect("a sound");
+    assert_eq!(id, EFFECT_KICK);
 }

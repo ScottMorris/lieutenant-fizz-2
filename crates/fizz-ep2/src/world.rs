@@ -885,7 +885,8 @@ impl World {
 ///
 /// 1. the tick (`u64`);
 /// 2. Ben: `x y vx vy face squash dead inv shoot_t` as `f64` bits, then a flags byte (bit 0 pogo, bit 1 cut, bit 2 on
-///    the ground, bit 3 bumped), then `look_up look_down look_offset` as `f64` bits, `aim` as one byte (`i8` as `u8`), and
+///    the ground, bit 3 bumped, bit 4 climbing, bit 5 was climbing; the last two are 0 until ladders and vines exist, so they leave every
+///    state of the golden replay's hash as it was), then `look_up look_down look_offset` as `f64` bits, `aim` as one byte (`i8` as `u8`), and
 ///    `wall_t` and `kick_side` (the wall kick's cooldown and side) as `f64` bits;
 /// 3. the [`WorldFlags`] word (`u32`), `ammo` (`u32`) and `deaths` (`u32`);
 /// 4. `map.switches` (`u32`): one bit for each door binding of the level, set while the door is closed (door binding `i` owns bit
@@ -927,7 +928,9 @@ pub fn hash(w: &World) -> StateHash {
         u8::from(ben.pogo)
             | u8::from(ben.cut) << 1
             | u8::from(ben.b.on_ground) << 2
-            | u8::from(ben.bumped) << 3,
+            | u8::from(ben.bumped) << 3
+            | u8::from(ben.climb) << 4
+            | u8::from(ben.was_climbing) << 5,
     );
     for v in [ben.look_up, ben.look_down, ben.look_offset] {
         h.write_f64(v);
@@ -1557,6 +1560,22 @@ mod tests {
             hash(&b).finish(),
             "a spent cooldown is hashed as it stands"
         );
+    }
+
+    #[test]
+    fn the_climb_flags_join_the_ben_flags_byte_and_change_nothing_while_false() {
+        // Bits 4 and 5 of the flags byte: all-false Ben writes the byte it always did (the golden replay pins that), and a set flag
+        // changes the hash once ladders and vines can set it.
+        let a = arena_with_wall();
+        let base = hash(&a).finish();
+        let mut b = arena_with_wall();
+        b.ben.climb = true;
+        assert_ne!(hash(&b).finish(), base, "climb");
+        let mut c = arena_with_wall();
+        c.ben.was_climbing = true;
+        assert_ne!(hash(&c).finish(), base, "was_climbing");
+        assert_ne!(hash(&b).finish(), hash(&c).finish());
+        assert_eq!(hash(&arena_with_wall()).finish(), base);
     }
 
     #[test]

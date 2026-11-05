@@ -7,7 +7,7 @@
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
 //   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
 //   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays,
-//   17 soda (a fizz can), 19 door (a door opening with its key; a head-bump keeps 10), 20 whistle (a long fall) and 21 life (an elixir, a new life: provisional).
+//   17 soda (a fizz can), 19 door (a door opening with its key; a head-bump keeps 10), 20 whistle (a long fall), 21 life (an elixir, a new life: provisional) and 22 kick (a wall-kick).
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -275,8 +275,34 @@ const life: SfxVoice[] = [
   V('g6', { w: 'sine', a: 0.01, d: 0.42, g: 0.3, nudge: 0.285, steps: glide(0, 0.1, -7), fm: { ratio: 2.76, index: 0.9, decay: 0.2 } }),
 ];
 
+/**
+ * Effect 22, kick (Ben kicking off a wall; `Event::Kick`): new for Fizz 2. Fizz 1 shows the word "kick" and plays a sound of its own;
+ * this is authored fresh. Intent: a short, sharp push-off, shorter and snappier than the jump (13) and with none of the whistle's
+ * (20) long slide. A tick of noise at the attack for the shoe on the wall, a sawtooth that chirps up `KICK_SEMITONES` semitones from
+ * `KICK_FROM_HZ` in `KICK_SWEEP_SECONDS` (`pitchsteps`, one note that moves) with a low-pass that keeps it from squealing, and a short
+ * triangle thump an octave under it for the weight of the push (Web only; the chip sounds the loudest live voice, so on DOS the thump and the scuff are heard only at the start and the chirp after them).
+ * About 0.2 s. The owner tunes it by ear: every number that sets its character is a constant here.
+ */
+const KICK_NOISE_SECONDS = 0.03;
+const KICK_NOISE_GAIN = 0.22;
+const KICK_NOISE_LPF = 5000;
+const KICK_FROM_HZ = 220;
+const KICK_SEMITONES = 14;
+const KICK_SWEEP_SECONDS = 0.14;
+const KICK_CHIRP_GAIN = 0.3;
+const KICK_CHIRP_DECAY = 0.17;
+const KICK_CHIRP_LPF = 2400;
+const KICK_THUMP_HZ = 110;
+const KICK_THUMP_GAIN = 0.35;
+const KICK_THUMP_DECAY = 0.08;
+const kick: SfxVoice[] = [
+  breath('white', 0, KICK_NOISE_SECONDS, KICK_NOISE_GAIN, KICK_NOISE_LPF),
+  V('a2', { hz: KICK_THUMP_HZ, w: 'triangle', a: 0.001, d: KICK_THUMP_DECAY, r: 0.02, g: KICK_THUMP_GAIN, lpf: 500 }),
+  V('a3', { hz: KICK_FROM_HZ, w: 'sawtooth', a: 0.002, d: KICK_CHIRP_DECAY, r: 0.03, g: KICK_CHIRP_GAIN, nudge: 0.006, lpf: KICK_CHIRP_LPF, steps: glide(KICK_SEMITONES, KICK_SWEEP_SECONDS) }),
+];
+
 /** The effects after the cluck, in id order from 4. */
-export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm, door, whistle, life];
+export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm, door, whistle, life, kick];
 
 /** The name of each effect by id, for tools and the audition picker. */
 export const EFFECT_NAMES: readonly string[] = [
@@ -302,6 +328,7 @@ export const EFFECT_NAMES: readonly string[] = [
   'door',
   'whistle (long fall)',
   'life (elixir)',
+  'kick (wall-kick)',
 ];
 
 /**

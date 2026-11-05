@@ -68,7 +68,7 @@ use fizz_machine::switches::{self, Mode, Parsed};
 use fizz_machine::{Captions, Motion, Night, PlacementMode, Prefs, SkyDetail, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, dos_palette_for, event_sound, frame_digest,
+    DrawOptions, Frame, Joke, Jokes, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, dos_palette_for, event_sound, frame_digest,
     key_to_buttons, menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
@@ -175,8 +175,9 @@ static CLASSIC_PLACEMENT: AtomicBool = AtomicBool::new(false);
 /// step the last event's effect is the one that starts and a later effect cuts an earlier one off, as in Fizz 1's DOS port (see
 /// `docs/SOUND.md`). Positions are read after the step, with the camera the picture uses; the view and the placement are for sound
 /// only and have no effect on the rules. After the events, Ben's long-fall whistle (`fx.fall`, see `FallWatch`) plays if this step crossed
-/// its threshold; no event carries it, so the transcript and hash do not know it.
-fn play_events(world: &World, options: &DrawOptions, fx: &mut ViewFx) {
+/// its threshold; no event carries it, so the transcript and hash do not know it. Fizz 1's four jokes (`fx.jokes`, see `JokeWatch`) are read
+/// from the same step and its `input` and returned: nothing draws them yet, and `/REPLAY` prints a `JOKE` line for each (the golden run has none).
+fn play_events(world: &World, options: &DrawOptions, fx: &mut ViewFx, input: InputFrame) -> Jokes {
     for event in world.events() {
         // A shot ending is drawn (the puff), not heard, so it gives no sound.
         if let Some((id, place)) = event_sound(world, event, VIEW_W, VIEW_H, options) {
@@ -196,6 +197,7 @@ fn play_events(world: &World, options: &DrawOptions, fx: &mut ViewFx) {
         };
         audio::effect(id, &place);
     }
+    fx.jokes.observe(world, input)
 }
 
 /// The `MUSIC` lines: what the music wrote (the player's own tick count, not wall time), and the chip order and busiest tick. Call it once
@@ -401,6 +403,7 @@ fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
     let mut world = level::world();
     let mut out = Transcript::new();
     let mut puffs = ViewFx::new();
+    let mut jokes: alloc::vec::Vec<(u64, Joke)> = alloc::vec::Vec::new();
     let mut prev = Buttons::NONE;
     let mut run = 0usize;
     let mut left = SLICE_SCRIPT.first().map_or(0, |r| u32::from(r.0));
@@ -420,8 +423,11 @@ fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
             }
             let now = SLICE_SCRIPT[run].1;
             left = left.saturating_sub(1);
-            fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
-            play_events(&world, options, &mut puffs);
+            let input = InputFrame::from_transition(prev, now);
+            fizz_ep2::step(&mut world, input);
+            for joke in play_events(&world, options, &mut puffs, input).iter() {
+                jokes.push((world.tick.0, joke));
+            }
             prev = now;
             let _ = fizz_ep2::replay::write_step(&mut out, &world);
             puffs.observe(&world, VIEW_W, VIEW_H, options);
@@ -445,6 +451,9 @@ fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
 
     for line in out.text().lines() {
         println!("{}", line);
+    }
+    for (tick, joke) in &jokes {
+        println!("JOKE {} {} {}", tick, joke.kind.name(), joke.text);
     }
     sound.print();
     print_audio();
@@ -696,9 +705,11 @@ fn live(start: &Start, options_only: bool) -> i32 {
             if opened {
                 break;
             }
-            fizz_ep2::step(&mut world, latch.frame());
+            let input = latch.frame();
+            fizz_ep2::step(&mut world, input);
             puffs.observe(&world, VIEW_W, VIEW_H, &applied.draw);
-            play_events(&world, &applied.draw, &mut puffs);
+            // The jokes have no toast line yet, so a live run reads them and shows nothing.
+            let _ = play_events(&world, &applied.draw, &mut puffs, input);
         }
         if opened {
             latch = InputLatch::new();

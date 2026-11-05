@@ -13,8 +13,8 @@ use fizz_menu::MenuKey;
 use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
-    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, FallWatch, HudAnim, Puffs,
-    ben_view_box, caption_view, draw_slice_puffs, event_sound, light, palette_for,
+    CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, FallWatch, HudAnim, Joke, JokeWatch,
+    Puffs, ben_view_box, caption_view, draw_slice_puffs, event_sound, light, palette_for,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -146,6 +146,10 @@ pub struct App {
     puffs: Puffs,
     /// Ben's long-fall whistle: view state read after every step (no event carries it, so the replay and the hash do not know it).
     fall: FallWatch,
+    /// Fizz 1's four jokes: view state read after every step like `fall`. Nothing shows them yet (there is no toast line); `last_joke` reports the last one earned.
+    jokes: JokeWatch,
+    /// The joke the watch told last, since the level began, for the page and tests to read.
+    last_joke: Option<Joke>,
     /// The event captions (fzzt, clunk and the rest): view state fed from the step events whether or not captions are shown.
     event_captions: EventCaptions,
     /// The HUD's score count-up, `+N` and key rings, fed from the step like the puffs. Motion Reduced is the shake being off.
@@ -185,6 +189,8 @@ impl App {
             live_captions: Vec::new(),
             puffs: Puffs::new(),
             fall: FallWatch::new(),
+            jokes: JokeWatch::new(),
+            last_joke: None,
             event_captions: EventCaptions::new(),
             hud: HudAnim::new(),
             menus: Menus::new(),
@@ -225,7 +231,7 @@ impl App {
                 }
             };
             fizz_ep2::step(&mut self.world, input);
-            self.collect_events();
+            self.collect_events(input);
         }
         due
     }
@@ -274,6 +280,8 @@ impl App {
         self.taken = Placement::CENTRE;
         self.puffs.clear();
         self.fall.clear();
+        self.jokes.clear();
+        self.last_joke = None;
         self.event_captions.clear();
         self.hud = HudAnim::new();
     }
@@ -281,7 +289,7 @@ impl App {
     /// Queues the sound of every event the step that just ran emitted, and takes its shot ends for the puffs and its captions for the
     /// caption list. Each event with a sound gets its effect id and where it sounds (`fizz_slice_view::event_sound`, the table in
     /// `captions.rs`), whatever the Captions setting says. The page plays them in order, each its own sound, as Fizz 1 does.
-    fn collect_events(&mut self) {
+    fn collect_events(&mut self, input: InputFrame) {
         let options = self.draw_options();
         for event in self.world.events() {
             // The camera is the one the picture is drawn with, in the view the page last set.
@@ -299,6 +307,9 @@ impl App {
             &mut self.event_captions,
         ) {
             queue_effect(&mut self.effects, id, place);
+        }
+        if let Some(joke) = self.jokes.observe(&self.world, input).iter().last() {
+            self.last_joke = Some(joke);
         }
         self.puffs.observe(&self.world);
         self.hud.observe(&self.world, !self.shake);
@@ -548,6 +559,17 @@ impl App {
     /// Whether the red door is open: the channel of the level's red lock is off. A death closes it again (the level resets).
     pub fn door_open(&self) -> bool {
         self.world.lock_open(fizz_ep2::rules::KEY_RED)
+    }
+
+    /// The text of the last joke Fizz 1's four counters earned this level (thirty pogo bounces in a row, eight stomps, twelve wall-kicks,
+    /// twenty seconds standing still), or `None` before one. Nothing draws it yet: this is the hook for a toast line.
+    pub fn last_joke(&self) -> Option<String> {
+        self.last_joke.map(|j| String::from(j.text))
+    }
+
+    /// The kind of the last joke: 0 standing still, 1 the pogo, 2 the wall-kick, 3 the stomps (a `fizz_slice_view::JokeKind`), or -1 for none.
+    pub fn last_joke_kind(&self) -> i32 {
+        self.last_joke.map_or(-1, |j| j.kind as i32)
     }
 
     /// Whether Ben has reached the exit.
@@ -963,6 +985,119 @@ mod tests {
         assert_eq!(colour, "#ffff55");
     }
 
+    /// An app whose Ben hangs in the air with a solid wall a hair from his right side, ready for a wall-kick on the next Jump press.
+    fn app_at_a_wall() -> App {
+        let mut app = App::new();
+        let ben = &mut app.world.ben;
+        ben.b.x = f64::floor(ben.b.x) + 2.0 - ben.b.w - 0.02;
+        ben.b.y += 6.0;
+        ben.b.on_ground = false;
+        let (tx, ty) = (
+            f64::floor(ben.b.x + ben.b.w + 0.05) as i32,
+            f64::floor(ben.b.y) as i32,
+        );
+        for y in ty - 3..ty + 5 {
+            app.world.map.set(tx, y, fizz_ep2::tiles::BLOCK);
+        }
+        app
+    }
+
+    #[test]
+    fn a_wall_kick_hands_the_page_the_kick_word_and_its_sound() {
+        let mut app = app_at_a_wall();
+        let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
+        app.frame(now_ms);
+        let mut effects = Vec::new();
+        let mut word = None;
+        for tick in 0..30 {
+            let held = if tick == 2 {
+                Buttons::JUMP
+            } else {
+                Buttons::NONE
+            };
+            set_keys(&mut app, prev, held);
+            prev = held;
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            app.render();
+            loop {
+                let v = app.take_effect();
+                if v < 0 {
+                    break;
+                }
+                effects.push(v as u8);
+            }
+            if word.is_none() {
+                word = (0..app.caption_count())
+                    .find(|&i| app.caption_word(i) == "kick")
+                    .map(|i| (tick, app.caption_colour(i), app.caption_anchor_above(i)));
+            }
+        }
+        assert_eq!(app.world.ben.kick_side, 1.0, "the kick happened");
+        // Ben was dropped into the air for the test, so his fall's whistle (and whatever he lands on) comes too; the kick plays once.
+        let kicks = effects
+            .iter()
+            .filter(|&&e| e == fizz_ep2::cues::EFFECT_KICK)
+            .count();
+        assert_eq!(kicks, 1, "{effects:?}");
+        let (at, colour, above) = word.expect("a kick caption");
+        assert!((2..=4).contains(&at), "raised at tick {at}");
+        assert_eq!(colour, "#ffffff", "white, as Fizz 1's");
+        assert_eq!(above, 0.0, "an event caption sits at the point of the kick");
+    }
+
+    #[test]
+    fn the_app_reports_the_last_joke_and_forgets_it_on_reset() {
+        let mut app = App::new();
+        assert_eq!((app.last_joke(), app.last_joke_kind()), (None, -1));
+        app.last_joke = Some(Joke::new(fizz_slice_view::JokeKind::Kick));
+        assert_eq!(app.last_joke_kind(), 2);
+        assert_eq!(
+            app.last_joke().as_deref(),
+            Some("Ben's knees file a formal complaint about all this wall-kicking")
+        );
+        app.reset();
+        assert_eq!((app.last_joke(), app.last_joke_kind()), (None, -1));
+    }
+
+    #[test]
+    fn twenty_seconds_standing_still_reaches_the_page_as_a_joke_and_the_replay_tells_none() {
+        let mut app = App::new();
+        let mut now_ms = 0.0;
+        app.frame(now_ms);
+        let mut told_at = None;
+        for tick in 1..=1300u32 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            if told_at.is_none() && app.last_joke().is_some() {
+                told_at = Some(tick);
+            }
+        }
+        assert_eq!(app.last_joke_kind(), 0);
+        assert_eq!(
+            app.last_joke().as_deref(),
+            Some("Ben whistles a little tune. The level waits politely")
+        );
+        let t = told_at.expect("told");
+        assert!((1200..1230).contains(&t), "told at tick {t}");
+    }
+
+    #[test]
+    fn the_golden_replay_earns_no_joke_on_the_web() {
+        let mut app = App::new();
+        let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
+        app.frame(now_ms);
+        for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                set_keys(&mut app, prev, held);
+                now_ms += FRAME_MS;
+                app.frame(now_ms);
+                prev = held;
+                assert_eq!(app.last_joke(), None, "a joke at tick {}", app.world.tick.0);
+            }
+        }
+    }
+
     #[test]
     fn the_hud_view_hands_the_page_the_shared_model() {
         let mut app = App::new();
@@ -972,26 +1107,26 @@ mod tests {
             [5, 0, 0, 3, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
         );
         // A snack and the red key: the pop shows at once, the score counts up a point every two ticks, the red socket rings.
-        app.collect_events();
+        app.collect_events(InputFrame::default());
         app.world.snacks[0].taken = true;
         app.world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
         let points = app.world.snacks[0].kind.points() as i32;
         app.world.tick = app.world.tick.next();
-        app.collect_events();
+        app.collect_events(InputFrame::default());
         let v = app.hud_view();
         assert_eq!((v[1], v[2]), (0, points));
         assert_eq!(&v[4..7], &[1, 1, 1]);
         app.world.tick = app.world.tick.next();
-        app.collect_events();
+        app.collect_events(InputFrame::default());
         assert_eq!(app.hud_view()[1], 1.min(points));
         // Reduced Motion (the shake off) jumps the score and shows no ring.
         let mut still = App::new();
         still.set_shake(false);
-        still.collect_events();
+        still.collect_events(InputFrame::default());
         still.world.snacks[0].taken = true;
         still.world.flags.set(fizz_ep2::WorldFlags::KEY_RED);
         still.world.tick = still.world.tick.next();
-        still.collect_events();
+        still.collect_events(InputFrame::default());
         let v = still.hud_view();
         assert_eq!((v[1], v[2], v[6]), (points, points, 0));
     }
@@ -1309,9 +1444,10 @@ mod tests {
         let mut prev = Buttons::NONE;
         for &(frames, now) in fizz_ep2::SLICE_SCRIPT {
             for _ in 0..frames {
-                fizz_ep2::step(&mut app.world, InputFrame::from_transition(prev, now));
+                let input = InputFrame::from_transition(prev, now);
+                fizz_ep2::step(&mut app.world, input);
                 prev = now;
-                app.collect_events();
+                app.collect_events(input);
                 for e in app.world.events() {
                     if let Some(id) = fizz_slice_view::presentation(e).effect {
                         want.push(id);
