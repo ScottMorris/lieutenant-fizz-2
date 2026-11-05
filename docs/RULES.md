@@ -1,6 +1,6 @@
 # Rules: states, bindings and events
 
-This document specifies what a level's rules mean to the simulation: the state table, the bindings that make states visible in the world, the inputs rules react to, their conditions and actions, the order everything runs in each tick, the death reset, raised events and the preview API that native hosts use. It owns the semantics only. The byte layout of the records is [`FAP.md`](FAP.md) (the `LEVL` section), and the source dialect that authors write is the level script language's.
+This document specifies what a level's rules mean to the simulation: the state table, the bindings that make states visible in the world, the inputs rules react to, their conditions and actions, the order everything runs in each tick, the death reset, raised events and the preview API that native hosts use. It owns the semantics only. The byte layout of the records is [`FAP.md`](FAP.md) (the `LEVL` section), and the source dialect that authors write is `script fizz2 0`, specified in [`SCRIPT.md`](SCRIPT.md).
 
 The design is the owner's: locks are states with rules. A level declares named states, doors and other things bind to a state, and rules change states in answer to inputs. A key is one input among many, and `lock` is short sugar for the key-and-door case: one state, one door binding and one plain rule. There are no switch channels. The sim today runs only locks, in a phase of their own; this document says where the rest goes and the order it runs in, so that every platform computes the same state hash.
 
