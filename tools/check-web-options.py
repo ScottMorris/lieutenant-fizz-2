@@ -20,7 +20,7 @@
 #      the screen;
 #   7. prefers-reduced-motion stops the plate shimmer and the bobbing can;
 #   8. the golden replay, with Paused and Options opened and changed in the middle of it, ends on the golden hash (843736be6fdaeb76);
-#   9. the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS and EXIT.
+#   9. the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES and EXIT.
 # With --shots DIR it also saves screenshots of Paused, Options and the override note.
 import functools
 import http.server
@@ -323,7 +323,7 @@ def run(p, d, per_tick, shots):
 
     # 9. The panel keeps its lines.
     lines = [ln.split()[0] for ln in p.hud().split("\n")]
-    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "EXIT"], "the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS and EXIT")
+    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "LIVES", "EXIT"], "the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES and EXIT")
 
     # A narrow window, for the screenshot.
     if shots:

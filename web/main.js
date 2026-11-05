@@ -267,6 +267,7 @@ function showHud(app) {
     `KEY  ${app.has_key() ? "carried" : "no"}\n` +
     `DOOR ${app.door_open() ? "open" : "shut"}\n` +
     `DEATHS ${app.deaths()}\n` +
+    `LIVES ${app.lives()}\n` +
     `EXIT ${app.exit_reached() ? "reached" : "not yet"}`;
 }
 

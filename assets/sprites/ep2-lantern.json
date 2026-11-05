@@ -1,0 +1,31 @@
+{
+  "set": "ep2-lantern",
+  "note": "Provisional: the lantern, a placeholder item for a new life (the owner is designing the real lives concept). A small brass lighthouse lantern, \"keeping the light on\": a ring to carry it, a cap, a lit yellow pane with a white glint between brass uprights, and a base. Drawn by hand in the EGA palette.",
+  "sprites": [
+    {
+      "name": "lantern",
+      "w": 16,
+      "h": 16,
+      "anchor": [8, 16],
+      "source": "drawn",
+      "rows": [
+        "................",
+        "......kkkk......",
+        ".....kN..Nk.....",
+        ".....kN..Nk.....",
+        "....kkkkkkkk....",
+        "...kNNNNNNNNk...",
+        "...kkkkkkkkkk...",
+        "...kNyyWyyyNk...",
+        "...kNyWWyyyNk...",
+        "...kNyyWyyyNk...",
+        "...kNyyyyyyNk...",
+        "...kkkkkkkkkk...",
+        "...kNNNNNNNNk...",
+        "....kNNNNNNk....",
+        ".....kkkkkk.....",
+        "................"
+      ]
+    }
+  ]
+}

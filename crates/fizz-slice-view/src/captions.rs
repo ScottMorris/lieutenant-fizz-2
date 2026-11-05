@@ -38,12 +38,13 @@ const GREEN: u8 = 2;
 // placement stay here. Re-exported so the presenters and their tests keep their paths.
 pub use fizz_ep2::cues::{
     CAP_BLUE, CAP_BOING, CAP_BONK, CAP_CLICK, CAP_CLUNK, CAP_COUNT, CAP_CRUNCH, CAP_FIZZLED,
-    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
+    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_LIFE, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
 };
 pub use fizz_ep2::cues::{
     EFFECT_BOING, EFFECT_BOING_FM, EFFECT_BONK, EFFECT_CLUCK, EFFECT_CLUNK, EFFECT_COUNT,
     EFFECT_CRUNCH, EFFECT_DOOR, EFFECT_FZZT, EFFECT_FZZT_FM, EFFECT_HURT, EFFECT_JUMP,
-    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN, EFFECT_WHISTLE, EFFECT_WIN,
+    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_LIFE, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN,
+    EFFECT_WHISTLE, EFFECT_WIN,
 };
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
@@ -75,6 +76,7 @@ pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("crunch", YELLOW, BROWN),
     cap("fsssht", LIGHT_CYAN, CYAN),
     cap("wheee!", YELLOW, BROWN),
+    cap("life!", YELLOW, BROWN),
 ];
 
 /// What an event is to a presenter.
@@ -121,6 +123,7 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::Jump { .. } => p(EFFECT_JUMP, None),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
         Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
+        Event::Life { .. } => p(EFFECT_LIFE, Some(CAP_LIFE)),
     }
 }
 
@@ -141,7 +144,8 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
         | Event::HeadBump { x, y }
         | Event::Jump { x, y }
         | Event::Snack { x, y }
-        | Event::Can { x, y } => Some((x, y)),
+        | Event::Can { x, y }
+        | Event::Life { x, y } => Some((x, y)),
     }
 }
 

@@ -34,8 +34,10 @@ pub const EFFECT_DOOR: u8 = 19;
 /// Ben's long fall: a descending slide whistle. No `Event` plays it; the presenters play it from Ben's state (`fizz_slice_view::FallWatch`), so the
 /// rules, the replay transcript and the state hash do not know it. Its caption is `CAP_WHEEE`, which `FallWatch` raises with it.
 pub const EFFECT_WHISTLE: u8 = 20;
+/// Ben taking a lantern (`Event::Life`), a new life: a short rising arpeggio that ends on a swelling bell. PROVISIONAL, with the lantern.
+pub const EFFECT_LIFE: u8 = 21;
 /// The number of effect ids: valid ids are `0..EFFECT_COUNT`.
-pub const EFFECT_COUNT: u8 = 21;
+pub const EFFECT_COUNT: u8 = 22;
 
 /// The shared captions, as indices into the presenter's table of words; the index is the caption's id for dedupe, and the byte
 /// a rule's caption code holds below `fizz_pack::level::CUE_LEVEL_BASE`.
@@ -54,8 +56,10 @@ pub const CAP_CRUNCH: u8 = 11;
 pub const CAP_FSSSHT: u8 = 12;
 /// "wheee!", the word of Ben's walk off a ledge (the slide whistle, which no event plays: `FallWatch` raises it).
 pub const CAP_WHEEE: u8 = 13;
+/// The word for a lantern (`Event::Life`). PROVISIONAL, with the lantern.
+pub const CAP_LIFE: u8 = 14;
 /// The number of shared captions: valid ids are `0..CAP_COUNT`.
-pub const CAP_COUNT: u8 = 14;
+pub const CAP_COUNT: u8 = 15;
 
 /// The caption styles a level's own strings choose from, in the order of a string record's style byte. A presenter maps each to
 /// a bright and a dark colour.
@@ -75,8 +79,10 @@ mod tests {
 
     #[test]
     fn the_counts_cover_the_last_id_and_the_style_count_is_the_readers() {
-        assert_eq!(EFFECT_COUNT, EFFECT_WHISTLE + 1);
-        assert_eq!(CAP_COUNT, CAP_WHEEE + 1);
+        assert_eq!(EFFECT_COUNT, EFFECT_LIFE + 1);
+        assert_eq!(EFFECT_LIFE, EFFECT_WHISTLE + 1);
+        assert_eq!(CAP_COUNT, CAP_LIFE + 1);
+        assert_eq!(CAP_LIFE, CAP_WHEEE + 1);
         assert_eq!(STYLE_COUNT, STYLE_GREY + 1);
         assert_eq!(STYLE_COUNT, fizz_pack::level::STYLE_COUNT);
         const { assert!(CAP_COUNT < fizz_pack::level::CUE_LEVEL_BASE) };

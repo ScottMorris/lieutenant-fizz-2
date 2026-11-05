@@ -520,6 +520,11 @@ impl App {
         self.world.deaths
     }
 
+    /// Ben's lives (PROVISIONAL: they start at three and a lantern adds one; nothing spends them yet). The H panel shows them; the HUD does not.
+    pub fn lives(&self) -> u32 {
+        self.world.lives
+    }
+
     /// What the HUD shows now, as the integers the page draws it from (`fizz_slice_view::HudView`): the Fizz count, the score shown
     /// (counting up after a snack), the points of the snack just taken (0 for none), the deaths, and then for each of the four key
     /// kinds (red, blue, green, gold) three numbers: whether the level has the kind, how many Ben holds and whether its ring shows.
@@ -1458,6 +1463,43 @@ mod tests {
         for (c, h) in EGA_RGBA.iter().zip(hex) {
             assert_eq!(format!("{:02x}{:02x}{:02x}", c[0], c[1], c[2]), h);
         }
+    }
+
+    #[test]
+    fn taking_the_lantern_hands_the_page_the_life_sound_and_a_life() {
+        // The lantern (provisional) lies at the right end of the second ledge; Ben starts on the ledge, a walk from it.
+        let mut app = App::new();
+        app.frame(0.0);
+        assert_eq!(app.lives(), fizz_ep2::world::START_LIVES);
+        let (lx, ly) = {
+            let l = app
+                .world
+                .snacks
+                .iter()
+                .find(|s| s.kind == fizz_ep2::SnackKind::Lantern)
+                .unwrap();
+            (l.x, l.y)
+        };
+        app.world.ben.b.x = lx - 4.0;
+        app.world.ben.b.px = lx - 4.0;
+        app.world.ben.b.y = ly - 0.7;
+        app.world.ben.b.py = ly - 0.7;
+        app.world.ben.b.on_ground = true;
+        set_keys(&mut app, Buttons::NONE, Buttons::RIGHT);
+        let (mut now_ms, mut got) = (0.0, Vec::new());
+        for _ in 0..180 {
+            now_ms += FRAME_MS;
+            app.frame(now_ms);
+            got.extend(drain(&mut app));
+        }
+        assert_eq!(app.lives(), fizz_ep2::world::START_LIVES + 1);
+        assert_eq!(
+            got.iter()
+                .filter(|&&e| e == fizz_ep2::cues::EFFECT_LIFE)
+                .count(),
+            1,
+            "effects handed out: {got:?}"
+        );
     }
 
     #[test]

@@ -17,7 +17,7 @@
 #      the key only when it is carried, the box never changes size, and it never touches Ben's sprite; the +N pops are 1, 1, 1, 3
 #      and 8, the score ends at 10, and each key pickup rings its socket for twelve ticks;
 #   5. the live region says "Out of Fizz", "Red key picked up" and "Blue key picked up" once each, and nothing else (no per-tick chatter);
-#   6. the H panel still has all of its lines (TICK, HASH, AMMO, KEY, DOOR, DEATHS, EXIT), which tools/check-web-sfx.py and
+#   6. the H panel still has all of its lines (TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES, EXIT), which tools/check-web-sfx.py and
 #      tools/progress-report/capture.py read.
 # With --shots DIR it also saves screenshots of each size at the start, with the key and with the Fizz out.
 import functools
@@ -246,7 +246,7 @@ def run_size(p, w, h, per_tick, shots):
 
     # 6. The panel keeps its lines.
     lines = [ln.split()[0] for ln in p.js("document.getElementById('hud').textContent").split("\n")]
-    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "EXIT"], "%s: the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS and EXIT" % tag)
+    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "LIVES", "EXIT"], "%s: the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES and EXIT" % tag)
 
 
 def main(argv):
