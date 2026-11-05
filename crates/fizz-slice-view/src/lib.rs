@@ -1210,11 +1210,11 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0xddca7c426061eb84, 0x61da018cd5f6a1dc),
-        (217, 0x46ecb6410b9475b9, 0xd9b4b305a619a2e7),
-        (853, 0xd975ed46e10b710f, 0xd975ed46e10b710f),
-        (873, 0x992f23fd749b0115, 0x992f23fd749b0115),
-        (1094, 0x58f794bd4e37e929, 0x58f794bd4e37e929),
+        (197, 0x8bec255fcd35235a, 0xe469b65814c9872),
+        (217, 0xf0322b50c9c9f5af, 0x1f5b6250e649f7dd),
+        (853, 0x88cd877a501dfcbe, 0x88cd877a501dfcbe),
+        (873, 0xe2db2f645467c4a7, 0xe2db2f645467c4a7),
+        (1094, 0x8fe66a94d557032c, 0x8fe66a94d557032c),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
         0xe4462e5f73dd3da3,
@@ -1470,31 +1470,31 @@ mod tests {
         assert_eq!(
             reduced,
             [
-                (394, 0x2495b833d9c7ba40),
-                (395, 0xbb9f2635d3eb65c1),
-                (396, 0x4dd10fab2f08fca7),
-                (400, 0xff757a752581dde0),
-                (410, 0x270d62fdb304b786),
-                (420, 0xc92c13b69aecec19),
-                (440, 0xb18d02cc98e184b0),
-                (460, 0x9540e9d1e16d3923),
-                (470, 0x8bf566c91b7e2573),
-                (477, 0xf8b3c12c3257a269),
+                (394, 0xfa89b4760dfbe97a),
+                (395, 0x52c3676a92385323),
+                (396, 0x3c9ae591f170fb25),
+                (400, 0x10afafacaf916602),
+                (410, 0x1bd666ea8b9d4a78),
+                (420, 0x3c1b7b18e42dd3bf),
+                (440, 0x1f6a7002d478e9a6),
+                (460, 0x620d3d3051694c5),
+                (470, 0x75443f1d6b378cfb),
+                (477, 0x2fea04419580f7c5),
             ]
         );
         assert_eq!(
             full,
             [
-                (394, 0xd7ebf1c08a2006f1),
-                (395, 0x1069558a5cd7a228),
-                (396, 0x90d111e51bedea79),
-                (400, 0x79072cadc5aa728c),
-                (410, 0x38efc272af65a13b),
-                (420, 0x984e5049b4d8c178),
-                (440, 0x6c470d8bc4e84234),
-                (460, 0xfa36066a0cda1671),
-                (470, 0x8bf566c91b7e2573),
-                (477, 0xf8b3c12c3257a269),
+                (394, 0x7a27e875e8e78443),
+                (395, 0x154f658c6c7cf2a2),
+                (396, 0x2243e9155374702b),
+                (400, 0xc18db9f1fc5d5102),
+                (410, 0xdf219c7092717141),
+                (420, 0x181f3618f31f1f0a),
+                (440, 0x3a2651adec0f08f2),
+                (460, 0xf9b8ee8c0a246a97),
+                (470, 0x75443f1d6b378cfb),
+                (477, 0x2fea04419580f7c5),
             ]
         );
     }
@@ -1517,8 +1517,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0xff757a752581dde0 before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
-        // 0x79072cadc5aa728c. The other ticks are not death frames and kept theirs.
+        // 0x10afafacaf916602 before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0xc18db9f1fc5d5102. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -1538,13 +1538,13 @@ mod tests {
             [
                 (0, 0x32a4dce95d509d4b),
                 (150, 0x5a05a73197825328),
-                (270, 0x7189a94f1f0fd8df),
-                (400, 0x79072cadc5aa728c),
-                (602, 0xa3e990761ab5f049),
-                (700, 0x646317677adc3be9),
-                (865, 0x0364355a21d6a202),
-                (1000, 0x7ef3a65746089bbc),
-                (1268, 0xf41efb06e7f6764b),
+                (270, 0x25e1735e972bab36),
+                (400, 0xc18db9f1fc5d5102),
+                (602, 0xe3588db829caaae7),
+                (700, 0x3de81c7c9c5bf0f5),
+                (865, 0xa39e6308de9b593d),
+                (1000, 0xf14de65e964fdd25),
+                (1268, 0xb47adc5afbeed03a),
                 (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
@@ -1555,13 +1555,13 @@ mod tests {
                 (0, 0x32a4dce95d509d4b),
                 (150, 0x5a05a73197825328),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
-                (270, 0x7189a94f1f0fd8df),
-                (400, 0x79072cadc5aa728c),
-                (602, 0xa3e990761ab5f049),
-                (700, 0x646317677adc3be9),
-                (865, 0x0364355a21d6a202),
-                (1000, 0x7ef3a65746089bbc),
-                (1268, 0xf41efb06e7f6764b),
+                (270, 0x25e1735e972bab36),
+                (400, 0xc18db9f1fc5d5102),
+                (602, 0xe3588db829caaae7),
+                (700, 0x3de81c7c9c5bf0f5),
+                (865, 0xa39e6308de9b593d),
+                (1000, 0xf14de65e964fdd25),
+                (1268, 0xb47adc5afbeed03a),
                 (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
@@ -1616,7 +1616,7 @@ mod tests {
     fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
         // Each of the script's thirteen shot ends gives a puff for ticks e..e+17 and no other tick.
         let ends = [
-            96u32, 106, 281, 1132, 1142, 1152, 1162, 1172, 1203, 1213, 1223, 1233, 1243,
+            96u32, 106, 267, 1132, 1142, 1152, 1162, 1172, 1203, 1213, 1223, 1233, 1243,
         ];
         let mut seen = [0u32; 13];
         let mut blank = Vec::new();
@@ -1651,11 +1651,10 @@ mod tests {
             }
         });
         assert_eq!(seen, [PUFF_TICKS; 13]);
-        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
-        // ends where its first three ticks leave no puff pixel in the frame (the picture is identical with and without the puff).
-        let off_screen = 96..106;
-        let hidden = 285..288;
-        let expect: Vec<u32> = off_screen.chain(hidden).collect();
+        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen. The third ends
+        // over the chicken's head and shows from its first tick (before the chicken's body fitted its sprite its first three
+        // ticks left no puff pixel in the frame).
+        let expect: Vec<u32> = (96..106).collect();
         assert_eq!(blank, expect);
     }
 
@@ -1691,22 +1690,22 @@ mod tests {
     fn frames_with_puffs_are_pinned() {
         // Re-pinned for the shot-end puff: the ticks the DOS bench samples with a puff on screen, one for each baked frame. The
         // second shot ends at 106, so 110 is its `puff0` (age 4), 118 its `puff2` (age 12) and 122 its dither `puff3` (age 16); the
-        // third ends at 281, so 290 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
+        // third ends at 267, so 276 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
         // pictures at the other pinned ticks (and tick 100) are unchanged, because no visible puff is alive there.
         let mut seen = Vec::new();
         play_puffs(|w, puffs| {
-            if [100, 110, 118, 122, 290].contains(&w.tick.0) {
+            if [100, 110, 118, 122, 276].contains(&w.tick.0) {
                 seen.push((w.tick.0, fnv(&puff_picture(w, puffs))));
             }
         });
         assert_eq!(
             seen,
             [
-                (100, 0xb20abba89791b70b),
+                (100, 0x71d589228da13997),
                 (110, 0x758b240a7750f5f0),
-                (118, 0x30535764506f911c),
-                (122, 0x43bb44fceecd4c38),
-                (290, 0x1bfc10d54f9847ea)
+                (118, 0x37d04b080fe28744),
+                (122, 0xf3d82f80553ae240),
+                (276, 0xbfaa1bf70a984e9c)
             ]
         );
     }

@@ -431,7 +431,7 @@ class DrawingTests(unittest.TestCase):
     def test_the_dos_transcript_matches_the_golden_file(self):
         self.assertIn("FPU CW 027F", flows.dos_transcript(self.D))
         D = copy.deepcopy(self.D)
-        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("eda8a62f036aeab6", "0" * 16)
+        D["facts"]["golden"]["text"] = D["facts"]["golden"]["text"].replace("7f6a1a1248c4b0e8", "0" * 16)
         with self.assertRaises(ValueError):
             flows.dos_transcript(D)
 

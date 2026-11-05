@@ -419,7 +419,7 @@ mod tests {
         // unconditionally (the hash order is in `world::hash`). Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1800 HASH eda8a62f036aeab6\n"),
+            t.ends_with("FINAL TICK 1800 HASH 7f6a1a1248c4b0e8\n"),
             "{t}"
         );
     }
@@ -438,13 +438,14 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 33);
-        assert_eq!(h, 0xa079_d2a4_717e_9b35);
+        assert_eq!(h, 0x8378_4fe3_70bc_5ffa);
     }
 
     #[test]
-    fn the_event_lines_are_those_of_before_the_levl_2_repin() {
-        // The re-pin for `LEVL` version 2 moved every hash line and not one event line: the digest of the 83 `EVENT` lines (FNV-1a 64
-        // over each line and a newline) is the one the golden had before, computed from the old file with a script.
+    fn the_event_lines_are_pinned() {
+        // The `LEVL` version 2 re-pin moved every hash line and not one event line. Fitting the chicken's body to its sprite then
+        // moved some of them (the shot that stuns it, the stomp and the jumps after it); the count stays 83. The digest is FNV-1a 64
+        // over each `EVENT` line and a newline.
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         let mut lines = 0;
         for l in transcript().lines().filter(|l| l.starts_with("EVENT ")) {
@@ -455,7 +456,7 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 83);
-        assert_eq!(h, 0x3256_45a3_8535_5735);
+        assert_eq!(h, 0x4199_b6ac_91cf_99e4);
     }
 
     /// The kind of every `EVENT` line, in order.

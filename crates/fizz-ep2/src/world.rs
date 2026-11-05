@@ -928,7 +928,7 @@ mod tests {
     fn the_hash_of_a_known_world_is_locked() {
         // This pins a world with every field set, so a reordering that happens to leave the slice's start unchanged is
         // still caught. `slice-replay.txt` pins the slice itself.
-        assert_eq!(hash(&populated()).finish(), 0xfa69_ba97_eedc_6c95);
+        assert_eq!(hash(&populated()).finish(), 0x2e3e_a1ff_112f_f75a);
     }
 
     #[test]

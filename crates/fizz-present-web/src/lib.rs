@@ -1031,7 +1031,7 @@ mod tests {
                 assert_eq!(app.indexed, want, "tick {t}");
                 let mut bare = vec![0; w * h];
                 draw_slice_puffs(&mut bare, w, h, &reference, t, &options, &Puffs::new());
-                if [110, 118, 122, 290].contains(&t) {
+                if [110, 118, 122, 276].contains(&t) {
                     assert_ne!(want, bare, "tick {t} shows a puff");
                     puffed += 1;
                 }
