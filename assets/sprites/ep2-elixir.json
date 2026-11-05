@@ -1,0 +1,31 @@
+{
+  "set": "ep2-elixir",
+  "note": "Provisional: the Fizz elixir, the item that gives a new life (a placeholder; the owner is designing the real lives concept). A small corked bottle of bubbling grape-fizz in Fizz's light magenta, with white bubbles, darker magenta shading at the foot and a yellow sparkle. Drawn by hand in the EGA palette.",
+  "sprites": [
+    {
+      "name": "elixir",
+      "w": 16,
+      "h": 16,
+      "anchor": [8, 16],
+      "source": "drawn",
+      "rows": [
+        "................",
+        "......kkkk...y..",
+        "......kNNk..yWy.",
+        "......kNNk...y..",
+        ".....kkkkkk.....",
+        "......kLLk......",
+        ".....kmmmmk.....",
+        "....kmmWmmmk....",
+        "...kmmmmmWmmk...",
+        "...kmWmmmmmmk...",
+        "...kmmmmWmmmk...",
+        "...kmmWmmmmmk...",
+        "...kMmmmmmmMk...",
+        "....kMMMMMMk....",
+        ".....kkkkkk.....",
+        "................"
+      ]
+    }
+  ]
+}

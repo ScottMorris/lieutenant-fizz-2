@@ -34,12 +34,12 @@ fn main() -> std::io::Result<()> {
             if list {
                 if world.score() != score || world.flags.0 != flags {
                     println!(
-                        "tick {} score {} key red {} blue {} deaths {}",
+                        "tick {} score {} key red {} blue {} lives {}",
                         world.tick.0,
                         world.score(),
                         world.flags.contains(WorldFlags::KEY_RED),
                         world.flags.contains(WorldFlags::KEY_BLUE),
-                        world.deaths
+                        world.lives
                     );
                 }
                 score = world.score();

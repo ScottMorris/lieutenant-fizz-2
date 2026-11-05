@@ -38,12 +38,13 @@ const GREEN: u8 = 2;
 // placement stay here. Re-exported so the presenters and their tests keep their paths.
 pub use fizz_ep2::cues::{
     CAP_BLUE, CAP_BOING, CAP_BONK, CAP_CLICK, CAP_CLUNK, CAP_COUNT, CAP_CRUNCH, CAP_FIZZLED,
-    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_RED, CAP_TADA, CAP_WHOA,
+    CAP_FSSSHT, CAP_FZZT, CAP_GREEN, CAP_LIFE, CAP_RED, CAP_TADA, CAP_WHEEE, CAP_WHOA,
 };
 pub use fizz_ep2::cues::{
     EFFECT_BOING, EFFECT_BOING_FM, EFFECT_BONK, EFFECT_CLUCK, EFFECT_CLUNK, EFFECT_COUNT,
     EFFECT_CRUNCH, EFFECT_DOOR, EFFECT_FZZT, EFFECT_FZZT_FM, EFFECT_HURT, EFFECT_JUMP,
-    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN, EFFECT_WIN,
+    EFFECT_JUMP_FM, EFFECT_KEY, EFFECT_LIFE, EFFECT_PLINK, EFFECT_SODA, EFFECT_STUN,
+    EFFECT_WHISTLE, EFFECT_WIN,
 };
 
 /// A caption's word and colours: the bright one (Fizz 1's colour) and the dark one the DOS picture fades to.
@@ -74,6 +75,8 @@ pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("boing", YELLOW, BROWN),
     cap("crunch", YELLOW, BROWN),
     cap("fsssht", LIGHT_CYAN, CYAN),
+    cap("wheee!", YELLOW, BROWN),
+    cap("glug!", YELLOW, BROWN),
 ];
 
 /// What an event is to a presenter.
@@ -120,6 +123,7 @@ pub const fn presentation(event: &Event) -> Presentation {
         Event::Jump { .. } => p(EFFECT_JUMP, None),
         Event::Snack { .. } => p(EFFECT_CRUNCH, Some(CAP_CRUNCH)),
         Event::Can { .. } => p(EFFECT_SODA, Some(CAP_FSSSHT)),
+        Event::Life { .. } => p(EFFECT_LIFE, Some(CAP_LIFE)),
     }
 }
 
@@ -140,7 +144,8 @@ pub const fn event_point(event: &Event) -> Option<(i32, i32)> {
         | Event::HeadBump { x, y }
         | Event::Jump { x, y }
         | Event::Snack { x, y }
-        | Event::Can { x, y } => Some((x, y)),
+        | Event::Can { x, y }
+        | Event::Life { x, y } => Some((x, y)),
     }
 }
 
@@ -261,31 +266,58 @@ impl EventCaptions {
             let (Some(id), Some((px, py))) = (presentation(e).caption, event_point(e)) else {
                 continue;
             };
-            if self.last[usize::from(id)].is_some_and(|t| now.wrapping_sub(t) < DEDUPE_TICKS) {
-                continue;
-            }
-            let (x, y) = (px, map_h_px - py);
-            let (sx, sy) = (x - cam_x, y - cam_y);
-            if sx < -CAPTION_REACH
-                || sx > w as i32 + CAPTION_REACH
-                || sy < -CAPTION_REACH
-                || sy > h as i32 + CAPTION_REACH
-            {
-                continue;
-            }
-            self.last[usize::from(id)] = Some(now);
-            let at = self
-                .slots
-                .iter()
-                .position(|s| s.is_none_or(|s| now.wrapping_sub(s.born) >= CAPTION_TICKS))
-                .unwrap_or(0);
-            self.slots[at] = Some(Slot {
-                caption: id,
-                x,
-                y,
-                born: now,
-            });
+            self.raise(id, (px, map_h_px - py), now, (cam_x, cam_y), (w, h));
         }
+    }
+
+    /// Raises caption `id` at `point` (the world's pixels, y down) in a `w` by `h` view drawn with `options`, by the rules `observe`
+    /// applies to an event's: dropped within [`DEDUPE_TICKS`] of the same word or more than [`CAPTION_REACH`] outside the view. The
+    /// cues no event carries (the whistle's "wheee!") come in this way.
+    pub fn raise_at(
+        &mut self,
+        world: &World,
+        id: u8,
+        point: (i32, i32),
+        w: usize,
+        h: usize,
+        options: &DrawOptions,
+    ) {
+        let now = world.tick.0 as u32;
+        let cam = camera_shaken(world, w, h, options);
+        self.raise(id, point, now, cam, (w, h));
+    }
+
+    fn raise(
+        &mut self,
+        id: u8,
+        (x, y): (i32, i32),
+        now: u32,
+        (cam_x, cam_y): (i32, i32),
+        (w, h): (usize, usize),
+    ) {
+        if self.last[usize::from(id)].is_some_and(|t| now.wrapping_sub(t) < DEDUPE_TICKS) {
+            return;
+        }
+        let (sx, sy) = (x - cam_x, y - cam_y);
+        if sx < -CAPTION_REACH
+            || sx > w as i32 + CAPTION_REACH
+            || sy < -CAPTION_REACH
+            || sy > h as i32 + CAPTION_REACH
+        {
+            return;
+        }
+        self.last[usize::from(id)] = Some(now);
+        let at = self
+            .slots
+            .iter()
+            .position(|s| s.is_none_or(|s| now.wrapping_sub(s.born) >= CAPTION_TICKS))
+            .unwrap_or(0);
+        self.slots[at] = Some(Slot {
+            caption: id,
+            x,
+            y,
+            born: now,
+        });
     }
 
     /// The captions still showing at `world.tick`, placed (unclamped, in frame pixels) for a `w` by `h` view drawn with
@@ -327,6 +359,9 @@ pub struct ViewFx {
     pub captions: EventCaptions,
     /// The HUD's score count-up, `+N` and key rings: what changes in the HUD between steps.
     pub hud: crate::HudAnim,
+    /// The slide whistle for a long fall. It makes a sound and not a picture, so a presenter reads its cue with [`crate::FallWatch::observe`]
+    /// where it plays its events' sounds; [`ViewFx::observe`] does not advance it.
+    pub fall: crate::FallWatch,
 }
 
 impl ViewFx {
@@ -335,6 +370,7 @@ impl ViewFx {
             puffs: crate::Puffs::new(),
             captions: EventCaptions::new(),
             hud: crate::HudAnim::new(),
+            fall: crate::FallWatch::new(),
         }
     }
 

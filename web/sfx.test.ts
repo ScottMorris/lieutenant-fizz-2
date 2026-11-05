@@ -154,11 +154,11 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 
 describe('variant mapping', () => {
   test('each id maps to its own table entry and a bad value wraps', () => {
-    expect(EFFECTS.length).toBe(20);
+    expect(EFFECTS.length).toBe(22);
     expect(EFFECT_NAMES.length).toBe(EFFECTS.length);
     for (let v = 0; v < EFFECTS.length; v++) expect(effectVoices(v)).toBe(EFFECTS[v]);
-    expect(effectVoices(20)).toBe(EFFECTS[0]);
-    expect(effectVoices(-1)).toBe(EFFECTS[19]);
+    expect(effectVoices(22)).toBe(EFFECTS[0]);
+    expect(effectVoices(-1)).toBe(EFFECTS[21]);
   });
 
   test('every cluck variant schedules one source per voice, at the voice pitch, kind and start', async () => {
@@ -243,7 +243,7 @@ describe('the effects after the cluck (ids 4 to 18)', () => {
       test('has a length the player knows, and a caption-free, loud-enough voice at the top', () => {
         const seconds = effectSeconds(voices);
         expect(seconds).toBeGreaterThan(0.04);
-        expect(seconds).toBeLessThan(0.9);
+        expect(seconds).toBeLessThan(1.0); // the whistle (0.9 s) is the longest
         expect(Math.max(...voices.map((v) => v.g))).toBeGreaterThanOrEqual(0.2);
       });
 
@@ -273,7 +273,7 @@ describe('the effects after the cluck (ids 4 to 18)', () => {
     expect(EFFECTS[4][1].lpenv).toBeCloseTo(noteHz('c6') * 4 * 1.2, 6);
     for (const id of [4, 12, 13]) expect(EFFECTS[id].some((v) => v.fm || v.steps)).toBe(false);
     // The alternates keep the FM-era voices; no event plays them.
-    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)', 'soda (fizz can)', 'fzzt (FM)', 'door']);
+    expect(EFFECT_NAMES.slice(12)).toEqual(['boing', 'jump', 'crunch', 'boing (FM)', 'jump (FM)', 'soda (fizz can)', 'fzzt (FM)', 'door', 'whistle (long fall)', 'life (elixir)']);
     expect(EFFECTS[16].length).toBe(1);
     expect(EFFECTS[16][0].steps).toBeDefined();
     expect(EFFECTS[15].some((v) => v.fm)).toBe(true);

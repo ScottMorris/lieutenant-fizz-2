@@ -111,6 +111,8 @@ fn the_table_maps_every_event_as_the_plan_says() {
     assert_eq!(cap(Event::Snack { x, y }), Some("crunch"));
     assert_eq!(at(Event::Can { x, y }).effect, Some(17));
     assert_eq!(cap(Event::Can { x, y }), Some("fsssht"));
+    assert_eq!(at(Event::Life { x, y }).effect, Some(21));
+    assert_eq!(cap(Event::Life { x, y }), Some("glug!"));
     assert_eq!(at(Event::ShotEnd { x, y }).effect, None);
 }
 
@@ -458,8 +460,11 @@ fn show_six_fills_every_slot_inside_the_view_with_the_widest_words() {
 #[test]
 fn the_effect_ids_are_the_sound_tables_order() {
     // Eleven effects follow the cluck's four variants, then the alternates (boing (FM), jump (FM)), soda, the alternate fzzt (FM), which
-    // no event plays, and the door, which only a door plays, and every id the table hands out is one the sound data has.
-    assert_eq!(EFFECT_DOOR as usize + 1, fizz_sfx::EFFECT_COUNT);
+    // no event plays, the door, which only a door plays, and the whistle, which no event plays (`FallWatch` does), and every id the table
+    // hands out is one the sound data has.
+    assert_eq!(EFFECT_LIFE as usize + 1, fizz_sfx::EFFECT_COUNT);
+    assert_eq!(EFFECT_LIFE, EFFECT_WHISTLE + 1);
+    assert_eq!(EFFECT_WHISTLE, EFFECT_DOOR + 1);
     assert_eq!(EFFECT_DOOR, EFFECT_FZZT_FM + 1);
     assert_eq!(EFFECT_BOING_FM, EFFECT_CRUNCH + 1);
     assert_eq!(EFFECT_JUMP_FM, EFFECT_BOING_FM + 1);
@@ -539,8 +544,10 @@ fn the_replay_plays_these_effects_this_often() {
     assert_eq!(count[..4], [2, 1, 1, 1]);
     assert_eq!(
         count[4..],
-        [13, 1, 1, 1, 1, 3, 4, 1, 9, count[13], 5, 0, 0, 2, 0, 2],
-        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda, fzzt (FM) and door, which no event but the soda and the doors play"
+        [
+            13, 1, 1, 1, 1, 3, 4, 1, 9, count[13], 5, 0, 0, 2, 0, 2, 0, 0
+        ],
+        "fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, then boing (FM), jump (FM), soda, fzzt (FM), door, whistle and life, which no event but the soda and the doors play (the whistle is played by `FallWatch`, not by an event, and the replay takes no lantern)"
     );
     assert!(count[13] >= 20, "the route jumps a lot: {}", count[13]);
 }

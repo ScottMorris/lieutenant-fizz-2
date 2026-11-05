@@ -76,7 +76,7 @@ const ctx = canvas.getContext("2d");
 const captionLayer = document.getElementById("caption-layer");
 const playHud = document.getElementById("play-hud");
 const hudFizz = document.getElementById("hud-fizz");
-const hudDeaths = document.getElementById("hud-deaths");
+const hudLives = document.getElementById("hud-lives");
 const hudScoreLead = document.getElementById("hud-score-lead");
 const hudScoreRest = document.getElementById("hud-score-rest");
 const hudScoreWord = document.getElementById("hud-score-word");
@@ -226,7 +226,7 @@ function showPlayHud(app) {
   // For a second after a snack its points stand in the place of the word Score.
   hudScorePop.textContent = view.pop;
   hudScoreWord.style.visibility = view.pop === "" ? "visible" : "hidden";
-  if (hudDeaths.textContent !== view.deaths) hudDeaths.textContent = view.deaths;
+  if (hudLives.textContent !== view.lives) hudLives.textContent = view.lives;
   for (const s of view.sockets) {
     const el = hudSockets[s.kind];
     el.hidden = !s.shown;
@@ -267,6 +267,7 @@ function showHud(app) {
     `KEY  ${app.has_key() ? "carried" : "no"}\n` +
     `DOOR ${app.door_open() ? "open" : "shut"}\n` +
     `DEATHS ${app.deaths()}\n` +
+    `LIVES ${app.lives()}\n` +
     `EXIT ${app.exit_reached() ? "reached" : "not yet"}`;
 }
 

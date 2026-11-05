@@ -13,7 +13,7 @@
 //! [`Event::Cluck`] the rules emitted on tick `n`, and one line for every other [`Event`], all with `<x> <y>` in sixteenths
 //! of a tile as integers (y up): `shotend <x> <y>`, `fire <x> <y>`, `dud <x> <y>`, `stomp <chicken> <x> <y>`,
 //! `stun <chicken> <x> <y>`, `death <x> <y>`, `key <colour> <x> <y>` (0 red, 1 blue, 2 green), `dooropen <x> <y>`,
-//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>`, `jump <x> <y>`, `snack <x> <y>` and `can <x> <y>`. `<chicken>` is the chicken's index in the
+//! `exit <x> <y>`, `bounce <x> <y>`, `headbump <x> <y>`, `jump <x> <y>`, `snack <x> <y>`, `can <x> <y>` and `life <x> <y>` (an elixir; the replay takes none). `<chicken>` is the chicken's index in the
 //! world's list. An `EVENT` line comes before the `TICK` or `FINAL` line of the same tick: the line reads as what
 //! happened during tick `n`, and the hash after it as the state that tick left behind. Within a tick, events follow the
 //! order of [`World::events`]. A parser that only knows `TICK` and `FINAL` lines still reads the transcript; the new line
@@ -258,6 +258,7 @@ pub fn write_step(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Resu
             Event::Jump { x, y } => writeln!(out, "EVENT {} jump {x} {y}", w.tick.0)?,
             Event::Snack { x, y } => writeln!(out, "EVENT {} snack {x} {y}", w.tick.0)?,
             Event::Can { x, y } => writeln!(out, "EVENT {} can {x} {y}", w.tick.0)?,
+            Event::Life { x, y } => writeln!(out, "EVENT {} life {x} {y}", w.tick.0)?,
         }
     }
     if w.tick.0.is_multiple_of(60) {
@@ -462,6 +463,7 @@ mod tests {
         assert_eq!(count("dud"), 1);
         assert_eq!(count("snack"), 5);
         assert_eq!(count("can"), 2, "the floor can and the shelf can");
+        assert_eq!(count("life"), 0, "the elixir is off the route");
         assert!(count("bounce") >= 5);
         assert!(count("headbump") >= 3);
     }
@@ -478,7 +480,17 @@ mod tests {
         }
         // Three cheezies (1 each), a chocolate (2) and a cookie (5); the cans are worth no points.
         assert_eq!(w.score(), 10);
-        assert!(w.snacks.iter().all(|s| s.taken));
+        // Every snack and can is taken; the elixir lies off the route and the replay never reaches it.
+        assert!(
+            w.snacks
+                .iter()
+                .all(|s| s.taken == (s.kind != crate::SnackKind::Elixir))
+        );
+        assert_eq!(
+            w.lives,
+            crate::world::START_LIVES - w.deaths,
+            "one life gone for each death"
+        );
         assert!(w.flags.contains(WorldFlags::KEY_BLUE_USED));
         assert!(!w.flags.contains(WorldFlags::KEY_BLUE), "the door spent it");
         assert!(!w.map.switch(crate::tiles::DOOR_BLUE_CHANNEL));

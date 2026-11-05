@@ -81,7 +81,7 @@ canvas {
 }
 
 /* The HUD: Fizz 1's desktop HUD panel (episodes/episode-1/src/ui/hud.css), laid out as the Two-Row Stack: dark glass, a small dim
-   label beside each big pixel number, Fizz and Score on the top row, Deaths and the key tray on the bottom. main.js sets --n, the
+   label beside each big pixel number, Fizz and Score on the top row, Lives and the key tray on the bottom. main.js sets --n, the
    whole-number pixel scale, from the stage's height (Fizz 1's rule, hud.ts `hudScale`) and --key-px, the size of one pixel of a
    tray key. 16 px from the corner. It sits above the captions and below the panel and its toast, takes no clicks, does not move
    (the box is one size whatever it shows) and has no animation: the ring and the count-up are the page changing what it draws. */
@@ -150,9 +150,9 @@ canvas {
   color: #ffff55;
 }
 
-/* Two digits wide always, so the box does not change size at 10 Fizz or 10 deaths. */
+/* Two digits wide always, so the box does not change size at 10 Fizz or 10 lives. */
 #play-hud #hud-fizz,
-#play-hud #hud-deaths {
+#play-hud #hud-lives {
   min-width: 2ch;
 }
 
@@ -184,9 +184,9 @@ canvas {
   opacity: 0.28;
 }
 
-/* Deaths is a plain count, not the Fizz: Fizz 1's light text colour, so it is never taken for the ammunition. */
-#play-hud #hud-deaths {
-  color: #e0e0e0;
+/* Lives is a plain count, not the Fizz: light green (the slot the Two-Row Stack design gives it), so it is never taken for the ammunition. */
+#play-hud #hud-lives {
+  color: #55ff55;
 }
 
 #play-hud .num[data-out] {

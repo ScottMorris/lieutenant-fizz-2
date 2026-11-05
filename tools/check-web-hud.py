@@ -9,15 +9,15 @@
 # Needs dist/web from tools/build-web.sh and Chromium. The page, the fake clock, the key presses and the DevTools client are the
 # ones of tools/progress-report/capture-web.py, so the game plays the golden replay's ticks exactly. At 1920x1080, 1280x720 and
 # 540x1140 it checks:
-#   1. the HUD is there on load, inside the picture, hidden from assistive technology, with Fizz 5, Score 00000, Deaths 0 and the
+#   1. the HUD is there on load, inside the picture, hidden from assistive technology, with Fizz 5, Score 00000, Lives 3 and the
 #      key tray: an empty socket for the red and the blue key, none for the kinds the slice lacks;
 #   2. it has no animation or transition, and it sits below the H panel and the toast in the stacking order;
 #   3. firing takes the Fizz from 5 to 4 and the number stays light magenta; firing on to zero turns it red, with its black outline;
-#   4. through the whole golden replay, on every tick, it agrees with the H panel's AMMO, KEY and DEATHS lines, the red socket shows
+#   4. through the whole golden replay, on every tick, it agrees with the H panel's AMMO, KEY and LIVES lines, the red socket shows
 #      the key only when it is carried, the box never changes size, and it never touches Ben's sprite; the +N pops are 1, 1, 1, 3
 #      and 8, the score ends at 10, and each key pickup rings its socket for twelve ticks;
 #   5. the live region says "Out of Fizz", "Red key picked up" and "Blue key picked up" once each, and nothing else (no per-tick chatter);
-#   6. the H panel still has all of its lines (TICK, HASH, AMMO, KEY, DOOR, DEATHS, EXIT), which tools/check-web-sfx.py and
+#   6. the H panel still has all of its lines (TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES, EXIT), which tools/check-web-sfx.py and
 #      tools/progress-report/capture.py read.
 # With --shots DIR it also saves screenshots of each size at the start, with the key and with the Fizz out.
 import functools
@@ -68,7 +68,7 @@ PROBE = """
     fizz: fizz.textContent,
     out: fizz.hasAttribute('data-out'),
     fizzColour: getComputedStyle(fizz).color,
-    deaths: document.getElementById('hud-deaths').textContent,
+    lives: document.getElementById('hud-lives').textContent,
     fizzShadow: getComputedStyle(fizz).textShadow,
     score: document.getElementById('hud-score').textContent,
     scoreColour: getComputedStyle(document.getElementById('hud-score')).color,
@@ -121,7 +121,7 @@ def run_size(p, w, h, per_tick, shots):
     s = probe(p)
 
     # 1. On load.
-    check(s["fizz"] == "5" and s["deaths"] == "0" and not s["out"], "%s: the HUD starts as Fizz 5, Deaths 0" % tag)
+    check(s["fizz"] == "5" and s["lives"] == "3" and not s["out"], "%s: the HUD starts as Fizz 5, Lives 3" % tag)
     check(s["score"] == "00000" and s["word"] and s["pop"] == "" and s["scoreColour"] == "rgb(255, 255, 85)", "%s: the score starts as five yellow digits, 00000, under the word Score" % tag)
     check(s["hud"][2] > 0 and inside(s["hud"], s["stage"]), "%s: the HUD is inside the picture" % tag)
     check(s["hud"][0] - s["stage"][0] < 40 and s["hud"][1] - s["stage"][1] < 40, "%s: it sits in the top left corner" % tag)
@@ -172,7 +172,7 @@ def run_size(p, w, h, per_tick, shots):
     p.load(w, h)
     p.js(SPY)
     key_ticks, flips, nearest = [], 0, 1e9
-    last_side, last_key, last_deaths, last_out = "left", False, 0, False
+    last_side, last_key, last_lives, last_out = "left", False, 3, False
     expected = []
     told = 0
     bad = []
@@ -182,12 +182,12 @@ def run_size(p, w, h, per_tick, shots):
     for t, held in enumerate(per_tick):
         p.step(held)
         s = probe(p)
-        ammo, deaths = int(panel_value(s["pre"], "AMMO")), int(panel_value(s["pre"], "DEATHS"))
+        ammo, lives = int(panel_value(s["pre"], "AMMO")), int(panel_value(s["pre"], "LIVES"))
         carried = panel_value(s["pre"], "KEY") == "carried"
         socks = {k: (shown, held, ring, on, off, pips, cnt) for k, shown, held, ring, on, off, pips, cnt in s["socks"]}
         red, blue = socks["red"], socks["blue"]
-        if s["fizz"] != str(min(99, ammo)) or s["deaths"] != str(min(99, deaths)) or red[1] != carried or s["out"] != (ammo == 0):
-            bad.append((s["tick"], "values", s["fizz"], ammo, s["deaths"], deaths, red[1], carried))
+        if s["fizz"] != str(min(99, ammo)) or s["lives"] != str(min(99, lives)) or red[1] != carried or s["out"] != (ammo == 0):
+            bad.append((s["tick"], "values", s["fizz"], ammo, s["lives"], lives, red[1], carried))
         for k in ("red", "blue"):
             sh, hd, rg, on, off, pips, cnt = socks[k]
             if not sh or on != hd or off == hd or (rg and not hd) or pips or cnt:
@@ -219,11 +219,11 @@ def run_size(p, w, h, per_tick, shots):
             if shots and not got_key_shot:
                 p.shot(shots, "hud-%s-key.png" % tag)
                 got_key_shot = True
-        if deaths > last_deaths:
-            expected.append("Deaths %d" % deaths)
+        if lives != last_lives:
+            expected.append("Lives %d" % lives)
         if ammo == 0 and not last_out:
             expected.append("Out of Fizz")
-        last_key, last_deaths, last_out = carried, deaths, ammo == 0
+        last_key, last_lives, last_out = carried, lives, ammo == 0
         if len(expected) != told:
             # The page speaks 60 ms after the change and a newer announcement cancels one still waiting. The stepping here runs far
             # faster than the game, so give each announcement the time it has in play before the next tick (two Out of Fizz in
@@ -246,7 +246,7 @@ def run_size(p, w, h, per_tick, shots):
 
     # 6. The panel keeps its lines.
     lines = [ln.split()[0] for ln in p.js("document.getElementById('hud').textContent").split("\n")]
-    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "EXIT"], "%s: the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS and EXIT" % tag)
+    check(lines == ["TICK", "HASH", "AMMO", "KEY", "DOOR", "DEATHS", "LIVES", "EXIT"], "%s: the H panel still lists TICK, HASH, AMMO, KEY, DOOR, DEATHS, LIVES and EXIT" % tag)
 
 
 def main(argv):

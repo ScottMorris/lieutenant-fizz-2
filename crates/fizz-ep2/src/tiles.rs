@@ -91,7 +91,7 @@ pub fn props() -> TileProps {
 /// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
 /// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
 /// the tile property table (flags, slope and switch channel for each of the 256 tile ids, in that order), the named tile ids, and the
-/// numbers of the snack kinds (the three snacks and the soda can), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
+/// numbers of the snack kinds (the three snacks, the soda can and the elixir), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
 /// the sound effect ids (each named id, then `EFFECT_COUNT`), the shared caption ids (each, then `CAP_COUNT`), `STYLE_COUNT` and
 /// the `RULES_SEMANTICS` byte, which is bumped when what a rule record means changes without its layout changing. The object kind
 /// numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel, an id or a cue number changes the number on purpose,
@@ -119,6 +119,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         SnackKind::Choc.number(),
         SnackKind::Cookie.number(),
         SnackKind::Soda.number(),
+        SnackKind::Elixir.number(),
     ]);
     v.extend_from_slice(&[KEY_RED, KEY_BLUE, KEY_GREEN, MAX_CHANNELS]);
     v.extend_from_slice(&[
@@ -139,6 +140,8 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         cues::EFFECT_SODA,
         cues::EFFECT_FZZT_FM,
         cues::EFFECT_DOOR,
+        cues::EFFECT_WHISTLE,
+        cues::EFFECT_LIFE,
         cues::EFFECT_COUNT,
     ]);
     v.extend_from_slice(&[
@@ -155,6 +158,8 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         cues::CAP_BOING,
         cues::CAP_CRUNCH,
         cues::CAP_FSSSHT,
+        cues::CAP_WHEEE,
+        cues::CAP_LIFE,
         cues::CAP_COUNT,
     ]);
     v.extend_from_slice(&[cues::STYLE_COUNT, RULES_SEMANTICS]);
@@ -169,9 +174,9 @@ mod pack_content_tests {
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
         // Prefix, three tables, the tile ids, the snack kinds, then the rule layer's numbers: key colours and MAX_CHANNELS (4),
-        // 17 effect ids and their count, 13 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
-        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 4 + 4 + 18 + 14 + 2);
-        assert_eq!(a.len(), 842);
+        // 19 effect ids and their count, 15 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
+        assert_eq!(a.len(), 16 + 3 * 256 + 16 + 5 + 4 + 20 + 16 + 2);
+        assert_eq!(a.len(), 847);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
@@ -180,19 +185,24 @@ mod pack_content_tests {
         assert_eq!(a[16 + 512 + usize::from(DOOR_R)], DOOR_RED_CHANNEL);
         assert_eq!(a[16 + 512 + usize::from(DOOR_B)], DOOR_BLUE_CHANNEL);
         let at = 16 + 3 * 256 + 16;
-        assert_eq!(&a[at..at + 4], &[0, 1, 2, 3], "snack kinds");
+        assert_eq!(&a[at..at + 5], &[0, 1, 2, 3, 4], "snack kinds");
         assert_eq!(
-            &a[at + 4..at + 8],
+            &a[at + 5..at + 9],
             &[0, 1, 2, 32],
             "key colours, MAX_CHANNELS"
         );
-        let fx = &a[at + 8..at + 26];
+        let fx = &a[at + 9..at + 29];
         assert_eq!(fx[0], 0);
-        assert_eq!(fx[16], 19, "the last named effect is the door");
-        assert_eq!(fx[17], 20, "EFFECT_COUNT");
-        let caps = &a[at + 26..at + 40];
-        assert_eq!(caps[..13], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-        assert_eq!(caps[13], 13, "CAP_COUNT");
+        assert_eq!(fx[16], 19, "the door");
+        assert_eq!(fx[17], 20, "the whistle");
+        assert_eq!(fx[18], 21, "the last named effect is the new life");
+        assert_eq!(fx[19], 22, "EFFECT_COUNT");
+        let caps = &a[at + 29..at + 45];
+        assert_eq!(
+            caps[..15],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+        );
+        assert_eq!(caps[15], 15, "CAP_COUNT");
         assert_eq!(&a[a.len() - 2..], &[7, 1], "STYLE_COUNT, RULES_SEMANTICS");
     }
 }

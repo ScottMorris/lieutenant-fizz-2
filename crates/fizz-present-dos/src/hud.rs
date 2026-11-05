@@ -10,7 +10,7 @@
 //
 // The layout is the Two-Row Stack. The top row is `Fizz` and its number (light magenta, Fizz 2's accent, `fizz_view::theme`;
 // light red at zero; outlined in black so it reads over any picture) and `Score` with five yellow digits whose leading zeros are
-// dark grey. For a second after a snack the word `Score` gives way to the yellow `+N`. The bottom row is `Deaths` and its number
+// dark grey. For a second after a snack the word `Score` gives way to the yellow `+N`. The bottom row is `Lives` and its number
 // and the key tray: one 7 by 7 socket for each kind of key the level has, empty (a dark grey outline) until the key is picked up,
 // when it fills with the key's colour and a white ring shows for a moment, and duplicates counted by white pips under the socket
 // (see `fizz_slice_view::hud`, which holds the model and the animation both presenters share).
@@ -29,7 +29,9 @@ use fizz_view::sprites_data::sprite;
 
 use fizz_view::theme::FIZZ_INDEX;
 
-use crate::palette::{BLACK, DARK_GREY, DIM_BASE, LIGHT_GREY, LIGHT_RED, WHITE, YELLOW};
+use crate::palette::{
+    BLACK, DARK_GREY, DIM_BASE, LIGHT_GREEN, LIGHT_GREY, LIGHT_RED, WHITE, YELLOW,
+};
 
 /// What the HUD is drawn from: the shared view of the world (`fizz_slice_view::HudView`).
 pub type HudValues = fizz_slice_view::HudView;
@@ -38,7 +40,7 @@ pub type HudValues = fizz_slice_view::HudView;
 pub const X: usize = 4;
 /// The box's top edge in the picture, in pixels.
 pub const Y: usize = 4;
-/// The box's width: `Fizz 99`, `Score` and five digits on the top row, `Deaths 99` and four sockets on the bottom. A multiple of four.
+/// The box's width: `Fizz 99`, `Score` and five digits on the top row, `Lives 99` and four sockets on the bottom. A multiple of four.
 pub const W: usize = 120;
 /// The box's height: two rows of text between the edges.
 pub const H: usize = 27;
@@ -59,7 +61,7 @@ const SCORE_X: i32 = 50;
 const DIGITS_X: i32 = SCORE_X + 33;
 const DIGIT_CELL: i32 = 6;
 /// The tray: the left edge of the first socket, the distance between sockets and the top of the 7 by 7 key. Beyond the right end of
-/// `Deaths 99` (which ends at 56) by the width of the ring.
+/// `Lives 99` (which ends at 56) by the width of the ring.
 const TRAY_X: i32 = 60;
 const SOCKET_PITCH: i32 = 10;
 const SOCKET_Y: i32 = 15;
@@ -326,9 +328,9 @@ fn render(strip: &mut [u8; W * H], v: &HudValues) {
             colour,
         );
     }
-    // Row 2: the deaths in the lives slot, and the key tray.
-    let x = shadowed(strip, TEXT_X, ROW2_Y, "Deaths ", LIGHT_GREY);
-    shadowed(strip, x, ROW2_Y, decimal(v.deaths, &mut buf), WHITE);
+    // Row 2: the lives in the lives slot, and the key tray.
+    let x = shadowed(strip, TEXT_X, ROW2_Y, "Lives ", LIGHT_GREY);
+    shadowed(strip, x, ROW2_Y, decimal(v.lives, &mut buf), LIGHT_GREEN);
     let mut at = TRAY_X;
     for (kind, slot) in KEY_KINDS.iter().zip(&v.keys).take(KEY_SLOTS) {
         if slot.in_level {
@@ -406,7 +408,7 @@ mod tests {
     use fizz_slice_view::hud::{KeySlot, MAX_PIPS};
     use std::vec;
 
-    fn vals(fizz: u32, score: u32, deaths: u32, held: [u8; 2]) -> HudValues {
+    fn vals(fizz: u32, score: u32, lives: u32, held: [u8; 2]) -> HudValues {
         let mut keys = [KeySlot::default(); KEY_SLOTS];
         for (k, h) in keys.iter_mut().zip(held) {
             *k = KeySlot {
@@ -419,13 +421,13 @@ mod tests {
             fizz,
             score,
             pop: 0,
-            deaths,
+            lives,
             keys,
         }
     }
 
-    fn plain(fizz: u32, deaths: u32) -> HudValues {
-        vals(fizz, 0, deaths, [0, 0])
+    fn plain(fizz: u32, lives: u32) -> HudValues {
+        vals(fizz, 0, lives, [0, 0])
     }
 
     fn count(strip: &[u8], colour: u8) -> usize {
@@ -671,7 +673,7 @@ mod tests {
         let s = rendered(&plain(5, 7));
         // The label and number lit pixels are where the pixel font puts them.
         let mut label = [0u8; W * H];
-        draw_text(&mut label, W, H, TEXT_X, ROW2_Y, "Deaths ", LIGHT_GREY);
+        draw_text(&mut label, W, H, TEXT_X, ROW2_Y, "Lives ", LIGHT_GREY);
         for (i, &p) in label.iter().enumerate() {
             if p == LIGHT_GREY {
                 assert_eq!(s[i], LIGHT_GREY);
@@ -682,23 +684,23 @@ mod tests {
             &mut num,
             W,
             H,
-            TEXT_X + text_width("Deaths "),
+            TEXT_X + text_width("Lives "),
             ROW2_Y,
             "7",
-            WHITE,
+            LIGHT_GREEN,
         );
-        assert_eq!(count(&s, WHITE), count(&num, WHITE));
+        assert_eq!(count(&s, LIGHT_GREEN), count(&num, LIGHT_GREEN));
         // The proportional face is narrower than the 8 by 8 capitals the old bar used for the same words.
-        assert!(text_width("Deaths 99") < 10 * 8);
+        assert!(text_width("Lives 99") < 10 * 8);
     }
 
     #[test]
     fn the_widest_values_fit_in_the_box_and_clear_the_columns_beside_them() {
-        // Fizz 99 ends before the Score column, and Deaths 99 before the tray's first ring.
+        // Fizz 99 ends before the Score column, and Lives 99 before the tray's first ring.
         let fizz = TEXT_X + text_width("Fizz ") + text_width("99");
         assert!(fizz < SCORE_X, "{fizz} runs into Score");
-        let deaths = TEXT_X + text_width("Deaths ") + text_width("99");
-        assert!(deaths < TRAY_X - 1, "{deaths} runs into the tray");
+        let lives = TEXT_X + text_width("Lives ") + text_width("99");
+        assert!(lives < TRAY_X - 1, "{lives} runs into the tray");
         // The five digits end inside the inner edge, each digit inside its cell.
         for d in '0'..='9' {
             assert!(text_width(&std::format!("{d}")) <= DIGIT_CELL + 1, "{d}");
@@ -890,9 +892,10 @@ mod tests {
         );
         assert!(contrast(LIGHT_RED).1 > floor, "{}", contrast(LIGHT_RED).1);
         assert!(contrast(LIGHT_RED).1 > 6.5);
-        // The grey labels, white deaths, yellow score and white pips and ring.
+        // The grey labels, green lives, yellow score and white pips and ring.
         assert!(contrast(LIGHT_GREY).0 > 3.5, "{}", contrast(LIGHT_GREY).0);
         assert!(contrast(WHITE).0 > 7.0, "{}", contrast(WHITE).0);
+        assert!(contrast(LIGHT_GREEN).0 > 6.0, "{}", contrast(LIGHT_GREEN).0);
         assert!(contrast(YELLOW).0 > 7.0, "{}", contrast(YELLOW).0);
         // The leading zeros are meant to be recessive, not read: well under the floor, on purpose.
         assert!(contrast(DARK_GREY).0 < 2.0);

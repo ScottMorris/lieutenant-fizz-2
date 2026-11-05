@@ -20,7 +20,7 @@
         <div id="play-hud" aria-hidden="true">
           <div class="cell"><span class="lbl">Fizz</span><span id="hud-fizz" class="num">5</span></div>
           <div class="cell"><span class="lbl swap"><span id="hud-score-word">Score</span><span id="hud-score-pop" class="pop"></span></span><span id="hud-score" class="num score"><span id="hud-score-lead" class="lz">0000</span><span id="hud-score-rest">0</span></span></div>
-          <div class="cell"><span class="lbl">Deaths</span><span id="hud-deaths" class="num">0</span></div>
+          <div class="cell"><span class="lbl">Lives</span><span id="hud-lives" class="num">3</span></div>
           <!-- One socket for each kind of key the level has (main.js builds them from web/hud.ts), empty until the key is picked up. -->
           <div id="hud-tray" class="tray"></div>
         </div>
@@ -48,6 +48,7 @@ AMMO 5
 KEY  no
 DOOR shut
 DEATHS 0
+LIVES 3
 EXIT not yet</pre>
         <p class="note">Press H (or the ? button) to hide this panel. A browser tab keeps a few shortcuts for itself, such as Ctrl+W, and some desktops keep window and workspace shortcuts, so the game cannot block them. If one gets in the way, switch to the Modern keys, which avoid them. In fullscreen, Chromium browsers can hold Ctrl and Alt for the game. Sounds play for the chicken, the shots, the snacks and the rest, but a browser only allows sound after you press a key or click, so it starts then.</p>
       </aside>
