@@ -1290,12 +1290,12 @@ mod tests {
                 }
             }
         }
-        // The route's three drops also hand the page the whistle, which no event carries; take it out to compare the events' effects.
+        // The route's two walk-offs also hand the page the whistle, which no event carries; take it out to compare the events' effects.
         let whistles = got
             .iter()
             .filter(|&&e| e == fizz_ep2::cues::EFFECT_WHISTLE)
             .count();
-        assert_eq!(whistles, 3, "three drops of a tile or more in the route");
+        assert_eq!(whistles, 2, "two walk-offs in the route");
         got.retain(|&e| e != fizz_ep2::cues::EFFECT_WHISTLE);
         assert_eq!(got, want);
         assert_eq!(

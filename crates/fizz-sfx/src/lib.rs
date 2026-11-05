@@ -368,7 +368,7 @@ mod tests {
         ("soda", 157, 200, 28),
         ("fzzt (FM)", 69, 100, 16),
         ("door", 259, 280, 60),
-        ("whistle", 316, 532, 90),
+        ("whistle", 217, 332, 56),
     ];
 
     #[test]
@@ -411,7 +411,7 @@ mod tests {
             let (writes, ticks) = run_opl(v);
             assert_eq!(ticks, opl_ticks(v), "variant {v}");
             assert_eq!(writes.len(), opl_steps(v).len(), "variant {v}");
-            // 100 ms to about 1.07 s at 560 Hz (the whistle is the longest, 950 ms).
+            // 100 ms to about 1.07 s at 560 Hz (the longest is the win jingle, 432 ticks).
             assert!((56..=600).contains(&ticks), "variant {v}: {ticks} ticks");
         }
     }

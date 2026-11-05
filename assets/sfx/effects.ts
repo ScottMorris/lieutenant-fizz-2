@@ -236,25 +236,26 @@ const door: SfxVoice[] = [
 ];
 
 /**
- * Effect 20, whistle (Ben's long fall; not an `Event`: the presenters play it from Ben's state, see `FallWatch` in
+ * Effect 20, whistle (Ben's walk off a ledge; not an `Event`: the presenters play it from Ben's state, see `FallWatch` in
  * `crates/fizz-slice-view/src/fall.rs`): a friendly cartoon slide whistle that drops two octaves and a bit, the comic partner of the
  * "whoa!" (effect 7), which it is longer and gentler than. A pure sine at c6 slides from a fifth above its note to nineteen semitones
- * under it in 0.85 s (`pitchsteps`), with a little vibrato that swells as it falls, over a soft breath of noise at the start, a quiet
+ * under it in 0.5 s (`pitchsteps`), with a little vibrato that swells as it falls, over a soft breath of noise at the start, a quiet
  * triangle an octave up for the whistle's edge (Web only; the chip plays the voice that starts last, the sine) and a small FM glint that
- * rounds the sine. No caption. About 0.9 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
+ * rounds the sine. No caption. About 0.55 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
  */
+const WHISTLE_SECONDS = 0.5;
 const whistleSteps = (): number[] => {
-  const frames = Math.round(0.85 * STEP_RATE);
+  const frames = Math.round(WHISTLE_SECONDS * STEP_RATE);
   return Array.from({ length: frames + 1 }, (_, i) => {
     const u = i / frames;
-    const vibrato = 0.35 * u * Math.sin(2 * Math.PI * 7 * 0.85 * u);
+    const vibrato = 0.35 * u * Math.sin(2 * Math.PI * 7 * WHISTLE_SECONDS * u);
     return Math.round((7 - 26 * u + vibrato) * 1000) / 1000;
   });
 };
 const whistle: SfxVoice[] = [
   breath('white', 0, 0.09, 0.14, 3500),
-  V('c7', { w: 'triangle', a: 0.02, d: 0.8, g: 0.05, nudge: 0.004, lpf: 4000, steps: whistleSteps() }),
-  V('c6', { w: 'sine', a: 0.012, d: 0.88, g: 0.34, nudge: 0.008, lpf: 3000, steps: whistleSteps(), fm: { ratio: 1, index: 0.25, decay: 0.5 } }),
+  V('c7', { w: 'triangle', a: 0.02, d: 0.47, g: 0.05, nudge: 0.004, lpf: 4000, steps: whistleSteps() }),
+  V('c6', { w: 'sine', a: 0.012, d: 0.52, g: 0.34, nudge: 0.008, lpf: 3000, steps: whistleSteps(), fm: { ratio: 1, index: 0.25, decay: 0.5 } }),
 ];
 
 /** The effects after the cluck, in id order from 4. */

@@ -93,7 +93,7 @@
 mod captions;
 pub use captions::*;
 mod fall;
-pub use fall::{FALL_TILES, FallWatch};
+pub use fall::FallWatch;
 #[cfg(test)]
 extern crate std;
 pub mod light;

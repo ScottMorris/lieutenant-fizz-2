@@ -3,22 +3,20 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-//! [`FallWatch`] plays the slide whistle ([`EFFECT_WHISTLE`]) when Ben's feet are [`FALL_TILES`] or more below where he left the
-//! ground. It is a presenter's view state in the way [`crate::Puffs`] is: each presenter keeps one, calls [`FallWatch::observe`]
-//! after every `fizz_ep2::step` and plays what it returns. The rules do not know about it, so the state hash and the replay
-//! transcript cannot move, and the Web and DOS presenters agree because they run the same code on the same world.
+//! [`FallWatch`] plays the slide whistle ([`EFFECT_WHISTLE`]) the moment Ben leaves a surface without jumping: walking, sliding or
+//! being carried off an edge, or off the end of a pole if the game gets poles. It is a presenter's view state in the way
+//! [`crate::Puffs`] is: each presenter keeps one, calls [`FallWatch::observe`] after every `fizz_ep2::step` and plays what it
+//! returns. The rules do not know about it, so the state hash and the replay transcript cannot move, and the Web and DOS
+//! presenters agree because they run the same code on the same world.
 //!
 //! The rule, read from Ben's state after a step:
 //!
-//! - **A stretch** starts when Ben leaves the ground and ends when he lands, dies or is on the pogo stick. The height of his feet on
-//!   the last step he stood is the takeoff. A pogo stick bounces from the ground all the time and has no falls, and a death has its
-//!   own cry ("whoa!"), so neither plays the whistle, and both reset the stretch.
-//! - **The whistle** plays on the first step on which Ben is falling and his feet are [`FALL_TILES`] or more under the takeoff. It plays once
-//!   for the stretch; the next one needs a landing first. A stretch that began with a jump is silent whatever its drop: the whistle is
-//!   for a fall, and a jump off a ledge is a movement Ben chose. The measure is the net drop, not the fall from the top of a jump: a
-//!   drop of under a tile (a half-tile step, the settling of a landing) is silent, landing on something higher than the takeoff is
-//!   silent, and a step off a ledge a tile or more high is not, which includes the four-tile drop from the exit gallery's stone roof to
-//!   its wooden floor.
+//! - **A stretch** starts when Ben leaves the ground and ends when he lands, dies or is on the pogo stick (each of which resets it).
+//! - **The whistle** plays on the first step of a stretch that began by leaving a surface level or sinking, with no drop to wait for:
+//!   a half-tile step off a platform whistles too, and a landing a moment later just ends the sound. It plays once for the stretch;
+//!   the next one needs a landing first.
+//! - **Silent stretches:** a stretch that began with a jump (Ben left the ground rising) never whistles, and neither does one in which
+//!   the pogo stick was on at any point, including switching it off in the air. A death has its own cry ("whoa!") and plays nothing.
 //! - **The place** is Ben, in the view the picture is drawn with, as for any sound.
 //!
 //! The cue has no caption: the whistle is the comic sound of a fall and, like the jump, wants no word.
@@ -29,22 +27,13 @@ use fizz_ep2::cues::EFFECT_WHISTLE;
 use fizz_sfx::place::{Placement, View, place};
 use fizz_view::{screen_y, tile_px};
 
-/// How far under the takeoff Ben's feet must be, in tiles, for the whistle. A full jump rises and falls 3.5 tiles and lands at net 0,
-/// so it never reaches it; a step down of a tile does, and so does the four-tile drop from the stone roof of the exit gallery.
-pub const FALL_TILES: f64 = 1.0;
-const FALL_SIXTEENTHS: i32 = 16;
-
-/// The fall cue's state: the takeoff height, and whether the whistle has already played in this stretch.
+/// The fall cue's state: whether Ben stood on the last step observed, and whether this stretch can no longer whistle.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FallWatch {
-    /// The height of Ben's feet (y up, in sixteenths of a tile, rounded down) on the last step he stood.
-    takeoff: i32,
-    /// The whistle has played in this stretch.
-    played: bool,
     /// Ben stood on the last step observed, so a step in the air is the first of a stretch.
     grounded: bool,
-    /// The stretch began with a jump (Ben left the ground rising), not a step off a ledge. A jump never whistles.
-    jumped: bool,
+    /// The stretch began with a jump or had the pogo stick on, or the whistle has already played in it.
+    spent: bool,
 }
 
 impl Default for FallWatch {
@@ -57,10 +46,8 @@ impl FallWatch {
     /// A watch with no stretch under way.
     pub const fn new() -> Self {
         FallWatch {
-            takeoff: 0,
-            played: false,
             grounded: false,
-            jumped: false,
+            spent: false,
         }
     }
 
@@ -79,23 +66,25 @@ impl FallWatch {
         options: &DrawOptions,
     ) -> Option<(u8, Placement)> {
         let ben = &world.ben;
-        let y = (ben.b.y * 16.0) as i32;
-        if ben.b.on_ground || ben.pogo || ben.dead > 0.0 {
-            self.takeoff = y;
-            self.played = false;
-            self.grounded = ben.b.on_ground;
-            self.jumped = false;
+        if ben.pogo || ben.dead > 0.0 {
+            self.grounded = false;
+            self.spent = true;
+            return None;
+        }
+        if ben.b.on_ground {
+            self.grounded = true;
+            self.spent = false;
             return None;
         }
         if self.grounded {
-            // The first step in the air: a jump leaves the ground rising, a step off a ledge does not.
+            // The first step in the air: a jump leaves the ground rising, a step off an edge does not.
             self.grounded = false;
-            self.jumped = ben.b.vy > 0.0;
+            self.spent = ben.b.vy > 0.0;
         }
-        if self.played || self.jumped || ben.b.vy >= 0.0 || self.takeoff - y < FALL_SIXTEENTHS {
+        if self.spent {
             return None;
         }
-        self.played = true;
+        self.spent = true;
         let (cam_x, cam_y) = camera_shaken(world, w, h, options);
         let at = place(
             tile_px(ben.b.x + ben.b.w * 0.5),
@@ -126,142 +115,116 @@ mod tests {
         DrawOptions::default()
     }
 
-    /// A world with Ben standing at the top of a synthetic drop: observed on the ground, then put in the air and moved down one
-    /// quarter tile at a time to `drop` tiles under the takeoff. Returns how many times the watch cued.
-    fn plays_for_a_drop_of(drop: f64) -> usize {
+    fn observe(watch: &mut FallWatch, w: &World) -> bool {
+        watch.observe(w, VIEW_W, VIEW_H, &opts()).is_some()
+    }
+
+    /// A world with Ben standing, observed on the ground, then put in the air with vertical speed `vy`: the first step of a stretch.
+    fn leaves_the_ground(vy: f64) -> (World, FallWatch, bool) {
         let mut w = level::world();
         let mut watch = FallWatch::new();
-        let top = w.ben.b.y + 10.0;
-        w.ben.b.y = top;
         w.ben.b.on_ground = true;
-        assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
+        assert!(!observe(&mut watch, &w));
         w.ben.b.on_ground = false;
-        w.ben.b.vy = -5.0;
-        let mut plays = 0;
-        let mut dy = 0.0;
-        while dy <= drop {
-            w.ben.b.y = top - dy;
-            plays += usize::from(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_some());
-            dy += 0.25;
-        }
-        plays
+        w.ben.b.vy = vy;
+        let played = observe(&mut watch, &w);
+        (w, watch, played)
     }
 
     #[test]
-    fn a_net_drop_of_a_tile_plays_and_a_shorter_one_does_not() {
-        assert_eq!(plays_for_a_drop_of(0.5), 0, "a half-tile step down");
-        assert_eq!(plays_for_a_drop_of(FALL_TILES - 0.25), 0);
-        assert_eq!(plays_for_a_drop_of(1.0), 1, "a one-tile step down");
-        assert_eq!(plays_for_a_drop_of(2.0), 1, "a two-tile hop down");
-        assert_eq!(plays_for_a_drop_of(4.0), 1);
-        assert_eq!(
-            plays_for_a_drop_of(30.0),
-            1,
-            "a long fall plays exactly once"
-        );
-    }
-
-    #[test]
-    fn it_plays_again_only_after_a_landing() {
-        let mut w = level::world();
-        let mut watch = FallWatch::new();
-        let mut plays = 0;
-        for round in 1..=2 {
-            w.ben.b.on_ground = true;
-            assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
-            w.ben.b.on_ground = false;
-            w.ben.b.vy = -8.0;
-            let top = w.ben.b.y;
-            for i in 0..40 {
-                w.ben.b.y = top - f64::from(i) * 0.5;
-                plays += usize::from(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_some());
-            }
-            assert_eq!(plays, round);
-            w.ben.b.y = top;
+    fn leaving_a_surface_level_or_sinking_whistles_at_once() {
+        for vy in [0.0, -0.5, -8.0] {
+            let (_, _, played) = leaves_the_ground(vy);
+            assert!(played, "vy {vy}: the first step in the air");
         }
     }
 
     #[test]
-    fn a_jump_up_to_a_ledge_and_a_fall_to_the_old_level_nets_under_a_tile() {
-        // Take off at 10, rise to 13.5 and come back down to 9.5: a net drop of half a tile, and no whistle. A landing on a ledge at
-        // 12 resets the takeoff to 12, and dropping from it to 11.5 is again under a tile.
-        let mut w = level::world();
-        let mut watch = FallWatch::new();
-        let mut plays = 0;
-        w.ben.b.y = 10.0;
+    fn a_small_step_down_whistles_too() {
+        let (mut w, mut watch, played) = leaves_the_ground(-1.0);
+        assert!(played);
+        // Landing half a tile lower ends the stretch and plays nothing more.
+        w.ben.b.y -= 0.5;
         w.ben.b.on_ground = true;
-        watch.observe(&w, VIEW_W, VIEW_H, &opts());
+        assert!(!observe(&mut watch, &w));
+    }
+
+    #[test]
+    fn it_plays_once_and_again_only_after_a_landing() {
+        let (mut w, mut watch, played) = leaves_the_ground(-1.0);
+        assert!(played);
+        for i in 0..40 {
+            w.ben.b.y -= 0.5;
+            w.ben.b.vy = -8.0 - f64::from(i);
+            assert!(!observe(&mut watch, &w), "once per stretch");
+        }
+        w.ben.b.on_ground = true;
+        assert!(!observe(&mut watch, &w));
         w.ben.b.on_ground = false;
-        for (y, vy) in [
-            (11.0, 5.0),
-            (12.5, 2.0),
-            (13.5, 0.5),
-            (12.5, -2.0),
-            (10.5, -4.0),
-            (9.5, -6.0),
-        ] {
+        w.ben.b.vy = -1.0;
+        assert!(observe(&mut watch, &w), "the next ledge");
+    }
+
+    #[test]
+    fn a_jump_never_plays_it_not_even_on_the_way_down() {
+        let (mut w, mut watch, played) = leaves_the_ground(20.0);
+        assert!(!played, "rising");
+        for (y, vy) in [(13.0, 5.0), (13.5, 0.0), (12.0, -4.0), (4.0, -20.0)] {
             w.ben.b.y = y;
             w.ben.b.vy = vy;
-            plays += usize::from(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_some());
+            assert!(!observe(&mut watch, &w), "y {y}, vy {vy}");
         }
-        assert_eq!(plays, 0, "up 3.5 and back down to half a tile under");
-        w.ben.b.y = 12.0;
+    }
+
+    #[test]
+    fn the_pogo_never_plays_it_even_when_it_is_switched_off_in_the_air() {
+        let mut w = level::world();
+        let mut watch = FallWatch::new();
+        w.ben.pogo = true;
+        w.ben.b.on_ground = false;
+        w.ben.b.vy = -8.0;
+        for _ in 0..10 {
+            assert!(!observe(&mut watch, &w));
+        }
+        w.ben.pogo = false;
+        for i in 0..40 {
+            w.ben.b.y -= 0.5;
+            w.ben.b.vy = -8.0 - f64::from(i);
+            assert!(
+                !observe(&mut watch, &w),
+                "off in the air, still the pogo's stretch"
+            );
+        }
         w.ben.b.on_ground = true;
-        watch.observe(&w, VIEW_W, VIEW_H, &opts());
+        assert!(!observe(&mut watch, &w));
+        w.ben.b.on_ground = false;
+        assert!(observe(&mut watch, &w), "a landing starts afresh");
+    }
+
+    #[test]
+    fn a_death_never_plays_it() {
+        let mut w = level::world();
+        let mut watch = FallWatch::new();
+        w.ben.b.on_ground = false;
+        w.ben.b.vy = -8.0;
+        w.ben.dead = 0.5;
+        for i in 0..40 {
+            w.ben.b.y -= 0.5;
+            assert!(!observe(&mut watch, &w), "step {i}");
+        }
+    }
+
+    #[test]
+    fn a_stretch_that_starts_in_the_air_is_not_a_walk_off() {
+        // A presenter that starts watching with Ben already falling (a level start) has seen no surface.
+        let mut w = level::world();
+        let mut watch = FallWatch::new();
         w.ben.b.on_ground = false;
         w.ben.b.vy = -4.0;
-        w.ben.b.y = 11.5;
-        assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
-        w.ben.b.y = 10.9;
-        assert_eq!(
-            watch.observe(&w, VIEW_W, VIEW_H, &opts()).map(|c| c.0),
-            Some(EFFECT_WHISTLE)
+        assert!(
+            observe(&mut watch, &w),
+            "falling with no prior ground plays once"
         );
-    }
-
-    #[test]
-    fn landing_on_something_higher_than_the_takeoff_never_plays_it() {
-        let mut w = level::world();
-        let mut watch = FallWatch::new();
-        w.ben.b.y = 10.0;
-        w.ben.b.on_ground = true;
-        watch.observe(&w, VIEW_W, VIEW_H, &opts());
-        w.ben.b.on_ground = false;
-        w.ben.b.vy = 5.0;
-        for i in 0..8 {
-            w.ben.b.y = 10.0 + f64::from(i);
-            assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
-        }
-    }
-
-    #[test]
-    fn the_pogo_and_a_death_never_play_it() {
-        for pogo in [true, false] {
-            let mut w = level::world();
-            let mut watch = FallWatch::new();
-            w.ben.b.on_ground = false;
-            w.ben.b.vy = -8.0;
-            w.ben.pogo = pogo;
-            w.ben.dead = if pogo { 0.0 } else { 0.5 };
-            let top = w.ben.b.y;
-            for i in 0..40 {
-                w.ben.b.y = top - f64::from(i) * 0.5;
-                assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
-            }
-        }
-    }
-
-    #[test]
-    fn rising_never_plays_it() {
-        let mut w = level::world();
-        let mut watch = FallWatch::new();
-        w.ben.b.on_ground = false;
-        w.ben.b.vy = 10.0;
-        let base = w.ben.b.y;
-        for i in 0..40 {
-            w.ben.b.y = base + f64::from(i);
-            assert!(watch.observe(&w, VIEW_W, VIEW_H, &opts()).is_none());
-        }
     }
 
     /// Runs `input` for `ticks` steps on `w`, returning the ticks at which the watch cued.
@@ -292,14 +255,7 @@ mod tests {
             w.ben.b.py = 42.0;
             w.ben.b.on_ground = true;
             let cues = run(&mut w, input, 90);
-            assert_eq!(
-                cues.len(),
-                whistles,
-                "{input:?}: {cues:?} {} {} {}",
-                w.ben.b.x,
-                w.ben.b.y,
-                w.ben.b.on_ground
-            );
+            assert_eq!(cues.len(), whistles, "{input:?}: {cues:?}");
             assert!(w.ben.b.y < 41.0, "Ben came down to the gallery floor");
         }
     }
@@ -313,15 +269,8 @@ mod tests {
     }
 
     #[test]
-    fn the_full_jump_comes_back_to_its_takeoff() {
-        // 20.5 is the ground jump's launch speed (`ben.rs`) and 60 is `fizz_phys::GRAVITY`: it rises and falls the same 3.5 tiles.
-        let apex = 20.5f64 * 20.5 / (2.0 * 60.0);
-        assert!(apex > 3.4 && apex < 3.6, "a jump rises {apex} tiles");
-    }
-
-    #[test]
     fn the_replay_plays_the_whistle_at_known_ticks() {
-        // The route's falls that reach the threshold, which the cue derives from Ben's state alone.
+        // Every walk off a surface in the route, which the cue derives from Ben's state alone.
         let mut w = level::world();
         let mut watch = FallWatch::new();
         let mut prev = Buttons::NONE;
@@ -335,6 +284,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(ticks, [318, 388, 1682], "three drops of a tile or more");
+        // The tick after Ben walks off the two ledges in the route. The pogo ride's end at tick 1668 is a pogo stretch, and silent.
+        assert_eq!(ticks, [308, 378]);
     }
 }

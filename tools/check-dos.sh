@@ -815,6 +815,8 @@ replay_case() {
     opl_pair)
       ch5_get
       starts="$(grep '^EVENT ' "$golden" | grep -v ' shotend ' | cut -d' ' -f2 | sort -u | wc -l)"
+      # The slide whistle is an effect start no event carries: the two walk-offs of the route (ticks 308 and 378, pinned in fall.rs).
+      starts=$((starts + 2))
       expected=$((41 + 2 * (CH5_WRITES - 20) - starts))
       { [ "$writes" -eq "$expected" ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected $expected writes: the OPL3 pair, about twice channel 5's $((CH5_WRITES - 20)))" ;;
     speaker) { [ "$writes" -eq 0 ] && [ "$steps" -gt 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected speaker steps and no OPL writes)" ;;
@@ -869,24 +871,19 @@ cfg_none
 
 # 3f. The AUDIO counts per path are fixed by the effects alone, with music on the chip or not (the music has its own counters). They are
 # exact because the replay is deterministic and DOSBox runs at fixed cycles (twice in a row gave the same figures), and they count the
-# 72 effects the replay starts (70 sounding events and three long drops, two of the events on one tick) with the last one of a tick winning and a later one cutting
+# 71 effects the replay starts (70 sounding events and two walk-offs, two of the events on one tick) with the last one of a tick winning and a later one cutting
 # an earlier one off: 4 clucks, 13 fzzt (the 13 `fire` events; the 13 `shotend` events are silent), 1 fizzled, 1 bonk, 1 whoa!, 1 ta-da!,
 # 3 keys, 4 clunks (the head-bumps) and 2 doors (id 19), 1 click (the `dud`), 9 boings (the `bounce` events), 22 jumps, 5 crunches and 2 sodas (the
 # `can` events). Fzzt (id 4), boing (12) and jump (13) play Fizz 1's own DOS-port records and speaker lists (assets/sfx/fizz1-dos.ts),
 # which are longer in records for the fzzt (198, from 69) and the jump (73, from 57) and shorter for the boing (81, from 185); the
 # jump's speaker list is 18 frames (from 12), the boing's 18 (from 56) and the fzzt's still 16. The soda (id 17) is a downmix of 157
-# records and 28 speaker frames. The slide whistle (id 20, 316 records and 90 speaker frames) plays three times, for the drops of a tile or more at ticks 318, 388 and 1682.
-# The first starts as the key's last notes end, the second is cut by the whoa! at tick 394 and the third by the cluck at tick 1720, so the totals went
-# from 7,375, 7,396, 14,682 and 1,398 to 7,971, 7,992, 15,871 and 1,591: COMPUTED, NOT MEASURED, from the records, the 560 Hz tick lengths and the
-# replay's sound ticks with a host model of the one-slot cut. A cut sound's count depends on the 560 Hz clock's phase at the two requests, which the model
-# cannot know, so across every phase it gives +594 to +598 records and +193 or +194 speaker steps; the pins use +596 and +193, and may be a few off. No
-# DOSBox was available when they were set, so the first CI run of this gate is the measurement and it overrides these. With the exit on an Up press (the 1,800-tick replay, measured in DOSBox one case at a time) the totals are 7,375, 7,396, 14,682 and 1,398 speaker steps (1,398 since the speaker counts its 140 Hz steps from each effect's start; it was 1,390 to 1,393 before, by how many 560 Hz ticks start-up took, modulo four); with the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
+# records and 28 speaker frames. The slide whistle (id 20, 217 records and 56 speaker frames) plays twice, when Ben walks off a ledge at ticks 308 and 378 (the pogo ride's end at tick 1668 is silent). The first starts as the key's last notes end and the second is cut by the whoa! at tick 394, so the totals are 7,647, 7,668, 15,224 and 1,481 speaker steps: MEASURED in DOSBox (a run of this gate), not computed. The OPL3 pair is checked against channel 5's count by a relation that counts the replay's effect starts, the events' and the two whistles'. Before the whistle took the walk-offs and was shortened the totals were 7,571, 7,592, 15,073 and 1,417 (the replay without a whistle). With the exit on an Up press (the 1,800-tick replay, measured in DOSBox one case at a time) the totals are 7,375, 7,396, 14,682 and 1,398 speaker steps (1,398 since the speaker counts its 140 Hz steps from each effect's start; it was 1,390 to 1,393 before, by how many 560 Hz ticks start-up took, modulo four); with the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
 # 5,993, 11,876 and 1,388 with the cans but the FM-era fzzt, boing and jump, and 5221, 5242, 10382 and 1213 before the boing and the
 # jump were Fizz 1's at all; 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
-#   7971: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,951 records of the effects.
-#   7992: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
-#   15871: the OPL3 pair = 41 start and stop writes, twice the 7,951 records, less 72 enables (one per effect, left to channel 5).
-#   1591 speaker steps: the speaker list of each effect, a step per 140 Hz frame counted from the effect's start, with the same cut-offs.
+#   7647: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,627 records of the effects.
+#   7668: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   15224: the OPL3 pair = 41 start and stop writes, twice the 7,627 records, less 71 enables (one per effect, left to channel 5).
+#   1481 speaker steps: the speaker list of each effect, a step per 140 Hz frame counted from the effect's start, with the same cut-offs.
 #   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
@@ -896,10 +893,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-par audio_count 'ch5 on an OPL2 (7971)' "$(sb sb1)" '7971 SPEAKER STEPS 0' /MODERN /ADLIB
-par audio_count 'ch5 through the OR rule on an OPL3 (7992)' "$SB16" '7992 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-par audio_count 'the OPL3 pair (15871)' "$SB16" '15871 SPEAKER STEPS 0' /SB
-par audio_count 'the PC speaker (1591 steps)' '' '0 SPEAKER STEPS 1591' /SPEAKER
+par audio_count 'ch5 on an OPL2 (7647)' "$(sb sb1)" '7647 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (7668)' "$SB16" '7668 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (15224)' "$SB16" '15224 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1481 steps)' '' '0 SPEAKER STEPS 1481' /SPEAKER
 par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 par_wait
 
