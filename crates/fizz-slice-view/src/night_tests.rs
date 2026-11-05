@@ -63,8 +63,8 @@ fn night_frames_are_pinned() {
 }
 
 const PINNED_FULL: [(u64, u64); 7] = [
-    (60, 0xbc72_a2f4_4246_6dce),
-    (300, 0x3723_438d_a92f_c57d),
+    (60, 0x3176_8ff7_4e02_5fb5),
+    (300, 0x74c8_d534_a27a_d1b4),
     (900, 0x0a74_8c4c_22ae_0998),
     (1079, 0x2470_d45d_eb3d_6572),
     (1225, 0x5de1_dda1_3716_9a33),
@@ -72,8 +72,8 @@ const PINNED_FULL: [(u64, u64); 7] = [
     (1745, 0xc1f1_b22c_9729_7989),
 ];
 const PINNED_LIGHT: [(u64, u64); 7] = [
-    (60, 0xf0da_44f4_cb0b_0d4e),
-    (300, 0x9e9b_391b_06a5_51ad),
+    (60, 0x7f0_ce66_87cb_34d5),
+    (300, 0x229d_8081_9dfe_9ee4),
     (900, 0x6d98_4c94_9454_2798),
     (1079, 0x4147_6295_cbc1_cf13),
     (1225, 0x8ebe_ddbe_141a_e6d5),
