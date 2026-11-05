@@ -31,8 +31,11 @@ pub const EFFECT_SODA: u8 = 17;
 pub const EFFECT_FZZT_FM: u8 = 18;
 /// A door opening with its key (`Event::DoorOpen`): lower and longer than the clunk, which the head-bump keeps. The caption stays "clunk".
 pub const EFFECT_DOOR: u8 = 19;
+/// Ben's long fall: a descending slide whistle. No `Event` plays it; the presenters play it from Ben's state (`fizz_slice_view::FallWatch`), so the
+/// rules, the replay transcript and the state hash do not know it. It has no caption.
+pub const EFFECT_WHISTLE: u8 = 20;
 /// The number of effect ids: valid ids are `0..EFFECT_COUNT`.
-pub const EFFECT_COUNT: u8 = 20;
+pub const EFFECT_COUNT: u8 = 21;
 
 /// The shared captions, as indices into the presenter's table of words; the index is the caption's id for dedupe, and the byte
 /// a rule's caption code holds below `fizz_pack::level::CUE_LEVEL_BASE`.
@@ -70,7 +73,7 @@ mod tests {
 
     #[test]
     fn the_counts_cover_the_last_id_and_the_style_count_is_the_readers() {
-        assert_eq!(EFFECT_COUNT, EFFECT_DOOR + 1);
+        assert_eq!(EFFECT_COUNT, EFFECT_WHISTLE + 1);
         assert_eq!(CAP_COUNT, CAP_FSSSHT + 1);
         assert_eq!(STYLE_COUNT, STYLE_GREY + 1);
         assert_eq!(STYLE_COUNT, fizz_pack::level::STYLE_COUNT);

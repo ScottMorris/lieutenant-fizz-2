@@ -7,7 +7,7 @@
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
 //   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
 //   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays,
-//   17 soda (a fizz can) and 19 door (a door opening with its key; a head-bump keeps 10).
+//   17 soda (a fizz can), 19 door (a door opening with its key; a head-bump keeps 10) and 20 whistle (a long fall).
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -40,7 +40,7 @@
 // `EFFECTS` table at the bottom. Layering rule the downmix relies on: voices that share a start time put the main layer at the
 // highest gain, and a noise breath starts a little before the pitched note it belongs to (see docs/SOUND.md).
 
-import { breath, chain, curve, glide, noteHz, repeat, wobble, type SfxVoice } from './voice.ts';
+import { STEP_RATE, breath, chain, curve, glide, noteHz, repeat, wobble, type SfxVoice } from './voice.ts';
 
 /** Variant 0, "buh-GAWK". */
 const buhGawk: SfxVoice[] = [
@@ -235,8 +235,30 @@ const door: SfxVoice[] = [
   V('c2', { d: 0.14, g: 0.55, lpf: 300, nudge: 0.31, steps: [2, 1, 0], fm: { ratio: 1, index: 1, decay: 0.06 } }),
 ];
 
+/**
+ * Effect 20, whistle (Ben's long fall; not an `Event`: the presenters play it from Ben's state, see `FallWatch` in
+ * `crates/fizz-slice-view/src/fall.rs`): a friendly cartoon slide whistle that drops two octaves and a bit, the comic partner of the
+ * "whoa!" (effect 7), which it is longer and gentler than. A pure sine at c6 slides from a fifth above its note to nineteen semitones
+ * under it in 0.85 s (`pitchsteps`), with a little vibrato that swells as it falls, over a soft breath of noise at the start, a quiet
+ * triangle an octave up for the whistle's edge (Web only; the chip plays the voice that starts last, the sine) and a small FM glint that
+ * rounds the sine. No caption. About 0.9 s. Authored fresh for this game, with no source to credit beyond the Undertone vocabulary.
+ */
+const whistleSteps = (): number[] => {
+  const frames = Math.round(0.85 * STEP_RATE);
+  return Array.from({ length: frames + 1 }, (_, i) => {
+    const u = i / frames;
+    const vibrato = 0.35 * u * Math.sin(2 * Math.PI * 7 * 0.85 * u);
+    return Math.round((7 - 26 * u + vibrato) * 1000) / 1000;
+  });
+};
+const whistle: SfxVoice[] = [
+  breath('white', 0, 0.09, 0.14, 3500),
+  V('c7', { w: 'triangle', a: 0.02, d: 0.8, g: 0.05, nudge: 0.004, lpf: 4000, steps: whistleSteps() }),
+  V('c6', { w: 'sine', a: 0.012, d: 0.88, g: 0.34, nudge: 0.008, lpf: 3000, steps: whistleSteps(), fm: { ratio: 1, index: 0.25, decay: 0.5 } }),
+];
+
 /** The effects after the cluck, in id order from 4. */
-export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm, door];
+export const OTHER_EFFECTS: readonly (readonly SfxVoice[])[] = [fzzt, stun, bonk, hurt, win, key, clunk, plink, boing, jump, crunch, boingFm, jumpFm, soda, fzztFm, door, whistle];
 
 /** The name of each effect by id, for tools and the audition picker. */
 export const EFFECT_NAMES: readonly string[] = [
@@ -260,6 +282,7 @@ export const EFFECT_NAMES: readonly string[] = [
   'soda (fizz can)',
   'fzzt (FM)',
   'door',
+  'whistle (long fall)',
 ];
 
 /**
