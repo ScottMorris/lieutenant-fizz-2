@@ -374,6 +374,7 @@ mod tests {
     fn effect_ids_are_the_cluck_variants_then_the_sixteen_others() {
         assert_eq!(EFFECT_COUNT, EFFECTS.len());
         assert_eq!(EFFECT_COUNT, fizz_ep2::CLUCK_VARIANTS as usize + 16);
+        assert_eq!(EFFECT_COUNT, usize::from(fizz_ep2::cues::EFFECT_COUNT));
     }
 
     #[test]

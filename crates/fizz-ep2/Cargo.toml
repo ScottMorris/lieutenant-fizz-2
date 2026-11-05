@@ -9,4 +9,9 @@ authors.workspace = true
 [dependencies]
 fizz-sim = { path = "../fizz-sim" }
 fizz-phys = { path = "../fizz-phys" }
+fizz-pack = { path = "../fizz-pack" }
 libm = { version = "=0.2.16", default-features = false }
+
+[dev-dependencies]
+# The tests encode the slice level with the pack writer and read it back.
+fizz-pack = { path = "../fizz-pack", features = ["write"] }

@@ -17,14 +17,16 @@ extern crate alloc;
 
 pub mod ben;
 pub mod chicken;
+pub mod cues;
 pub mod level;
 pub mod replay;
+pub mod rules;
 pub mod shot;
 pub mod tiles;
 pub mod world;
 
 pub use ben::{Ben, BenFlags};
 pub use chicken::{CLUCK_VARIANTS, Chicken};
-pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay};
+pub use replay::{SLICE_SCRIPT, SLICE_TICKS, replay, replay_from};
 pub use shot::Shot;
 pub use world::{ChickenView, Event, SODA_AMMO, Snack, SnackKind, World, WorldFlags, hash, step};

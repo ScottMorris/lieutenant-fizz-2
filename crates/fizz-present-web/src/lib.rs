@@ -495,11 +495,9 @@ impl App {
         vec![x, y, w, h]
     }
 
-    /// Whether the red door has been opened. It stays open through a death.
+    /// Whether the red door is open: the channel of the level's red lock is off. A death closes it again (the level resets).
     pub fn door_open(&self) -> bool {
-        self.world
-            .flags
-            .contains(fizz_ep2::WorldFlags::DOOR_RED_OPEN)
+        self.world.lock_open(fizz_ep2::rules::KEY_RED)
     }
 
     /// Whether Ben has reached the exit.

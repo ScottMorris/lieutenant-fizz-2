@@ -13,7 +13,8 @@
 //! keeps the door as a switched tile on its own channel, so that one bit is left out of the `switches` comparison (see
 //! `tiles::DOOR_RED_BIT`).
 
-use fizz_ep2::tiles::{DOOR_RED_BIT, props};
+use fizz_ep2::rules::{KEY_RED, Rule, RuleTable};
+use fizz_ep2::tiles::{DOOR_RED_BIT, DOOR_RED_CHANNEL, props};
 use fizz_ep2::{World, WorldFlags};
 use fizz_phys::TileMap;
 use fizz_sim::{Buttons, InputFrame};
@@ -190,8 +191,19 @@ fn row(tick: u32, w: &World) -> String {
     out
 }
 
+/// Fizz 1's scenarios have a red door tile (`D`) that a red key opens. In Fizz 2 that is a lock rule on the door's channel and the
+/// channel starts on (closed), both of which a level provides; the scenario worlds provide them here. The red bit is masked out of
+/// the compared switch word (see the header), so the traces still match Fizz 1's.
+fn add_red_door(w: &mut World) {
+    w.set_switches(DOOR_RED_BIT);
+    let mut rules = RuleTable::new();
+    rules.push(Rule::lock(KEY_RED, DOOR_RED_CHANNEL, (0, 0)));
+    w.set_rules(rules);
+}
+
 fn simulate(s: &Scenario) -> Vec<String> {
     let mut w = World::new(s.map.clone(), s.start);
+    add_red_door(&mut w);
     if s.invulnerable {
         w.ben.inv = 1e9;
     }
