@@ -115,10 +115,10 @@ There are two kinds of number, because music should not be rebuilt when a level 
 **World and shared packs** (`SHARED.FAP`, `<WORLD>.FAP`): FNV-1a 32 started from `SCHEMA_HASH` and continued over the **content bytes** the game crate supplies. `SCHEMA_HASH` is `fizz-pack`'s own hash of everything a reader must understand, built from five parts, each an FNV-1a 32 fed with little-endian `u32` values:
 
 1. `CONTAINER_HASH`: the format version, the header, directory entry and alignment sizes, and the codec numbers.
-2. `LEVEL_HASH`: the `LEVL` header and object sizes, the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`, the object kind numbers, and then the rule and string layout: `RULE_LEN` and `STRING_LEN` (32 each), `MAX_RULES` and `MAX_STRINGS` (32 each), `STRING_TEXT_MAX` (30), `MIN_PERIOD` (6), `STYLE_COUNT` (7), the cue codes `CUE_NONE` (0xFF) and `CUE_LEVEL_BASE` (0x40), the trigger numbers 1 to 8, the op numbers 0 to 3, the flag values 1, 2 and 4, the any-chicken subject 0xFF, and the eight string charset extras as code points.
+2. `LEVEL_HASH`: the `LEVL` section version (2) and its record sizes, the tags, the limits, the object, binding, trigger, condition and action numbers, the caption and cue code bases and the string charset extras, in the order [the `LEVL` section](#levl) lists under "Compatibility numbers and hashes".
 3. One audio hash per device (OPL3, OPL2, speaker): the OPX header size, the no-loop marker (a `loop_offset` of 0xFFFFFFFF), the device's song tag (none for the speaker), number and tick rate, and the `FXPK` tag, header and entry sizes. A pack that holds effects for all three devices depends on all three.
 
-The content bytes are not known to `fizz-pack`, which cannot see the rules. `fizz-ep2` supplies them as `tiles::pack_content()`: the ASCII text `fizz-ep2-content`; the tile property table (256 flag bytes, then 256 slope bytes, then 256 switch-channel bytes, indexed by tile id, from `tiles::props()`); the named tile ids (`EMPTY`, `FILL`, `BLOCK`, `PLAT`, `SPIKE`, `CHOC`, `R45`, `L45`, `R22A`, `R22B`, `L22A`, `L22B`, `DOOR_R`, `DOOR_B`, `EXIT`, `WALLBG`, in that order); the snack kind numbers (cheezie 0, chocolate 1, cookie 2, soda can 3); the key colour numbers (red 0, blue 1, green 2) and `MAX_CHANNELS` (32); the sound effect ids (the 17 named ones in order, then `EFFECT_COUNT`, 20) and the shared caption ids (the 13 in order, then `CAP_COUNT`), all from `fizz_ep2::cues`; `STYLE_COUNT` (7); and the `RULES_SEMANTICS` byte (1), which is bumped when the same rule bytes come to mean something else. That is 842 bytes. The compatibility number of a world or shared pack is `fizz_pack::compatibility(&pack_content())`. The tile property flags are in it (owner decision), so moving a `SOLID` or `SWITCHED` flag, a slope or a channel invalidates the packs, which is wanted: the flag changes how a baked level plays without changing a byte of it. Every new enum, table or constant that a baked record refers to by number must be added to `pack_content()` in the same change that introduces it; a unit test in `fizz-ep2` pins the layout and length of the bytes.
+The content bytes are not known to `fizz-pack`, which cannot see the rules. `fizz-ep2` supplies them as `tiles::pack_content()`: the ASCII text `fizz-ep2-content`; the tile property table (256 flag bytes, then 256 slope bytes, then, until the `LEVL` 2 change, 256 switch-channel bytes, indexed by tile id, from `tiles::props()`); the named tile ids (`EMPTY`, `FILL`, `BLOCK`, `PLAT`, `SPIKE`, `CHOC`, `R45`, `L45`, `R22A`, `R22B`, `L22A`, `L22B`, `DOOR_R`, `DOOR_B`, `EXIT`, `WALLBG`, in that order); the snack kind numbers (cheezie 0, chocolate 1, cookie 2, soda can 3); the key colour numbers (red 0, blue 1, green 2) and `MAX_CHANNELS` (32); the sound effect ids (the 17 named ones in order, then `EFFECT_COUNT`, 20) and the shared caption ids (the 13 in order, then `CAP_COUNT`), all from `fizz_ep2::cues`; `STYLE_COUNT` (7); and the `RULES_SEMANTICS` byte (1), which is bumped when the same rule bytes come to mean something else. That is 842 bytes. The compatibility number of a world or shared pack is `fizz_pack::compatibility(&pack_content())`. The tile property flags are in it (owner decision), so moving a `SOLID` or `SWITCHED` flag, a slope or a channel invalidates the packs, which is wanted: the flag changes how a baked level plays without changing a byte of it. Every new enum, table or constant that a baked record refers to by number must be added to `pack_content()` in the same change that introduces it; a unit test in `fizz-ep2` pins the layout and length of the bytes.
 
 **Music files** (`MUSIC.OP3`, `MUSIC.OP2`): `audio_compatibility(device)` (there is none for the speaker), FNV-1a 32 of `CONTAINER_HASH` continued over that device's audio hash. It does not include levels, tiles, content bytes or the other devices, so a level change does not invalidate music, and a change to the speaker effect layout does not invalidate the music files. (`SHARED.FAP` holds effects for all devices and so does depend on all three audio hashes, through `SCHEMA_HASH`.)
 
@@ -154,11 +154,11 @@ The codec byte names how a section's stored bytes become its decoded bytes.
 
 ## Sections
 
-A section is a payload plus its directory entry. The tags in version 1:
+A section is a payload plus its directory entry. The tags in version 1 (the `LEVL` payload is section version 2):
 
 | Tag | Content | Version 1 payload |
 | --- | --- | --- |
-| `LEVL` | One level: tiles, objects, spawn | Fully specified |
+| `LEVL` | One level: states, bindings, tiles, objects, rules, strings, spawn | Fully specified (section version 2) |
 | `FXPK` | The effect set of one device (OPL3, OPL2 or speaker): an index, then one OPX file per effect | Fully specified |
 | `OPL3` | One OPX file for an OPL3 (a song, or one segment of one) | Fully specified |
 | `OPL2` | The same for an OPL2 | Fully specified |
@@ -170,7 +170,9 @@ All payloads are described as they are after decoding.
 
 ### `LEVL`
 
-One section per level. All multi-byte fields are little-endian. All `f64` fields are the IEEE 754 binary64 bit pattern as eight bytes, so no text and no rounding sits between the source and the rules. The directory count is the object count. A level can also carry up to 32 rules and up to 32 strings (see below); a level with neither is byte-identical to a level written before rules existed.
+One section per level, **section version 2** (the directory's section-version byte). Version 1 is dropped: no pack has shipped, so there is nothing to stay compatible with, and a version 2 reader refuses a `LEVL` with any other section version. This subsection is the specification of the format. The code (`fizz-pack`, `fizz-ep2`) reads the earlier layout until the version 2 change lands; from then on, where the code and this page differ, the code is wrong.
+
+All multi-byte fields are little-endian. All `f64` fields are the IEEE 754 binary64 bit pattern as eight bytes, so no text and no rounding sits between the source and the rules. The directory count is the object count. What the states, bindings and rules mean (when a rule runs, in what order, what a death restores) belongs to `docs/RULES.md`; this page fixes the bytes and the checks that need no game knowledge.
 
 **Fixed part, 32 bytes.**
 
@@ -178,78 +180,164 @@ One section per level. All multi-byte fields are little-endian. All `f64` fields
 | --- | --- | --- |
 | 0 | 2 | `w`, `u16`: width in tiles, at least 1 |
 | 2 | 2 | `h`, `u16`: height in tiles, at least 1 |
-| 4 | 4 | `switches`, `u32`: the initial switch bits of the `TileMap` (a set bit means that channel is on at the start) |
-| 8 | 1 | `floor_solid`, `u8`: 0 or 1, the `TileMap` floor flag |
-| 9 | 1 | `name_len`, `u8`: bytes in the name, at most 48 |
-| 10 | 2 | `object_count`, `u16`; equals the directory count |
-| 12 | 8 | `spawn_x`, `f64`: Ben's start, in tile units |
-| 20 | 8 | `spawn_y`, `f64` |
-| 28 | 1 | `rule_count`, `u8`: rule records, at most 32 |
-| 29 | 1 | `string_count`, `u8`: string records, at most 32 |
-| 30 | 2 | Reserved, zero |
+| 4 | 1 | `floor_solid`, `u8`: 0 or 1, the `TileMap` floor flag |
+| 5 | 1 | `name_len`, `u8`: bytes in the name, at most 48 |
+| 6 | 2 | `object_count`, `u16`; equals the directory count |
+| 8 | 8 | `spawn_x`, `f64`: Ben's start, in tile units |
+| 16 | 8 | `spawn_y`, `f64` |
+| 24 | 1 | `state_count`, `u8`: state records, at most 32 |
+| 25 | 1 | `binding_count`, `u8`: binding records, at most 64 |
+| 26 | 1 | `rule_count`, `u8`: rule records, at most 32 |
+| 27 | 1 | `string_count`, `u8`: string records, at most 32 |
+| 28 | 4 | Reserved, zero |
 
-**Name.** `name_len` bytes of printable ASCII (0x20 to 0x7E), zero-padded to a multiple of 8, so the objects start on an 8-byte boundary relative to the section. The name is for banners and the manifest; the rules never read it.
+The version 1 field `switches` (the initial switch bits) is gone: each state's start value is in its record.
 
-**Order.** Header, name (padded), objects, rules, strings, tiles.
+**Name.** `name_len` bytes of printable ASCII (0x20 to 0x7E), zero-padded to a multiple of 8, so every later part starts on an 8-byte boundary relative to the section. The name is for banners and the manifest; the rules never read it.
+
+**Order.** Header, name (padded), states, bindings, objects, rules, strings, tiles.
+
+**Length.** The decoded length is `32 + pad8(name_len) + 8 * state_count + 16 * binding_count + 32 * (object_count + string_count) + 48 * rule_count + w * h`. The reader checks that the decoded length equals it exactly.
+
+**States.** `state_count` records of 8 bytes, the level's state table. A state's index is its position; rules, bindings and the death reset name states by index. A state's name and its value names are source-level only (the manifest and the editor keep them); the record holds numbers.
+
+| Offset | Size | Field |
+| --- | --- | --- |
+| 0 | 1 | `values`, `u8`: how many values the state has, 2 to 8 (a one-valued state could never change, so it is refused) |
+| 1 | 1 | `start`, `u8`: the value the level begins with and a death restores, below `values` |
+| 2 | 6 | Reserved, zero |
+
+Value 0 is the first name in the source's list. The `off,on` default is two values with `off` as 0 and `on` as 1.
+
+**Bindings.** `binding_count` records of 16 bytes. A binding attaches one thing to one state and one value, so the thing reads the state without a rule. Anything not bound is unaffected by states.
+
+| Offset | Size | Field |
+| --- | --- | --- |
+| 0 | 1 | `kind`, `u8` (table below) |
+| 1 | 1 | `state`, `u8`: index into the state table |
+| 2 | 1 | `value`, `u8`: the value that makes the binding active, below that state's `values` |
+| 3 | 1 | Reserved, zero |
+| 4 | 2 | `target`, `u16`: an object index for a light binding; `0xFFFF` otherwise |
+| 6 | 2 | Reserved, zero |
+| 8 | 8 | The rect, `x0`, `y0`, `x1`, `y1` as four `u16` (both corners included) for a tile binding; zero otherwise |
+
+| `kind` | Meaning | Active when |
+| --- | --- | --- |
+| 0 | Invalid; rejected | |
+| 1 | Door tiles: every switched tile in the rect | The state has `value` (the tiles are passable) |
+| 2 | Light: the light object `target` | The state has `value` (the light is on) |
+| 3 | Platform | Reserved; rejected until the game has level platforms |
+| 4 | Parallax panel | Reserved; rejected until `BDRP` is specified (F19) |
+| 5 to 255 | Unassigned; rejected | |
+
+`fizz-pack` checks that a tile binding's rect is inside the map and not inverted, that a light binding's `target` is an object of kind 8, that a binding's state and value exist, and that nothing is bound twice (two bindings on one light, or overlapping tile rects). `fizz-ep2`, which knows the tile table, checks that every cell in a tile rect is a switched tile and that no switched tile is left unbound (a door that nothing opens or shuts). The tile ids keep their art, but their fixed switch channel goes away, because the binding now says which state a tile reads.
 
 **Objects.** `object_count` records of 32 bytes each, in construction order (see below).
 
 | Offset | Size | Field |
 | --- | --- | --- |
 | 0 | 1 | `kind`, `u8` |
-| 1 | 1 | `sub`, `u8`: the snack kind for a snack; reserved (zero) for other kinds until an enemy or gadget needs it |
-| 2 | 2 | `flags`, `u16`: zero in version 1 |
-| 4 | 4 | `channel`, `u32`: the switch channel for a switched object; zero otherwise |
-| 8 | 8 | `x`, `f64`: the centre, in tile units |
+| 1 | 1 | `sub`, `u8`: depends on the kind (table below); zero when the kind has none |
+| 2 | 2 | `flags`, `u16`: depends on the kind; zero when the kind has none |
+| 4 | 4 | `aux`, `u32`: depends on the kind; zero when the kind has none. It replaces version 1's `channel`, which no kind needs now that bindings name the state |
+| 8 | 8 | `x`, `f64`: the centre, in tile units (for an attached light, an offset from what it follows) |
 | 16 | 8 | `y`, `f64` |
-| 24 | 8 | `p`, `f64`: a parameter; for the chicken its direction (-1.0 or 1.0), otherwise 0.0 |
+| 24 | 8 | `p`, `f64`: a parameter, zero when the kind has none |
 
-| `kind` | Meaning |
-| --- | --- |
-| 0 | Invalid; rejected |
-| 1 | Red key |
-| 2 | Blue key |
-| 3 | Snack |
-| 4 | Chicken |
-| 5 to 7 | Reserved for a gadget, a switch and a generic enemy |
-| 8 to 255 | Unassigned; rejected |
+| `kind` | Meaning | `sub` | `flags` | `aux` | `p` |
+| --- | --- | --- | --- | --- | --- |
+| 0 | Invalid; rejected | | | | |
+| 1 | Red key | 0 | 0 | 0 | 0.0 |
+| 2 | Blue key | 0 | 0 | 0 | 0.0 |
+| 3 | Snack | Snack kind (0 cheezie, 1 chocolate, 2 cookie, 3 soda can) | 0 | 0 | 0.0 |
+| 4 | Chicken | 0 | 0 | Byte 0: group (0 none, 1 to 16) | Direction, -1.0 or 1.0 |
+| 5 | Gadget | Reserved; rejected until the gadget milestone | | | |
+| 6 | Switch | Style: 0 lever, 1 button | Bit 0 `HIT_SHOT` (1), bit 1 `HIT_STOMP` (2), bit 2 `USE` (4): which inputs set it off; at least one | 0 | 0.0 |
+| 7 | Built-in enemy | Reserved for the roster (F8); rejected | | | |
+| 8 | Light | Colour: 0 to 15, the palette bank | Bit 0 `ATTACHED` (1) | Byte 0 falloff (0 soft, 1 hard), byte 1 flicker (0 none, 1 candle, 2 pulse), bytes 2 and 3 `attach`, a `u16` (below) | Radius in tiles, greater than 0 and at most 16 |
+| 9 | Custom enemy | Reserved for `DEFS` (F16); rejected | | | |
+| 10 | Custom item | Reserved for `DEFS` (F16); rejected | | | |
+| 11 to 255 | Unassigned; rejected | | | | |
 
-The numeric values of `kind` and `sub` come from the enums in `fizz-ep2`, and they are in the compatibility number.
+A light's `attach` is `0xFFFF` for none, `0xFFFE` for Ben, and otherwise the index of an object of kind 3 or 4 that it follows; `ATTACHED` is set exactly when `attach` is not `0xFFFF`. A group number is for the `cleared` input: the group is cleared when no object with that group number is left alive (chickens today, custom enemies later). Whether switches and lights enter the state hash is for `docs/RULES.md`; the construction order below keeps their positions stable either way. The numeric values of `kind`, `sub` and the flag bits come from the enums in `fizz-ep2` and the constants in `fizz-pack`, and they are in the compatibility number.
 
-**Rules.** `rule_count` records of 32 bytes each, in rule order (the order the sim evaluates them). A rule says: when this happens, perhaps while a channel is in a state, after a delay, switch a channel and play a cue. Positions are tile cells (`u16` x and y, row 0 at the bottom like the tiles).
+**Rules.** `rule_count` records of 48 bytes each, in rule order (the order the sim evaluates them). A rule says: when this input happens, if up to two conditions hold, after a delay, do up to two actions.
 
 | Offset | Size | Field |
 | --- | --- | --- |
-| 0 | 1 | `trigger`, `u8` (table below) |
-| 1 | 1 | `flags`, `u8`: bit 0 `REPEAT` (1), bit 1 `GUARD` (2), bit 2 `GUARD_ON` (4) |
-| 2 | 1 | `guard_ch`, `u8`: the guard's channel, below 32 with `GUARD`, otherwise zero |
-| 3 | 1 | `subject`, `u8` (table below) |
-| 4 | 8 | The union: for `enter` and `shoot` a rect, `x0`, `y0`, `x1`, `y1` as four `u16` (both corners included); for `time`, `at` (`u32`) then `every` (`u32`), in ticks; zero for every other trigger |
-| 12 | 2 | `delay`, `u16`: ticks between the trigger and the actions |
-| 14 | 1 | Slot A `op`, `u8`: 0 none, 1 on, 2 off, 3 toggle |
-| 15 | 1 | Slot A `channel`, `u8`, below 32 |
-| 16 | 4 | Slot A event cell, `x` and `y` as `u16`: where the switch event is reported |
-| 20 | 1 | Slot B `effect`, `u8`: a sound effect id, or `CUE_NONE` (0xFF) |
-| 21 | 1 | Slot B caption code, `u8`: `CUE_NONE` (0xFF) for none, below 0x40 a shared caption id, `0x40 + i` the level's string `i` |
-| 22 | 4 | Slot B cue cell, `x` and `y` as `u16`: where the sound and caption are placed |
-| 26 | 6 | Reserved, zero |
+| 0 | 1 | `trigger`, `u8`: the input (table below) |
+| 1 | 1 | `flags`, `u8`: bit 0 `REPEAT` (1); the others are zero |
+| 2 | 2 | `delay`, `u16`: ticks between the input and the actions |
+| 4 | 2 | `subject`, `u16`: what the input names (table below); `0xFFFF` is "any" where the table allows it, and "none" elsewhere |
+| 6 | 1 | `arg`, `u8`: for `becomes`, the value; zero otherwise |
+| 7 | 1 | Reserved, zero |
+| 8 | 8 | The union: a rect, `x0`, `y0`, `x1`, `y1` as four `u16` (both corners included) for the inputs that name an area; for `time`, `at` (`u32`) then `every` (`u32`), in ticks; zero for every other input |
+| 16 | 4 | Condition 0 |
+| 20 | 4 | Condition 1 |
+| 24 | 12 | Action 0 |
+| 36 | 12 | Action 1 |
 
-| `trigger` | Meaning | `subject` |
+The version 1 guard (one channel, with the flags `GUARD` and `GUARD_ON`) and the lock trigger are gone: a guard is a condition, and a lock is a rule built from them (the worked example below).
+
+| `trigger` | Input | `subject` | Union |
+| --- | --- | --- | --- |
+| 0, 1 | Invalid, rejected (1 was the version 1 lock) | | |
+| 2 | Start of the level and of each life | `0xFFFF` | Zero |
+| 3 | Ben enters the rect | `0xFFFF` | A rect |
+| 4 | Ben takes an object | The index of a key or snack object | Zero |
+| 5 | A shot lands in the rect | `0xFFFF` | A rect |
+| 6 | A stomp | The index of a chicken (or built-in enemy), or `0xFFFF` for any | Zero |
+| 7 | A stun | As stomp | Zero |
+| 8 | Time | `0xFFFF` | `at`, `every` |
+| 9 | Ben touches a cell, in front of it at body height | `0xFFFF` | A rect whose corners are equal: the cell |
+| 10 | Ben touches an object | The object index | Zero |
+| 11 | Ben uses a switch (Up pressed beside it) | The index of a switch | Zero |
+| 12 | A switch is hit | The index of a switch | Zero |
+| 13 | A defeat | As stomp | Zero |
+| 14 | A group is cleared | The group number, 1 to 16 | Zero |
+| 15 | A state becomes a value | The state index (`arg` is the value) | Zero |
+| 16 to 255 | Rejected | | |
+
+Triggers 2 to 8 keep their version 1 numbers. A `time` rule fires at tick `at` (at least 1) and, when `every` is not zero, again every `every` ticks; `REPEAT` is set exactly when `every` is not zero, and `every` is at least `MIN_PERIOD` (6) so a timer cannot run away. For the other triggers `REPEAT` lets the rule fire again after it has fired; without it a rule fires once per life.
+
+**Conditions**, 4 bytes each. A condition is empty (all four bytes zero) or one of the kinds below, and every non-empty condition must hold.
+
+| Offset | Size | Field |
 | --- | --- | --- |
-| 1 | Lock: a key is spent on a closed door | The key colour (any value but 0xFF) |
-| 2 | Start | Zero |
-| 3 | Enter the rect | Zero |
-| 4 | Take | Index of a key or snack object |
-| 5 | Shoot the rect | Zero |
-| 6 | Stomp | Index of a chicken or enemy object, or 0xFF for any |
-| 7 | Stun | Index of a chicken or enemy object, or 0xFF for any |
-| 8 | Time | Zero |
-| 9, 10 | Reserved for the gadget milestone; rejected | |
-| 0, 11 to 255 | Rejected | |
+| 0 | 1 | `kind`, `u8`: 0 none, 1 state is, 2 state is not, 3 Ben holds a key, 4 Ben does not hold a key |
+| 1 | 1 | `a`, `u8`: the state index (kinds 1 and 2) or the key colour (kinds 3 and 4) |
+| 2 | 1 | `b`, `u8`: the value (kinds 1 and 2), below that state's `values`; zero otherwise |
+| 3 | 1 | Reserved, zero |
 
-A slot is empty when its op is none (slot A) or both its effect and caption are `CUE_NONE` (slot B); an empty slot has all of its fields zero. A used slot has its cell inside the map, and slot A's channel below 32. A lock rule opens its door channel: op off, no delay, no guard, no repeat. A `time` rule fires at tick `at` and, when `every` is not zero, again every `every` ticks; `REPEAT` is set exactly when `every` is not zero, and `every` is at least `MIN_PERIOD` (6) so a timer cannot run away. Shared cue ids (the sound effect and shared caption tables) are not known to `fizz-pack`; the game crate checks them.
+**Actions**, 12 bytes each. An action is empty (all twelve bytes zero) or one of the ops below, run in slot order.
 
-**Strings.** `string_count` records of 32 bytes each, the level's own caption words; a rule names string `i` with caption code `0x40 + i`.
+| Offset | Size | Field |
+| --- | --- | --- |
+| 0 | 1 | `op`, `u8` (table below) |
+| 1 | 1 | `a`, `u8`: the state index, key colour or caption code, by `op` |
+| 2 | 1 | `b`, `u8`: the value (`set`) or the style override (`word`), by `op` |
+| 3 | 1 | Reserved, zero |
+| 4 | 4 | `n`, `i32`: the amount (`score`, `ammo`) or the cue id (`cue`); zero otherwise |
+| 8 | 2 | `x`, `u16`: the cell where a raised event is placed; zero for the other ops |
+| 10 | 2 | `y`, `u16` |
+
+| `op` | Action | Fields |
+| --- | --- | --- |
+| 0 | None | All zero |
+| 1 | Set a state to a value | `a` state, `b` value |
+| 2 | Toggle a state | `a` state, which must have exactly 2 values |
+| 3 | Next: the state's next value, wrapping | `a` state |
+| 4 | Spend a key: Ben no longer holds it | `a` key colour |
+| 5 | Give a key | `a` key colour |
+| 6 | Score | `n` the points, 1 to 9999 |
+| 7 | Ammo | `n` the shots, 1 to 99 |
+| 8 | Raise a word | `a` caption code, `b` style override or `0xFF` for the string's own, `x`, `y` the cell |
+| 9 | Raise a cue | `n` the cue id, `x`, `y` the cell |
+| 10 to 255 | Rejected | |
+
+**Caption codes** (`op` 8, `a`): below `0x40`, a shared caption id; `0x40 + i`, the level's string `i`; `0x80 + i`, the world's string `i`; the rest are rejected. `CUE_NONE` (0xFF) is not valid in a word action, because an unused action is empty instead. **Cue ids** (`op` 9, `n`): below `0x100`, a shared sound effect id (`EFFECT_COUNT` is 20 today); `0x100 + i`, entry `i` of the world's sound library; the rest are rejected. A word and a cue are two actions, so a rule that shows `bonk` and plays a cue uses both slots. The world's strings and sound library live in the world pack: `fizz-pack` checks the level's own range (`0x40 + i` below the string count) and the shared and world ranges are checked by the game crate, which knows the tables.
+
+**Strings.** `string_count` records of 32 bytes each, the level's own caption words; a word action names string `i` with caption code `0x40 + i`. The layout is unchanged from version 1.
 
 | Offset | Size | Field |
 | --- | --- | --- |
@@ -261,15 +349,73 @@ The text may use U+0020 to U+007E and the eight extras U+00B7 (middle dot), U+20
 
 **Tiles.** After the strings, `w * h` bytes, one tile id each, in `TileMap` order: row-major, row 0 (the bottom) first. A reader copies them into the map with `copy_from_slice`. The tile ids are those of `fizz-ep2::tiles`. A tile id outside the table is a corrupt level.
 
-**Length.** The decoded length is `32 + pad8(name_len) + 32 * (object_count + rule_count + string_count) + w * h`. The reader checks that the decoded length equals it exactly. For the slice today (32 by 48, eleven objects: the two keys, eight snacks, soda cans and the elixir, and the chicken; two rules, the red and the blue door's locks; no strings; a 16-byte name) that is 2,000 bytes; each rule or string adds 32 (1,936 without the locks).
+**Limits.** 32 states, 8 values per state, 64 bindings, 32 rules, 32 strings, 16 groups, 48 bytes of name, 30 bytes of string text, 2 conditions and 2 actions per rule. They are the level studio's proposed defaults, adopted here; each is a `const` in `fizz-pack` and in the compatibility number, so a later change moves the numbers and refuses older packs rather than misreading them. A level that needs more chains rules through a state: one rule sets a state and another reads it with `becomes`.
 
-**Construction order.** The baker writes objects in the order the world is built: red key, blue key, snacks in source order, then the chicken. The reader applies them in record order. Objects of the same kind keep their source order, because the state hash indexes snacks and chickens by position.
+**Construction order.** The baker writes objects stably sorted by kind: red key, blue key, snacks in source order, the chicken, then the switches and the lights. The reader applies them in record order. Objects of the same kind keep their source order, because the state hash indexes snacks and chickens by position, and because a rule names an object by its index.
 
-**Reader checks.** `LevelView::new` in `fizz-pack` refuses, each with its own error: a section shorter or longer than the sizes in the header give (the length formula above, exactly); `w` or `h` of 0; a `floor_solid` over 1; a name over 48 bytes, a name byte outside 0x20 to 0x7E or non-zero name padding; non-zero reserved bytes or object `flags`; a `kind` of 0 or over 7; a non-zero `sub` on an object that is not a snack; a spawn or object centre outside the map (`0 <= x < w`, `0 <= y < h`, which also refuses NaN and infinities); a non-finite `p`; a rule count or string count over 32 (checked before the length); a rule that breaks any of the rules in the next paragraph (`BadRule`); a string that breaks them (`BadString`); and, through `LevelView::with_count`, an object count that differs from the directory count. The `kind` numbers 5 to 7 pass the container check because they are in the schema; `fizz-ep2` refuses those it cannot build yet, and checks that a snack's `sub` is a known snack kind.
+**Reader checks.** `LevelView::new` in `fizz-pack` refuses, each with its own error: a section version other than 2; a section shorter or longer than the length formula gives; `w` or `h` of 0; a `floor_solid` over 1; a name over 48 bytes, a name byte outside 0x20 to 0x7E or non-zero name padding; a count over its limit (checked before the length); non-zero reserved bytes anywhere; a state with fewer than 2 or more than 8 values, or a start not below `values` (`BadState`); a binding that breaks the binding paragraph above (`BadBinding`); an object `kind` of 0 or over 10, or a kind that is reserved; a non-zero `sub`, `flags`, `aux` or `p` where the object table says zero; a snack `sub` over 3; a chicken direction other than -1.0 or 1.0; a group over 16; a light with no radius or one over 16, or with an attach target that is not a snack, a chicken or Ben; a switch with no input flag; a spawn or object centre outside the map (`0 <= x < w`, `0 <= y < h`, which also refuses NaN and infinities; an attached light's `x` and `y` are offsets and need only be finite and within 16); a non-finite `p`; a rule that breaks the next paragraph (`BadRule`); a string that breaks its rules (`BadString`); and, through `LevelView::with_count`, an object count that differs from the directory count. Every error carries the index of the record, so the baker can point at the source line.
 
-**Rule and string checks.** A rule is refused (`LevelError::BadRule`) when: the trigger is not 1 to 8; a flag bit other than `REPEAT`, `GUARD` or `GUARD_ON` is set, `GUARD_ON` is set without `GUARD`, the guard channel is 32 or more, or is not zero without a guard; the subject does not fit the trigger (a lock key colour of 0xFF, a take that does not name a key or snack object, a stomp or stun that names neither a chicken or enemy object nor 0xFF, a non-zero subject on any other trigger); an `enter` or `shoot` rect is inverted or reaches outside the map; the union is not zero on a trigger without one; a `time` rule has `at` of 0, an `every` between 1 and 5, or `REPEAT` that disagrees with `every`; the op is over 3, the channel 32 or more, or the cell outside the map; a slot A with op none has a non-zero channel or cell; a caption code is neither `CUE_NONE`, below 0x40, nor `0x40 + i` with `i` below the string count; a used slot B has its cell outside the map, or an empty one a non-zero cell; a lock is not op off with no delay, no guard and no repeat; or a reserved byte is not zero. A string is refused (`LevelError::BadString`) when its length is 0 or over 30, its style is 7 or more, bytes after the text are not zero, the text is not valid UTF-8, or a character is outside the charset above. The map's maximum width in pixels is not checked here.
+**Rule checks.** A rule is refused when: the trigger is not 2 to 15; a flag bit other than `REPEAT` is set; the subject does not fit the trigger (a take that does not name a key or snack object, a stomp, stun or defeat that names neither a chicken or enemy object nor `0xFFFF`, a use or hit that does not name a switch, a touch that does not name an object, a group that no object carries, a `becomes` that does not name a state, a subject other than `0xFFFF` on any other trigger); `arg` is not a value of the named state on `becomes`, or is not zero elsewhere; a rect is inverted or reaches outside the map; a touch cell has unequal corners; the union is not zero on a trigger without one; a `time` rule has `at` of 0, an `every` between 1 and 5, or `REPEAT` that disagrees with `every`; a condition or action has a kind or op outside its table, a state index at or over `state_count`, a value at or over that state's `values`, a toggle of a state that does not have exactly 2 values, a key colour over 2, an amount outside its range, a raised cell outside the map, or a non-zero field that its kind says is zero; a word action's caption code is `CUE_NONE` or reaches `0x40 + i` with `i` at or over the string count; or the rule has no action at all. A string is refused when its length is 0 or over 30, its style is 7 or more, bytes after the text are not zero, the text is not valid UTF-8, or a character is outside the charset above. The map's maximum width in pixels is not checked here.
 
 **Same bytes on both targets.** The Web and DOS packs hold byte-identical `LEVL` payloads. The stored bytes may differ when a target picks another codec for a section, but the decoded bytes, and their manifest FNV, do not. A test in the baker bakes both targets and compares the decoded `LEVL` bytes.
+
+**What changed from version 1.** Version 1 is dropped, not read.
+
+| Part | Version 1 | Version 2 |
+| --- | --- | --- |
+| Section version byte | 1 | 2 |
+| Fixed part | 32 bytes, with `switches` at byte 4 and counts for rules and strings | 32 bytes, with `switches` gone, `floor_solid`, the name length and the object count moved up, and counts for states, bindings, rules and strings |
+| Switch state | 32 on and off channel bits, one channel fixed by each door tile | A state table of up to 32 states with 2 to 8 values and a start value each |
+| Doors, lights | The tile's channel; lights are constants | Binding records |
+| Object kinds | 1 to 4 built, 5 to 7 reserved | 1 to 4, 6 and 8 built; 5, 7, 9 and 10 reserved |
+| Object fields | `channel` (`u32`) | `aux` (`u32`), with a meaning per kind |
+| Rule record | 32 bytes: one trigger, a guard channel, one channel action and one cue | 48 bytes: one trigger, two conditions, two actions |
+| Lock | Trigger 1 | A rule: a touch input, the conditions "state is" and "holds", the actions "set" and "spend" |
+| Cue | Slot B holds an effect and a caption together | Two separate actions, a word and a cue |
+| Caption codes | `0x40 + i` for level strings | The same, and `0x80 + i` for world strings |
+| Trigger numbers | 1 to 8 | 2 to 8 unchanged, 9 to 15 added, 1 retired |
+| Length | `32 + pad8(name) + 32 * (objects + rules + strings) + w * h` | The formula above |
+
+**The slice as a worked example.** The slice (32 by 48, a 16-byte name, ten objects, two states, two bindings, two rules, no strings) is 2,048 bytes: the header 32, the name 16, the states 16, the bindings 32, the objects 320, the rules 96 and the tiles 1,536. The state table is `red-door` (values `closed`, `open`, start 0) and `blue-door` (the same); the bindings make each door's tiles passable when its state is 1. The red door is the column of tiles at x 15, y 20 to 22, the blue door the column at x 22, y 38 to 40. In bytes, every number little-endian:
+
+```text
+state 0 (red-door):   02 00 00 00 00 00 00 00      2 values, start 0 (closed)
+state 1 (blue-door):  02 00 00 00 00 00 00 00
+
+binding 0:  01 00 01 00 FF FF 00 00  0F 00 14 00 0F 00 16 00
+            |  |  |     |           x0=15 y0=20 x1=15 y1=22
+            |  |  |     target: none
+            |  |  value 1: open
+            |  state 0
+            kind 1: door tiles
+binding 1:  01 01 01 00 FF FF 00 00  16 00 26 00 16 00 28 00      x 22, y 38 to 40
+
+rule 0, the red lock: when Ben touches the cell (15,21), the red door is closed and he
+holds the red key, open the door and spend the key.
+  header    09 00 00 00 FF FF 00 00         trigger 9, no repeat, no delay, subject none, arg 0
+  union     0F 00 15 00 0F 00 15 00         the cell (15,21) as a rect
+  cond 0    01 00 00 00                     state 0 is value 0 (closed)
+  cond 1    03 00 00 00                     Ben holds key colour 0 (red)
+  action 0  01 00 01 00 00 00 00 00 00 00 00 00      set state 0 to value 1 (open)
+  action 1  04 00 00 00 00 00 00 00 00 00 00 00      spend key colour 0
+rule 1, the blue lock: the same bytes with the cell (22,39) in the union, cond 0 "01 01 00 00"
+(state 1 is 0), cond 1 "03 01 00 00" (key colour 1), action 0 "01 01 01 00 ..." and
+action 1 "04 01 00 00 ...".
+```
+
+Rule order is the order the sim evaluates them, as in version 1: the red lock first, then the blue. Version 1's lock records carried the door's middle cell as the event cell, and the version 2 touch cell is the same cell. Whether the door's own sound and word (`clunk`, effect 19) stay a built-in event of a bound door opening, or become actions of the lock rule, is open (below). If a door sound became an action, a lock would need a third action slot or a second rule that fires on `becomes`.
+
+**Compatibility numbers and hashes.** `LEVEL_HASH` is rebuilt for version 2. It starts from the text `fizz-pack-level`, then feeds, as little-endian `u32` values and in this order: the `LEVL` section version (2); the sizes of the header, state, binding, object, rule, condition, action and string records (32, 8, 16, 32, 48, 4, 12, 32); the tags `LEVL`, `SPRT`, `MUSC` and `BDRP`; the limits `MAX_STATES`, `MAX_STATE_VALUES`, `MAX_BINDINGS`, `MAX_RULES`, `MAX_STRINGS`, `MAX_GROUPS`, `STRING_TEXT_MAX` and `MIN_PERIOD`; `STYLE_COUNT`; the object kind numbers 1 to 10 and the switch and light flag bits; the binding kind numbers 1 to 4; the trigger numbers 2 to 15; the condition kind numbers 1 to 4; the action op numbers 1 to 9; the `REPEAT` flag; the caption code bases (`0x40`, `0x80`), the cue id base (`0x100`) and the "any" subject (`0xFFFF`); and the eight string charset extras. The resulting values are not written here, because the tests that pin them are computed when the code lands; the order is listed so a second implementation can reproduce them. `SCHEMA_HASH` follows `LEVEL_HASH` (it feeds `CONTAINER_HASH`, `LEVEL_HASH` and the three audio hashes, so only `LEVEL_HASH` moves it). The content bytes of a world or shared pack change as well: `tiles::pack_content()` drops the 256 switch-channel bytes of the tile property table and `MAX_CHANNELS`, adds the state, value and binding limits, and its `RULES_SEMANTICS` byte becomes 2, so every world and shared pack's number moves, and the music numbers do not. The pack container's `FORMAT_VERSION` (1) and `CONTAINER_HASH` do not change, because the header and directory are untouched; only the `LEVL` section version does.
+
+**Open points for version 2.**
+
+1. **The door's sound and word.** Built-in event of a bound door opening (the proposal, so a lock keeps its two action slots free) or actions of the rule.
+2. **A third key.** Kind numbers exist for the red and blue keys only; the green key (key colour 2 is numbered already) needs an object kind or a `sub` on a generic key kind, and the second-key-of-a-colour rule needs restating.
+3. **Light details.** A numeric falloff and a numeric flicker period do not fit in `aux` beside the attach target; they would take the `flags` high byte or a second word.
+4. **The tile ids of doors.** `DOOR_R` and `DOOR_B` could become one switched tile id with the colour drawn from the binding, which changes the tile tables and the art.
+5. **World-scoped states** that span levels are not in a level's table (Q27 of the level studio).
+6. **Objects that raise events** by themselves (D50) have no field yet; today a rule raises them.
+7. **Whether the pack's `FORMAT_VERSION` should move** with the section version. This page keeps it at 1.
 
 ### Audio sections
 
@@ -381,7 +527,7 @@ The exact wording is final only once `tools/check-dos.sh` has a negative case fo
 
 - **Machine floor.** The stated minimum is a 4 MB machine with about 2 MB free (owner decision, 2026-10-29). Fizz 1 was a 4 MB-class game that needed 1 MB free and refused to start below it, because its sound handler faulted on pages the DPMI host had swapped out when DOSBox ran with `memsize` 2 and 1. 1 to 2 MB machines are not a design target; DOSBox's `memsize` 1 is only its smallest setting. Fizz 2 only warns when memory is below its floor, as the code does today, and carries on; nothing in the pack format adds a fallback for such machines.
 - **Free memory.** The DOSBox ladder reads about 2,256 KB free at `memsize` 4 and about 208 KB at `memsize` 2, and after the load about 96 KB at `memsize` 2 and about 56 KB at `memsize` 1 (after the 256 KB heap and the executable). A decoded section, its stored bytes (while decoding) and the decoder's working tables must all fit what the floor machine has.
-- **Levels.** A level is small (the slice's decoded section is 1,904 bytes; a Fizz 1-sized level of 192 by 28 tiles is about 6 KB). The tiles are copied into the `TileMap`, so the section buffer is freed once the world is built.
+- **Levels.** A level is small (the slice's decoded section is 2,048 bytes; a Fizz 1-sized level of 192 by 28 tiles is about 6 KB). The tiles are copied into the `TileMap`, so the section buffer is freed once the world is built.
 - **Audio, locked memory.** The decoded buffer that the sound interrupt reads must be **locked** (unpageable) memory, locked with the DPMI lock call before the first interrupt can read it and unlocked when the buffer is released. A paged-out page under an interrupt is the failure Fizz 1 hit. The stored bytes are read only by the main loop and need no lock, and can be freed as soon as the decode finishes, so what stays resident is the decoded length.
 - **Limit.** The default per-section decoded limit is **96 KB** (owner decision, 2026-10-29), for audio sections. The baker takes the limit as a parameter, checks decoded plus stored length against free memory in its report, and a section over the limit is an error at bake time, not a surprise at play time. `fizz-pack` has the default as `SECTION_LIMIT` and `PackView::check_limit`. The largest early-experiment section, the earlier `I3` layout of sunrise-psy for OPL2 (measured with that layout, to be re-measured on OPX), is 61,720 bytes decoded and about 11.9 KB stored, so every early-experiment song fits one section.
 - **Segment sections.** For a very long song, past the limit or the `u16` write count, the song is stored as OPX segments (see [Audio sections](#audio-sections)): a prelude and loop segments decoded in order, double buffered from the main loop. This is kept as an option and is not routine. Both buffers are locked.
@@ -428,7 +574,7 @@ The numbers above are an example of the shape, not real values. `check` also dec
 
 The hand-written slice level in `crates/fizz-ep2/src/level.rs` stays in the code permanently as the test oracle (owner decision, 2026-10-29). Two things need proving, because the state hash of `fizz-ep2` covers the switches, the snack count and which snacks are taken, and not the tiles, the snack positions or the kinds. A baked level with one wrong tile could still match the golden hash.
 
-1. **Same digest.** `fizz_ep2::level::digest(&LevelSource)` is FNV-1a 64 (offset basis 0xcbf29ce484222325, prime 0x100000001b3) over, in this order and little-endian: `w`, `h` (as `u16`), the tile bytes, `switches` (`u32`), `floor_solid` (`u8`), the bits of the spawn x and y, then for each object in order `kind`, `sub`, `flags`, `channel` and the bits of `x`, `y` and `p`, then the rule count (`u8`) and each rule's 32-byte record (as `RuleRec::to_bytes` writes it), then the string count (`u8`) and each string's 32-byte record. The name is not included. The function is `fizz_sim::StateHash` (same basis and prime), fed the fields in that order; the digest of `SLICE_SOURCE` is pinned as a literal in a test of `fizz-ep2`. The digest of the baked script equals the digest of `const SLICE`.
+1. **Same digest.** `fizz_ep2::level::digest(&LevelSource)` is FNV-1a 64 (offset basis 0xcbf29ce484222325, prime 0x100000001b3) over, in this order and little-endian: `w`, `h` (as `u16`), the tile bytes, `switches` (`u32`), `floor_solid` (`u8`), the bits of the spawn x and y, then for each object in order `kind`, `sub`, `flags`, `channel` and the bits of `x`, `y` and `p`, then the rule count (`u8`) and each rule's 32-byte record (as `RuleRec::to_bytes` writes it), then the string count (`u8`) and each string's 32-byte record. (This describes the digest as it is now; the `LEVL` 2 change replaces `switches` with the state table and bindings and the 32-byte rule record with the 48-byte one, in the order of the section.) The name is not included. The function is `fizz_sim::StateHash` (same basis and prime), fed the fields in that order; the digest of `SLICE_SOURCE` is pinned as a literal in a test of `fizz-ep2`. The digest of the baked script equals the digest of `const SLICE`.
 2. **Same starting world.** `level::world_from_view(view)` and `level::world()` give an equal `hash()`, and equal tiles, switches, snacks, chickens, keys and spawn. `level::world()` is `level::world_from(&SLICE_SOURCE)`; a test keeps the old hand-written calls as an oracle and compares the two worlds field by field.
 3. **Same transcript everywhere.** A replay from the pack matches `crates/fizz-ep2/slice-replay.txt` byte for byte on native, Web and DOS (`tools/check-parity.sh`).
 
@@ -449,6 +595,8 @@ Fizz 2 follows the rules of Fizz 1's release scripts, which [`PLATFORM.md`](PLAT
 - The tool that builds the two images (plain and FreeDOS) and checks the 64 KB reserve is a separate package after the loaders (owner decision, 2026-10-29). Until then the layout above is the requirement, not an implementation.
 
 ## Open points
+
+The open points of `LEVL` version 2 are listed at the end of [its section](#levl).
 
 Decided by the owner on 2026-10-29 and no longer open: the file names, the DOS search order (current directory, then the executable's directory), the pack stem in the header, the file checksum of `MUSIC.*` at start-up (not checked), tile property flags in the compatibility number, a separate number for audio files, the key-on rule in compaction, the 96 KB section limit and segment sections (formerly chunk sections), the effects layout, the `u16` write count, OPX as the audio payload (formerly the `I3` layout; owner decision, 2026-10-30), LZMA as reserved only, and the floppy image tooling as a later package.
 
