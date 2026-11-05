@@ -1100,19 +1100,19 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0x551b20a6d1922e69, 0x6c8a7d38f14cd379),
-        (217, 0xe2b4b3606cd280b6, 0x2651474df9ae333c),
-        (853, 0x713ceac5767e59fd, 0x713ceac5767e59fd),
-        (873, 0x991efe7bea2e8eaf, 0x991efe7bea2e8eaf),
-        (1094, 0xf0c5a4f0f739d3b3, 0xf0c5a4f0f739d3b3),
+        (197, 0x4c650f748ae497e1, 0x27bd3d1c68c0a099),
+        (217, 0x7cde865b828ea386, 0xc59ae3e97b3c9f10),
+        (853, 0xd975ed46e10b710f, 0xd975ed46e10b710f),
+        (873, 0x992f23fd749b0115, 0x992f23fd749b0115),
+        (1094, 0x58f794bd4e37e929, 0x58f794bd4e37e929),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
-        0xe950fb35cf350efa,
-        0xc830e1f5b5914cf3,
-        0x44fb93d806ddc357,
-        0x2edea8c959ebabcc,
-        0xedb8970ee8bd1bfa,
-        0x19d9bfc90d424ede,
+        0x864162f2053ab4d8,
+        0xf264e4cf27aa00fd,
+        0xba85d6c850c5961d,
+        0x397967520854dc48,
+        0x4a137742b898fdce,
+        0xd1cb0706ffbc05da,
     ];
 
     fn fnv(bytes: &[u8]) -> u64 {
@@ -1171,31 +1171,31 @@ mod tests {
         assert_eq!(
             reduced,
             [
-                (394, 0x007900d077c6194d),
-                (395, 0x800d6cb1f70c5102),
-                (396, 0x0cc57a9c4c9e60a4),
-                (400, 0x77e6def8b0c68a8d),
-                (410, 0xb1218083ca68930f),
-                (420, 0x771273d0cc52706e),
-                (440, 0xbdbd730593ebec55),
-                (460, 0xb73a6bf05fe4ca46),
-                (470, 0xb7d6e2d4429f8e84),
-                (477, 0xdc8904adf59be68a),
+                (394, 0xa9bcb7102c2c7335),
+                (395, 0x061e6b9af90e4c02),
+                (396, 0xfdfafc30f6493bd8),
+                (400, 0xe7ea08e8ca0c528d),
+                (410, 0x6d061c44a9f69667),
+                (420, 0xc06ee0f26f3a2614),
+                (440, 0x3b95be129f246b31),
+                (460, 0x26ff964c63f141a4),
+                (470, 0x7d056bb0585ac30e),
+                (477, 0x5413a16685440f58),
             ]
         );
         assert_eq!(
             full,
             [
-                (394, 0x2a8b88389f90ad3c),
-                (395, 0x1b5412462b50ffa9),
-                (396, 0x739bd1e4d7762002),
-                (400, 0xc04296fef8d396b9),
-                (410, 0xb514f60f9aa88a94),
-                (420, 0xeb0f59762afc7831),
-                (440, 0xf25ee17c54e5e80f),
-                (460, 0xfc8d0fb87afeec88),
-                (470, 0xb7d6e2d4429f8e84),
-                (477, 0xdc8904adf59be68a),
+                (394, 0x82961607f46b3a24),
+                (395, 0xb07fcca732a873e1),
+                (396, 0xbc03c3300fc95fb4),
+                (400, 0x96988a931f7790d3),
+                (410, 0xfcaa96fe131e4a96),
+                (420, 0x99a011ff573a5855),
+                (440, 0x9cb4fde8f7505da9),
+                (460, 0x1038c1385d56a40a),
+                (470, 0x7d056bb0585ac30e),
+                (477, 0x5413a16685440f58),
             ]
         );
     }
@@ -1218,8 +1218,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0x77e6def8b0c68a8d before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
-        // 0xc04296fef8d396b9. The other ticks are not death frames and kept theirs.
+        // 0xe7ea08e8ca0c528d before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0x96988a931f7790d3. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -1237,34 +1237,34 @@ mod tests {
         assert_eq!(
             old,
             [
-                (0, 0xadc2b0e6cfde5390),
-                (150, 0x6816990dc5e9a497),
-                (270, 0xc1299af2a1cf4c1a),
-                (400, 0xc04296fef8d396b9),
-                (602, 0x91417b17ebda4c2e),
-                (700, 0x9412f4259f56cbc6),
-                (865, 0x912ea065a8cc2e5e),
-                (1000, 0x35b26d3a582a66d2),
-                (1268, 0x62cf1ef918ae4519),
-                (1450, 0xf3c2b824bb5937c3),
-                (1681, 0x9782e38c2df90191),
+                (0, 0x8f5d1d703632de3e),
+                (150, 0xc1960f3dc04ee373),
+                (270, 0xe8f1fafe4a5f62b2),
+                (400, 0x96988a931f7790d3),
+                (602, 0x340d5091addc7678),
+                (700, 0xabc05a7a4a86e0ae),
+                (865, 0x0364355a21d6a202),
+                (1000, 0x7ef3a65746089bbc),
+                (1268, 0xf41efb06e7f6764b),
+                (1450, 0x7e39314dd4926d19),
+                (1681, 0xda9c59c9720ad45d),
             ]
         );
         assert_eq!(
             seen,
             [
-                (0, 0xadc2b0e6cfde5390),
-                (150, 0x6816990dc5e9a497),
+                (0, 0x8f5d1d703632de3e),
+                (150, 0xc1960f3dc04ee373),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
-                (270, 0xc1299af2a1cf4c1a),
-                (400, 0xc04296fef8d396b9),
-                (602, 0x91417b17ebda4c2e),
-                (700, 0x9412f4259f56cbc6),
-                (865, 0x912ea065a8cc2e5e),
-                (1000, 0x35b26d3a582a66d2),
-                (1268, 0x62cf1ef918ae4519),
-                (1450, 0xf3c2b824bb5937c3),
-                (1681, 0x9782e38c2df90191),
+                (270, 0xe8f1fafe4a5f62b2),
+                (400, 0x96988a931f7790d3),
+                (602, 0x340d5091addc7678),
+                (700, 0xabc05a7a4a86e0ae),
+                (865, 0x0364355a21d6a202),
+                (1000, 0x7ef3a65746089bbc),
+                (1268, 0xf41efb06e7f6764b),
+                (1450, 0x7e39314dd4926d19),
+                (1681, 0xda9c59c9720ad45d),
             ]
         );
     }
@@ -1403,11 +1403,11 @@ mod tests {
         assert_eq!(
             seen,
             [
-                (100, 0x266e04f494d85afa),
-                (110, 0xaf584208effcc109),
-                (118, 0xf7148a7112f00851),
-                (122, 0xf20d00551e1f1a33),
-                (290, 0x1e3d9761bcde0163)
+                (100, 0xf455e3ec0429f12e),
+                (110, 0x4ec8aed63a9af639),
+                (118, 0x6b8f9003ea2782a7),
+                (122, 0xfcff42654786ba63),
+                (290, 0xf39396a2c98efadb)
             ]
         );
     }

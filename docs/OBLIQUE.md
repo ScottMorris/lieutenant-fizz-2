@@ -72,7 +72,7 @@ Textures are functions of world position, so seams line up across tiles and the 
 | `^` | Spikes | A shaded back row and a lit front row standing on the floor strip, W tips the brightest line in the room |
 | `D`, `b` | Doors | One piece across the door's tiles: boards, iron bands, a yellow lock, the shape badge on the top tile |
 | `E` | Exit | A two-tile stone-arched doorway on the far edge, lit g inside, a W up arrow (see [The exit](#the-exit)) |
-| `w` | Back wall | The theme's interior material; the slice's is vertical 8 px B boards with k seams, grain and D knots; a k ceiling shadow under stone, the odd porthole |
+| `w` | Back wall | The theme's interior material; the slice's is vertical 8 px whitewashed L boards with D seams and grain, and k knots; a k ceiling shadow under stone, the odd porthole |
 | `.` | Open air | The theme's parallax stack; the slice's is the Lighthouse night (stars, clouds, headlands and sea, see [Backgrounds and parallax](#backgrounds-and-parallax)); the gallery gets an iron railing on the far edge of its planks |
 
 ## The exit

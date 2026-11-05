@@ -278,7 +278,7 @@ You start on the floor of the left shaft, with spikes a few steps to your right.
 
 The level is drawn as if you were looking at it from a little above and in front, so every floor and ledge has a far edge, a near edge and a stretch of floor between them, and you walk along the line between them. How things look:
 
-- **Rooms.** The wall behind the rooms is dark blue boards, with a round porthole or two. A ledge casts a shadow on it, and the ledges inside the rooms are held up by iron brackets.
+- **Rooms.** The wall behind the rooms is whitewashed boards, like the inside of a lighthouse, with a round porthole or two. A ledge casts a shadow on it, and the ledges inside the rooms are held up by iron brackets.
 - **Wooden ledges.** A ledge of brown planks with a yellow front edge is one you can jump up through and land on from above. The long gallery at the top has an iron railing along its back edge.
 - **Stone and brick.** Solid walls and floors are grey stone, darker and plainer deeper inside the walls, and red brick; their light-grey tops are floors you can stand on. You cannot pass through them.
 - **Doors.** The red door and the blue door are tall wooden doors with an iron lock. Each has a white badge so that you can tell them apart without the colours: a triangle on the red door and a circle on the blue one. An open door is not drawn at all, and you see the room behind it.
