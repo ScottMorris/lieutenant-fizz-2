@@ -398,6 +398,10 @@ async function main() {
     showLayout();
     app.set_captions(now.captions === "on");
     app.set_shake(!reducedMotion(now.motion));
+    // Sky: Full draws the whole parallax night in open air, Light only its stars and sea. The picture only.
+    app.set_full_sky(now.sky === "full");
+    // Night: the level at night, lit by its lanterns, lamps and Ben's lantern. The picture only.
+    app.set_night(now.night === "on");
     ui.setReducedMotion(!app.shake());
     if (remember) {
       // A placement from the address is for this visit only; it is saved when the player changes that row, which clears the star.

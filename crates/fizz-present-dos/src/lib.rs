@@ -19,7 +19,7 @@ use fizz_sim::Buttons;
 
 pub use fizz_sfx::place::Placement;
 pub use fizz_slice_view::{
-    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound,
+    DrawOptions, EventCaptions, Puffs, VIEW_H, VIEW_W, ViewFx, cluck_placement, event_sound, light,
 };
 pub use fizz_view::{GLYPH, glyph};
 pub use frame::Frame;
@@ -32,7 +32,18 @@ pub const FRAME_BYTES: usize = WIDTH * HEIGHT;
 
 /// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
 /// banner, which would add text over the picture. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
-pub const DIGEST_TICKS: [u64; 11] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000];
+/// Tick 1190 is on the gallery, with open air over most of the top of the picture, so the sky's pixels are compared too.
+pub const DIGEST_TICKS: [u64; 12] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000, 1190];
+
+/// The shared picture's options for `FIZZ2.EXE /BENCH` with a `FIZZ2.CFG` of defaults: captions on, Full motion, and the Light
+/// sky (the stars and the sea), where the default Auto sky starts, because the whole parallax night does not fit a 60 Hz frame on
+/// the 486DX2-66 floor. The Web's default sky is Full.
+pub fn dos_default_options() -> DrawOptions {
+    DrawOptions {
+        full_sky: false,
+        ..DrawOptions::default()
+    }
+}
 
 /// An FNV-1a digest of the whole frame: the shared picture and the HUD box over it. The DOS bench and the host `frames`
 /// example print it for the same ticks, so the DOS drawing path (its `memset`, `memcpy` and any faster routine) is proved to
@@ -77,12 +88,19 @@ pub fn render_slice_with(
         &fx.puffs,
         &fx.captions,
     );
-    frame.draw_hud(fx.hud.view(world));
+    // At night the picture is shown in the night palette, whose bank 0 is dark: the HUD and the banner are drawn in the glow
+    // bank so they stay at full brightness.
+    if options.night {
+        frame.draw_hud_glowing(fx.hud.view(world));
+    } else {
+        frame.draw_hud(fx.hud.view(world));
+    }
     if world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED) {
         let text = "LEVEL CLEAR";
         let x = (WIDTH as i32 - text.len() as i32 * GLYPH as i32) / 2;
+        let glow = if options.night { light::GLOW } else { 0 };
         frame.fill_rect(x - 4, 146, text.len() as i32 * GLYPH as i32 + 8, 16, BLACK);
-        frame.draw_text(x, 150, text, YELLOW);
+        frame.draw_text(x, 150, text, YELLOW | glow);
     }
 }
 

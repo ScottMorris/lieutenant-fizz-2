@@ -14,7 +14,7 @@ use fizz_sfx::place::Placement;
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use fizz_slice_view::{
     CAPTION_TICKS, CaptionView, DrawOptions, EventCaptions, HudAnim, Puffs, ben_view_box,
-    caption_view, draw_slice_puffs, event_sound,
+    caption_view, draw_slice_puffs, event_sound, light, palette_for,
 };
 use menus::{Menus, Screen};
 use wasm_bindgen::prelude::*;
@@ -134,6 +134,12 @@ pub struct App {
     captions: bool,
     /// Whether the view shakes when Ben dies. The page turns it off for Reduced Motion.
     shake: bool,
+    /// The Sky setting: the open air's whole parallax night (Full, the default) or its stars and sea only (Light).
+    full_sky: bool,
+    /// The Night setting: off (the default) draws the level by day, on at night with its lights.
+    night: bool,
+    /// The colours a frame byte stands for: the day palette, or the night's (`fizz_slice_view::palette_for`), as RGBA.
+    colours: [[u8; 4]; 256],
     /// The live captions of the last [`App::render`], empty when captions are off.
     live_captions: Vec<CaptionView>,
     /// The shot-end puffs on show: view state fed from the step events, drawn into the picture like the DOS presenter's.
@@ -171,6 +177,9 @@ impl App {
             taken: Placement::CENTRE,
             captions: true,
             shake: true,
+            full_sky: true,
+            night: false,
+            colours: light::rgba(&light::DAY),
             live_captions: Vec::new(),
             puffs: Puffs::new(),
             event_captions: EventCaptions::new(),
@@ -269,10 +278,7 @@ impl App {
     /// caption list. Each event with a sound gets its effect id and where it sounds (`fizz_slice_view::event_sound`, the table in
     /// `captions.rs`), whatever the Captions setting says. The page plays them in order, each its own sound, as Fizz 1 does.
     fn collect_events(&mut self) {
-        let options = DrawOptions {
-            captions: false,
-            shake: self.shake,
-        };
+        let options = self.draw_options();
         for event in self.world.events() {
             // The camera is the one the picture is drawn with, in the view the page last set.
             if let Some((id, place)) =
@@ -300,6 +306,40 @@ impl App {
     /// Whether the view shakes when Ben dies.
     pub fn shake(&self) -> bool {
         self.shake
+    }
+
+    /// Draws the open air's whole parallax night (on, the default) or its stars and sea only (off): the Sky setting, Full or
+    /// Light. Only the picture changes.
+    pub fn set_full_sky(&mut self, on: bool) {
+        self.full_sky = on;
+    }
+
+    /// Whether the open air shows its whole parallax night.
+    pub fn full_sky(&self) -> bool {
+        self.full_sky
+    }
+
+    /// Draws the level at night (on) or by day (off, the default): the Night setting. At night the picture is drawn for the night
+    /// palette, which this also switches to, and lit by the level's lights. Only the picture changes.
+    pub fn set_night(&mut self, on: bool) {
+        self.night = on;
+        self.colours = light::rgba(&palette_for(&self.draw_options()));
+    }
+
+    /// Whether the level is drawn at night.
+    pub fn night(&self) -> bool {
+        self.night
+    }
+
+    /// The shared picture's options for the page's settings: no captions in the picture (the page draws them as text), and the
+    /// Motion, Sky and Night settings.
+    fn draw_options(&self) -> DrawOptions {
+        DrawOptions {
+            captions: false,
+            shake: self.shake,
+            full_sky: self.full_sky,
+            night: self.night,
+        }
     }
 
     /// Whether the cluck captions are shown.
@@ -393,16 +433,14 @@ impl App {
     /// Draws the current world into the frame buffers.
     pub fn render(&mut self) {
         // The picture has no captions on the Web; they are text over the canvas (see `caption_count`).
+        let options = self.draw_options();
         draw_slice_puffs(
             &mut self.indexed,
             self.view_w,
             self.view_h,
             &self.world,
             self.world.tick.0 as u32,
-            &DrawOptions {
-                captions: false,
-                shake: self.shake,
-            },
+            &options,
             &self.puffs,
         );
         self.live_captions.clear();
@@ -417,15 +455,12 @@ impl App {
                 &self.world,
                 self.view_w,
                 self.view_h,
-                &DrawOptions {
-                    captions: false,
-                    shake: self.shake,
-                },
+                &self.draw_options(),
             ));
         }
         let (pixels, _) = self.rgba.as_chunks_mut::<4>();
         for (px, &i) in pixels.iter_mut().zip(&self.indexed) {
-            *px = EGA_RGBA[usize::from(i & 15)];
+            *px = self.colours[usize::from(i)];
         }
     }
 
@@ -487,10 +522,7 @@ impl App {
     /// Where Ben's sprite lies in the view now: left, top, width and height in view pixels (the view is [`App::width`] by
     /// [`App::height`]). The page uses it to keep its HUD off Ben; nothing in the rules reads it.
     pub fn ben_box(&self) -> Vec<i32> {
-        let options = DrawOptions {
-            captions: false,
-            shake: self.shake,
-        };
+        let options = self.draw_options();
         let (x, y, w, h) = ben_view_box(&self.world, self.view_w, self.view_h, &options);
         vec![x, y, w, h]
     }
@@ -926,6 +958,8 @@ mod tests {
         let options = DrawOptions {
             captions: false,
             shake: true,
+            full_sky: true,
+            night: false,
         };
         let (w, h) = (WEB_VIEW_W, WEB_VIEW_H);
         let (mut prev, mut now_ms) = (Buttons::NONE, 0.0);
@@ -1278,6 +1312,27 @@ mod tests {
         assert!(pixels.iter().all(|p| EGA_RGBA.contains(p)));
         // The slice draws a whole picture, not a blank frame.
         assert!(pixels.iter().any(|p| p != &EGA_RGBA[0]));
+    }
+
+    #[test]
+    fn at_night_the_canvas_takes_the_bytes_through_the_night_table() {
+        // The page draws the same bytes as DOS and shows each through the shared 256-entry palette the DOS DAC is given, so a
+        // byte is the same colour on both.
+        let mut app = App::new();
+        app.set_night(true);
+        assert!(app.night());
+        app.render();
+        let table = light::rgba(&light::palette(fizz_slice_view::oblique::NIGHT_AMBIENT));
+        let (pixels, _) = app.rgba.as_chunks::<4>();
+        for (px, &i) in pixels.iter().zip(&app.indexed) {
+            assert_eq!(*px, table[usize::from(i)]);
+        }
+        // Night is the Full detail on the Web by default, so the light pass shades some cells.
+        assert!(app.indexed.iter().any(|&i| i >= 0x30));
+        app.set_night(false);
+        app.render();
+        let (pixels, _) = app.rgba.as_chunks::<4>();
+        assert!(pixels.iter().all(|p| EGA_RGBA.contains(p)));
     }
 
     #[test]

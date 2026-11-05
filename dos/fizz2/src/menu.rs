@@ -7,7 +7,7 @@
 // Fizz 1's DOS shell. The rows, keys and look are `fizz-menu` and `fizz_present_dos::menu`; this file is the part that touches the machine.
 //
 // While a screen is up the loop does not step the world, so the game, its effects and the frame governor are held; the audio service
-// goes on, so the music keeps playing. Each change applies as the key is pressed: captions and motion go to the draw options, the
+// goes on, so the music keeps playing. Each change applies as the key is pressed: captions, motion, the sky and the night go to the draw options, the
 // key layout to the input map, the frame rate to the governor (`Drawing::set_mode`), the placement to `play_events` and a device
 // through `audio::replan` with a plan resolved from the machine the start-up probes found, the way start-up resolves it. The file
 // is written when the player leaves Options with something changed (not after each key). A row that a switch set for this run is
@@ -18,7 +18,7 @@ use alloc::boxed::Box;
 use core::sync::atomic::Ordering;
 use fizz_dos_rt::{audio, timer};
 use fizz_hal::KeyCode;
-use fizz_machine::{Captions, Keys, Motion, PlacementMode, Prefs, Probe, Resolved, Settings, resolve};
+use fizz_machine::{Captions, Keys, Motion, Night, PlacementMode, Prefs, Probe, Resolved, Settings, SkyDetail, resolve};
 use fizz_menu::{Caps, MenuKey, MotionPick, OptionsScreen, Outcome, Overrides, PausedScreen, Platform, RowId, Values};
 use fizz_present_dos::menu::{MenuView, menu_key};
 use fizz_present_dos::{DrawOptions, Frame, Layout};
@@ -45,6 +45,8 @@ impl Applied {
                 captions: prefs.captions == Captions::On,
                 // Motion gates the death shake and spin; Reduced leaves them off.
                 shake: prefs.motion == Motion::Full,
+                full_sky: prefs.sky == SkyDetail::Full,
+                night: prefs.night == Night::On,
             },
         }
     }
@@ -97,6 +99,8 @@ fn overrides(file: &Prefs, effective: &Prefs) -> Overrides {
         (file.frame_rate != effective.frame_rate, RowId::FRAME_RATE),
         (file.captions != effective.captions, RowId::CAPTIONS),
         (file.keys != effective.keys, RowId::KEYS),
+        (file.sky != effective.sky, RowId::SKY),
+        (file.night != effective.night, RowId::NIGHT),
     ] {
         if differs {
             o = o.with(row);
@@ -167,8 +171,8 @@ impl Menus {
         audio::set_mix(audio::Mix::Options);
     }
 
-    fn caps(&self, rate: u32) -> Caps {
-        Caps::dos(&self.auto, rate)
+    fn caps(&self, rate: u32, full_sky: bool) -> Caps {
+        Caps::dos(&self.auto, rate).with_full_sky(full_sky)
     }
 
     /// Handles a pressed key.
@@ -193,7 +197,7 @@ impl Menus {
                 _ => Step::Stay,
             },
             Which::Options => {
-                let caps = self.caps(drawing.rate());
+                let caps = self.caps(drawing.rate(), drawing.full_sky());
                 let outcome = self.options.key(key, &caps);
                 self.values = self.options.values;
                 self.overridden = self.options.overridden;
@@ -252,6 +256,12 @@ impl Menus {
         if self.overridden.has(RowId::KEYS) {
             prefs.keys = self.file.keys;
         }
+        if self.overridden.has(RowId::SKY) {
+            prefs.sky = self.file.sky;
+        }
+        if self.overridden.has(RowId::NIGHT) {
+            prefs.night = self.file.night;
+        }
         let ok = sound::save(&prefs).is_ok();
         self.saved = Some(ok);
         if ok {
@@ -279,6 +289,12 @@ impl Menus {
             RowId::FRAME_RATE => drawing.set_mode(v.frame_rate),
             RowId::MOTION => applied.draw.shake = v.motion != MotionPick::Reduced,
             RowId::CAPTIONS => applied.draw.captions = v.captions == Captions::On,
+            RowId::SKY => {
+                drawing.set_sky(v.sky);
+                applied.draw.full_sky = drawing.full_sky();
+            }
+            // The palette follows when the screens close (`palette` in main.rs); the menus draw in the day one.
+            RowId::NIGHT => applied.draw.night = v.night == Night::On,
             RowId::KEYS => {
                 applied.layout = match v.keys {
                     Keys::Keen => Layout::Keen,
@@ -290,13 +306,13 @@ impl Menus {
     }
 
     /// Draws the open screen into `frame`; true when `frame` changed and should be presented.
-    pub fn draw(&mut self, frame: &mut Frame, rate: u32) -> bool {
+    pub fn draw(&mut self, frame: &mut Frame, rate: u32, full_sky: bool) -> bool {
         let tick = (u64::from(timer::ticks().wrapping_sub(self.opened_at)) * 60 / 560) as u32;
         match self.which {
             Which::Closed => false,
             Which::Paused => self.view.draw_paused(&self.paused, tick, frame),
             Which::Options => {
-                let caps = self.caps(rate);
+                let caps = self.caps(rate, full_sky);
                 self.view.draw_options(&self.options, &caps, tick, frame)
             }
         }

@@ -4,17 +4,17 @@ Modes (the first one given is used; /LIVE is the default)
   /REPLAY       Run the built-in script and print its transcript
   /BENCH [n]    Time the script (first n ticks) and print the costs
   /CHECK        Show the machine check; Esc leaves, Enter plays
-  /CHECKCELLS   Draw the check screen and print its cells; no key
   /PROBE        Print what the machine has: video, sound, processor
   /?            Show this help (also /HELP and -?); nothing else runs
 Options (for this run; where one has an opposite, the last one given wins)
-  /MODERN       Use the Modern keys (W A S D, Z X C) instead of Keen's
-  /KEEN         Use Keen's keys, even if FIZZ2.CFG saved the Modern ones
+  /MODERN /KEEN Modern keys (W A S D, Z X C), or Keen's, the default
   /CAPTIONS     Show the chicken's captions
   /NOCAPTIONS   Hide the captions
   /FPS30        Draw 30 frames a second (the game itself still runs at 60)
   /FPS60        Draw 60 frames a second
   /FPSAUTO      Draw 60 or 30 a second, whichever the machine keeps up with
+  /SKY:x        Sky: AUTO (the default), FULL night, or LIGHT (stars and sea)
+  /NIGHT /DAY   Night, lit by lanterns; or day, the default
 Sound (for this run only; FIZZ2.CFG keeps your saved choice)
   /MUSIC:x      Music device: ADLIB, SB or OFF
   /FX:x         Effects device: ADLIB, SB, SPEAKER or OFF

@@ -97,8 +97,22 @@ impl Hud {
     /// Renders the strip if `values` differ from the ones it shows.
     pub fn update(&mut self, values: HudValues) {
         if self.shown != Some(values) {
-            render(&mut self.strip, &values);
-            for (i, px) in self.strip.as_chunks::<4>().0.iter().enumerate() {
+            // The strip is rendered afresh and its masks worked out again only for the words that changed: a new number
+            // changes a few words of the 810, and the masks of the rest stand.
+            let mut fresh = [0u8; W * H];
+            render(&mut fresh, &values);
+            let first = self.renders == 0;
+            for (i, (px, old)) in fresh
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .zip(self.strip.as_chunks_mut::<4>().0)
+                .enumerate()
+            {
+                if !first && px == old {
+                    continue;
+                }
+                *old = *px;
                 let (mut keep, mut set) = ([0u8; 4], [0u8; 4]);
                 for (k, &p) in px.iter().enumerate() {
                     (keep[k], set[k]) = match p {
@@ -137,6 +151,36 @@ impl Hud {
             {
                 let word = u32::from_le_bytes([dst[0], dst[1], dst[2], dst[3]]);
                 dst.copy_from_slice(&((word & keep) | set).to_le_bytes());
+            }
+        }
+    }
+
+    /// [`Hud::draw`], with the strip's own pixels (the edge, the text and the keys) in the glow bank, so that
+    /// with the night palette, whose bank 0 is dark, they still show at full brightness (`fizz_slice_view::light::GLOW`). The
+    /// dimmed picture and the corners are as ever. An overlay pixel is the one whose mask keeps nothing, so its byte of `keep`
+    /// has bit 3 clear where a transparent (`0x0F`) or outside (`0xFF`) one has it set: `(!keep & 0x08) << 2` is `0x20` there alone.
+    /// The day picture's HUD is drawn by [`Hud::draw`] itself, so the day's composite is the one it always was.
+    #[inline(never)]
+    pub fn draw_glowing(&mut self, values: HudValues, pixels: &mut [u8], pitch: usize) {
+        if pitch < X + W || pixels.len() < (Y + H) * pitch {
+            return;
+        }
+        self.update(values);
+        const WORDS: usize = W / 4;
+        for row in 0..H {
+            let at = (Y + row) * pitch + X;
+            let masks = self.keep[row * WORDS..][..WORDS]
+                .iter()
+                .zip(&self.set[row * WORDS..][..WORDS]);
+            for (dst, (&keep, &set)) in pixels[at..at + W]
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(masks)
+            {
+                let word = u32::from_le_bytes([dst[0], dst[1], dst[2], dst[3]]);
+                let lift = (!keep & 0x0808_0808) << 2;
+                dst.copy_from_slice(&((word & keep) | set | lift).to_le_bytes());
             }
         }
     }
@@ -193,13 +237,13 @@ fn decimal(n: u32, buf: &mut [u8; 3]) -> &str {
 
 /// Whether pixel (`x`, `y`) of the strip is inside the box's rounded outline shrunk by `inset` pixels on every side (the corner
 /// radius shrinks with it, so the outlines are concentric).
-fn in_pill(x: usize, y: usize, inset: usize) -> bool {
+const fn in_pill(x: usize, y: usize, inset: usize) -> bool {
     if x < inset || y < inset || x >= W - inset || y >= H - inset {
         return false;
     }
     let r = RADIUS.saturating_sub(inset);
     // Distance from the pixel's centre to the centre of the nearest corner's circle, in half pixels.
-    let near = |v: usize, len: usize| {
+    const fn near(v: usize, len: usize, inset: usize, r: usize) -> i32 {
         let (lo, hi) = (inset + r, len - inset - r);
         if v < lo {
             (2 * lo - 2 * v - 1) as i32
@@ -208,33 +252,53 @@ fn in_pill(x: usize, y: usize, inset: usize) -> bool {
         } else {
             0
         }
-    };
-    let (dx, dy) = (near(x, W), near(y, H));
+    }
+    let (dx, dy) = (near(x, W, inset, r), near(y, H, inset, r));
     dx * dx + dy * dy <= (2 * r * 2 * r) as i32
 }
 
 /// How deep pixel (`x`, `y`) of the strip is in the pill: 0 outside it, 1 on the outer edge, 2 on the inner edge, 3 open. Only the
 /// four corner squares need the curve; everywhere else the depth is the distance to the nearest side.
-fn depth(x: usize, y: usize) -> u8 {
-    let (cx, cy) = (x.min(W - 1 - x), y.min(H - 1 - y));
+const fn depth(x: usize, y: usize) -> u8 {
+    let (cx, cy) = (
+        if x < W - 1 - x { x } else { W - 1 - x },
+        if y < H - 1 - y { y } else { H - 1 - y },
+    );
     if cx >= RADIUS || cy >= RADIUS {
-        return (cx.min(cy) + 1).min(3) as u8;
+        let d = if cx < cy { cx } else { cy } + 1;
+        return if d < 3 { d as u8 } else { 3 };
     }
-    (0..3).find(|&d| !in_pill(x, y, d)).unwrap_or(3) as u8
+    let mut d = 0;
+    while d < 3 && in_pill(x, y, d) {
+        d += 1;
+    }
+    d as u8
 }
 
-fn render(strip: &mut [u8; W * H], v: &HudValues) {
-    // The light grey outer edge, the dark grey inner edge inside it, and the open middle, as in Fizz 1, on a rounded outline.
-    for y in 0..H {
-        for x in 0..W {
-            strip[y * W + x] = match depth(x, y) {
+/// The box with nothing in it: the light grey outer edge, the dark grey inner edge inside it and the open middle, as in Fizz 1, on
+/// a rounded outline. Baked when the program is built, because it never changes and working out the corners for each of its
+/// 3,240 pixels was most of the cost of a render (about 2 ms on a 486DX2-66 each time a number on the HUD changed).
+static PILL: [u8; W * H] = {
+    let mut t = [0u8; W * H];
+    let mut y = 0;
+    while y < H {
+        let mut x = 0;
+        while x < W {
+            t[y * W + x] = match depth(x, y) {
                 0 => OUTSIDE,
                 1 => LIGHT_GREY,
                 2 => DARK_GREY,
                 _ => TRANSPARENT,
             };
+            x += 1;
         }
+        y += 1;
     }
+    t
+};
+
+fn render(strip: &mut [u8; W * H], v: &HudValues) {
+    *strip = PILL;
     let mut buf = [0u8; 3];
     // Row 1: Fizz and its number, Score (or the +N of a snack just taken) and its five digits.
     let x = shadowed(strip, TEXT_X, ROW1_Y, "Fizz ", LIGHT_GREY);

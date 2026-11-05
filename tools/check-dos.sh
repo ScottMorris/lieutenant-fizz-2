@@ -20,7 +20,7 @@
 #                 and the exact AUDIO WRITES counts
 #   config-sound  /? and /HELP, the SOUND line under every FIZZ2.CFG form and flag, /CFGTEST (save, read back, crash safety)
 #   menu          /MENUSHOT, and the Paused and Options screens played with typed keys (OPTIONS SAVED and the file's bytes)
-#   machine       /PROBE under the ladder of DOSBox configurations, /CHECKCELLS, the memsize ladder and the replay at memsize 1
+#   machine       /PROBE under the ladder of DOSBox configurations, /CHECKCELLS, the memsize ladder and the replay at memsize 4
 #   pack          reserved for the pack-loading cases; it has none yet
 #
 # CHECK_DOS_JOBS=<n> (default 1) runs the independent 28-second /REPLAY cases n at a time, each in its own copy of the program directory
@@ -125,9 +125,9 @@ DOS_CYCLES='fixed 26800' DOS_TIMEOUT=30 tools/dosrun.sh dist/dos RTSMOKE.EXE > /
 [ "$status" = 125 ] || fail "a rejected cpu_cycles setting exited $status (expected 125)"
 echo "GUARD rejected cpu_cycles exit $status"
 
-# 1. The replay: /REPLAY plays the slice script (1,757 ticks, about 29 seconds). The lines that start with `TICK `, `FINAL ` or
+# 1. The replay: /REPLAY plays the slice script (1,800 ticks, about 30 seconds). The lines that start with `TICK `, `FINAL ` or
 # `EVENT ` equal the golden transcript, whatever it holds, and Ben must reach the exit. The BIOS tick counter runs at 18.2065 Hz,
-# so 1,757 ticks of 60.0011 Hz is about 533 of its ticks; the bound is two either side of that.
+# so 1,800 ticks of 60.0011 Hz is about 546 of its ticks; the bound is two either side of that.
 golden=crates/fizz-ep2/slice-replay.txt
 status=0
 out="$(tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
@@ -144,7 +144,7 @@ printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY did not reach the ex
 printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "FPU control word is not 027F"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "vectors not restored"
 bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-{ [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || fail "BIOS TICKS '$bios' is outside 531-535"
+{ [ -n "$bios" ] && [ "$bios" -ge 544 ] && [ "$bios" -le 548 ]; } || fail "BIOS TICKS '$bios' is outside 544-548"
 
 # DOSBox's cycles per millisecond for the bench groups (view, audio, config-sound), set here so a run that selects one without the others still has it.
 CYCLES=26800
@@ -249,6 +249,14 @@ status=0
 out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /MUSIC:FOO)" || status=$?
 [ "$status" = 2 ] || fail "a bad sound value exited $status (expected 2)"
 printf '%s\n' "$out" | grep -qF 'unknown switch /MUSIC:FOO' || fail "a bad sound value was not named"
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /SKY:DIM)" || status=$?
+[ "$status" = 2 ] || fail "a bad sky value exited $status (expected 2)"
+printf '%s\n' "$out" | grep -qF 'unknown switch /SKY:DIM' || fail "a bad sky value was not named"
+status=0
+out="$(DOS_TIMEOUT=10 tools/dosrun.sh dist/dos FIZZ2.EXE /LIVE /NIGHT:ON)" || status=$?
+[ "$status" = 2 ] || fail "/NIGHT with a value exited $status (expected 2)"
+printf '%s\n' "$out" | grep -qF 'unknown switch /NIGHT:ON' || fail "/NIGHT:ON was not named"
 echo "HELP unknown switch exit 2"
 
 
@@ -263,10 +271,10 @@ if group view; then
 # and the rate that implies must match the configured cycles: DOSBox's normal core charges one cycle per simple instruction.
 # Measured at 3,000, 12,000, 26,800 and 80,000 cycles per millisecond the rate came out within 1% each time; the bound here is 10%.
 status=0
-out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=120 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
+out="$(DOS_CYCLES="$CYCLES" DOS_TIMEOUT=300 tools/dosrun.sh dist/dos FIZZ2.EXE /BENCH)" || status=$?
 echo "$out"
 [ "$status" = 0 ] || fail "/BENCH exited $status"
-printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1757' || fail "no 'BENCH TICKS 1757' line"
+printf '%s\n' "$out" | grep -qx 'BENCH TICKS 1800' || fail "no 'BENCH TICKS 1800' line"
 printf '%s\n' "$out" | grep -qx 'BENCH BUDGET 16667 us per tick at 60 Hz' || fail "no BENCH BUDGET line"
 printf '%s\n' "$out" | grep -qx "BENCH HASH $(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')" || fail "/BENCH ended on a different hash from $golden"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH did not reach the exit"
@@ -274,9 +282,16 @@ printf '%s\n' "$out" | grep -qx 'FPU CW 027F' || fail "/BENCH: FPU control word 
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH did not restore the vectors"
 # The DOS build's drawing path (its own memset and memcpy among others) must draw the pixels the portable code draws: the digests of
 # the picture below the HUD strip at seven ticks equal the ones the host computes from the same shared routines.
-host_frames="$(cargo run -q --release -p fizz-present-dos --example frames)"
+host_all="$(cargo run -q --release -p fizz-present-dos --example frames)"
+host_frames="$(printf '%s\n' "$host_all" | grep '^BENCH FRAME ' || true)"
 dos_frames="$(printf '%s\n' "$out" | tr -d '\r' | grep '^BENCH FRAME ' || true)"
 [ -n "$host_frames" ] && [ "$dos_frames" = "$host_frames" ] || fail "/BENCH frame digests differ from the host's: DOS '$dos_frames', host '$host_frames'"
+# The night passes' pictures too: the dressing, the markers and the shade pass draw on DOS what they draw on the host.
+for kind in 'NIGHT FRAME' 'NIGHT FULL FRAME'; do
+  host_night="$(printf '%s\n' "$host_all" | grep "^BENCH $kind " || true)"
+  dos_night="$(printf '%s\n' "$out" | tr -d '\r' | grep "^BENCH $kind " || true)"
+  [ -n "$host_night" ] && [ "$dos_night" = "$host_night" ] || fail "/BENCH ${kind,,} digests differ from the host's: DOS '$dos_night', host '$host_night'"
+done
 cal="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^BENCH CALIBRATE \([0-9]*\) loops in \([0-9]*\) us (2 instructions per loop)$/\1 \2/p')"
 [ -n "$cal" ] || fail "no 'BENCH CALIBRATE <n> loops in <n> us (2 instructions per loop)' line"
 set -- $cal
@@ -296,6 +311,24 @@ for section in STEP DRAW PRESENT TOTAL; do
   fi
 done
 caps_check BENCH "$(printf '%s\n' "$out" | tr -d '\r')"
+# The figures above are for the DOS default, the Light sky (the stars and the sea). With it /BENCH also plays the script with the Full
+# sky and prints its draw and captions figures as `BENCH FULL SKY` lines, which are logged for later work on the drawing and not
+# held to any bound: the Full sky is for machines and emulators faster than the floor.
+printf '%s\n' "$out" | tr -d '\r' | grep -qx 'BENCH SKY LIGHT' || fail "/BENCH did not measure the Light sky, the DOS default"
+printf '%s\n' "$out" | tr -d '\r' | grep -qE '^BENCH FULL SKY DRAW avg [0-9]+ max [0-9]+ units us$' || fail "/BENCH printed no 'BENCH FULL SKY DRAW' line"
+printf '%s\n' "$out" | tr -d '\r' | grep -E '^BENCH (DRAW WORST TICK|FULL SKY (DRAW|CAPTIONS six DRAW) )' || true
+# By day (the default) /BENCH plays the script a third time at night, with the same Light detail, and prints `BENCH NIGHT` lines. That
+# night (the palette's ambient and the glowing art, no light pass) must hold 60 Hz on the floor: its worst tick, the step, the drawing
+# and the copy to the screen, stays under the 16,667 us step, and the six-captions picture at night passes the same check as by day.
+# A fourth play at night with the Full detail, which adds the light pass, prints `BENCH NIGHT FULL` lines, logged without a bound
+# like the Full sky's: it is for machines and emulators faster than the floor.
+printf '%s\n' "$out" | tr -d '\r' | grep -qx 'BENCH NIGHT OFF' || fail "/BENCH did not measure the day first, the default"
+night_total="$(printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^BENCH NIGHT TOTAL avg [0-9]* max \([0-9]*\) units us$/\1/p')"
+[ -n "$night_total" ] || fail "/BENCH printed no 'BENCH NIGHT TOTAL avg <n> max <n> units us' line"
+[ "$night_total" -lt 16667 ] || fail "BENCH NIGHT TOTAL worst tick $night_total us is over the 60 Hz step"
+caps_check 'BENCH NIGHT' "$(printf '%s\n' "$out" | tr -d '\r')"
+printf '%s\n' "$out" | tr -d '\r' | grep -qE '^BENCH NIGHT FULL DRAW avg [0-9]+ max [0-9]+ units us$' || fail "/BENCH printed no 'BENCH NIGHT FULL DRAW' line"
+printf '%s\n' "$out" | tr -d '\r' | grep -E '^BENCH NIGHT (DRAW|PRESENT|TOTAL|FULL (DRAW|TOTAL)) ' || true
 
 fi
 
@@ -311,7 +344,7 @@ echo "$out"
 out="$(printf '%s\n' "$out" | tr -d '\r')"
 golden_hash="$(sed -n 's/^FINAL TICK [0-9]* HASH //p' "$golden" | tr -d '\r')"
 printf '%s\n' "$out" | grep -qx "BENCH AUDIO HASH $golden_hash $golden_hash" || fail "/BENCH /AUDIO ended on a different hash from $golden"
-printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1757 1757' || fail "/BENCH /AUDIO did not run the whole script twice"
+printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TICKS 1800 1800' || fail "/BENCH /AUDIO did not run the whole script twice"
 printf '%s\n' "$out" | grep -qx 'BENCH AUDIO TIMER PIT divisor 2131 (559.9 Hz), ARR opl3' || fail "/BENCH /AUDIO is not at 560 Hz with the OPL3 arrangement"
 printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/BENCH /AUDIO did not reach the exit"
 printf '%s\n' "$out" | grep -qx 'VECTORS RESTORED yes' || fail "/BENCH /AUDIO did not restore the vectors"
@@ -395,12 +428,10 @@ probe_case 'machine cga' cga '' 'PROBE video cga'
 probe_case 'machine hercules' hercules '' 'PROBE video mdahercules'
 probe_case 'cputype 386' svga_s3 $'[cpu]\ncputype = 386' 'PROBE cpu 386'
 probe_case 'cputype pentium' svga_s3 $'[cpu]\ncputype = pentium' 'PROBE cpu 586'
-# The memory ladder: free memory falls with the machine's memory. The ranges are loose around 14,544, 2,256, 208 and 168 KB (the third
-# fell to 96 KB when the sound data grew FIZZ2.EXE past 200,000 bytes, so its floor is 64; the program is what takes the difference).
+# The memory ladder: free memory falls with the machine's memory. The slice needs 4 MB since the oblique ground's texture tables
+# and drawing code (docs/DOS-CHECK.md, Memory floor); the ranges are loose around the 14,296 and 2,008 KB measured then at 16 and 4 MB.
 probe_case 'memsize 16' svga_s3 $'[dosbox]\nmemsize = 16' 'PROBE free_kb 12000-16384'
 probe_case 'memsize 4' svga_s3 $'[dosbox]\nmemsize = 4' 'PROBE free_kb 1500-4096'
-probe_case 'memsize 2' svga_s3 $'[dosbox]\nmemsize = 2' 'PROBE free_kb 64-1024'
-probe_case 'memsize 1' svga_s3 $'[dosbox]\nmemsize = 1' 'PROBE free_kb 40-512'
 fi
 
 if group machine; then
@@ -433,17 +464,17 @@ cells_case 'machine cga' cga ''
 cells_case 'machine hercules' hercules ''
 # A test (crates/fizz-machine/tests/no-check-in-scripts.rs) fails if any script or workflow runs the interactive /CHECK.
 
-# The slice's memory floor: the replay must still play, with the same transcript, on DOSBox's smallest memory size (1 MB).
-replay_memsize1() {
+# The slice's memory floor: the replay must still play, with the same transcript, on the 4 MB the slice needs.
+replay_memsize4() {
   local status=0 out got
-  out="$(DOS_CONF=$'[dosbox]\nmemsize = 1' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
-  [ "$status" = 0 ] || fail "/REPLAY at memsize 1 exited $status"
+  out="$(DOS_CONF=$'[dosbox]\nmemsize = 4' tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY)" || status=$?
+  [ "$status" = 0 ] || fail "/REPLAY at memsize 4 exited $status"
   got="$(printf '%s\n' "$out" | tr -d '\r' | grep -E '^(TICK|FINAL|EVENT) ' || true)"
-  [ "$got" = "$want" ] || fail "/REPLAY at memsize 1 differs from $golden"
-  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 1 did not reach the exit"
-  echo "REPLAY at memsize 1 ok"
+  [ "$got" = "$want" ] || fail "/REPLAY at memsize 4 differs from $golden"
+  printf '%s\n' "$out" | grep -qx 'EXIT yes' || fail "/REPLAY at memsize 4 did not reach the exit"
+  echo "REPLAY at memsize 4 ok"
 }
-par replay_memsize1
+par replay_memsize4
 par_wait
 
 fi
@@ -642,6 +673,13 @@ cfg_put 'FZ2C\x03\x02\x04\x02\x00\x00\x00\x00\x09'
 sound_case 'corrupt: keys byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-keys' /PROBE
 cfg_put 'FZ2C\x03\x02\x04\x02\x00'
 sound_case 'corrupt: v3 header on a v2 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
+# Version 4 adds the night (byte 13, 0 Off, 1 On); a bad value resets only the night and has its own code.
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00\x01'
+sound_case 'file v4' "$SB16" 'SOUND MUSIC opl2 FX speaker' /PROBE
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00\x09'
+sound_case 'corrupt: night byte only' "$SB16" 'SOUND MUSIC opl2 FX speaker cfg-night' /PROBE
+cfg_put 'FZ2C\x04\x02\x04\x02\x00\x00\x00\x00\x00'
+sound_case 'corrupt: v4 header on a v3 body' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
 cfg_put ''
 sound_case 'empty file' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 # /LIVE prints the line too (Esc opens Paused; Up and Enter choose Quit to DOS).
@@ -656,8 +694,8 @@ cfg_none
 sound_case 'flags leave no file' "$SB16" 'SOUND MUSIC off FX off' /PROBE /NOSOUND
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "a run with flags created FIZZ2.CFG"
 # The save path: /CFGTEST (a test mode, not for players) saves the settings the flags give with the 60 Hz frame rate, reads the file back
-# and prints it. The bytes are the documented version 3 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
-# set the keys and captions bytes), and a version 1 or 2 file is replaced by a version 3 one.
+# and prints it. The bytes are the documented version 4 layout (motion Reduced and placement Classic are fixed, /MODERN and /NOCAPTIONS
+# set the keys and captions bytes and /NIGHT the night's), and a version 1 or 2 file is replaced by a version 4 one.
 cfgtest_case() {
   local name="$1" hex="$2" out status=0
   shift 2
@@ -672,17 +710,19 @@ cfgtest_case() {
   echo "CFGTEST case $name ok ($hex)"
 }
 cfg_none
-cfgtest_case 'sb and speaker' 465A3243030304020001010000 /MUSIC:SB /FX:SPEAKER
-cfgtest_case 'nosound' 465A3243030101020001010000 /NOSOUND
-cfgtest_case 'modern keys, no captions' 465A3243030000020001010101 /MODERN /NOCAPTIONS
+cfgtest_case 'sb and speaker' 465A324304030402000101000000 /MUSIC:SB /FX:SPEAKER
+cfgtest_case 'nosound' 465A324304010102000101000000 /NOSOUND
+cfgtest_case 'modern keys, no captions' 465A324304000002000101010100 /MODERN /NOCAPTIONS
+cfgtest_case 'night' 465A324304000002000101000001 /NIGHT
+cfgtest_case 'night, then day wins' 465A324304000002000101000000 /NIGHT /DAY
 cfg_put 'FZ2C\x01\x03\x03\x00'
-cfgtest_case 'replaces a version 1 file' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'replaces a version 1 file' 465A324304020202000101000000 /ADLIB
 cfg_put "$V2"
-cfgtest_case 'replaces a version 2 file' 465A3243030000020001010000
-cfgtest_case 'no flags is Auto' 465A3243030000020001010000
+cfgtest_case 'replaces a version 2 file' 465A324304000002000101000000
+cfgtest_case 'no flags is Auto' 465A324304000002000101000000
 # The save is crash-safe: it writes FIZZ2.NEW, verifies it, deletes FIZZ2.CFG and renames. No FIZZ2.NEW is left behind, and the INT 24h
 # vector (the critical-error handler the save installs) is back where it was.
-cfgtest_case 'save leaves no FIZZ2.NEW' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'save leaves no FIZZ2.NEW' 465A324304020202000101000000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left FIZZ2.NEW behind"
 out="$(DOS_TIMEOUT=30 tools/dosrun.sh "$cfgdir" FIZZ2.EXE /CFGTEST /ADLIB | tr -d '\r')"
 printf '%s\n' "$out" | grep -qx 'INT24 RESTORED yes' || fail "/CFGTEST did not restore INT 24h"
@@ -708,9 +748,9 @@ sound_case 'leftover FIZZ2.NEW is recovered' "$SB16" 'SOUND MUSIC opl2 FX speake
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "reading a leftover FIZZ2.NEW created FIZZ2.CFG"
 printf 'junk' > "$cfgdir/FIZZ2.NEW"
 sound_case 'damaged FIZZ2.NEW is Auto' "$SB16" 'SOUND MUSIC opl3 FX ch5+14 cfg-length' /PROBE
-cfgtest_case 'a save replaces the leftover' 465A3243030202020001010000 /ADLIB
+cfgtest_case 'a save replaces the leftover' 465A324304020202000101000000 /ADLIB
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "a save left the old FIZZ2.NEW behind"
-cfgtest_case 'no flags is Auto again' 465A3243030000020001010000
+cfgtest_case 'no flags is Auto again' 465A324304000002000101000000
 # And what it saved is what the next run reads.
 sound_case 'saved file is read back' "$SB16" 'SOUND MUSIC opl3 FX ch5+14' /PROBE
 
@@ -720,15 +760,24 @@ if group audio; then
 # 3e. Sound choices never change the game: the replay's TICK, FINAL and EVENT lines equal the golden transcript under every combination
 # of file and flags, and each run prints the SOUND line its settings give.
 # The channel-5 write count the opl2 case finds, which the OR-rule and pair cases are measured against. With parallel cases it arrives in a
-# file; a case that needs it waits for the file (the opl2 case is dispatched before every case that reads it).
+# file; a case that needs it waits for the file (the opl2 case is dispatched before every case that reads it). Several opl2 cases run at
+# once and each writes the count, so it is written to a file of the case's own and renamed into place, which is atomic: a plain `>` truncates
+# the file first, and a reader that came between the truncation and the write read an empty count, which the arithmetic took as 0 (CI saw
+# "expected -68 writes" for a run that wrote the right 14,622). The reader also takes only a number.
+ch5_put() {
+  local tmp="$parroot/ch5-writes.$BASHPID"
+  printf '%s' "$1" > "$tmp" && mv -f "$tmp" "$parroot/ch5-writes"
+}
 ch5_get() {
   local n=0
-  while [ ! -s "$parroot/ch5-writes" ]; do
+  CH5_WRITES=""
+  while :; do
+    [ -s "$parroot/ch5-writes" ] && CH5_WRITES="$(cat "$parroot/ch5-writes")"
+    case "$CH5_WRITES" in '' | *[!0-9]*) ;; *) return 0 ;; esac
     n=$((n + 1))
     [ "$n" -le 400 ] || fail "/REPLAY: the channel 5 write count never arrived from the opl2 case"
     sleep 0.5
   done
-  CH5_WRITES="$(cat "$parroot/ch5-writes")"
 }
 replay_case() {
   local name="$1" conf="$2" expect="$3" out status=0 got_lines
@@ -761,7 +810,7 @@ replay_case() {
     #     enable the right channel leaves to the left (one per effect that starts). An effect starts for each tick that has a sounding event
     #     (any EVENT line but shotend): the service has one slot and takes the last request of a tick, so two events on one tick (the script
     #     has one pair, a shot and the stun it causes) start one effect. Also checked against the golden transcript.
-    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; printf '%s' "$writes" > "$parroot/ch5-writes" ;;
+    opl2) { [ "$writes" -gt 20 ] && [ "$steps" -eq 0 ]; } || rfail "/REPLAY ($name): '$audio' (expected OPL writes and no speaker steps)"; CH5_WRITES="$writes"; ch5_put "$writes" ;;
     opl_or) ch5_get; [ "$writes" -eq $((CH5_WRITES + 21)) ] || rfail "/REPLAY ($name): '$audio' (expected $((CH5_WRITES + 21)) writes: channel 5 plus the OPL3's 21)" ;;
     opl_pair)
       ch5_get
@@ -794,7 +843,7 @@ replay_case() {
   fi
   local bios
   bios="$(printf '%s\n' "$out" | sed -n 's/^BIOS TICKS \([0-9]*\)$/\1/p')"
-  { [ -n "$bios" ] && [ "$bios" -ge 531 ] && [ "$bios" -le 535 ]; } || rfail "/REPLAY ($name): BIOS TICKS '$bios' is outside 531-535"
+  { [ -n "$bios" ] && [ "$bios" -ge 544 ] && [ "$bios" -le 548 ]; } || rfail "/REPLAY ($name): BIOS TICKS '$bios' is outside 544-548"
   echo "REPLAY case $name ok ($expect; $audio; $music; BIOS TICKS $bios)"
 }
 cfg_none
@@ -826,13 +875,13 @@ cfg_none
 # `can` events). Fzzt (id 4), boing (12) and jump (13) play Fizz 1's own DOS-port records and speaker lists (assets/sfx/fizz1-dos.ts),
 # which are longer in records for the fzzt (198, from 69) and the jump (73, from 57) and shorter for the boing (81, from 185); the
 # jump's speaker list is 18 frames (from 12), the boing's 18 (from 56) and the fzzt's still 16. The soda (id 17) is a downmix of 157
-# records and 28 speaker frames. With the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
+# records and 28 speaker frames. With the exit on an Up press (the 1,800-tick replay, measured in DOSBox one case at a time) the totals are 7,375, 7,396, 14,682 and 1,398 speaker steps (1,398 since the speaker counts its 140 Hz steps from each effect's start; it was 1,390 to 1,393 before, by how many 560 Hz ticks start-up took, modulo four); with the door (id 19, 259 records and 60 speaker frames, in place of the clunk for the 2 doors) the totals went from 7,224, 7,245, 14,380 and 1,358 to 7,345, 7,366, 14,622 and 1,388: the 2 doors add 328 records over the clunks they replace, but a later sound cuts each short, so the net is 121 records and 30 speaker steps. The totals were 5,936, 5,957, 11,812 and 1,207 speaker steps (61 effects) before the soda cans, 5,972,
 # 5,993, 11,876 and 1,388 with the cans but the FM-era fzzt, boing and jump, and 5221, 5242, 10382 and 1213 before the boing and the
 # jump were Fizz 1's at all; 569, 590 and 1135 when only the clucks and the four-cluck replay played, and 419, 440 and 836 before that.
-#   7345: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,325 records of the effects.
-#   7366: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
-#   14622: the OPL3 pair = 41 start and stop writes, twice the 7,325 records, less 69 enables (one per effect, left to channel 5).
-#   1388 speaker steps: the speaker list of each effect, a step per 140 Hz frame, with the same cut-offs.
+#   7375: channel 5 on a bare OPL2 = the 20 start and stop key-offs and 7,355 records of the effects.
+#   7396: the same through the OR rule on an OPL3 in its own mode, 21 more (OPL3 mode on, and the second bank keyed off, and back).
+#   14682: the OPL3 pair = 41 start and stop writes, twice the 7,355 records, less 69 enables (one per effect, left to channel 5).
+#   1398 speaker steps: the speaker list of each effect, a step per 140 Hz frame counted from the effect's start, with the same cut-offs.
 #   0: sound off.
 audio_count() {
   local name="$1" conf="$2" want="$3" out
@@ -842,10 +891,10 @@ audio_count() {
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
 cfg_none
-par audio_count 'ch5 on an OPL2 (7345)' "$(sb sb1)" '7345 SPEAKER STEPS 0' /MODERN /ADLIB
-par audio_count 'ch5 through the OR rule on an OPL3 (7366)' "$SB16" '7366 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
-par audio_count 'the OPL3 pair (14622)' "$SB16" '14622 SPEAKER STEPS 0' /SB
-par audio_count 'the PC speaker (1388 steps)' '' '0 SPEAKER STEPS 1388' /SPEAKER
+par audio_count 'ch5 on an OPL2 (7375)' "$(sb sb1)" '7375 SPEAKER STEPS 0' /MODERN /ADLIB
+par audio_count 'ch5 through the OR rule on an OPL3 (7396)' "$SB16" '7396 SPEAKER STEPS 0' /MUSIC:SB /FX:ADLIB
+par audio_count 'the OPL3 pair (14682)' "$SB16" '14682 SPEAKER STEPS 0' /SB
+par audio_count 'the PC speaker (1398 steps)' '' '0 SPEAKER STEPS 1398' /SPEAKER
 par audio_count 'silent (0)' "$SB16" '0 SPEAKER STEPS 0' /NOSOUND
 par_wait
 
@@ -856,10 +905,10 @@ if group view; then
 # <auto|30|60>` after the platform lines. At 30 Hz the screen is drawn on every second tick, so n is about t/2 (the first frame is
 # drawn before tick 1, so a 60 Hz run draws t+1); the TICK, FINAL and EVENT lines are the golden's whatever the rate. The default is Auto
 # and at 26,800 cycles (about a 486DX2-66) a frame costs a fraction of a sixtieth of a second, so it stays at 60. At FRAMES_SLOW cycles a frame
-# costs 100 to 170% of a sixtieth (calibrated with the /BENCH figures: draw plus copy is about 3.5 ms at 26,800, which scales with the
-# cycles, so 20.8 ms, 125%, at 4,500) and Auto ends at 30. The file's frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag
-# wins over it, the last flag wins, and no flag writes the file.
-FRAMES_SLOW=4500
+# costs 100 to 170% of a sixtieth (calibrated with the /BENCH figures: since the oblique ground, draw plus copy is about 10.8 ms at 26,800,
+# which scales with the cycles, so 20.7 ms, 124%, at 14,000; it was 3.5 ms and 4,500 cycles with flat tiles) and Auto ends at 30. The file's
+# frame-rate byte (the ninth: 0 Auto, 1 30 Hz, 2 60 Hz) is read, a flag wins over it, the last flag wins, and no flag writes the file.
+FRAMES_SLOW=14000
 frames_replay() {
   local name="$1" cycles="$2" rate="$3" mode="$4" lo="$5" hi="$6" out status=0 line n t
   shift 6
@@ -873,7 +922,7 @@ frames_replay() {
   line="$(frames_line "$out")"
   n="$(printf '%s\n' "$line" | sed -n 's/^FRAMES \([0-9]*\) .*/\1/p')"
   t="$(printf '%s\n' "$line" | sed -n 's/^FRAMES [0-9]* TICKS \([0-9]*\) .*/\1/p')"
-  [ "$t" = 1757 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1757)"
+  [ "$t" = 1800 ] || fail "/REPLAY frames case '$name': '$line' (expected TICKS 1800)"
   [ "$n" -ge "$lo" ] && [ "$n" -le "$hi" ] || fail "/REPLAY frames case '$name': '$line' (expected between $lo and $hi frames)"
   printf '%s\n' "$line" | grep -qE " RATE $rate MODE $mode\$" || fail "/REPLAY frames case '$name': '$line' (expected RATE $rate MODE $mode)"
   echo "FRAMES case $name ok ($line)"
@@ -900,14 +949,14 @@ frames_live() {
   echo "FRAMES live case $name ok ($line)"
 }
 cfg_none
-frames_replay '/FPS30' 26800 30 30 870 890 /FPS30
-frames_replay '/FPS60' 26800 60 60 1757 1759 /FPS60
-frames_replay 'default is Auto and stays at 60' 26800 60 auto 1757 1759
+frames_replay '/FPS30' 26800 30 30 890 910 /FPS30
+frames_replay '/FPS60' 26800 60 60 1800 1802 /FPS60
+frames_replay 'default is Auto and stays at 60' 26800 60 auto 1800 1802
 frames_replay 'Auto goes to 30 when frames are dear' "$FRAMES_SLOW" 30 auto 800 950
-frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1759 /FPS60
-frames_replay '/FPSAUTO' 26800 60 auto 1757 1759 /FPSAUTO
-frames_replay 'last flag wins' 26800 30 30 870 890 /FPS60 /FPS30
-frames_replay 'combines with the sound flags' 26800 30 30 870 890 /NOSOUND /FPS30 /MODERN
+frames_replay '/FPS60 holds at 60 when frames are dear' "$FRAMES_SLOW" 60 60 900 1802 /FPS60
+frames_replay '/FPSAUTO' 26800 60 auto 1800 1802 /FPSAUTO
+frames_replay 'last flag wins' 26800 30 30 890 910 /FPS60 /FPS30
+frames_replay 'combines with the sound flags' 26800 30 30 890 910 /NOSOUND /FPS30 /MODERN
 # The file's byte, and a flag over it. V2 has frame byte 2 (60 Hz); F30 and FAUTO are the same file with 1 and 0.
 F30='FZ2C\x02\x02\x04\x01\x00'
 FAUTO='FZ2C\x02\x02\x04\x00\x00'
@@ -934,9 +983,10 @@ fi
 if group menu; then
 # 3h. The Options screen in play. Esc in /LIVE opens Paused (Resume, Options, Quit to DOS), and Options is inside it; the world is held
 # while either is up, a change applies at once and FIZZ2.CFG is written when Options is left with something changed. Keys are typed
-# through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys,
-# Back. From Paused, `down enter` opens Options; leaving Options puts the cursor on Options, so `down enter` is then Quit to DOS.
-# Bytes: FZ2C, version 3, music, effects, frame rate (0 Auto, 1 30 Hz, 2 60 Hz), reserved, motion, placement (1 Classic), captions, keys.
+# through the emulated keyboard (DOSBox's autotype). Rows: Music, Effects, Sound placement (2), Frame rate (3), Motion, Captions, Keys, Sky,
+# Night (8), Back. From Paused, `down enter` opens Options; leaving Options puts the cursor on Options, so `down enter` is then Quit to DOS.
+# Bytes: FZ2C, version 4, music, effects, frame rate (0 Auto, 1 30 Hz, 2 60 Hz), sky (0 Auto), motion, placement (1 Classic), captions,
+# keys, night.
 OPEN='esc down enter'
 QUIT='esc down enter'
 options_run() {
@@ -952,7 +1002,7 @@ saved_line() { printf '%s\n' "$OUT" | grep '^OPTIONS SAVED' || true; }
 cfg_none
 options_run "$OPEN down down right $QUIT" /LIVE
 [ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "leaving Options with a change did not save"
-[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Classic placement saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000000000001000000' ] || fail "Classic placement saved $(cfg_hex)"
 [ ! -e "$cfgdir/FIZZ2.NEW" ] || fail "the Options save left FIZZ2.NEW behind"
 echo "OPTIONS case placement saved ok"
 # Nothing changed, so nothing is written (a missing file stays missing).
@@ -966,14 +1016,20 @@ cfg_none
 options_run "$OPEN down down down right right $QUIT" /LIVE
 [ -n "$(frames_line "$OUT")" ] || fail "no FRAMES line"
 printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "the frame rate was not changed to 30 live: $(frames_line "$OUT")"
-[ "$(cfg_hex)" = '465a3243030000010000000000' ] || fail "30 Hz saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000001000000000000' ] || fail "30 Hz saved $(cfg_hex)"
 echo "OPTIONS case frame rate live ok ($(frames_line "$OUT"))"
+# The Night row (the ninth): On applies when the screens close and is saved in byte 13.
+cfg_none
+options_run "$OPEN down down down down down down down down right $QUIT" /LIVE
+[ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "turning the night on did not save"
+[ "$(cfg_hex)" = '465a324304000000000000000001' ] || fail "Night On saved $(cfg_hex)"
+echo "OPTIONS case night saved ok"
 # A switch is never saved: /FPS30 holds the row (starred), the player changes placement, and the file keeps the frame-rate byte it had.
 cfg_put 'FZ2C\x02\x02\x04\x02\x00'
 options_run "down down right esc" /OPTIONS /FPS30
 [ "$(saved_line)" = 'OPTIONS SAVED yes' ] || fail "/OPTIONS did not save"
 printf '%s\n' "$OUT" | grep -qE '^FRAMES [0-9]+ TICKS [0-9]+ RATE 30 MODE 30$' || fail "/OPTIONS /FPS30 did not hold 30 Hz: $(frames_line "$OUT")"
-[ "$(cfg_hex)" = '465a3243030204020000010000' ] || fail "a run with /FPS30 saved $(cfg_hex), not the file's own frame rate"
+[ "$(cfg_hex)" = '465a324304020402000001000000' ] || fail "a run with /FPS30 saved $(cfg_hex), not the file's own frame rate"
 echo "OPTIONS case a switch is not saved ok"
 # /OPTIONS opens straight into Options and Esc leaves: no ticks run and nothing is saved without a change. The layout's keys work in it
 # (Modern: S moves down, D steps forward; the /MODERN switch is not saved either).
@@ -983,7 +1039,7 @@ printf '%s\n' "$OUT" | grep -qE '^LIVE TICKS 0 ' || fail "/OPTIONS stepped the w
 [ -z "$(saved_line)" ] || fail "/OPTIONS saved with no change"
 [ ! -e "$cfgdir/FIZZ2.CFG" ] || fail "/OPTIONS with no change created FIZZ2.CFG"
 options_run "s s d esc" /OPTIONS /MODERN
-[ "$(cfg_hex)" = '465a3243030000000000010000' ] || fail "Modern keys in /OPTIONS saved $(cfg_hex)"
+[ "$(cfg_hex)" = '465a324304000000000001000000' ] || fail "Modern keys in /OPTIONS saved $(cfg_hex)"
 echo "OPTIONS case /OPTIONS and Modern keys ok"
 # A read-only FIZZ2.CFG: the save fails, the screen says so and the game carries on to a clean exit; the file is untouched.
 cfg_put 'FZ2C\x02\x03\x03\x01\x00'

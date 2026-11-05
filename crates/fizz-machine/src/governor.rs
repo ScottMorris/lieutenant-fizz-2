@@ -26,12 +26,22 @@ pub const CHOOSE_30_UP_TO: u32 = 170;
 pub const CHOOSE_60_ABOVE: u32 = 185;
 /// Below this percentage Auto chooses 60 Hz.
 pub const CHOOSE_60_BELOW: u32 = 67;
+/// With the sky on Auto (and the frame rate on Auto), a window of Light frames averaging below this percentage of a 60 Hz frame
+/// chooses the Full sky. Full's worst frame costs about one and a half times Light's average frame (16.1 ms against 10.5 ms of
+/// drawing and copy on the 486DX2-66 floor), so a machine that draws Light this cheaply draws Full's worst frame in about 70% of a
+/// frame. The floor's Light windows are about 63%, so there Auto stays Light.
+pub const SKY_FULL_BELOW: u32 = 45;
+/// A window of Full frames averaging above this percentage goes back to the Light sky, before the frames come near a step.
+pub const SKY_LIGHT_ABOVE: u32 = 75;
 
 /// Draws at 60 Hz, at 30 Hz or (Auto) at whichever the frames' cost calls for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FrameGovernor {
     mode: FrameRate,
     hz: u32,
+    /// Whether the sky is on Auto, which this governor then decides, and whether it chose Full.
+    auto_sky: bool,
+    full_sky: bool,
     /// The tick of the last frame drawn.
     drawn: u64,
     spent: u64,
@@ -48,10 +58,26 @@ impl FrameGovernor {
             } else {
                 60
             },
+            auto_sky: false,
+            full_sky: false,
             drawn: 0,
             spent: 0,
             frames: 0,
         }
+    }
+
+    /// Lets this governor decide the sky (the Sky setting on Auto), starting from Light; `false` leaves the sky to the setting.
+    /// Fizz 1's DOS port judges its detail level the same way, in the frame-rate window and only while the frame rate is Auto,
+    /// so with a fixed rate an Auto sky stays Light.
+    pub const fn with_auto_sky(mut self, auto: bool) -> Self {
+        self.auto_sky = auto;
+        self.full_sky = false;
+        self
+    }
+
+    /// Whether an Auto sky is Full now (always `false` when the sky is not on Auto).
+    pub const fn full_sky(&self) -> bool {
+        self.full_sky
     }
 
     /// The mode it was made with.
@@ -88,13 +114,24 @@ impl FrameGovernor {
         }
         let pct = u32::try_from(self.spent * 60 * 100 / (u64::from(WINDOW) * u64::from(CLOCK_HZ)))
             .unwrap_or(u32::MAX);
+        self.spent = 0;
+        self.frames = 0;
+        // The sky first: a window that changes it measured the other sky, so it does not decide the rate as well.
+        if self.auto_sky {
+            if !self.full_sky && pct < SKY_FULL_BELOW && self.hz == 60 {
+                self.full_sky = true;
+                return Some(pct);
+            }
+            if self.full_sky && pct > SKY_LIGHT_ABOVE {
+                self.full_sky = false;
+                return Some(pct);
+            }
+        }
         if (CHOOSE_30_ABOVE + 1..=CHOOSE_30_UP_TO).contains(&pct) {
             self.hz = 30;
         } else if !(CHOOSE_60_BELOW..=CHOOSE_60_ABOVE).contains(&pct) {
             self.hz = 60;
         }
-        self.spent = 0;
-        self.frames = 0;
         Some(pct)
     }
 }
@@ -125,6 +162,48 @@ mod tests {
             assert!(i == 31 || last.is_none(), "window closed early at {i}");
         }
         last
+    }
+
+    #[test]
+    fn an_auto_sky_starts_light_goes_full_on_cheap_frames_and_back_on_dear_ones() {
+        let mut g = FrameGovernor::new(FrameRate::Auto).with_auto_sky(true);
+        assert!(!g.full_sky());
+        // The floor: Light frames at about 63% keep Light and 60 Hz.
+        for _ in 0..3 {
+            feed(&mut g, 63);
+            assert!(!g.full_sky());
+            assert_eq!(g.rate(), 60);
+        }
+        // A machine that draws Light under 45% gets Full, and keeps it while Full stays at or under 75%.
+        feed(&mut g, 44);
+        assert!(g.full_sky());
+        feed(&mut g, 75);
+        assert!(g.full_sky());
+        // Over 75% Full goes back to Light, and that window does not change the rate, even dear enough for 30 Hz.
+        feed(&mut g, 120);
+        assert!(!g.full_sky());
+        assert_eq!(g.rate(), 60);
+        // The next window, measured with Light, decides the rate as before.
+        feed(&mut g, 120);
+        assert_eq!(g.rate(), 30);
+        // At 30 Hz an Auto sky does not go Full, however cheap the frames.
+        feed(&mut g, 70);
+        assert_eq!(g.rate(), 30);
+        assert!(!g.full_sky());
+    }
+
+    #[test]
+    fn a_fixed_rate_or_a_fixed_sky_never_changes_the_sky() {
+        let mut fixed_rate = FrameGovernor::new(FrameRate::Hz60).with_auto_sky(true);
+        let mut fixed_sky = FrameGovernor::new(FrameRate::Auto);
+        for _ in 0..3 {
+            for _ in 0..32 {
+                assert_eq!(fixed_rate.record_frame(1), None);
+            }
+            feed(&mut fixed_sky, 10);
+        }
+        assert!(!fixed_rate.full_sky());
+        assert!(!fixed_sky.full_sky());
     }
 
     #[test]

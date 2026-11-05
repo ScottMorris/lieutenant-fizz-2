@@ -26,6 +26,12 @@ impl Frame {
         self.hud.draw(values, &mut self.pixels, WIDTH);
     }
 
+    /// [`Frame::draw_hud`] with the box's own pixels in the glow bank, for a picture shown in the night palette (see
+    /// `Hud::draw_glowing`).
+    pub fn draw_hud_glowing(&mut self, values: HudValues) {
+        self.hud.draw_glowing(values, &mut self.pixels, WIDTH);
+    }
+
     /// How many times the HUD strip has been rendered (as opposed to copied) by this frame.
     pub fn hud_renders(&self) -> u32 {
         self.hud.renders()

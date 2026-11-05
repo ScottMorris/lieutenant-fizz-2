@@ -12,30 +12,48 @@
 use crate::sound;
 use fizz_dos_rt::{env, println, timer};
 use fizz_machine::switches::{self, Parsed};
-use fizz_machine::{FrameGovernor, FrameRate};
+use fizz_machine::{FrameGovernor, FrameRate, SkyDetail};
 
 pub struct Drawing {
     governor: FrameGovernor,
     drawn: u32,
+    /// The Sky setting the run draws with; on Auto the governor chooses Full or Light (only while the frame rate is Auto).
+    sky: SkyDetail,
 }
 
 impl Drawing {
     /// The governor for this run: the flag over the file over Auto. Reads `FIZZ2.CFG`, so call it before the video mode is set.
-    pub fn new() -> Drawing {
+    pub fn new(sky: SkyDetail) -> Drawing {
         let flag = match switches::parse(env::args().iter().map(|a| a.as_str())) {
             Parsed::Run(run) => run.frame_rate,
             _ => None,
         };
         Drawing {
-            governor: FrameGovernor::new(sound::frame_rate(flag)),
+            governor: FrameGovernor::new(sound::frame_rate(flag)).with_auto_sky(sky == SkyDetail::Auto),
             drawn: 0,
+            sky,
         }
     }
 
     /// Switches to `rate` while running, as the Options screen does. A fixed rate takes effect at once; Auto starts again at 60 Hz
-    /// with an empty measuring window. The draw cadence only: the simulation is not told.
+    /// with an empty measuring window, and an Auto sky starts again from Light. The draw cadence only: the simulation is not told.
     pub fn set_mode(&mut self, rate: FrameRate) {
-        self.governor = FrameGovernor::new(rate);
+        self.governor = FrameGovernor::new(rate).with_auto_sky(self.sky == SkyDetail::Auto);
+    }
+
+    /// Changes the Sky setting while running, as the Options screen does; Auto starts again from Light.
+    pub fn set_sky(&mut self, sky: SkyDetail) {
+        self.sky = sky;
+        self.governor = self.governor.with_auto_sky(sky == SkyDetail::Auto);
+    }
+
+    /// Whether the next frame draws the Full sky: the setting, or on Auto what the governor chose.
+    pub fn full_sky(&self) -> bool {
+        match self.sky {
+            SkyDetail::Full => true,
+            SkyDetail::Light => false,
+            SkyDetail::Auto => self.governor.full_sky(),
+        }
     }
 
     /// The rate the governor is drawing at now: 60 or 30.

@@ -14,16 +14,29 @@
 //!
 //! # What is drawn, back to front
 //!
-//! 1. The sky fills the frame.
-//! 2. The tile map window, as flat colours per tile type: interior wall, solid fill, block, one-way platform, spikes, the
-//!    red door, the exit. The tiles are told apart by colour only; the art is a later milestone.
-//! 3. The red key, if it still lies in the world, bobbing one pixel.
-//! 4. The red door's sprite on each closed door tile. An open door shows the interior wall behind it.
-//! 5. The chicken (the Cluckzarg placeholder art).
-//! 6. The Fizz Blaster shots (the `bubble` sprite).
-//! 7. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
-//! 8. Ben (Fizz 1's sprites).
-//! 9. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//! 1. The ground, in oblique projection ([`oblique`], specified in `docs/OBLIQUE.md`): the back wall of the rooms or the open
+//!    sky behind everything, then the portholes, the contact shadows and brackets under the wooden ledges, the railing on the
+//!    gallery and the exit doorway, then the terrain from the bottom row up (planks you can jump up through, stone and brick
+//!    walls, and the red and blue doors with their white badges, drawn closed and not at all once open), then the spikes. It
+//!    writes every pixel of the frame and is baked data copied in runs (`tools/tiles/emit-oblique.ts`), so there is no separate
+//!    sky or tile pass.
+//! 2. The red key, if it still lies in the world, bobbing one pixel; the snacks and the blue key likewise.
+//! 3. The chicken (the Cluckzarg placeholder art).
+//! 4. The Fizz Blaster shots (the `bubble` sprite).
+//! 5. The shot-end puffs a presenter's [`Puffs`] list holds (`puff0` to `puff3`).
+//! 6. Ben (Fizz 1's sprites).
+//! 7. At night ([`DrawOptions::night`]), the light pass: the cells the lights reach are shaded ([`light`]).
+//! 8. The chicken's cluck caption, if [`DrawOptions::captions`] is on.
+//!
+//! # Night
+//!
+//! With [`DrawOptions::night`] the picture is drawn for the 256-entry palette of brightness banks ([`light::palette`] with the
+//! theme's [`oblique::NIGHT_AMBIENT`], which the presenter shows instead of [`light::DAY`]): the ground as by day, which the
+//! palette shows at the night's ambient; the night dressing ([`oblique::draw_night`]: the lamps, the lanterns, and the glow on
+//! the door badges and the exit); the keys, snacks, shots and puffs in the glow bank and Ben and the chicken in the actor bank,
+//! so they never go below level 9; then the lights ([`night_lights`]: Ben's lantern, pinned first, each shot's cyan light and
+//! the slice's own) added up for each 8 by 8 cell, and the cells they reach shaded ([`light::shade`]). The captions are drawn
+//! after, glowing. By day none of that runs and the picture is the one it always was.
 //!
 //! # Choices that are ours
 //!
@@ -79,19 +92,21 @@
 
 mod captions;
 pub use captions::*;
+#[cfg(test)]
+extern crate std;
+pub mod light;
+pub mod oblique;
+#[rustfmt::skip]
+mod oblique_data;
 pub mod hud;
 pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
-use fizz_ep2::tiles::{
-    BLOCK, CHOC, DOOR_B, DOOR_BLUE_CHANNEL, DOOR_R, DOOR_RED_CHANNEL, EXIT, FILL, PLAT, SPIKE,
-    WALLBG,
-};
+use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
-    TILE_PX, blit_sprite, draw_tilemap_on_sky, follow, pfont::draw_text, pfont::text_width,
-    screen_y, tile_px,
+    TILE_PX, blit_sprite_banked, follow, pfont::draw_text, pfont::text_width, screen_y, tile_px,
 };
 
 /// The width of the picture in pixels.
@@ -113,43 +128,6 @@ const LIGHT_RED: u8 = 12;
 const YELLOW: u8 = 14;
 const WHITE: u8 = 15;
 
-/// Closed doors in view that are remembered from the tile pass before drawing falls back to a second search for them.
-const DOORS: usize = 16;
-
-/// The sky behind and above the level.
-const SKY: u8 = LIGHT_BLUE;
-
-/// The flat colour of a tile, or `None` for tiles that show the sky.
-const fn tile_colour(tile: u8) -> Option<u8> {
-    match tile {
-        WALLBG => Some(BLUE),
-        FILL => Some(DARK_GREY),
-        BLOCK => Some(LIGHT_GREY),
-        PLAT => Some(LIGHT_GREEN),
-        SPIKE => Some(LIGHT_RED),
-        CHOC => Some(BROWN),
-        EXIT => Some(YELLOW),
-        _ => None,
-    }
-}
-
-/// Marks a tile type with no flat colour in [`TILE_COLOURS`] (the doors, which take their colour from the switch, and the tiles
-/// that show the sky).
-const NO_COLOUR: u8 = u8::MAX;
-
-/// `tile_colour` for every tile type, so the tile pass reads a byte in place of working through a `match` for each tile.
-static TILE_COLOURS: [u8; 256] = {
-    let mut table = [NO_COLOUR; 256];
-    let mut tile = 0;
-    while tile < 256 {
-        if let Some(colour) = tile_colour(tile as u8) {
-            table[tile] = colour;
-        }
-        tile += 1;
-    }
-    table
-};
-
 /// How a picture is drawn, beyond the world.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DrawOptions {
@@ -160,15 +138,115 @@ pub struct DrawOptions {
     /// (Fizz 1's death shake and spin); Reduced (off) draws the camera still and Ben in a flat, flickering jump pose. A
     /// view effect only: the rules never see it. See [`death_shake_x`] and [`death_spin`].
     pub shake: bool,
+    /// The Sky setting: Full (on) draws the open air's whole parallax night (stars, drifting clouds, the far headlands and the
+    /// sea); Light (off) draws its stars and sea only, which costs a 486 about a third as much. A view effect only, and only
+    /// open air differs. See `oblique::draw_ground_sky`.
+    pub full_sky: bool,
+    /// The Night setting: on draws the level at night, for the night palette ([`palette_for`]) and lit by the lights (see the
+    /// module's "Night"); off, the default, draws it by day exactly as before the setting. A view effect only: the rules never
+    /// see it.
+    pub night: bool,
 }
 
 impl Default for DrawOptions {
-    /// Captions on, motion (shake and spin) on.
+    /// Captions on, motion (shake and spin) on, the full sky, by day.
     fn default() -> Self {
         DrawOptions {
             captions: true,
             shake: true,
+            full_sky: true,
+            night: false,
         }
+    }
+}
+
+/// The palette a presenter shows a picture drawn with `options` in, as 6-bit DAC values: [`light::DAY`], or at night the one
+/// whose bank 0 is the slice theme's night ambient. DOS writes it to the DAC; the Web expands it with [`light::rgba`].
+pub fn palette_for(options: &DrawOptions) -> [[u8; 3]; 256] {
+    if options.night {
+        light::palette(oblique::NIGHT_AMBIENT)
+    } else {
+        light::DAY
+    }
+}
+
+/// Ben's lantern at night, Fizz 1's for a theme with `lantern: true` (`update_lights` in `episodes/episode-1/game/src/render.rs`):
+/// at the middle of his body and 1.1 tiles over his feet, 1.2 tiles high, a radius of 5.5 tiles and a warm `[0.95, 0.7, 0.45]`,
+/// whose brightness (`0.3 r + 0.59 g + 0.11 b`) is 0.75. It is pinned first, so the light budget never drops it. Without it Ben
+/// would walk through the dark between the lanterns, lit only by his floor of level 9, and the ledges he lands on would be
+/// at the ambient; with it the floor around him reads, as in Fizz 1.
+const BEN_LANTERN: (f64, i32, i32, i32) = (1.1, 19, 88, 765);
+/// The light every shot carries: Fizz 1's Fizz Blaster bubble, cyan `[0.3, 1.1, 1.2]` (brightness 0.87), 0.6 tiles high, radius 3.
+const SHOT_LIGHT: (i32, i32, i32) = (10, 48, 892);
+
+/// The lights of a night picture of `world` at animation tick `tick` with the camera's top left at (`cam_x`, `cam_y`) in a `w`
+/// by `h` view, nearest the camera first and at most [`light::MAX_ACTIVE`] (Fizz 1's budget): Ben's lantern (unless he is
+/// dead), each shot's light and the slice's own ([`oblique::night_lights`]).
+pub fn night_lights(
+    world: &World,
+    ground: &oblique::Ground,
+    cam: (i32, i32),
+    (w, h): (usize, usize),
+    tick: u32,
+) -> light::Lights {
+    use light::{Light, SUB};
+    let map_h = world.map.h;
+    let centre = (
+        (cam.0 + w as i32 / 2).saturating_mul(SUB),
+        (cam.1 + h as i32 / 2).saturating_mul(SUB),
+    );
+    let mut lights = light::Lights::new();
+    let ben = &world.ben;
+    if ben.dead <= 0.0 {
+        let (rise, z, r, s) = BEN_LANTERN;
+        let at = Light {
+            x: tile_px(ben.b.x + ben.b.w * 0.5).saturating_mul(SUB),
+            y: screen_y(ben.b.y + rise, map_h).saturating_mul(SUB),
+            z: z * SUB,
+            r: r * SUB,
+            strength: s,
+        };
+        if let Some(i) = lights.add(centre, at) {
+            lights.pin_first(i);
+        }
+    }
+    for shot in &world.shots {
+        let (z, r, s) = SHOT_LIGHT;
+        lights.add(
+            centre,
+            Light {
+                x: tile_px(shot.x).saturating_mul(SUB),
+                y: screen_y(shot.y, map_h).saturating_mul(SUB),
+                z: z * SUB,
+                r: r * SUB,
+                strength: s,
+            },
+        );
+    }
+    oblique::night_lights(&mut lights, ground, cam, (w, h), tick);
+    lights
+}
+
+/// The cells of the largest grid kept on the stack for a DOS-sized view (40 by 25 at 320 by 200), and of the largest for any view
+/// the Web draws (1280 by 416 is 160 by 52).
+const SMALL_GRID: usize = 1024;
+const LARGE_GRID: usize = 160 * 52;
+
+/// The light pass over a picture drawn at night: adds the lights to the cell grid and shades the frame by it.
+fn light_pass(frame: &mut [u8], w: usize, h: usize, lights: &[light::Light], cam: (i32, i32)) {
+    let (cols, rows) = light::grid_size(w, h);
+    let cam = (
+        cam.0.saturating_mul(light::SUB),
+        cam.1.saturating_mul(light::SUB),
+    );
+    let mut pass = |add: &mut [u16]| {
+        light::add_lights(add, cols, rows, lights, cam);
+        light::shade(frame, w, h, add, oblique::NIGHT_AMBIENT);
+    };
+    if cols * rows <= SMALL_GRID {
+        pass(&mut [0u16; SMALL_GRID]);
+    } else if cols * rows <= LARGE_GRID {
+        pass(&mut [0u16; LARGE_GRID]);
     }
 }
 
@@ -492,6 +570,22 @@ pub fn draw_slice_captions(
     puffs: &Puffs,
     captions: &EventCaptions,
 ) {
+    draw_picture(frame, w, h, world, tick, options, puffs, captions, true);
+}
+
+/// [`draw_slice_captions`], with the light pass left out when `shade` is false (for the tests, which check the markers it reads).
+#[allow(clippy::too_many_arguments)]
+fn draw_picture(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    tick: u32,
+    options: &DrawOptions,
+    puffs: &Puffs,
+    captions: &EventCaptions,
+    shade: bool,
+) {
     let map = &world.map;
     let (map_w, map_h) = (map.w, map.h);
 
@@ -499,66 +593,29 @@ pub fn draw_slice_captions(
     // looking up or down, or the look is returning). `follow` clamps the result to the map exactly as it does for Ben alone.
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
 
-    let red_closed = map.switch(DOOR_RED_CHANNEL);
-    let blue_closed = map.switch(DOOR_BLUE_CHANNEL);
-    let door_closed = red_closed || blue_closed;
-    // The tile pass meets every visible tile, so it notes the closed doors (red or blue, by the last field) for the sprites
-    // drawn after it; a view with more than `DOORS` of them falls back to looking for them again.
-    let mut doors = [(0, 0, false); DOORS];
-    let mut door_count = 0;
-    // The sky and the tiles are drawn as one layer, so no pixel of the view is written twice.
-    draw_tilemap_on_sky(frame, w, h, cam_x, cam_y, map_w, map_h, SKY, |tx, ty| {
-        // The pass only asks about tiles inside the map, so the index is valid for a map whose data holds `w * h` tiles.
-        let t = map
-            .data
-            .get((ty * map_w + tx) as usize)
-            .copied()
-            .unwrap_or(0);
-        let colour = TILE_COLOURS[usize::from(t)];
-        if colour != NO_COLOUR {
-            return Some(colour);
-        }
-        if t == DOOR_R || t == DOOR_B {
-            let blue = t == DOOR_B;
-            let closed = if blue { blue_closed } else { red_closed };
-            if closed && door_count < DOORS {
-                doors[door_count] = (tx, ty, blue);
-            }
-            door_count += usize::from(closed);
-            return Some(if closed { BROWN } else { BLUE });
-        }
-        None
-    });
+    // The ground: backgrounds, terrain and doors in oblique projection, written over the whole frame.
+    let ground = oblique::Ground {
+        data: &map.data,
+        w: map_w,
+        h: map_h,
+        red_closed: map.switch(DOOR_RED_CHANNEL),
+        blue_closed: map.switch(DOOR_BLUE_CHANNEL),
+    };
+    oblique::draw_ground_sky(frame, w, h, &ground, cam_x, cam_y, tick, options.full_sky);
+    let night = options.night;
+    if night {
+        oblique::draw_night(frame, w, h, &ground, cam_x, cam_y);
+    }
+    // At night the art carries its marker in its bank (see `light`): pickups, shots and puffs glow, Ben and the chicken are actors.
+    let (glow, actor) = if night {
+        (light::GLOW, light::ACTOR)
+    } else {
+        (0, 0)
+    };
 
     // Sprites are placed by their anchor, which is feet and centre. `at` turns a world position into frame pixels.
     let at = |x: f64, y: f64| (tile_px(x) - cam_x, screen_y(y, map_h) - cam_y);
     let phase = tick as usize;
-
-    if door_closed && let (Some(red), Some(blue)) = (sprite("doorRed"), sprite("doorBlue")) {
-        if door_count <= DOORS {
-            // The door art is one tile, so only the tiles the pass visited can show it.
-            for &(tx, ty, is_blue) in &doors[..door_count] {
-                let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
-            }
-        } else {
-            let col0 = cam_x.div_euclid(TILE_PX).max(0);
-            let col1 = (cam_x + w as i32).div_euclid(TILE_PX).min(map_w - 1);
-            let row0 = cam_y.div_euclid(TILE_PX).max(0);
-            let row1 = (cam_y + h as i32).div_euclid(TILE_PX).min(map_h - 1);
-            for row in row0..=row1 {
-                let ty = map_h - 1 - row;
-                for tx in col0..=col1 {
-                    let t = map.get(tx, ty);
-                    let (is_door, is_blue) = (t == DOOR_R || t == DOOR_B, t == DOOR_B);
-                    if is_door && (if is_blue { blue_closed } else { red_closed }) {
-                        let (sx, sy) = at(f64::from(tx) + 0.5, f64::from(ty));
-                        blit_sprite(frame, w, h, if is_blue { blue } else { red }, sx, sy, false);
-                    }
-                }
-            }
-        }
-    }
 
     // The items bob a pixel every 16 ticks, as the key does. Their sprites are anchored at the feet; an item's centre is half a
     // sprite above them.
@@ -579,29 +636,29 @@ pub fn draw_slice_captions(
                 SnackKind::Soda => soda,
             };
             let (sx, sy) = at(sn.x, sn.y);
-            blit_sprite(frame, w, h, art, sx, sy + 8 - bob, false);
+            blit_sprite_banked(frame, w, h, art, sx, sy + 8 - bob, false, glow);
         }
     }
 
     if let (Some((kx, ky)), Some(key)) = (world.key_blue_position(), sprite("keyBlue")) {
         let (sx, sy) = at(kx, ky);
-        blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
+        blit_sprite_banked(frame, w, h, key, sx, sy + 8 - bob, false, glow);
     }
 
     if let (Some((kx, ky)), Some(key)) = (world.key_position(), sprite("keyRed")) {
         // The sprite's anchor is its feet; the key's centre is half a sprite above them.
         let (sx, sy) = at(kx, ky);
-        blit_sprite(frame, w, h, key, sx, sy + 8 - bob, false);
+        blit_sprite_banked(frame, w, h, key, sx, sy + 8 - bob, false, glow);
     }
 
     for c in &world.chickens {
-        draw_chicken(frame, w, h, c, phase, &at);
+        draw_chicken(frame, w, h, c, phase, &at, actor);
     }
 
     if let Some(bubble) = sprite("bubble") {
         for s in &world.shots {
             let (sx, sy) = at(s.x, s.y);
-            blit_sprite(frame, w, h, bubble, sx, sy + 4, false);
+            blit_sprite_banked(frame, w, h, bubble, sx, sy + 4, false, glow);
         }
     }
 
@@ -610,18 +667,25 @@ pub fn draw_slice_captions(
         if let Some(puff) = sprite(PUFF_NAMES[which]) {
             let (sx, sy) = (px - cam_x, map_h.saturating_mul(TILE_PX) - py - cam_y);
             // The puff is anchored at its centre, as the shot's position is the centre of the bubble.
-            blit_sprite(frame, w, h, puff, sx, sy, false);
+            blit_sprite_banked(frame, w, h, puff, sx, sy, false, glow);
         }
     }
 
-    draw_ben(frame, w, h, world, phase, &at, options.shake);
+    draw_ben(frame, w, h, world, phase, &at, options.shake, actor);
+
+    // The light pass is the Full detail's (the Sky setting): with Light, the detail the 486DX2-66 floor draws, the night is the
+    // palette's ambient, the glowing art and the actors' floor, and no cell is shaded.
+    if night && shade && options.full_sky {
+        let mut lights = night_lights(world, &ground, (cam_x, cam_y), (w, h), tick);
+        light_pass(frame, w, h, lights.select(), (cam_x, cam_y));
+    }
 
     if options.captions {
         for c in &world.chickens {
-            draw_caption(frame, w, h, c, &at);
+            draw_caption(frame, w, h, c, &at, glow);
         }
         for cap in captions.views(world, w, h, options) {
-            draw_caption_view(frame, w, h, &cap);
+            draw_caption_view(frame, w, h, &cap, glow);
         }
     }
 }
@@ -714,7 +778,15 @@ pub const fn star_frame(phase: usize) -> usize {
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
-fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, phase: usize, at: At) {
+fn draw_chicken(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    c: &fizz_ep2::Chicken,
+    phase: usize,
+    at: At,
+    bank: u8,
+) {
     let stunned = c.stun > 0.0;
     // A stunned chicken flashes for its last second.
     if stunned && c.stun < 1.0 && phase / 4 % 2 == 1 {
@@ -739,7 +811,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     };
     let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
     let flip = c.dir < 0.0;
-    blit_sprite(frame, w, h, s, sx, sy + sink, flip);
+    blit_sprite_banked(frame, w, h, s, sx, sy + sink, flip, bank);
     if stunned
         && let Some(stars) = sprite(if star_frame(phase) == 0 {
             "stars0"
@@ -749,7 +821,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
     {
         // Fizz 1 centres the stars 0.3 tiles above the enemy's head; the 8-row sprite then ends 0.3 * 16 - 4 = 0.8, about one
         // pixel, above it. The head is the top of the sprite drawn, so the stars follow the sink. They are not flipped.
-        blit_sprite(
+        blit_sprite_banked(
             frame,
             w,
             h,
@@ -757,6 +829,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
             sx,
             sy + sink - i32::from(s.h) - 1,
             false,
+            bank,
         );
     }
     // The overlay shares the body's anchor and flip, so it lands on the beak whichever way the chicken faces and whichever
@@ -765,7 +838,7 @@ fn draw_chicken(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, pha
         && beak_open(c.cluck_variant, c.cluck_age)
         && let Some(beak) = sprite("cluckzarg_beak")
     {
-        blit_sprite(frame, w, h, beak, sx, sy + sink, flip);
+        blit_sprite_banked(frame, w, h, beak, sx, sy + sink, flip, bank);
     }
 }
 
@@ -840,14 +913,15 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
 
 /// Draws the chicken's caption as pixel text, the downscaled form for the 320 by 200 picture: the variant's word above its
 /// head, rising and fading with `cluck_age`. The Web page draws the same captions as DOM text instead.
-fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At) {
+fn draw_caption(frame: &mut [u8], w: usize, h: usize, c: &fizz_ep2::Chicken, at: At, bank: u8) {
     if let Some(cap) = caption_at(c, w, h, at) {
-        draw_caption_view(frame, w, h, &cap);
+        draw_caption_view(frame, w, h, &cap, bank);
     }
 }
 
-/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow.
-fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
+/// Draws one caption view: bright, then dark, then blinking out, rising [`CAPTION_RISE`] pixels, with a black shadow. The
+/// word's colour takes `bank` (the glow bank at night, so it stays at full brightness over a shaded picture).
+fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView, bank: u8) {
     let age = cap.age;
     // Bright for the first half, dark to three quarters, then dark and blinking (on for two ticks, off for two).
     let colour = if age < CAPTION_TICKS / 2 {
@@ -865,7 +939,7 @@ fn draw_caption_view(frame: &mut [u8], w: usize, h: usize, cap: &CaptionView) {
     // A chicken's caption sits above its head; an event's is centred on its point (the glyph cell is 8 rows).
     let top = cap.y - if cap.event { 4 } else { CAPTION_ABOVE_FEET } - rise;
     draw_text(frame, w, h, left + 1, top + 1, text, 0);
-    draw_text(frame, w, h, left, top, text, colour);
+    draw_text(frame, w, h, left, top, text, colour | bank);
 }
 
 /// Ben shows a run frame while his horizontal speed is above this many tiles a second (Fizz 1's `Math.abs(p.vx) > 0.5`).
@@ -908,7 +982,17 @@ fn ben_pose(ben: &fizz_ep2::Ben) -> &'static str {
     }
 }
 
-fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, at: At, spin: bool) {
+#[allow(clippy::too_many_arguments)]
+fn draw_ben(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    world: &World,
+    phase: usize,
+    at: At,
+    spin: bool,
+    bank: u8,
+) {
     let ben = &world.ben;
     let dead = ben.dead > 0.0;
     let turn = if spin { death_spin(world) } else { None };
@@ -923,12 +1007,12 @@ fn draw_ben(frame: &mut [u8], w: usize, h: usize, world: &World, phase: usize, a
     let (sx, sy) = at(ben.b.x + ben.b.w * 0.5, ben.b.y);
     if let Some((cos, sin)) = turn {
         // Fizz 1 flips by `face` alone, dead or alive, and turns the flipped sprite about its centre.
-        blit_sprite_turned(frame, w, h, s, sx, sy, ben.face < 0.0, cos, sin);
+        blit_sprite_turned(frame, w, h, s, sx, sy, ben.face < 0.0, cos, sin, bank);
         return;
     }
     // The sprites face right; dead Ben is turned away from the way he was facing.
     let flip = if dead { ben.face > 0.0 } else { ben.face < 0.0 };
-    blit_sprite(frame, w, h, s, sx, sy, flip);
+    blit_sprite_banked(frame, w, h, s, sx, sy, flip, bank);
 }
 
 /// Draws `sprite` as [`blit_sprite`] does, with its anchor at (`x`, `y`), mirrored if `flip_x`, then turned about the middle of
@@ -948,6 +1032,7 @@ fn blit_sprite_turned(
     flip_x: bool,
     cos: i32,
     sin: i32,
+    bank: u8,
 ) {
     let (sw, sh) = (i32::from(sprite.w), i32::from(sprite.h));
     if w == 0 || h == 0 || sw == 0 || sh == 0 || sprite.pixels.len() < (sw * sh) as usize {
@@ -992,7 +1077,7 @@ fn blit_sprite_turned(
             }
             let p = sprite.pixels[(row * sw + col) as usize];
             if p != fizz_view::TRANSPARENT {
-                frame[py as usize * w + px as usize] = p;
+                frame[py as usize * w + px as usize] = p | bank;
             }
         }
     }
@@ -1005,7 +1090,7 @@ mod tests {
 
     const MAGENTA: u8 = 5;
     use fizz_ep2::level;
-    use fizz_ep2::tiles::FILL;
+    use fizz_ep2::tiles::{BLOCK, DOOR_B, DOOR_R, EXIT, FILL, PLAT, SPIKE, WALLBG};
     use fizz_ep2::world::{WorldFlags, step};
     use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS};
     use fizz_sim::{Buttons, InputFrame};
@@ -1015,19 +1100,19 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0x17619b7882dc6dba, 0x72d540e334aa0693),
-        (217, 0x5af507e1b680861b, 0x1b12c767752c9322),
-        (853, 0x8e928974e44f33b3, 0x8e928974e44f33b3),
-        (873, 0x0b38a92100a6d5cc, 0x0b38a92100a6d5cc),
-        (1094, 0x49aad29e3e60055a, 0x49aad29e3e60055a),
+        (197, 0x551b20a6d1922e69, 0x6c8a7d38f14cd379),
+        (217, 0xe2b4b3606cd280b6, 0x2651474df9ae333c),
+        (853, 0x713ceac5767e59fd, 0x713ceac5767e59fd),
+        (873, 0x991efe7bea2e8eaf, 0x991efe7bea2e8eaf),
+        (1094, 0xf0c5a4f0f739d3b3, 0xf0c5a4f0f739d3b3),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
-        0x3b51f05130991d1b,
-        0xd09572075dacd138,
-        0xee955dcb5493bde3,
-        0x5e37e8e885a67c47,
-        0x9877aaedcd8dd3d5,
-        0xf2717d4dbee9a625,
+        0xe950fb35cf350efa,
+        0xc830e1f5b5914cf3,
+        0x44fb93d806ddc357,
+        0x2edea8c959ebabcc,
+        0xedb8970ee8bd1bfa,
+        0x19d9bfc90d424ede,
     ];
 
     fn fnv(bytes: &[u8]) -> u64 {
@@ -1071,6 +1156,7 @@ mod tests {
                     let o = DrawOptions {
                         captions: true,
                         shake,
+                        ..DrawOptions::default()
                     };
                     draw_slice_with(&mut f, VIEW_W, VIEW_H, w, w.tick.0 as u32, &o);
                     fnv(&f)
@@ -1085,31 +1171,31 @@ mod tests {
         assert_eq!(
             reduced,
             [
-                (394, 0x615ed281e842383b),
-                (395, 0x6b1c97a850b3863b),
-                (396, 0xca360c2e496e149a),
-                (400, 0xe88d2a8a227b4cfb),
-                (410, 0x38b541c3cbe84d9a),
-                (420, 0x5391f3ed0f80aa52),
-                (440, 0xe2af4a19464bd1e2),
-                (460, 0xef7685d59a2d0683),
-                (470, 0x5c83b57057b257e7),
-                (477, 0x2d540afd5307ec18),
+                (394, 0x007900d077c6194d),
+                (395, 0x800d6cb1f70c5102),
+                (396, 0x0cc57a9c4c9e60a4),
+                (400, 0x77e6def8b0c68a8d),
+                (410, 0xb1218083ca68930f),
+                (420, 0x771273d0cc52706e),
+                (440, 0xbdbd730593ebec55),
+                (460, 0xb73a6bf05fe4ca46),
+                (470, 0xb7d6e2d4429f8e84),
+                (477, 0xdc8904adf59be68a),
             ]
         );
         assert_eq!(
             full,
             [
-                (394, 0x8f2830db9603fa8c),
-                (395, 0x100cd0534a4af1d5),
-                (396, 0x41177d83a63666e9),
-                (400, 0xf77c4e3ff819c632),
-                (410, 0xcb2fa9beb221389a),
-                (420, 0x03e3aaea2f332642),
-                (440, 0xd63f0cce8bb859c2),
-                (460, 0x40e7f965a48d0f7f),
-                (470, 0x5c83b57057b257e7),
-                (477, 0x2d540afd5307ec18),
+                (394, 0x2a8b88389f90ad3c),
+                (395, 0x1b5412462b50ffa9),
+                (396, 0x739bd1e4d7762002),
+                (400, 0xc04296fef8d396b9),
+                (410, 0xb514f60f9aa88a94),
+                (420, 0xeb0f59762afc7831),
+                (440, 0xf25ee17c54e5e80f),
+                (460, 0xfc8d0fb87afeec88),
+                (470, 0xb7d6e2d4429f8e84),
+                (477, 0xdc8904adf59be68a),
             ]
         );
     }
@@ -1132,8 +1218,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0xe88d2a8a227b4cfb before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
-        // 0xf77c4e3ff819c632. The other ticks are not death frames and kept theirs.
+        // 0x77e6def8b0c68a8d before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0xc04296fef8d396b9. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -1151,34 +1237,34 @@ mod tests {
         assert_eq!(
             old,
             [
-                (0, 0x5b84b8874be44ba4),
-                (150, 0x7abd20c31ae39a54),
-                (270, 0x9bf387153127ec74),
-                (400, 0xf77c4e3ff819c632),
-                (602, 0xfea72a408c6a4ab1),
-                (700, 0xe28008760a025065),
-                (865, 0x1e0d93372eb50e10),
-                (1000, 0x1881c1623a3ec20c),
-                (1268, 0xaee3ec7a8fed2406),
-                (1450, 0xace0d5524423fa9f),
-                (1681, 0x95274a1a4dc480ff),
+                (0, 0xadc2b0e6cfde5390),
+                (150, 0x6816990dc5e9a497),
+                (270, 0xc1299af2a1cf4c1a),
+                (400, 0xc04296fef8d396b9),
+                (602, 0x91417b17ebda4c2e),
+                (700, 0x9412f4259f56cbc6),
+                (865, 0x912ea065a8cc2e5e),
+                (1000, 0x35b26d3a582a66d2),
+                (1268, 0x62cf1ef918ae4519),
+                (1450, 0xf3c2b824bb5937c3),
+                (1681, 0x9782e38c2df90191),
             ]
         );
         assert_eq!(
             seen,
             [
-                (0, 0x5b84b8874be44ba4),
-                (150, 0x7abd20c31ae39a54),
+                (0, 0xadc2b0e6cfde5390),
+                (150, 0x6816990dc5e9a497),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
-                (270, 0x9bf387153127ec74),
-                (400, 0xf77c4e3ff819c632),
-                (602, 0xfea72a408c6a4ab1),
-                (700, 0xe28008760a025065),
-                (865, 0x1e0d93372eb50e10),
-                (1000, 0x1881c1623a3ec20c),
-                (1268, 0xaee3ec7a8fed2406),
-                (1450, 0xace0d5524423fa9f),
-                (1681, 0x95274a1a4dc480ff),
+                (270, 0xc1299af2a1cf4c1a),
+                (400, 0xc04296fef8d396b9),
+                (602, 0x91417b17ebda4c2e),
+                (700, 0x9412f4259f56cbc6),
+                (865, 0x912ea065a8cc2e5e),
+                (1000, 0x35b26d3a582a66d2),
+                (1268, 0x62cf1ef918ae4519),
+                (1450, 0xf3c2b824bb5937c3),
+                (1681, 0x9782e38c2df90191),
             ]
         );
     }
@@ -1317,11 +1403,11 @@ mod tests {
         assert_eq!(
             seen,
             [
-                (100, 0xba0231d967abb0a0),
-                (110, 0x55260e66b1469bd9),
-                (118, 0x99d9df4620c971f0),
-                (122, 0x0facf9a9d78c6d75),
-                (290, 0x7d189607d70fe0f7)
+                (100, 0x266e04f494d85afa),
+                (110, 0xaf584208effcc109),
+                (118, 0xf7148a7112f00851),
+                (122, 0xf20d00551e1f1a33),
+                (290, 0x1e3d9761bcde0163)
             ]
         );
     }
@@ -1866,12 +1952,12 @@ mod tests {
         assert_eq!(
             seen,
             [
-                ("stand", 0x3685_3ba7_d340_af03),
-                ("look up", 0x0814_4c64_8495_d0e4),
-                ("look down", 0x6efd_b16a_7546_e7cd),
-                ("aim level", 0xaa84_66e3_2312_ec2e),
-                ("aim up", 0x5454_042d_e5be_5f2e),
-                ("aim down", 0x7d12_8656_0aae_d7ba),
+                ("stand", 0x1deb726ac325be49),
+                ("look up", 0xab88c020fd4aef5c),
+                ("look down", 0xc91cd6e208d07cd4),
+                ("aim level", 0x6b2556fe3f543057),
+                ("aim up", 0x5b77750264e3bb31),
+                ("aim down", 0xdbd6e404040063b5),
             ]
         );
     }
@@ -1910,18 +1996,61 @@ mod tests {
         assert_ne!(with, picture(&w, 0));
     }
 
+    /// The pixels of a door's 16 by 16 front face for the tile (`tx`, `ty`) as the picture `f` of `w` shows them.
+    fn door_front(w: &World, f: &[u8], tx: i32, ty: i32) -> Vec<u8> {
+        let (cam_x, cam_y) = camera(w, VIEW_W, VIEW_H);
+        let left = tx * TILE_PX - oblique::FEET_DX - cam_x;
+        let top = (w.map.h - 1 - ty) * TILE_PX + oblique::STRIP - oblique::BACK - cam_y;
+        assert!(
+            left >= 0
+                && left + TILE_PX <= VIEW_W as i32
+                && top >= 0
+                && top + TILE_PX <= VIEW_H as i32,
+            "door ({tx}, {ty}) is in view"
+        );
+        let mut out = Vec::new();
+        for y in 0..16usize {
+            let row = (top as usize + y) * VIEW_W + left as usize;
+            out.extend_from_slice(&f[row..row + 16]);
+        }
+        out
+    }
+
     #[test]
     fn the_door_is_drawn_closed_and_then_open() {
         let mut w = level::world();
         w.ben.b.x = 13.0;
         w.ben.b.y = 20.0;
         let closed = picture(&w, 0);
+        // The red door is three tiles, (15, 20) to (15, 22): bottom, middle and top, with the badge on the top.
+        for (ty, piece) in [
+            (22, &oblique_data::DOOR_RED_TOP),
+            (21, &oblique_data::DOOR_RED_MID),
+            (20, &oblique_data::DOOR_RED_BOT),
+        ] {
+            assert_eq!(door_front(&w, &closed, 15, ty), piece.pixels, "row {ty}");
+        }
         w.map.set_switch(fizz_ep2::tiles::DOOR_RED_CHANNEL, false);
         w.flags.set(WorldFlags::KEY_RED_USED);
         let open = picture(&w, 0);
-        let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
-        assert!(count(&closed, BROWN) > 0);
-        assert_eq!(count(&open, BROWN), 0);
+        for (ty, piece) in [
+            (22, &oblique_data::DOOR_RED_TOP),
+            (21, &oblique_data::DOOR_RED_MID),
+            (20, &oblique_data::DOOR_RED_BOT),
+        ] {
+            let front = door_front(&w, &open, 15, ty);
+            // An open door is not drawn: the back wall shows through (with the side face of the brick above it), so
+            // little of the door's art remains.
+            let same = front
+                .iter()
+                .zip(piece.pixels)
+                .filter(|(a, b)| a == b)
+                .count();
+            assert!(
+                same < 100,
+                "row {ty}: {same} of 256 pixels are still the door's"
+            );
+        }
         assert_ne!(closed, open);
     }
 
@@ -1931,9 +2060,14 @@ mod tests {
         w.ben.b.x = 26.0;
         w.ben.b.y = 38.0;
         let full = picture(&w, 0);
-        let count = |f: &[u8], c: u8| f.iter().filter(|&&p| p == c).count();
-        // The blue door is drawn closed (its brown tile shows round the art), and a taken snack or key leaves the picture.
-        assert!(count(&full, BROWN) > 0, "the closed door");
+        // The blue door is drawn closed, and a taken snack or key leaves the picture.
+        for (ty, piece) in [
+            (40, &oblique_data::DOOR_BLUE_TOP),
+            (39, &oblique_data::DOOR_BLUE_MID),
+            (38, &oblique_data::DOOR_BLUE_BOT),
+        ] {
+            assert_eq!(door_front(&w, &full, 22, ty), piece.pixels, "row {ty}");
+        }
         for i in 0..w.snacks.len() {
             let mut one = w.clone();
             one.snacks[i].taken = true;
@@ -1947,16 +2081,19 @@ mod tests {
             .set_switch(fizz_ep2::tiles::DOOR_BLUE_CHANNEL, false);
         open.flags.set(WorldFlags::KEY_BLUE_USED);
         let opened = picture(&open, 0);
-        assert!(
-            count(&opened, BROWN) < count(&full, BROWN),
-            "the open door has no brown tile"
-        );
+        for ty in 38..=40 {
+            let front = door_front(&open, &opened, 22, ty);
+            assert!(
+                front.iter().all(|&p| p != LIGHT_BLUE),
+                "the open door has no light blue, row {ty}"
+            );
+        }
         assert_ne!(opened, full);
     }
 
     #[test]
-    fn more_doors_than_the_tile_pass_remembers_are_all_drawn() {
-        // 30 door tiles in view is more than `DOORS`, so the second search draws them; each shows the door art on brown.
+    fn any_number_of_doors_in_view_are_all_drawn() {
+        // Thirty door tiles in view, in columns of five: each column is a top, three middles and a bottom.
         let mut w = level::world();
         w.ben.b.x = 13.0;
         w.ben.b.y = 20.0;
@@ -1964,51 +2101,67 @@ mod tests {
         let tiles: Vec<(i32, i32)> = (4..10)
             .flat_map(|dx| (-2..3).map(move |dy| (bx + dx, by + dy)))
             .collect();
-        assert!(tiles.len() > DOORS);
+        assert_eq!(tiles.len(), 30);
         for &(tx, ty) in &tiles {
             w.map.set(tx, ty, DOOR_R);
         }
         let f = picture(&w, 0);
-        let map_h = w.map.h;
-        let target_x = tile_px(w.ben.b.x + w.ben.b.w * 0.5);
-        let target_y = screen_y(w.ben.b.y + w.ben.b.h * 0.5, map_h);
-        let cam_x = follow(target_x, w.map.w * TILE_PX, VIEW_W as i32);
-        let cam_y = follow(target_y, map_h * TILE_PX, VIEW_H as i32);
-        let door = sprite("doorRed").unwrap();
         for &(tx, ty) in &tiles {
-            let (left, top) = (tx * TILE_PX - cam_x, (map_h - 1 - ty) * TILE_PX - cam_y);
-            assert!(
-                left >= 0
-                    && left + TILE_PX <= VIEW_W as i32
-                    && top >= 0
-                    && top + TILE_PX <= VIEW_H as i32
+            let piece = if ty == by + 2 {
+                &oblique_data::DOOR_RED_TOP
+            } else if ty == by - 2 {
+                &oblique_data::DOOR_RED_BOT
+            } else {
+                &oblique_data::DOOR_RED_MID
+            };
+            assert_eq!(
+                door_front(&w, &f, tx, ty),
+                piece.pixels,
+                "door ({tx}, {ty})"
             );
-            for sy in 0..16usize {
-                for sx in 0..16usize {
-                    let p = door.pixels[sy * 16 + sx];
-                    let want = if p == fizz_view::TRANSPARENT {
-                        BROWN
-                    } else {
-                        p
-                    };
-                    let got = f[(top as usize + sy) * VIEW_W + left as usize + sx];
-                    assert_eq!(got, want, "door ({tx}, {ty}) pixel ({sx}, {sy})");
-                }
-            }
         }
     }
 
     #[test]
-    fn the_tile_types_have_distinct_colours() {
-        let colours: Vec<u8> = [WALLBG, FILL, BLOCK, PLAT, SPIKE, EXIT]
+    fn the_tile_types_look_different() {
+        // A small room of one tile type, drawn the same way each time: no two types give the same picture.
+        let types = [
+            (WALLBG, "wall"),
+            (FILL, "fill"),
+            (BLOCK, "block"),
+            (PLAT, "plank"),
+            (SPIKE, "spikes"),
+            (EXIT, "exit"),
+            (DOOR_R, "red door"),
+            (DOOR_B, "blue door"),
+        ];
+        let pictures: Vec<Vec<u8>> = types
             .iter()
-            .map(|&t| tile_colour(t).unwrap())
+            .map(|&(t, _)| {
+                let mut data = vec![WALLBG; 25];
+                for y in 1..4 {
+                    for x in 1..4 {
+                        data[y * 5 + x] = t;
+                    }
+                }
+                let g = oblique::Ground {
+                    data: &data,
+                    w: 5,
+                    h: 5,
+                    red_closed: true,
+                    blue_closed: true,
+                };
+                let mut f = vec![0xEEu8; 80 * 80];
+                oblique::draw_ground(&mut f, 80, 80, &g, 0, 0);
+                assert!(f.iter().all(|&p| p <= 15));
+                f
+            })
             .collect();
-        for (i, a) in colours.iter().enumerate() {
-            assert!(colours[i + 1..].iter().all(|b| a != b));
-            assert_ne!(*a, SKY);
+        for (i, a) in pictures.iter().enumerate() {
+            for (j, b) in pictures.iter().enumerate().skip(i + 1) {
+                assert_ne!(a, b, "{} and {} look alike", types[i].1, types[j].1);
+            }
         }
-        assert_eq!(tile_colour(0), None);
     }
 
     #[test]
@@ -2247,6 +2400,7 @@ mod tests {
         let o = DrawOptions {
             captions: true,
             shake,
+            ..DrawOptions::default()
         };
         draw_slice_with(&mut f, VIEW_W, VIEW_H, w, 0, &o);
         f
@@ -2326,14 +2480,14 @@ mod tests {
         let s = jump();
         for flip in [false, true] {
             let (mut a, mut b) = (vec![0xEEu8; 40 * 40], vec![0xEEu8; 40 * 40]);
-            blit_sprite(&mut a, 40, 40, s, 20, 30, flip);
-            blit_sprite_turned(&mut b, 40, 40, s, 20, 30, flip, 4096, 0);
+            fizz_view::blit_sprite(&mut a, 40, 40, s, 20, 30, flip);
+            blit_sprite_turned(&mut b, 40, 40, s, 20, 30, flip, 4096, 0, 0);
             assert_eq!(a, b, "flip {flip}");
         }
         // A quarter turn counter-clockwise turns the 16 by 24 box into a 24 by 16 one about the same middle: the top of the
         // picture becomes the left and the left edge the bottom. Box top left (12, 6), middle (20, 18), turned box x 8..32, y 10..26.
         let mut q = vec![0xEEu8; 40 * 40];
-        blit_sprite_turned(&mut q, 40, 40, s, 20, 30, false, 0, 4096);
+        blit_sprite_turned(&mut q, 40, 40, s, 20, 30, false, 0, 4096, 0);
         let sw = 16usize;
         let mut ink = 0;
         for y in 0..40usize {
@@ -2381,7 +2535,7 @@ mod tests {
             ] {
                 for flip in [false, true] {
                     let mut buf = vec![0xEEu8; 60 * 60];
-                    blit_sprite_turned(&mut buf[..fw * fh], fw, fh, s, x, y, flip, cos, sin);
+                    blit_sprite_turned(&mut buf[..fw * fh], fw, fh, s, x, y, flip, cos, sin, 0);
                     assert!(buf[fw * fh..].iter().all(|&p| p == 0xEE), "outside");
                     assert!(
                         buf.iter().all(|&p| p == 0xEE || own.contains(&p)),
@@ -2393,7 +2547,7 @@ mod tests {
         // It really is drawn when on screen, with about as many pixels as the sprite has.
         let mut frame = vec![0xEEu8; 40 * 40];
         let (c, sn) = DEATH_SPIN[20];
-        blit_sprite_turned(&mut frame, 40, 40, s, 20, 30, false, c, sn);
+        blit_sprite_turned(&mut frame, 40, 40, s, 20, 30, false, c, sn, 0);
         let ink = frame.iter().filter(|&&p| p != 0xEE).count();
         let src = s
             .pixels
@@ -2418,6 +2572,7 @@ mod tests {
         let reduced = DrawOptions {
             captions: true,
             shake: false,
+            ..DrawOptions::default()
         };
         let full = DrawOptions::default();
         assert_ne!(draw(&reduced, 0), draw(&reduced, 3), "reduced flickers");
@@ -2499,3 +2654,5 @@ mod tests {
         );
     }
 }
+#[cfg(test)]
+mod night_tests;

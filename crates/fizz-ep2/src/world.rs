@@ -10,7 +10,9 @@
 // Departures: the red and blue doors are switched tiles (see `tiles.rs`) and the key that opens each is a lock rule of the level
 // (see `rules.rs`), the keys and the spent-key marks live in [`WorldFlags`], and a death respawns Ben in place instead of
 // reloading the level. The respawn is nevertheless a reload in effect: it restores the level's start switches and puts the keys
-// and the snacks back, as Fizz 1's reload does.
+// and the snacks back, as Fizz 1's reload does. The exit is a second departure: Fizz 1 ends the level when Ben touches the
+// exit tile, but here the exit is a doorway and Ben goes through it on a fresh Up press while standing on the ground
+// (see `tick_ben_contacts` and `docs/FIZZ1-DIFFERENCES.md`).
 
 use crate::ben::{Ben, FALL_DEATH_Y};
 use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN};
@@ -22,7 +24,7 @@ use alloc::vec::Vec;
 use fizz_phys::fmath::FloatMath;
 use fizz_phys::tilemap::SWITCHED;
 use fizz_phys::{STEP, TileMap};
-use fizz_sim::{InputFrame, StateHash, Tick};
+use fizz_sim::{Buttons, InputFrame, StateHash, Tick};
 
 /// Fizz Blaster shots Ben carries at the start of the slice, and again after a respawn.
 pub const START_AMMO: u32 = 5;
@@ -432,7 +434,7 @@ impl World {
             self.events.push(Event::HeadBump { x, y });
         }
         if !dead {
-            self.tick_ben_contacts();
+            self.tick_ben_contacts(input);
         }
     }
 
@@ -482,7 +484,13 @@ impl World {
     }
 
     /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the locks (the doors), the keys, then the snacks and the chickens.
-    fn tick_ben_contacts(&mut self) {
+    ///
+    /// Departure from Fizz 1, which ends the level on touching an exit tile: Ben goes through the exit only when Up is newly
+    /// pressed (`input.pressed`, so a held Up does not count until it is released and pressed again) on a tick where his body
+    /// overlaps an exit tile and he is standing on the ground. Touching alone, or pressing Up in mid-air, does nothing. On the
+    /// exit tick the look-up timer is cleared so the camera does not start to look, the exit event is raised, and the early
+    /// return skips the rest of the contacts, as touching the exit did before.
+    fn tick_ben_contacts(&mut self, input: InputFrame) {
         let (px, py, pw, ph) = (self.ben.b.x, self.ben.b.y, self.ben.b.w, self.ben.b.h);
         let mut die = py < FALL_DEATH_Y;
         for cx in (px.floor() as i32)..=((px + pw).floor() as i32) {
@@ -501,8 +509,13 @@ impl World {
                         die = true;
                     }
                 }
-                if t == EXIT && !self.flags.contains(WorldFlags::EXIT_REACHED) {
+                if t == EXIT
+                    && input.pressed.contains(Buttons::UP)
+                    && self.ben.b.on_ground
+                    && !self.flags.contains(WorldFlags::EXIT_REACHED)
+                {
                     self.flags.set(WorldFlags::EXIT_REACHED);
+                    self.ben.look_up = 0.0;
                     let (x, y) = sixteenths((px, py + 2.0));
                     self.events.push(Event::Exit { x, y });
                     return;
@@ -1349,6 +1362,78 @@ mod tests {
     }
 
     #[test]
+    fn the_exit_takes_a_fresh_up_press_on_the_ground() {
+        let exit_arena = || {
+            let mut w = arena(None);
+            w.map.set(10, 2, tiles::EXIT);
+            w
+        };
+        // Touching alone, for many ticks, raises nothing and leaves the flag clear.
+        let mut w = exit_arena();
+        for _ in 0..30 {
+            w.step(idle());
+            assert!(w.events().is_empty(), "{:?}", kinds(&w));
+        }
+        assert!(!w.flags.contains(WorldFlags::EXIT_REACHED));
+
+        // A press raises Exit once, freezes Ben and clears the look-up timer.
+        press(&mut w, Buttons::NONE, Buttons::UP);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Exit { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+        assert!(w.flags.contains(WorldFlags::EXIT_REACHED));
+        assert_eq!(w.ben.look_up, 0.0);
+        let frozen = (w.ben.b.x, w.ben.b.y);
+        for _ in 0..5 {
+            press(&mut w, Buttons::UP, Buttons::UP);
+            press(&mut w, Buttons::NONE, Buttons::UP);
+            assert!(w.events().is_empty(), "the exit is raised once");
+        }
+        assert_eq!(frozen, (w.ben.b.x, w.ben.b.y));
+
+        // Up held from before Ben reaches the exit does not count; releasing and pressing again does.
+        let mut w = arena(None);
+        for x in 10..16 {
+            w.map.set(x, 2, tiles::EXIT);
+        }
+        w.ben.b.x = 8.0;
+        press(&mut w, Buttons::NONE, Buttons::UP | Buttons::RIGHT);
+        for _ in 0..30 {
+            press(
+                &mut w,
+                Buttons::UP | Buttons::RIGHT,
+                Buttons::UP | Buttons::RIGHT,
+            );
+            assert!(w.events().is_empty(), "{:?}", kinds(&w));
+        }
+        assert!(w.ben.b.x + w.ben.b.w > 10.0, "Ben walked onto the exit");
+        assert!(!w.flags.contains(WorldFlags::EXIT_REACHED));
+        press(&mut w, Buttons::UP | Buttons::RIGHT, Buttons::NONE);
+        assert!(w.events().is_empty());
+        press(&mut w, Buttons::NONE, Buttons::UP);
+        assert!(
+            matches!(kinds(&w)[..], [Event::Exit { .. }]),
+            "{:?}",
+            kinds(&w)
+        );
+
+        // An Up press in mid-air over the exit does nothing.
+        let mut w = exit_arena();
+        press(&mut w, Buttons::NONE, Buttons::JUMP);
+        assert!(!w.ben.b.on_ground);
+        press(&mut w, Buttons::JUMP, Buttons::JUMP | Buttons::UP);
+        assert!(!w.ben.b.on_ground);
+        assert!(
+            !w.events().iter().any(|e| matches!(e, Event::Exit { .. })),
+            "{:?}",
+            kinds(&w)
+        );
+        assert!(!w.flags.contains(WorldFlags::EXIT_REACHED));
+    }
+
+    #[test]
     fn contacts_raise_death_key_door_exit_stomp_and_stun() {
         // Death: a spike under Ben kills him once, 1.6 tiles above his feet.
         let mut w = arena(None);
@@ -1363,10 +1448,15 @@ mod tests {
         w.step(idle());
         assert!(w.events().is_empty(), "dying is raised once");
 
-        // Exit: raised once, then the world freezes Ben.
+        // Exit: a fresh Up press on the ground raises it once, then the world freezes Ben.
         let mut w = arena(None);
         w.map.set(10, 2, tiles::EXIT);
         w.step(idle());
+        assert!(
+            w.events().is_empty(),
+            "touching the exit alone does nothing"
+        );
+        press(&mut w, Buttons::NONE, Buttons::UP);
         assert!(
             matches!(kinds(&w)[..], [Event::Exit { .. }]),
             "{:?}",

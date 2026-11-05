@@ -157,7 +157,7 @@ fn the_replay_raises_these_captions_on_these_ticks() {
         (1641, "boing"),
         (1646, "clunk"),
         (1658, "boing"),
-        (1664, "ta-da!"),
+        (1746, "ta-da!"),
     ];
     assert_eq!(got, want);
 }

@@ -33,6 +33,44 @@ pub fn blit_sprite(
     y: i32,
     flip_x: bool,
 ) {
+    blit::<false>(frame, w, h, sprite, x, y, flip_x, 0);
+}
+
+/// [`blit_sprite`] with `bank` ORed into each pixel drawn: the high nibble of a frame byte, which a 256-colour palette of
+/// brightness banks reads as the light on the colour (the night's markers in `fizz-slice-view`'s `light`). A bank of 0 draws
+/// exactly what [`blit_sprite`] draws.
+#[allow(clippy::too_many_arguments)]
+pub fn blit_sprite_banked(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    sprite: &Sprite,
+    x: i32,
+    y: i32,
+    flip_x: bool,
+    bank: u8,
+) {
+    if bank == 0 {
+        blit::<false>(frame, w, h, sprite, x, y, flip_x, 0);
+    } else {
+        blit::<true>(frame, w, h, sprite, x, y, flip_x, bank);
+    }
+}
+
+/// The blit, with the bank's OR compiled in only when `BANKED`, so the day picture's blit is the one it always was.
+#[allow(clippy::too_many_arguments)]
+#[inline(always)]
+fn blit<const BANKED: bool>(
+    frame: &mut [u8],
+    w: usize,
+    h: usize,
+    sprite: &Sprite,
+    x: i32,
+    y: i32,
+    flip_x: bool,
+    bank: u8,
+) {
+    let bank = if BANKED { bank } else { 0 };
     let (fw, fh) = extent(frame, w, h);
     let (sw, sh) = (usize::from(sprite.w), usize::from(sprite.h));
     if sw == 0 || sh == 0 || sprite.pixels.len() < sw * sh {
@@ -68,13 +106,13 @@ pub fn blit_sprite(
         if flip_x {
             for (d, &p) in dst.iter_mut().zip(src.iter().rev()) {
                 if p != TRANSPARENT {
-                    *d = p;
+                    *d = p | bank;
                 }
             }
         } else {
             for (d, &p) in dst.iter_mut().zip(src) {
                 if p != TRANSPARENT {
-                    *d = p;
+                    *d = p | bank;
                 }
             }
         }

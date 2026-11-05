@@ -12,8 +12,8 @@
 // (Auto is On), and `Values::to_prefs` writes them that way. The Web's `System` motion has no `Prefs` form and saves as Full.
 
 use fizz_machine::{
-    Captions, FrameRate, FxChoice, Keys, Motion, MusicChoice, PlacementMode, Prefs, Resolved,
-    SoundState,
+    Captions, FrameRate, FxChoice, Keys, Motion, MusicChoice, Night, PlacementMode, Prefs,
+    Resolved, SkyDetail, SoundState,
 };
 use fizz_machine::{FxPlan, MusicPlan};
 
@@ -63,6 +63,8 @@ pub struct Caps {
     pub auto_fx: Device,
     /// The frame rate the governor is drawing at now: 60 or 30. Shown in "Auto (60 Hz)".
     pub rate: u32,
+    /// Whether an Auto sky is Full now (DOS; the governor decides it). Shown in "Auto (Full)" or "Auto (Light)".
+    pub full_sky: bool,
     /// The Web shows the Fullscreen row only when the page can go fullscreen.
     pub fullscreen: bool,
 }
@@ -89,8 +91,15 @@ impl Caps {
                 FxPlan::Speaker => Device::Speaker,
             },
             rate,
+            full_sky: false,
             fullscreen: false,
         }
+    }
+
+    /// These capabilities with an Auto sky that is Full (`true`) or Light now.
+    pub const fn with_full_sky(mut self, full: bool) -> Caps {
+        self.full_sky = full;
+        self
     }
 
     /// The Web capabilities; `fullscreen` is whether the page can go fullscreen.
@@ -103,6 +112,7 @@ impl Caps {
             auto_music: Device::None,
             auto_fx: Device::None,
             rate: 60,
+            full_sky: true,
             fullscreen,
         }
     }
@@ -127,6 +137,8 @@ pub struct Values {
     pub placement: PlacementMode,
     pub captions: Captions,
     pub keys: Keys,
+    pub sky: SkyDetail,
+    pub night: Night,
     /// Web only; not in `Prefs`.
     pub fullscreen: bool,
 }
@@ -145,6 +157,8 @@ impl Values {
             placement: prefs.placement,
             captions: prefs.captions,
             keys: prefs.keys,
+            sky: prefs.sky,
+            night: prefs.night,
             fullscreen: false,
         }
     }
@@ -162,6 +176,8 @@ impl Values {
         prefs.placement = self.placement;
         prefs.captions = self.captions;
         prefs.keys = self.keys;
+        prefs.sky = self.sky;
+        prefs.night = self.night;
         prefs
     }
 }
@@ -178,6 +194,10 @@ impl RowId {
     /// The Web's Sound row (On or Off for the effects).
     pub const SOUND: RowId = RowId(8);
     pub const FULLSCREEN: RowId = RowId(9);
+    /// The Sky: Full, or Light (the stars and the sea).
+    pub const SKY: RowId = RowId(14);
+    /// The Night: Off (day), or On (dark, lit by the level's lanterns and lamps).
+    pub const NIGHT: RowId = RowId(15);
 }
 
 /// The note to draw when any row shows `*`.
@@ -271,7 +291,10 @@ impl Default for RowList {
     }
 }
 
-const DOS_ROWS: [RowId; 8] = [
+/// The most rows a platform's Options screen has.
+const MAX_IDS: usize = 10;
+
+const DOS_ROWS: [RowId; 10] = [
     RowId::MUSIC,
     RowId::EFFECTS,
     RowId::PLACEMENT,
@@ -279,10 +302,12 @@ const DOS_ROWS: [RowId; 8] = [
     RowId::MOTION,
     RowId::CAPTIONS,
     RowId::KEYS,
+    RowId::SKY,
+    RowId::NIGHT,
     RowId::BACK,
 ];
 
-const WEB_ROWS: [RowId; 8] = [
+const WEB_ROWS: [RowId; 10] = [
     RowId::SOUND,
     RowId::MUSIC,
     RowId::PLACEMENT,
@@ -290,15 +315,17 @@ const WEB_ROWS: [RowId; 8] = [
     RowId::CAPTIONS,
     RowId::KEYS,
     RowId::FULLSCREEN,
+    RowId::SKY,
+    RowId::NIGHT,
     RowId::BACK,
 ];
 
 /// The ids of the rows on `caps`' platform, in order.
-fn ids(caps: &Caps) -> ([RowId; 8], usize) {
+fn ids(caps: &Caps) -> ([RowId; MAX_IDS], usize) {
     match caps.platform {
         Platform::Dos => (DOS_ROWS, DOS_ROWS.len()),
         Platform::Web => {
-            let mut out = [RowId::BACK; 8];
+            let mut out = [RowId::BACK; MAX_IDS];
             let mut n = 0;
             for id in WEB_ROWS {
                 if id == RowId::FULLSCREEN && !caps.fullscreen {
@@ -325,6 +352,8 @@ fn label(platform: Platform, id: RowId) -> &'static str {
         (_, RowId::BACK) => "Back",
         (_, RowId::SOUND) => "Sound",
         (_, RowId::FULLSCREEN) => "Fullscreen",
+        (_, RowId::SKY) => "Sky",
+        (_, RowId::NIGHT) => "Night",
         _ => "",
     }
 }
@@ -335,6 +364,7 @@ fn count(platform: Platform, id: RowId) -> usize {
         (Platform::Dos, RowId::MUSIC) => 4,
         (Platform::Dos, RowId::EFFECTS) => 5,
         (Platform::Web, RowId::MOTION) => 3,
+        (Platform::Dos, RowId::SKY) => 3,
         (_, RowId::FRAME_RATE) => 3,
         (_, RowId::BACK) => 0,
         _ => 2,
@@ -355,6 +385,9 @@ const FX: [FxChoice; 5] = [
     FxChoice::Off,
 ];
 const RATES: [FrameRate; 3] = [FrameRate::Auto, FrameRate::Hz60, FrameRate::Hz30];
+/// The Sky row's choices: DOS has Auto first (its default); the Web draws Full or Light.
+const SKY_DOS: [SkyDetail; 3] = [SkyDetail::Auto, SkyDetail::Full, SkyDetail::Light];
+const SKY_WEB: [SkyDetail; 2] = [SkyDetail::Full, SkyDetail::Light];
 const MOTION_DOS: [MotionPick; 2] = [MotionPick::Full, MotionPick::Reduced];
 const MOTION_WEB: [MotionPick; 3] = [MotionPick::System, MotionPick::Reduced, MotionPick::Full];
 
@@ -377,6 +410,9 @@ fn index(platform: Platform, id: RowId, v: &Values) -> usize {
         (_, RowId::CAPTIONS) => on(v.captions == Captions::Off),
         (_, RowId::KEYS) => on(v.keys == Keys::Modern),
         (_, RowId::FULLSCREEN) => on(v.fullscreen),
+        (Platform::Dos, RowId::SKY) => SKY_DOS.iter().position(|d| *d == v.sky).unwrap_or(0),
+        (Platform::Web, RowId::SKY) => on(v.sky == SkyDetail::Light),
+        (_, RowId::NIGHT) => on(v.night == Night::On),
         _ => 0,
     }
 }
@@ -413,6 +449,9 @@ fn set(platform: Platform, id: RowId, v: &mut Values, i: usize) {
         (_, RowId::CAPTIONS) => v.captions = if i == 0 { Captions::On } else { Captions::Off },
         (_, RowId::KEYS) => v.keys = if i == 0 { Keys::Keen } else { Keys::Modern },
         (_, RowId::FULLSCREEN) => v.fullscreen = i == 1,
+        (Platform::Dos, RowId::SKY) => v.sky = SKY_DOS[i],
+        (Platform::Web, RowId::SKY) => v.sky = SKY_WEB[i],
+        (_, RowId::NIGHT) => v.night = if i == 0 { Night::Off } else { Night::On },
         _ => {}
     }
 }
@@ -470,6 +509,15 @@ fn word(caps: &Caps, id: RowId, i: usize) -> Text {
         (_, RowId::CAPTIONS) => Text::join(&[on_off(i == 1)]),
         (_, RowId::KEYS) => Text::join(&[["Keen", "Modern"][i]]),
         (_, RowId::FULLSCREEN) => Text::join(&[on_off(i == 0)]),
+        (Platform::Dos, RowId::SKY) => match SKY_DOS[i] {
+            SkyDetail::Auto => {
+                Text::join(&["Auto (", if caps.full_sky { "Full" } else { "Light" }, ")"])
+            }
+            SkyDetail::Full => Text::join(&["Full"]),
+            SkyDetail::Light => Text::join(&["Light"]),
+        },
+        (Platform::Web, RowId::SKY) => Text::join(&[["Full", "Light"][i]]),
+        (_, RowId::NIGHT) => Text::join(&[on_off(i == 0)]),
         _ => Text::EMPTY,
     }
 }
@@ -511,7 +559,7 @@ impl OptionsScreen {
         let mut entries = [Entry {
             id: RowId::BACK,
             kind: Kind::Action,
-        }; 8];
+        }; MAX_IDS];
         for (e, id) in entries.iter_mut().zip(ids).take(n) {
             e.id = id;
             e.kind = if id == RowId::BACK {
@@ -690,6 +738,8 @@ mod tests {
                 "Motion",
                 "Captions",
                 "Keys",
+                "Sky",
+                "Night",
                 "Back"
             ]
         );
@@ -711,11 +761,13 @@ mod tests {
                 "Captions",
                 "Keys",
                 "Fullscreen",
+                "Sky",
+                "Night",
                 "Back"
             ]
         );
         let without = ids_of(&screen(), &Caps::web(false));
-        assert_eq!(without.len(), 7);
+        assert_eq!(without.len(), 9);
         assert!(without.iter().all(|r| r.0 != "Fullscreen"));
     }
 
@@ -724,7 +776,7 @@ mod tests {
         let caps = sb16();
         let mut s = screen();
         assert_eq!(s.key(MenuKey::Up, &caps), Outcome::Moved);
-        assert_eq!(s.cursor, 7);
+        assert_eq!(s.cursor, 9);
         assert_eq!(s.key(MenuKey::Confirm, &caps), Outcome::Closed);
         assert_eq!(s.key(MenuKey::Back, &caps), Outcome::Closed);
         assert!(!s.changed);
@@ -851,7 +903,7 @@ mod tests {
             s.key(k, &caps);
         }
         assert!(!s.changed);
-        s.cursor = 7;
+        s.cursor = 9;
         s.key(MenuKey::Confirm, &caps);
         s.key(MenuKey::Left, &caps);
         assert!(!s.changed);
@@ -919,12 +971,38 @@ mod tests {
             (RowId::PLACEMENT, "Enhanced", "Classic"),
             (RowId::CAPTIONS, "On", "Off"),
             (RowId::KEYS, "Keen", "Modern"),
+            (RowId::NIGHT, "Off", "On"),
         ] {
             goto(&mut s, &caps, row);
             assert_eq!(value(&s, &caps, row), first);
             s.key(MenuKey::Right, &caps);
             assert_eq!(value(&s, &caps, row), second);
         }
+        // The Sky: Auto with what it chose, then Full and Light; the Web has Full and Light.
+        goto(&mut s, &caps, RowId::SKY);
+        assert_eq!(value(&s, &caps, RowId::SKY), "Auto (Light)");
+        assert_eq!(
+            value(&s, &caps.with_full_sky(true), RowId::SKY),
+            "Auto (Full)"
+        );
+        for want in ["Full", "Light", "Auto (Light)"] {
+            s.key(MenuKey::Right, &caps);
+            assert_eq!(value(&s, &caps, RowId::SKY), want);
+        }
+        let web = Caps::web(false);
+        let mut w = OptionsScreen::new(
+            Values {
+                sky: SkyDetail::Full,
+                ..Values::default()
+            },
+            Overrides::NONE,
+        );
+        goto(&mut w, &web, RowId::SKY);
+        assert_eq!(value(&w, &web, RowId::SKY), "Full");
+        w.key(MenuKey::Right, &web);
+        assert_eq!(value(&w, &web, RowId::SKY), "Light");
+        w.key(MenuKey::Right, &web);
+        assert_eq!(value(&w, &web, RowId::SKY), "Full");
         goto(&mut s, &caps, RowId::FRAME_RATE);
         s.key(MenuKey::Right, &caps);
         assert_eq!(value(&s, &caps, RowId::FRAME_RATE), "60 Hz");
@@ -942,6 +1020,8 @@ mod tests {
         prefs.placement = PlacementMode::Classic;
         prefs.captions = Captions::Off;
         prefs.keys = Keys::Modern;
+        prefs.sky = SkyDetail::Full;
+        prefs.night = Night::On;
         assert_eq!(Values::from_prefs(&prefs).to_prefs(), prefs);
         assert_eq!(Values::from_prefs(&Prefs::default()), Values::default());
         let system = Values {

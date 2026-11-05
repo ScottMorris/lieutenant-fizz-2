@@ -6,7 +6,7 @@
 // Provenance: written for this repository; the loop shape follows rtsmoke and the transcript is `fizz_ep2::replay`'s.
 //
 //   FIZZ2.EXE /LIVE     plays the slice from the keyboard; Esc opens the Paused screen (Resume, Options, Quit to DOS). The default when no mode is given
-//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,757 ticks at 60 Hz), drawing it as it goes, and prints its transcript
+//   FIZZ2.EXE /REPLAY   runs the slice's built-in script (1,800 ticks at 60 Hz), drawing it as it goes, and prints its transcript
 //                       v1 plus the platform lines: the parity gate
 //   FIZZ2.EXE /BENCH [n] runs the script once as fast as the machine allows and prints what each tick costs, in microseconds, for the
 //                       simulation step, the drawing and the copy to the screen, against the 16,667 us a 60 Hz tick allows
@@ -65,11 +65,11 @@ use fizz_ep2::{SLICE_SCRIPT, SLICE_TICKS, World, level};
 use fizz_hal::{Display, InputSource, KeyCode, Pacer};
 use fizz_machine::Resolved;
 use fizz_machine::switches::{self, Mode, Parsed};
-use fizz_machine::{Captions, Motion, PlacementMode, Prefs, apply_flags};
+use fizz_machine::{Captions, Motion, Night, PlacementMode, Prefs, SkyDetail, apply_flags};
 use fizz_present_dos::menu::MenuView;
 use fizz_present_dos::{
-    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, event_sound, frame_digest, key_to_buttons,
-    menu as view_menu, present, render_slice_with,
+    DrawOptions, Frame, Placement, VIEW_H, VIEW_W, ViewFx, dos_palette, dos_palette_for, event_sound, frame_digest,
+    key_to_buttons, menu as view_menu, present, render_slice_with,
 };
 use fizz_sim::{Buttons, InputFrame, InputLatch, TICK_HZ};
 use hal::{DosClock, DosDisplay, DosInput};
@@ -230,6 +230,33 @@ fn open_display(display: &mut DosDisplay) -> Result<(), fizz_hal::HalError> {
     display.set_palette(0, &dos_palette())
 }
 
+/// Which of the two palettes the DAC holds, so a change writes its 768 values once and not every frame.
+struct Palette {
+    night: bool,
+}
+
+impl Palette {
+    /// The day palette, which `open_display` sets.
+    const fn day() -> Self {
+        Palette { night: false }
+    }
+
+    /// Gives the DAC the palette a picture drawn with `options` is shown in: the night one at night, the day one otherwise (and
+    /// always while a menu is up, whose plates and words are drawn in bank 0 over the picture dimmed into bank 1).
+    fn show(&mut self, display: &mut DosDisplay, night: bool) {
+        if night != self.night {
+            let _ = display.set_palette(
+                0,
+                &dos_palette_for(&DrawOptions {
+                    night,
+                    ..DrawOptions::default()
+                }),
+            );
+            self.night = night;
+        }
+    }
+}
+
 fn draw_slice_frame(display: &mut DosDisplay, frame: &mut Frame, world: &fizz_ep2::World, options: &DrawOptions, puffs: &ViewFx) {
     render_slice_with(world, frame, options, puffs);
     let _ = present(display, frame);
@@ -276,10 +303,15 @@ fn main() -> i32 {
         captions: prefs.captions == Captions::On,
         // Motion gates the death shake and the death spin; Reduced leaves them off.
         shake: prefs.motion == Motion::Full,
+        // The Sky: Full draws the open air's whole parallax night, Light its stars and sea. Auto, the default, starts Light, and
+        // in `/LIVE` and `/REPLAY` the frame governor may choose Full on a fast machine; `/BENCH` measures Auto's start, Light.
+        full_sky: prefs.sky == SkyDetail::Full,
+        // Night: drawn for the night palette and lit by the level's lights. Off, the default, is the day picture as ever.
+        night: prefs.night == Night::On,
     };
     match run.mode {
         Mode::Live => live(&start, false),
-        Mode::Replay => replay(&options),
+        Mode::Replay => replay(&options, prefs.sky),
         Mode::Probe => machine::probe_mode(),
         Mode::Check => match check::check_mode() {
             check::Choice::Quit => 0,
@@ -327,7 +359,7 @@ fn help() -> i32 {
 /// The slice's scripted run: the transcript, then the platform lines (whether Ben reached the exit, the x87 control word, the
 /// BIOS tick count and whether the vectors were restored). The script is played into a fresh level one tick per pacer tick, so the run takes about 29 seconds; the screen shows it as it goes.
 #[inline(never)]
-fn replay(options: &DrawOptions) -> i32 {
+fn replay(options: &DrawOptions, sky: SkyDetail) -> i32 {
     // Probed before the timer is hooked: the probes' waits need the PIT at the BIOS rate.
     let sound = sound::Plan::new(&machine::probe_machine());
     let session = match start_session(false, Some(&sound.resolved)) {
@@ -343,12 +375,13 @@ fn replay(options: &DrawOptions) -> i32 {
         println!("DISPLAY FAILED");
         return 1;
     }
+    Palette::day().show(&mut display, options.night);
     // The presenter starts the music, never the rules: nothing in `fizz_ep2` reads the music clock.
     audio::music_start();
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-    let mut drawing = frames::Drawing::new();
+    let mut drawing = frames::Drawing::new(sky);
     let mut frame = Frame::new();
     let mut world = level::world();
     let mut out = Transcript::new();
@@ -379,8 +412,12 @@ fn replay(options: &DrawOptions) -> i32 {
             puffs.observe(&world, VIEW_W, VIEW_H, options);
         }
         if due > 0 {
+            let options = DrawOptions {
+                full_sky: drawing.full_sky(),
+                ..*options
+            };
             drawing.maybe(world.tick.0, || {
-                draw_slice_frame(&mut display, &mut frame, &world, options, &puffs)
+                draw_slice_frame(&mut display, &mut frame, &world, &options, &puffs)
             });
         }
     }
@@ -423,8 +460,40 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
         return 1;
     }
     let (cal_loops, cal_us) = bench::calibrate();
+    let mut palette = Palette::day();
+    palette.show(&mut display, options.night);
     let (world, r) = bench::run(&mut display, limit, options, false);
     let caps = bench::captions(&mut display, options, false);
+    // With the Light sky (the default here), the Full sky is timed too, so that later work on the drawing can follow what it costs
+    // at the floor; its pictures are not digested and it changes nothing the gate checks.
+    let full = if options.full_sky {
+        None
+    } else {
+        let full = DrawOptions {
+            full_sky: true,
+            ..*options
+        };
+        Some((
+            bench::run(&mut display, limit, &full, false).1,
+            bench::captions(&mut display, &full, false),
+        ))
+    };
+    // By day (the default) the script is played a third time at night with the sky as above (Light, so the night is the palette's
+    // ambient and the glowing art, with no light pass), which the gate holds to the 60 Hz step, and a fourth time at night with the
+    // Full detail, which adds the light pass and is logged for faster machines. The first night's frames are digested, so its
+    // pixels are compared with the host's too.
+    let night = if options.night {
+        None
+    } else {
+        let night = DrawOptions { night: true, ..*options };
+        let lit = DrawOptions { full_sky: true, ..night };
+        palette.show(&mut display, true);
+        Some((
+            bench::run(&mut display, limit, &night, false).1,
+            bench::captions(&mut display, &night, false),
+            (!options.full_sky).then(|| bench::run(&mut display, limit, &lit, false).1),
+        ))
+    };
     let cw = fpu::control_word();
     end_session(&mut display);
     let restored = session.irq0.is_some() && vector_now(0) == session.irq0 && vector_now(1) == session.irq1;
@@ -448,10 +517,47 @@ fn bench(limit: u64, options: &DrawOptions) -> i32 {
     ] {
         println!("BENCH {} avg {} max {} units us", name, s.avg_us(), s.max_us());
     }
+    println!(
+        "BENCH DRAW WORST TICK {} TOTAL WORST TICK {}",
+        r.draw.max_tick(),
+        r.total.max_tick()
+    );
+    println!("BENCH SKY {}", if options.full_sky { "FULL" } else { "LIGHT" });
+    println!("BENCH NIGHT {}", if options.night { "ON" } else { "OFF" });
     for &(tick, digest) in &r.frames[..r.frame_count] {
         println!("BENCH FRAME {} {:016x}", tick, digest);
     }
     print_captions("BENCH", &caps);
+    if let Some((f, fc)) = &full {
+        for (name, s) in [("DRAW", &f.draw), ("TOTAL", &f.total)] {
+            println!("BENCH FULL SKY {} avg {} max {} units us", name, s.avg_us(), s.max_us());
+        }
+        println!("BENCH FULL SKY DRAW WORST TICK {}", f.draw.max_tick());
+        print_captions("BENCH FULL SKY", fc);
+    }
+    if let Some((n, nc, lit)) = &night {
+        for (name, s) in [("DRAW", &n.draw), ("PRESENT", &n.present), ("TOTAL", &n.total)] {
+            println!("BENCH NIGHT {} avg {} max {} units us", name, s.avg_us(), s.max_us());
+        }
+        println!(
+            "BENCH NIGHT DRAW WORST TICK {} TOTAL WORST TICK {}",
+            n.draw.max_tick(),
+            n.total.max_tick()
+        );
+        for &(tick, digest) in &n.frames[..n.frame_count] {
+            println!("BENCH NIGHT FRAME {} {:016x}", tick, digest);
+        }
+        print_captions("BENCH NIGHT", nc);
+        if let Some(f) = lit {
+            for (name, s) in [("DRAW", &f.draw), ("TOTAL", &f.total)] {
+                println!("BENCH NIGHT FULL {} avg {} max {} units us", name, s.avg_us(), s.max_us());
+            }
+            println!("BENCH NIGHT FULL DRAW WORST TICK {}", f.draw.max_tick());
+            for &(tick, digest) in &f.frames[..f.frame_count] {
+                println!("BENCH NIGHT FULL FRAME {} {:016x}", tick, digest);
+            }
+        }
+    }
     println!("BENCH BUDGET {} us per tick at 60 Hz", bench::BUDGET_US);
     println!("BENCH HASH {:016x}", fizz_ep2::hash(&world).finish());
     let exited = world.flags.contains(fizz_ep2::WorldFlags::EXIT_REACHED);
@@ -514,7 +620,8 @@ fn live(start: &Start, options_only: bool) -> i32 {
 
     let clock = DosClock;
     let mut pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-    let mut drawing = frames::Drawing::new();
+    let mut palette = Palette::day();
+    let mut drawing = frames::Drawing::new(start.prefs.sky);
     let mut input = DosInput::new();
     let mut latch = InputLatch::new();
     let mut frame = Frame::new();
@@ -525,6 +632,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
     let mut quit = false;
     let began = timer::ticks();
 
+    palette.show(&mut display, applied.draw.night);
     drawing.first(|| draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs));
     if options_only {
         menus.open_options(&frame);
@@ -542,15 +650,19 @@ fn live(start: &Start, options_only: bool) -> i32 {
                     Step::Resume => {
                         latch = InputLatch::new();
                         pacer = Pacer::new(&clock, TICK_HZ, MAX_CATCH_UP);
-                        draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs);
+                        render_slice_with(&world, &mut frame, &applied.draw, &puffs);
+                        let _ = display.wait_vretrace();
+                        palette.show(&mut display, applied.draw.night);
+                        let _ = present(&mut display, &frame);
                     }
                 }
                 if quit || !menus.is_open() {
                     break;
                 }
             }
-            if menus.is_open() && menus.draw(&mut frame, drawing.rate()) {
+            if menus.is_open() && menus.draw(&mut frame, drawing.rate(), drawing.full_sky()) {
                 let _ = display.wait_vretrace();
+                palette.show(&mut display, false);
                 let _ = present(&mut display, &frame);
             }
             continue;
@@ -577,6 +689,8 @@ fn live(start: &Start, options_only: bool) -> i32 {
             latch = InputLatch::new();
             menus.open_paused(&frame);
         } else if due > 0 {
+            // An Auto sky follows what the governor chose at the end of its last window.
+            applied.draw.full_sky = drawing.full_sky();
             drawing.maybe(world.tick.0, || {
                 draw_slice_frame_synced(&mut display, &mut frame, &world, &applied.draw, &puffs)
             });
@@ -692,6 +806,7 @@ fn print_pass(name: &str, r: &bench::Report) {
             s.max_us()
         );
     }
+    println!("BENCH AUDIO {} DRAW WORST TICK {}", name, r.draw.max_tick());
 }
 
 /// `/BENCH /AUDIO`: the bench with the 560 Hz audio service running, first without music and then with it, each pass the whole script

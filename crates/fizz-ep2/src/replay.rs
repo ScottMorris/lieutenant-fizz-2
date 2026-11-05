@@ -40,10 +40,14 @@ const P: Buttons = Buttons::POGO;
 /// first half so the replay proves more than a clean run. The first life shoots two shots into the air and a wall,
 /// climbs to the long ledge, shoots the chicken, takes the red key past it and carries it onto the spikes: Ben dies, the
 /// key drops and the world respawns him. The second life climbs again and stomps the chicken instead, takes the key,
-/// opens the red door with it, climbs the right shaft and, on the gallery, plays in the snack nook before it walks into the
+/// opens the red door with it, climbs the right shaft and, on the gallery, plays in the snack nook before it goes through the
 /// exit: it spends the five shots on the wall and clicks once (a dud), jumps under the shelf twice (two cheezies and two head
 /// bumps), takes the pogo, bounces low and then high onto the shelf, bounces along it past a cheezie, a chocolate and a cookie
-/// to the blue key, and drops off its left end into the blue door, which opens and leads to the exit.
+/// to the blue key, and drops off its left end into the blue door, which opens and leads to the exit. The
+/// bounces carry it into the exit doorway, where it steps off the pogo stick, lands, waits for the chicken's cluck at tick 1720 to finish and presses
+/// Up to go through (the exit takes a fresh Up press on the ground, not a touch). The run ends 1,800 ticks in, after the `ta-da!`:
+/// a sound cut short by the next one plays a number of 140 Hz frames that depends on the audio clock's phase, so the last
+/// sound must play out for the DOS `AUDIO WRITES` totals to be the same on every sound path.
 pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     // Stand still, fire straight up, then level into the wall, and wait for both shots to end.
     (30, IDLE),
@@ -209,12 +213,16 @@ pub const SLICE_SCRIPT: &[(u16, Buttons)] = &[
     // Drop off the shelf facing the blue door with the key: it opens, and the exit is behind it.
     (60, L),
     (40, IDLE),
-    // Stand at the exit; the world keeps running.
-    (90, IDLE),
+    // Step off the pogo stick in the doorway and land on the ground, then press Up to go through the exit; the world keeps
+    // running.
+    (2, P),
+    (76, IDLE),
+    (4, U),
+    (51, IDLE),
 ];
 
 /// The number of ticks the transcript covers.
-pub const SLICE_TICKS: u64 = 1757;
+pub const SLICE_TICKS: u64 = 1800;
 
 /// Writes the header and the tick 0 line.
 pub fn write_start(out: &mut impl core::fmt::Write, w: &World) -> core::fmt::Result {
@@ -408,7 +416,7 @@ mod tests {
         // `world::hash`). Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1757 HASH a08501a57d509e8a\n"),
+            t.ends_with("FINAL TICK 1800 HASH 843736be6fdaeb76\n"),
             "{t}"
         );
     }
@@ -426,8 +434,8 @@ mod tests {
             }
             lines += 1;
         }
-        assert_eq!(lines, 32);
-        assert_eq!(h, 0xff10_1cf8_da08_9bcf);
+        assert_eq!(lines, 33);
+        assert_eq!(h, 0xe428_10f0_fe8e_9b14);
     }
 
     /// The kind of every `EVENT` line, in order.
