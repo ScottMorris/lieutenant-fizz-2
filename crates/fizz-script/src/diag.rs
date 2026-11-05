@@ -70,7 +70,6 @@ codes! {
     E111, Error, "more than 32 locks";
     E112, Error, "a string the level cannot carry";
     E117, Error, "a lock cell is outside the map";
-    E119, Error, "two locks on one channel";
     E199, Error, "internal: the validator and the rules disagree";
     W101, Warning, "a door starts open";
     W108, Warning, "a channel nothing uses";
@@ -79,6 +78,7 @@ codes! {
     W120, Warning, "a lock whose key colour no object provides";
     W121, Warning, "a door tile that no lock opens";
     W122, Warning, "a provisional channel alias on a lock";
+    W123, Warning, "two locks on one door channel";
 }
 
 impl fmt::Display for Code {

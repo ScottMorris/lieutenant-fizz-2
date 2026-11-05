@@ -102,7 +102,11 @@ fn the_channel_alias_is_read_dropped_by_the_printer_and_checked_against_the_tile
 }
 
 #[test]
-fn two_cells_of_one_door_are_two_locks_on_one_channel() {
+fn two_cells_of_one_door_are_a_warning_and_still_lower() {
     let src = locked("lock a key=red at=2,1\nlock b key=red at=2,2\n");
-    assert!(codes(&src).contains(&Code::E119));
+    assert!(codes(&src).contains(&Code::W123));
+    let l = lower(&src).expect("the simulation allows two locks on a door");
+    assert_eq!(l.rules.len(), 2);
+    // The formatter still formats it.
+    assert!(format(&src).is_ok());
 }

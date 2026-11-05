@@ -440,7 +440,7 @@ pub fn analyse(ast: &Ast) -> (Vec<Diagnostic>, Option<Lowered>) {
         if let Some(c) = channel {
             if let Some(prev) = lock_channels.iter().find(|(p, _)| *p == u32::from(c)) {
                 s.add_fix(
-                    Code::E119,
+                    Code::W123,
                     at.line,
                     at.col,
                     format!(
