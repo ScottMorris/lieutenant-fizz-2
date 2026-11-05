@@ -246,11 +246,11 @@ The fix, where present, is a short instruction. Codes E005 and E011 to E016 of t
 - Tokens separated by single spaces; two spaces before a trailing comment, written `// text` with the text trimmed; a comment line takes the indent of the statement after it.
 - Statement fields in the order of the grammar above (`id=` then the position then `dir=`); a `state` omits `values=off,on` and a `start=` that names its first value, so the common state is one short line; a value list keeps its order (the order is the numbering) and a `door`'s `open=` list is written in value order without repeats; a `lock` stays one line and is never printed as its expansion; numbers in the shortest form that reads back to the same `f64`, with no `+` and no trailing `.0`.
 - **The position rule.** A position is written `x=I y=J` exactly when both coordinates are cell centres (`I + 0.5` and `J + 0.5` with `I` and `J` non-negative integers), and `at=X,Y` for everything else, so one position has one spelling.
-- Map rows and objects indented two spaces; every map row carries its label, right-aligned to the width of the top row's label and separated from the closing bar by two spaces.
+- Map rows and objects indented two spaces; every map row inside the level's height carries its label, counted down from `h - 1`, right-aligned to the width of the top row's label and separated from the closing bar by two spaces. A row below the bottom of the level has no `y` and no label.
 - Objects grouped by kind in lowering order, each with the comment lines directly above it; blank lines between objects are dropped.
-- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with errors is not formatted by `fmt`, which refuses it.
+- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it. A file that parses but fails validation is formatted.
 
-Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same diagnostics apart from their positions).
+Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions and a wrong row label, which formatting corrects).
 
 ## The conformance corpus
 

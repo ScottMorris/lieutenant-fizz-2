@@ -42,6 +42,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `crates/fizz-sim` | The deterministic rules foundation: the 60 Hz tick, the state hash and the input types |
 | `crates/fizz-phys` | Fizz 1's tile map, body, platform and rng code as an owned `no_std` copy |
 | `crates/fizz-ep2` | The slice's rules, level and hash, and the golden replay transcript `slice-replay.txt` |
+| `crates/fizz-script` | The Fizz 2 script dialect's parser, lossless tree, canonical printer and validator, lowering a level script to a `LevelSource`, with the conformance corpus |
 | `crates/fizz-view` | What both presenters share below the scene: the pixel rule, the follow camera, sprite and tile drawing, the font and the generated sprite data |
 | `crates/fizz-slice-view` | `draw_slice`, the one routine that draws the slice for both presenters |
 | `crates/fizz-sfx` | Generated OPL2 and PC speaker data for the cluck and the steppers that play it |

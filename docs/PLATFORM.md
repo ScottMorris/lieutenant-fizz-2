@@ -28,6 +28,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 | `crates/fizz-sim` | Rules | The 60 Hz `Tick`, the FNV-1a `StateHash`, and the input types `Buttons`, `InputFrame` and `InputLatch`. `no_std`, no `unsafe`, no platform types |
 | `crates/fizz-phys` | Rules | Fizz 1's tile map, body, moving platform and rng code as an owned `no_std` copy |
 | `crates/fizz-ep2` | Rules | The slice's rules (Ben, the chicken, the shots, the red key and door, the level), the hash, the scripted replay and its golden transcript `slice-replay.txt` |
+| `crates/fizz-script` | Tool library | The parser, lossless tree, canonical printer and validator for the `script fizz2 0` level dialect ([`SCRIPT.md`](SCRIPT.md)), lowering to `fizz_ep2::level::LevelSource`. `std`, host only, no platform types; nothing in a game binary links it |
 | `crates/fizz-hal` | Platform | Traits a platform implements, with host-side test doubles behind the `mock` feature |
 | `crates/fizz-sfx` | Platform data | Generated OPL2 and PC speaker data for the twenty-two sound effects (the cluck's four variants and eighteen more), and the pure `place` function (where a sound is on screen to a level for each ear), the `OplPlayer` and `OplPair` (an OPL3 pair on channels 5 and 14) and `SpeakerPlayer` steppers the DOS audio service drives; see [`SOUND.md`](SOUND.md) |
 | `crates/fizz-music` | Platform data | Generated OPL2 and OPL3 register streams for the level music, lowered by `tools/music/generate.ts`; and `MusicPlayer`, the stepper that plays them; the DOS audio service runs it; see [`MUSIC.md`](MUSIC.md) |
@@ -278,6 +279,7 @@ While a screen is up `App::frame` drops the pacer and returns 0, so no tick runs
 | `python3 -I crates/fizz-pack/tests/levl_hash.py` | Recomputes `LEVEL_HASH` and `SCHEMA_HASH` from the list in `docs/FAP.md`, independently of the Rust constants; the pins in `crates/fizz-pack/tests/pack.rs` must equal what it prints | Python 3 |
 | `python3 -I tools/levl2-slice.py` | Writes the slice's `LEVL` version 2 bytes (2,080 of them) and its level digest from the description in `docs/FAP.md`, independently of the Rust encoder; the pins in `crates/fizz-ep2/src/level.rs` must equal what it prints | Python 3 |
 | `cargo run -p fizz-ep2 --example replay` | Prints the native slice transcript | The pinned Rust toolchain |
+| `cargo test -p fizz-script` | Runs the script dialect's conformance corpus (`crates/fizz-script/corpus/`): the slice script lowers to the digest of `SLICE_SOURCE`, every error and lint code has a file that produces it, the lossless printer returns every input and the canonical printer is stable (part of `tools/check.sh`; host only, no DOS or Web check is affected) | The pinned Rust toolchain |
 | `tools/setup-dos.sh` | Links `vendor/` to the DOS toolchain when it is absent | `DOS_TOOLCHAIN`, or a `vendor/` already in place |
 | `tools/build-dos.sh` | Builds `RTSMOKE.EXE`, `FIZZ2.EXE` and `CWSDPMI.EXE` into `dist/dos` | The DOS toolchain |
 | `tools/dosrun.sh dist/dos FIZZ2.EXE /REPLAY` | Runs a DOS program in headless DOSBox and passes back its output and exit status | The DOS toolchain |

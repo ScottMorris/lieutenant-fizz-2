@@ -20,6 +20,7 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 - `crates/fizz-sim`: the deterministic rules foundation (fixed tick, state hash, input types)
 - `crates/fizz-phys`: Fizz 1's tile map, body, platform and rng code as an owned `no_std` copy
 - `crates/fizz-ep2`: the slice's rules and level, and the golden transcript `slice-replay.txt`
+- `crates/fizz-script`: the level script dialect's parser, lossless tree, canonical printer and validator (`docs/SCRIPT.md`), host-only `std`
 - `crates/fizz-hal`: Desk-shaped hardware abstraction traits (clock, input, display, interrupt ring)
 - `crates/fizz-present-dos`: the DOS frame, palette, font and key mapping
 - `crates/fizz-present-web`: the `wasm-bindgen` Web presenter
