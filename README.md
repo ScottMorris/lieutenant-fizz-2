@@ -64,6 +64,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/MANUAL.md` | How to play and run the slice |
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |
 | `docs/SCENE-CONTRACT.md` | A sketch of the scene boundary between rules and presentations |
+| `docs/SCRIPT.md` | The Fizz 2 script dialect `script fizz2 0`: grammar, legend, lowering to `LevelSource`, error and lint codes, the canonical printer and the conformance corpus |
 | `tools/` | The check, build, DOS and parity scripts, the sprite and sound converters and the Fizz 1 trace tool |
 | `tools/progress-report/` | The generator of the progress archive, its chapters and its captures |
 | `assets/` | The README banner, the sprite grids and the cluck's sound source |

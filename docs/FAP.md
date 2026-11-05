@@ -397,7 +397,7 @@ fizz-bake bake --target dos|web -o <file> <sources...>
 fizz-bake check --target dos|web
 ```
 
-**Sources.** Levels are written in the Fizz 2 dialect of the Level Studio script, committed as `assets/levels/*.fizz`: a `map` grid of letters, `at=X,Y` for exact centres and `chicken` as an object kind. The dialect's grammar is **not yet specified** here; it belongs with the baker's package.
+**Sources.** Levels are written in the Fizz 2 dialect of the Level Studio script, committed as `assets/levels/*.fizz`: a `map` grid of letters, `at=X,Y` for exact centres and `chicken` as an object kind. The dialect's grammar, legend, lowering and error codes are specified in [`SCRIPT.md`](SCRIPT.md); `fizz-script` parses and prints it, and `fizz-bake fmt` writes its canonical form.
 
 **The manifest.** `check` re-bakes in memory and compares with a committed text manifest, `assets/packs/<name>.<target>.manifest`, so reviewers see changes to the bytes without binaries in git. One line per field, in this order:
 
