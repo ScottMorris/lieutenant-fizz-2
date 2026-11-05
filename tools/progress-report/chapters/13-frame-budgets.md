@@ -112,7 +112,7 @@ The same work counted in instructions a frame (host callgrind at `opt-level = "s
 | Ground alone, before and after the cell window | 460,000, then 149,000 |
 | Ground and sky after the prepared sky | 173,000 average, 230,000 gallery, 278,000 worst |
 
-On this branch the local run of the same gate in `snapshots/measured.json` gives `BENCH DRAW` {{ms.benchDrawUs}} us and `BENCH TOTAL` {{ms.benchTickUs}} us on average against the 16,667 us tick, and `FIZZ2.EXE` at {{ms.exeBytes}} bytes. `tools/check-dos.sh` holds no tight bound on the drawing's average; its bounds are the six-captions picture under 16,667 us, the step average, the digests and the audio and frame counts above.
+The local run of the same gate in `snapshots/measured.json` gives `BENCH DRAW` {{ms.benchDrawUs}} us and `BENCH TOTAL` {{ms.benchTickUs}} us on average against the 16,667 us tick, and `FIZZ2.EXE` at {{ms.exeBytes}} bytes. `tools/check-dos.sh` holds no tight bound on the drawing's average; its bounds are the six-captions picture under 16,667 us, the step average, the digests and the audio and frame counts above.
 
 ## Where the checks were run
 

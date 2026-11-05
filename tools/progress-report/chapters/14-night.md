@@ -6,7 +6,7 @@ date: 2026-11-04
 summary: The Night setting and the light model behind it. A Night byte in FIZZ2.CFG and a pair of switches, a 256-entry palette of brightness banks, integer point lights in 8 by 8 cells, the slice's lanterns, lamps, beam and Ben's lantern, the Light and Full detail that decide whether the lights are cast, what each cost in DOSBox, and the PC speaker count that depended on how long start-up took. One pull request, stacked on the exit; it is in review.
 prs: [146]
 ---
-Chapter 12 drew the slice in oblique projection and gave it a night sky. This chapter is the other meaning of night: the level after dark, lit by lanterns, with Ben carrying one. It is one pull request, #146 ({{pr146.state}}), on the branch of the exit that takes an Up press (#145, {{pr145.state}}), so it is not on `main`. The setting is Off by default and the day picture is byte for byte what it was, so the state hash and the golden transcript are untouched. The design is `docs/LIGHTS.md`; the DOS side of it is the "Night on DOS" section of `docs/PLATFORM.md`; the player's side is the Night section of `docs/MANUAL.md`.
+Chapter 12 drew the slice in oblique projection and gave it a night sky. This chapter is the other meaning of night: the level after dark, lit by lanterns, with Ben carrying one. It is one pull request, #146 ({{pr146.state}}), the last of the stack that began with the exit that takes an Up press (#145, {{pr145.state}}). The setting is Off by default and the day picture is byte for byte what it was, so the state hash and the golden transcript are untouched. The design is `docs/LIGHTS.md`; the DOS side of it is the "Night on DOS" section of `docs/PLATFORM.md`; the player's side is the Night section of `docs/MANUAL.md`.
 
 The pull request also carries a fix that is unrelated to light. The PC speaker's step count in the replay depended on how many ticks start-up took, and the longer start-up of the night build exposed it in CI. That is the last section.
 
@@ -112,7 +112,7 @@ kind: screenshot
 track: shared
 title: The Night row on both Options screens
 alt: Two Options screens over the dimmed slice. On the left, DOSBox: rows Music, Effects, Sound placement, Frame rate, Motion, Captions, Keys, Sky, Night and Back, the plate on Effects, with Night reading Off. On the right, headless Chromium: Sound, Music, Placement, Motion, Captions, Keys, Fullscreen, Sky, Night and Back, the plate on Sound, with Night reading Off.
-caption: The DOS screen (FIZZ2.EXE in live play after Esc, Down, Enter and Down) and the Web screen (after Esc, Down and Enter), retaken from the stack's head. Both show Night Off; no capture of a lit night is recorded.
+caption: The DOS screen (FIZZ2.EXE in live play after Esc, Down, Enter and Down) and the Web screen (after Esc, Down and Enter), retaken from the head of #146. Both show Night Off; no capture of a lit night is recorded.
 at: figure shots dos-options.png web-options.png
 thumb: img:media/dos-options.png
 ```

@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-10-30T04:13:08-04:00",
+ "capturedAt": "2026-11-05T01:42:04-05:00",
  "data": {
   "prs": [
    {
@@ -5744,9 +5744,9 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
@@ -5775,15 +5775,1283 @@
       "name": "dos"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "1a3ae22fec2d7325ecced23117d276ce8adbe57d"
+    },
+    "mergedAt": "2026-10-30T08:16:33Z",
     "number": 130,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Print a failing /REPLAY case's output in check-dos",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/130"
+   },
+   {
+    "additions": 1662,
+    "baseRefName": "main",
+    "changedFiles": 74,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T08:16:24Z",
+    "deletions": 283,
+    "headRefName": "docs/archive-m2-start",
+    "headRefOid": "e93bc2e984b8ca5d08417add145a42d5dbc8e8b1",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "ededed",
+      "description": "Leave out of the generated release notes",
+      "id": "LA_kwDOVY4PUs8AAAAC_qv8VA",
+      "name": "skip-changelog"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "f5beca4b03b268e330117be5ca0c06adc10c0ead"
+    },
+    "mergedAt": "2026-10-30T08:20:24Z",
+    "number": 131,
+    "state": "MERGED",
+    "title": "Refresh the archive after the start of M2 and the audio and HUD stack",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/131"
+   },
+   {
+    "additions": 8,
+    "baseRefName": "main",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T16:55:00Z",
+    "deletions": 5,
+    "headRefName": "m2/soda-in-pack",
+    "headRefOid": "730cb15c8c6a699fe7574ecee8094438bd5131ec",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b"
+    },
+    "mergedAt": "2026-10-30T18:16:24Z",
+    "number": 132,
+    "state": "MERGED",
+    "title": "Put the soda can in the pack compatibility number",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/132"
+   },
+   {
+    "additions": 1222,
+    "baseRefName": "m2/soda-in-pack",
+    "changedFiles": 14,
+    "checks": [
+     {
+      "conclusion": "CANCELLED",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "CANCELLED",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T16:55:04Z",
+    "deletions": 54,
+    "headRefName": "m4/door-sound",
+    "headRefOid": "4fad299c6fe40ffefcdbe6cd62fbf19be36b7872",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b"
+    },
+    "mergedAt": "2026-10-30T18:16:25Z",
+    "number": 133,
+    "state": "MERGED",
+    "title": "Give the door its own sound",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/133"
+   },
+   {
+    "additions": 33,
+    "baseRefName": "main",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T16:59:55Z",
+    "deletions": 0,
+    "headRefName": "docs/fizz1-differences",
+    "headRefOid": "3866e9912bb61590b0166968058c887d0f29a860",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "b256e76a43098c2498dc23f74fafd813c3f4cc79"
+    },
+    "mergedAt": "2026-10-30T17:41:45Z",
+    "number": 135,
+    "state": "MERGED",
+    "title": "Document the mechanics that differ from Fizz 1",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/135"
+   },
+   {
+    "additions": 19,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T17:25:35Z",
+    "deletions": 15,
+    "headRefName": "fix/check-dos-cycles",
+    "headRefOid": "edaa54ecab62a81e41b0497fe818a7d02f649533",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "5f57feb7ea6121958e8d91ce0c5c0219dac45c14"
+    },
+    "mergedAt": "2026-10-30T18:02:27Z",
+    "number": 136,
+    "state": "MERGED",
+    "title": "Fix check-dos groups that need CYCLES and caps_check",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/136"
+   },
+   {
+    "additions": 546,
+    "baseRefName": "main",
+    "changedFiles": 10,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T21:00:01Z",
+    "deletions": 16,
+    "headRefName": "m2/level-source",
+    "headRefOid": "d3499eda254d21ba031d396db4db7f390550f08c",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47b3431fa2412db51de1e44dbeccbbf544cdea32"
+    },
+    "mergedAt": "2026-11-05T05:48:03Z",
+    "number": 137,
+    "state": "MERGED",
+    "title": "Build the slice world from level data",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/137"
+   },
+   {
+    "additions": 1020,
+    "baseRefName": "m2/level-source",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T21:00:04Z",
+    "deletions": 22,
+    "headRefName": "m2/levl-amend",
+    "headRefOid": "c64c1031723cfaf679abe8760cbf33a9b69cae6e",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47b3431fa2412db51de1e44dbeccbbf544cdea32"
+    },
+    "mergedAt": "2026-11-05T05:48:04Z",
+    "number": 138,
+    "state": "MERGED",
+    "title": "Carry rules and strings in the LEVL section",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/138"
+   },
+   {
+    "additions": 1009,
+    "baseRefName": "m2/levl-amend",
+    "changedFiles": 19,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-10-30T21:38:42Z",
+    "deletions": 154,
+    "headRefName": "m2/locks-and-reset",
+    "headRefOid": "fa1872cbe5c1bb4805eb52cd8250f5f055abf57d",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "47b3431fa2412db51de1e44dbeccbbf544cdea32"
+    },
+    "mergedAt": "2026-11-05T05:48:05Z",
+    "number": 140,
+    "state": "MERGED",
+    "title": "Make locks and the death reset level data",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/140"
+   },
+   {
+    "additions": 106,
+    "baseRefName": "main",
+    "changedFiles": 3,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-03T20:00:05Z",
+    "deletions": 0,
+    "headRefName": "feat/oblique-demo-level",
+    "headRefOid": "841c20715b46c8234c906fc8aa384e4c7c21d9aa",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66"
+    },
+    "mergedAt": "2026-11-05T06:14:59Z",
+    "number": 142,
+    "state": "MERGED",
+    "title": "Specify the oblique ground for the demo level",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/142"
+   },
+   {
+    "additions": 4157,
+    "baseRefName": "feat/oblique-demo-level",
+    "changedFiles": 18,
+    "checks": [
+     {
+      "conclusion": "CANCELLED",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "CANCELLED",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-03T20:00:19Z",
+    "deletions": 290,
+    "headRefName": "feat/oblique-renderer",
+    "headRefOid": "caf9d4af393f52115dfe2f958aa6c2521540b517",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "fbca04",
+      "description": "Speed measurement and optimisation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtIw",
+      "name": "performance"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66"
+    },
+    "mergedAt": "2026-11-05T06:15:00Z",
+    "number": 143,
+    "state": "MERGED",
+    "title": "Draw the ground in oblique projection",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/143"
+   },
+   {
+    "additions": 2464,
+    "baseRefName": "feat/oblique-renderer",
+    "changedFiles": 34,
+    "checks": [
+     {
+      "conclusion": "CANCELLED",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "CANCELLED",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-03T20:00:26Z",
+    "deletions": 222,
+    "headRefName": "feat/parallax-layers",
+    "headRefOid": "0d513376e96ff4da8ee711fa76092d45c70f9baf",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66"
+    },
+    "mergedAt": "2026-11-05T06:15:01Z",
+    "number": 144,
+    "state": "MERGED",
+    "title": "Draw the Lighthouse night behind open air with parallax layers",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/144"
+   },
+   {
+    "additions": 238,
+    "baseRefName": "feat/parallax-layers",
+    "changedFiles": 24,
+    "checks": [
+     {
+      "conclusion": "CANCELLED",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "CANCELLED",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-03T23:11:47Z",
+    "deletions": 112,
+    "headRefName": "feat/exit-up-to-enter",
+    "headRefOid": "1c07a584bc25b91278d1d84238a3baac25cd4329",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "c5def5",
+      "description": "Music, sound effects and the audio path",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvDQ",
+      "name": "sound"
+     },
+     {
+      "color": "0e8a16",
+      "description": "Web and DOS agreement: state hashes and presentation parity",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXwQA",
+      "name": "parity"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66"
+    },
+    "mergedAt": "2026-11-05T06:15:02Z",
+    "number": 145,
+    "state": "MERGED",
+    "title": "Make the exit a doorway Ben enters with Up",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/145"
+   },
+   {
+    "additions": 2959,
+    "baseRefName": "feat/exit-up-to-enter",
+    "changedFiles": 94,
+    "checks": [
+     {
+      "conclusion": "CANCELLED",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "CANCELLED",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-04T00:17:15Z",
+    "deletions": 391,
+    "headRefName": "feat/night-lights",
+    "headRefOid": "bb629aff0ecee62e6e5d2a7c41bc1814d9b50da8",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "fbca04",
+      "description": "Speed measurement and optimisation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtIw",
+      "name": "performance"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     },
+     {
+      "color": "1f6feb",
+      "description": "HUD, menus and on-screen interface",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvag",
+      "name": "ui"
+     }
+    ],
+    "mergeCommit": {
+     "oid": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66"
+    },
+    "mergedAt": "2026-11-05T06:15:03Z",
+    "number": 146,
+    "state": "MERGED",
+    "title": "Add a night mode with palette banks and dynamic lights",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/146"
+   },
+   {
+    "additions": 186,
+    "baseRefName": "main",
+    "changedFiles": 9,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-05T05:58:58Z",
+    "deletions": 184,
+    "headRefName": "feat/whitewash-back-wall",
+    "headRefOid": "a53b2a1c12a4ab4e139f24da5d17f2bdeecdbc57",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1d76db",
+      "description": "Scene drawing, lighting and sprites",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXueg",
+      "name": "graphics"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 148,
+    "state": "OPEN",
+    "title": "Whitewash the back wall like a lighthouse interior",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/148"
+   },
+   {
+    "additions": 223,
+    "baseRefName": "main",
+    "changedFiles": 3,
+    "checks": [],
+    "createdAt": "2026-11-05T06:37:25Z",
+    "deletions": 74,
+    "headRefName": "feat/levl2-spec",
+    "headRefOid": "6b917958168e3c53dfbb32a7811f50485d2949db",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "5319e7",
+      "description": "Levels, overworlds and the level script language",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvNw",
+      "name": "levels"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 149,
+    "state": "OPEN",
+    "title": "Specify LEVL version 2 and make the wall-kick core",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/149"
+   },
+   {
+    "additions": 2270,
+    "baseRefName": "feat/levl2-spec",
+    "changedFiles": 20,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-05T06:37:29Z",
+    "deletions": 14,
+    "headRefName": "feat/wall-kick-core",
+    "headRefOid": "be579e9ee2bfb42891aba8e9557ec0bab618c720",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "1f6feb",
+      "description": "Keyboard, gamepad and touch handling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuyA",
+      "name": "input"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 150,
+    "state": "OPEN",
+    "title": "Add the wall-kick to Ben, always on",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/150"
+   },
+   {
+    "additions": 202,
+    "baseRefName": "main",
+    "changedFiles": 5,
+    "checks": [
+     {
+      "conclusion": "",
+      "name": "check",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-05T06:37:52Z",
+    "deletions": 2,
+    "headRefName": "feat/script-spec",
+    "headRefOid": "b83af8670b1484bc044d34c8c4b65f098a6d22a4",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "5319e7",
+      "description": "Levels, overworlds and the level script language",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvNw",
+      "name": "levels"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 152,
+    "state": "OPEN",
+    "title": "Specify the Fizz 2 script dialect",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/152"
+   },
+   {
+    "additions": 3620,
+    "baseRefName": "feat/script-spec",
+    "changedFiles": 56,
+    "checks": [],
+    "createdAt": "2026-11-05T06:37:55Z",
+    "deletions": 6,
+    "headRefName": "feat/fizz-script-parser",
+    "headRefOid": "d42f498c29c340c9094fc8280afa284e46652393",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "dea584",
+      "description": "Rust code and tooling",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtbw",
+      "name": "rust"
+     },
+     {
+      "color": "5319e7",
+      "description": "Levels, overworlds and the level script language",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvNw",
+      "name": "levels"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 153,
+    "state": "OPEN",
+    "title": "Add fizz-script, the Fizz 2 script parser and printer",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/153"
+   },
+   {
+    "additions": 201,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [],
+    "createdAt": "2026-11-05T06:38:40Z",
+    "deletions": 0,
+    "headRefName": "feat/rules-spec",
+    "headRefOid": "73f9c4218d845b9f25f9b6b2f27d472aac2d1565",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 155,
+    "state": "OPEN",
+    "title": "Specify the rules, states and events",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/155"
+   },
+   {
+    "additions": 973,
+    "baseRefName": "feat/rules-spec",
+    "changedFiles": 10,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-05T06:38:44Z",
+    "deletions": 39,
+    "headRefName": "feat/state-table",
+    "headRefOid": "f17e67d8fe60ea9efe3cbc74b4f90d12a8b63631",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmJw",
+      "name": "enhancement"
+     },
+     {
+      "color": "0e8a16",
+      "description": "The deterministic simulation and its rules",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXtuA",
+      "name": "sim"
+     },
+     {
+      "color": "5319e7",
+      "description": "Levels, overworlds and the level script language",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvNw",
+      "name": "levels"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 156,
+    "state": "OPEN",
+    "title": "Add the state table and enter rows",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/156"
+   },
+   {
+    "additions": 17,
+    "baseRefName": "main",
+    "changedFiles": 4,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-05T06:39:02Z",
+    "deletions": 16,
+    "headRefName": "fix/check-screen-in-use-white",
+    "headRefOid": "17b050163dadabca889fac500efec12af0718043",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXl9Q",
+      "name": "bug"
+     },
+     {
+      "color": "5319e7",
+      "description": "The DOS presentation: the platform layer, interrupts and video modes",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXuMA",
+      "name": "dos"
+     },
+     {
+      "color": "1f6feb",
+      "description": "HUD, menus and on-screen interface",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvag",
+      "name": "ui"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 158,
+    "state": "OPEN",
+    "title": "Show the check screen's in-use row in plain bright white",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/158"
+   },
+   {
+    "additions": 2,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [],
+    "createdAt": "2026-11-05T06:39:08Z",
+    "deletions": 2,
+    "headRefName": "docs/large-screens-show-more",
+    "headRefOid": "3151148c21fc54d0c0dc1a1f3ed56652dadbc6ef",
+    "isDraft": false,
+    "labels": [
+     {
+      "color": "0075ca",
+      "description": "Improvements or additions to documentation",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXmDg",
+      "name": "documentation"
+     },
+     {
+      "color": "1f6feb",
+      "description": "The Web presentation: canvas or WebGL, Undertone and the browser",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXt7g",
+      "name": "web"
+     },
+     {
+      "color": "0075ca",
+      "description": "Architecture and design documents",
+      "id": "LA_kwDOVY4PUs8AAAAC_gXvjA",
+      "name": "design-docs"
+     }
+    ],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 159,
+    "state": "OPEN",
+    "title": "Record that large screens show more level",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/159"
    }
   ],
   "runs": [
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-05T06:15:10Z",
+    "displayTitle": "Add a night mode with palette banks and dynamic lights (#146)",
+    "event": "push",
+    "headSha": "4ae26c659ea73692ed3e1fb5489f4594b5a07e66",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41979168559",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-05T05:48:09Z",
+    "displayTitle": "Make locks and the death reset level data (#140)",
+    "event": "push",
+    "headSha": "47b3431fa2412db51de1e44dbeccbbf544cdea32",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41976289487",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-04T12:58:58Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41833955954",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-03T12:47:38Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41638701275",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-02T13:29:23Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41453407161",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-01T11:50:10Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41303644216",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-31T10:55:16Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41194694307",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-30T18:16:29Z",
+    "displayTitle": "Give the door its own sound (#133)",
+    "event": "push",
+    "headSha": "ba1ec8ef0fc1ea438134c2a8345656db95e4ff7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41105504244",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-30T18:02:30Z",
+    "displayTitle": "Fix check-dos groups that need CYCLES and caps_check (#136)",
+    "event": "push",
+    "headSha": "5f57feb7ea6121958e8d91ce0c5c0219dac45c14",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41103409362",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-30T17:41:48Z",
+    "displayTitle": "Document the mechanics that differ from Fizz 1 (#135)",
+    "event": "push",
+    "headSha": "b256e76a43098c2498dc23f74fafd813c3f4cc79",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41100872358",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-30T08:20:27Z",
+    "displayTitle": "Refresh the archive after the start of M2 and the audio and HUD stack\u2026",
+    "event": "push",
+    "headSha": "f5beca4b03b268e330117be5ca0c06adc10c0ead",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41025774916",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-10-30T08:16:35Z",
+    "displayTitle": "Print a failing /REPLAY case's output in check-dos (#130)",
+    "event": "push",
+    "headSha": "1a3ae22fec2d7325ecced23117d276ce8adbe57d",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/41025353638",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-10-30T07:27:51Z",

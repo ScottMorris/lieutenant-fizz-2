@@ -80,7 +80,7 @@ The full night did not fit the 486DX2-66 floor's frame (chapter 13 has the numbe
 
 ## What is built and where it stands
 
-All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check` and `parity`) green at their heads when the snapshot of this edition was taken; #145's `check` and `parity` jobs, the latter running the DOS gate, both finished green at its head. Nothing in this stack has run on real hardware. The DOS and Web screenshots in the manual and in this archive were taken again from the head of the night branch (#146, chapter 14) and show the oblique ground.
+The four pull requests are {{pr142.state}}, {{pr143.state}}, {{pr144.state}} and {{pr145.state}}, and landed together with the night (#146) as the merge commit `{{pr146.merge}}`. Each showed both CI jobs (`check` and `parity`, the latter running the DOS gate) green at its head. Nothing in this stack has run on real hardware. The DOS and Web screenshots in the manual and in this archive were taken again from the head of the night pull request (#146, chapter 14) and show the oblique ground.
 
 ## The shelves
 
@@ -88,7 +88,7 @@ All four pull requests are open. #142, #143 and #144 showed both CI jobs (`check
 - The specification `docs/OBLIQUE.md` (#142, {{pr142.state}}, CI {{pr142.ci}}): its numbers are the ones the renderer's tests assert (the feet line 16 px below the far edge, the slant crossing the feet line on the tile edge, every pixel an EGA colour).
 - The renderer (#143, {{pr143.state}}, CI {{pr143.ci}}): `cargo test --workspace` through `tools/check.sh` runs the frame digests, the out-of-bounds test at every size, the overdraw bound and the generated-data test, and `bun tools/tiles/emit-oblique.ts --check` keeps `oblique_data.rs` equal to its generator.
 - The parallax layers and the Sky setting (#144, {{pr144.state}}, CI {{pr144.ci}}): tests for each layer's offsets, the clip, the repeat, the horizon and the heights against the float formula; the Full and Light skies differ only under open air.
-- The golden transcript is unchanged by the drawing, and on this branch it ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}` on native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}` with the figures in `snapshots/measured.json`.
+- The golden transcript is unchanged by the drawing, and it ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}` on native, Web and DOS: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}` with the figures in `snapshots/measured.json`.
 
 ### Uncatalogued
 - How the new look reads to the owner or to a player on a screen. The pictures above are host renders, the frame digests were re-pinned after looking at frames, and no playtest of the stack is recorded.
