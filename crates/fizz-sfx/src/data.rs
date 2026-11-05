@@ -3018,7 +3018,7 @@ static OPL_20: [OplStep; 166] = [
     OplStep::new(0, 0xb5, 0x0f, 28),
 ];
 
-/// Effect 21 (life (lantern)): 302 records (1208 bytes), 428 ticks, 764 ms.
+/// Effect 21 (life (elixir)): 302 records (1208 bytes), 428 ticks, 764 ms.
 #[rustfmt::skip]
 static OPL_21: [OplStep; 302] = [
     OplStep::new(0, 0x01, 0x20, 4),
@@ -3504,7 +3504,7 @@ static SPEAKER_20: [u16; 40] = [
     2343, 0, 2502, 0,
 ];
 
-/// Effect 21 (life (lantern)): 84 frames (168 bytes), 600 ms.
+/// Effect 21 (life (elixir)): 84 frames (168 bytes), 600 ms.
 #[rustfmt::skip]
 static SPEAKER_21: [u16; 84] = [
     0, 3044, 3044, 3044, 3044, 3044, 3044, 0, 3044, 0, 2416, 2416,

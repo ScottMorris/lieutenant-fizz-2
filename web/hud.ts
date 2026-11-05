@@ -5,7 +5,7 @@
 //
 // The HUD is Fizz 1's desktop HUD in its look (a dark glass panel, small dim labels beside big Fizz pixel digits, the Fizz number in the
 // accent colour and red at zero; Fizz 1's `pillItems`, episodes/episode-1/src/ui/hud.ts) laid out as the DOS HUD is, the Two-Row Stack:
-// Fizz and Score on the top row; Deaths and the key tray on the bottom row. The numbers, the score counting up, the `+N` and the
+// Fizz and Score on the top row; Lives and the key tray on the bottom row. The numbers, the score counting up, the `+N` and the
 // key rings come from the module (`App.hud_view`, which is `fizz_slice_view::hud`, shared with DOS), so this file only formats them.
 // TICK and HASH are not here: they stay in the H panel for inspection. This file touches no DOM, so `hud.test.ts` runs it under Bun;
 // web/main.js applies the result to the page.
@@ -28,7 +28,7 @@ export interface HudValues {
   score: number;
   /** The points of the snack just taken, or 0. */
   pop: number;
-  deaths: number;
+  lives: number;
   keys: KeyReading[];
 }
 
@@ -40,14 +40,14 @@ export const SCORE_CAP = 99_999;
 /** The most pips under a socket; more of one kind shows as a digit. */
 export const MAX_PIPS = 4;
 
-/** Reads the integers of `App.hud_view`: ammo, score, pop, deaths, then in_level, held and ring for each kind. */
+/** Reads the integers of `App.hud_view`: ammo, score, pop, lives, then in_level, held and ring for each kind. */
 export function parseHud(raw: ArrayLike<number>): HudValues {
   const keys: KeyReading[] = KEY_KINDS.map((_, i) => ({
     inLevel: raw[4 + 3 * i] !== 0,
     held: raw[5 + 3 * i],
     ring: raw[6 + 3 * i] !== 0,
   }));
-  return { ammo: raw[0], score: raw[1], pop: raw[2], deaths: raw[3], keys };
+  return { ammo: raw[0], score: raw[1], pop: raw[2], lives: raw[3], keys };
 }
 
 // The Fizz number is light magenta (var(--fizz) in style.css, FIZZ_CSS in fizz-view's theme.rs; Fizz 1 uses cyan), red at zero as in Fizz 1, and the dim label colour is Fizz 1's.
@@ -97,7 +97,7 @@ export interface HudView {
   scoreRest: string;
   /** `+N` while a snack's points show in the place of the word Score, or an empty string. */
   pop: string;
-  deaths: string;
+  lives: string;
   sockets: SocketView[];
 }
 
@@ -117,7 +117,7 @@ export function hudView(v: HudValues): HudView {
     scoreLead: score.lead,
     scoreRest: score.rest,
     pop: v.pop > 0 ? '+' + String(Math.min(99, Math.trunc(v.pop))) : '',
-    deaths: formatCount(v.deaths),
+    lives: formatCount(v.lives),
     sockets: KEY_KINDS.map((kind, i) => {
       const k = v.keys[i];
       return {
@@ -140,7 +140,7 @@ export function sameHud(a: HudValues | null, b: HudValues | null): boolean {
 
 /**
  * What a screen reader is told when the HUD changes, or null for nothing. Only moments that matter are spoken: the Fizz running
- * out, a key picked up (named by its kind) and a death. The score is not spoken (too chatty, and not an event). Every other change (a
+ * out, a key picked up (named by its kind) and a change in the lives (a death takes one, an elixir gives one). The score is not spoken (too chatty, and not an event). Every other change (a
  * shot, a key dropped on a death, a restart) is silent, and so is the first reading. When several happen in one frame they are
  * joined in that order. The current values are always in the H panel.
  */
@@ -151,7 +151,7 @@ export function announcement(prev: HudValues | null, next: HudValues): string | 
   KEY_KINDS.forEach((kind, i) => {
     if (next.keys[i].held > prev.keys[i].held) said.push(kind[0].toUpperCase() + kind.slice(1) + ' key picked up');
   });
-  if (next.deaths > prev.deaths) said.push('Deaths ' + formatCount(next.deaths));
+  if (next.lives !== prev.lives) said.push('Lives ' + formatCount(next.lives));
   return said.length > 0 ? said.join('. ') : null;
 }
 

@@ -520,17 +520,17 @@ impl App {
         self.world.deaths
     }
 
-    /// Ben's lives (PROVISIONAL: they start at three and a lantern adds one; nothing spends them yet). The H panel shows them; the HUD does not.
+    /// Ben's lives (PROVISIONAL: three at the start, one less for each death, never below 0 and with no game over, one more for each elixir, to 99). The HUD and the H panel show them.
     pub fn lives(&self) -> u32 {
         self.world.lives
     }
 
     /// What the HUD shows now, as the integers the page draws it from (`fizz_slice_view::HudView`): the Fizz count, the score shown
-    /// (counting up after a snack), the points of the snack just taken (0 for none), the deaths, and then for each of the four key
+    /// (counting up after a snack), the points of the snack just taken (0 for none), the lives, and then for each of the four key
     /// kinds (red, blue, green, gold) three numbers: whether the level has the kind, how many Ben holds and whether its ring shows.
     pub fn hud_view(&self) -> Vec<i32> {
         let v = self.hud.view(&self.world);
-        let mut out = vec![v.fizz as i32, v.score as i32, v.pop as i32, v.deaths as i32];
+        let mut out = vec![v.fizz as i32, v.score as i32, v.pop as i32, v.lives as i32];
         for k in &v.keys {
             out.extend([i32::from(k.in_level), i32::from(k.held), i32::from(k.ring)]);
         }
@@ -966,10 +966,10 @@ mod tests {
     #[test]
     fn the_hud_view_hands_the_page_the_shared_model() {
         let mut app = App::new();
-        // Fizz 5, score 0, no pop, deaths 0; the red and blue sockets are in the level, empty, and green and gold are not.
+        // Fizz 5, score 0, no pop, lives 3; the red and blue sockets are in the level, empty, and green and gold are not.
         assert_eq!(
             app.hud_view(),
-            [5, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+            [5, 0, 0, 3, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
         );
         // A snack and the red key: the pop shows at once, the score counts up a point every two ticks, the red socket rings.
         app.collect_events();
@@ -1466,8 +1466,8 @@ mod tests {
     }
 
     #[test]
-    fn taking_the_lantern_hands_the_page_the_life_sound_and_a_life() {
-        // The lantern (provisional) lies at the right end of the second ledge; Ben starts on the ledge, a walk from it.
+    fn taking_the_elixir_hands_the_page_the_life_sound_and_a_life() {
+        // The elixir (provisional) lies at the right end of the second ledge; Ben starts on the ledge, a walk from it.
         let mut app = App::new();
         app.frame(0.0);
         assert_eq!(app.lives(), fizz_ep2::world::START_LIVES);
@@ -1476,7 +1476,7 @@ mod tests {
                 .world
                 .snacks
                 .iter()
-                .find(|s| s.kind == fizz_ep2::SnackKind::Lantern)
+                .find(|s| s.kind == fizz_ep2::SnackKind::Elixir)
                 .unwrap();
             (l.x, l.y)
         };

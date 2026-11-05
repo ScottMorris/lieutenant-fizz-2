@@ -91,7 +91,7 @@ pub fn props() -> TileProps {
 /// The bytes `fizz-pack` continues its schema hash over to make the compatibility number of a world or shared pack
 /// (`fizz_pack::compatibility(&pack_content())`). Everything a baked level's meaning depends on and the pack does not hold is here:
 /// the tile property table (flags, slope and switch channel for each of the 256 tile ids, in that order), the named tile ids, and the
-/// numbers of the snack kinds (the three snacks, the soda can and the lantern), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
+/// numbers of the snack kinds (the three snacks, the soda can and the elixir), the key colour numbers (red 0, blue 1, green 2), `MAX_CHANNELS`,
 /// the sound effect ids (each named id, then `EFFECT_COUNT`), the shared caption ids (each, then `CAP_COUNT`), `STYLE_COUNT` and
 /// the `RULES_SEMANTICS` byte, which is bumped when what a rule record means changes without its layout changing. The object kind
 /// numbers belong to `fizz-pack` itself. Changing a flag, a slope, a channel, an id or a cue number changes the number on purpose,
@@ -119,7 +119,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         SnackKind::Choc.number(),
         SnackKind::Cookie.number(),
         SnackKind::Soda.number(),
-        SnackKind::Lantern.number(),
+        SnackKind::Elixir.number(),
     ]);
     v.extend_from_slice(&[KEY_RED, KEY_BLUE, KEY_GREEN, MAX_CHANNELS]);
     v.extend_from_slice(&[

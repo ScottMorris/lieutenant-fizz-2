@@ -129,10 +129,10 @@ pub const BLUE_DOOR: [(i32, i32); 3] = [(22, 38), (22, 39), (22, 40)];
 pub const SHELF: [(i32, i32); 5] = [(24, 41), (25, 41), (26, 41), (27, 41), (28, 41)];
 /// The blue key's centre, at the left end of the shelf.
 pub const KEY_BLUE: (f64, f64) = (24.5, 42.7);
-/// The lantern's centre (PROVISIONAL, a placeholder for the owner's lives design): on the second ledge of the left shaft (row 7,
+/// The elixir's centre (PROVISIONAL, a placeholder for the owner's lives design): on the second ledge of the left shaft (row 7,
 /// columns 8 to 14), at its right end by the wall. The route lands on the ledge's left part and climbs on from there, so the replay never
-/// comes within 3 tiles of the lantern; a player who walks along the ledge to the wall takes it.
-pub const LANTERN: (SnackKind, f64, f64) = (SnackKind::Lantern, 13.5, 8.7);
+/// comes within 3 tiles of the elixir; a player who walks along the ledge to the wall takes it.
+pub const ELIXIR: (SnackKind, f64, f64) = (SnackKind::Elixir, 13.5, 8.7);
 /// The snacks and the soda cans, as `(kind, x, y)` with the centre in tiles, in the order they are added to the world (and so the
 /// order of the hash). Two cheezies hang under the shelf, where a jump bumps the head to reach them; on the shelf, from its right
 /// end to its left, lie a cheezie, a chocolate and a cookie. Then the cans: one on the gallery floor in the shooting stretch
@@ -145,7 +145,7 @@ pub const SNACKS: [(SnackKind, f64, f64); 8] = [
     (SnackKind::Cookie, 25.5, 42.7),
     (SnackKind::Soda, 28.5, 38.7),
     (SnackKind::Soda, 28.5, 42.7),
-    LANTERN,
+    ELIXIR,
 ];
 
 /// The baked level: the shape `fizz-bake` will fill from a map file.
@@ -327,8 +327,8 @@ pub struct LevelSource<'a> {
     pub strings: &'a [StringRec],
 }
 
-/// The slice's objects in the order the world is built: both keys, the eight snacks, soda cans and the lantern of [`SNACKS`], and the
-/// chicken. The lantern is the last snack, and the hash leaves the lanterns out of its snack list (see `world::hash`).
+/// The slice's objects in the order the world is built: both keys, the eight snacks, soda cans and the elixir of [`SNACKS`], and the
+/// chicken. The elixir is the last snack, and the hash leaves the elixirs out of its snack list (see `world::hash`).
 pub const SLICE_OBJECTS: [Object; 11] = [
     Object::KeyRed { x: KEY.0, y: KEY.1 },
     Object::KeyBlue {
@@ -619,7 +619,7 @@ mod tests {
         // The list order is the hash order: the snacks keep their places and the cans come last.
         assert!(SNACKS[..5].iter().all(|s| s.0 != SnackKind::Soda));
         assert!(SNACKS[5..7].iter().all(|s| s.0 == SnackKind::Soda));
-        assert_eq!(SNACKS[7], LANTERN, "the lantern is last");
+        assert_eq!(SNACKS[7], ELIXIR, "the elixir is last");
         assert_eq!(w.snacks.len(), SNACKS.len());
         let m = map();
         for &&(_, x, y) in &cans {
@@ -634,11 +634,11 @@ mod tests {
     }
 
     #[test]
-    fn the_lantern_lies_on_the_second_ledge_off_the_route_and_a_walk_takes_it() {
+    fn the_elixir_lies_on_the_second_ledge_off_the_route_and_a_walk_takes_it() {
         use crate::world::{Event, START_LIVES};
         use fizz_sim::{Buttons, InputFrame};
         let m = map();
-        let (_, lx, ly) = LANTERN;
+        let (_, lx, ly) = ELIXIR;
         // On the second ledge of the left shaft (row 7, columns 8 to 14), at its right end by the wall, 0.7 above the planks.
         let (tx, ty) = (lx as i32, (ly - 0.7 + 0.001) as i32);
         assert_eq!((tx, ty), (13, 8));
@@ -665,7 +665,7 @@ mod tests {
         assert_eq!(lives.len(), 1, "{lives:?}");
         assert_eq!(w.lives, START_LIVES + 1);
         assert_eq!(w.score(), 0);
-        // The replay's route never goes near it: the whole script takes no lantern (also checked in `replay.rs`).
+        // The replay's route never goes near it: the whole script takes no elixir (also checked in `replay.rs`).
         assert_eq!(world().lives, START_LIVES);
     }
 
@@ -738,7 +738,7 @@ mod tests {
     #[test]
     fn the_slice_digest_is_pinned() {
         // Moved from 0x4326_f908_3ff9_bde6 on purpose: the digest now covers the rules (the two locks) and the strings (none).
-        // Moved again from 0x44cc_83fb_5218_552f, on purpose: the level gained its provisional lantern (an eighth snack, kind 4).
+        // Moved again from 0x44cc_83fb_5218_552f, on purpose: the level gained its provisional elixir (an eighth snack, kind 4).
         assert_eq!(digest(&SLICE_SOURCE), 0xbd2e_72e6_f2ca_89fa);
     }
 

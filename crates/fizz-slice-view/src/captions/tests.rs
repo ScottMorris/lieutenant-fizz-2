@@ -112,7 +112,7 @@ fn the_table_maps_every_event_as_the_plan_says() {
     assert_eq!(at(Event::Can { x, y }).effect, Some(17));
     assert_eq!(cap(Event::Can { x, y }), Some("fsssht"));
     assert_eq!(at(Event::Life { x, y }).effect, Some(21));
-    assert_eq!(cap(Event::Life { x, y }), Some("life!"));
+    assert_eq!(cap(Event::Life { x, y }), Some("glug!"));
     assert_eq!(at(Event::ShotEnd { x, y }).effect, None);
 }
 

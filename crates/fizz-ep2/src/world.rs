@@ -71,12 +71,12 @@ pub enum Event {
     Snack { x: i32, y: i32 },
     /// Ben took a soda can, a refill for the Fizz Blaster (Fizz 1's "fsssht"), half a tile above the can's centre.
     Can { x: i32, y: i32 },
-    /// Ben took a lantern, a new life (PROVISIONAL: Fizz 2 has no lives design yet; see [`SnackKind::Lantern`]), half a tile above the lantern's centre.
+    /// Ben drank a Fizz elixir, a new life (PROVISIONAL: Fizz 2 has no lives design yet; see [`SnackKind::Elixir`]), half a tile above the elixir's centre.
     Life { x: i32, y: i32 },
 }
 
 /// The items Ben takes by touch, other than the keys: Fizz 1's snacks, with the points each is worth in its `tick_ben_contacts`,
-/// the soda can, which is worth none and refills the Fizz Blaster, and Fizz 2's own lantern, which is worth none and gives a life.
+/// the soda can, which is worth none and refills the Fizz Blaster, and Fizz 2's own elixir, which is worth none and gives a life.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SnackKind {
     /// A cheezie: 1 point.
@@ -87,27 +87,30 @@ pub enum SnackKind {
     Cookie,
     /// A soda can (Fizz 1's `ItemKind::Soda`): no points, [`SODA_AMMO`] more shots.
     Soda,
-    /// A small brass lighthouse lantern, "keeping the light on": a new life ([`World::lives`] goes up by one), no points. PROVISIONAL: a
-    /// placeholder for the owner's lives design. Fizz 2's own, not Fizz 1's: Fizz 1 has lives but no item for one.
-    Lantern,
+    /// The Fizz elixir, a small corked bottle of bubbling grape-fizz: an instant consumable like a snack that gives a new life
+    /// ([`World::lives`] goes up by one, to at most [`MAX_LIVES`]), no points. PROVISIONAL: a placeholder for the owner's lives design.
+    /// Fizz 2's own, not Fizz 1's: Fizz 1 has lives but no item for one.
+    Elixir,
 }
 
-/// The lives a new world starts with (Fizz 1 starts with 3). PROVISIONAL, like the whole lives count: nothing spends a life yet,
-/// so a death does not lower it and it only goes up, by [`SnackKind::Lantern`].
+/// The lives a new world starts with (Fizz 1 starts with 3). PROVISIONAL, like the whole lives count: lives are a demo of the number
+/// in this slice and not yet a rule. A death takes one (never below 0) and there is no game over; a [`SnackKind::Elixir`] adds one.
 pub const START_LIVES: u32 = 3;
+/// The most lives the elixir gives, like the HUD's other counters.
+pub const MAX_LIVES: u32 = 99;
 
 /// The shots one soda can adds (Fizz 1: `self.game.ammo += 5`). Fizz 1 puts no cap on the ammo, and neither does this.
 pub const SODA_AMMO: u32 = 5;
 
 impl SnackKind {
-    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie, 3 soda can, 4 lantern (all five are listed in `tiles::pack_content()`).
+    /// The number the asset pack schema uses for this kind: 0 cheezie, 1 chocolate, 2 cookie, 3 soda can, 4 elixir (all five are listed in `tiles::pack_content()`).
     pub const fn number(self) -> u8 {
         match self {
             SnackKind::Cheezie => 0,
             SnackKind::Choc => 1,
             SnackKind::Cookie => 2,
             SnackKind::Soda => 3,
-            SnackKind::Lantern => 4,
+            SnackKind::Elixir => 4,
         }
     }
 
@@ -118,7 +121,7 @@ impl SnackKind {
             1 => Some(SnackKind::Choc),
             2 => Some(SnackKind::Cookie),
             3 => Some(SnackKind::Soda),
-            4 => Some(SnackKind::Lantern),
+            4 => Some(SnackKind::Elixir),
             _ => None,
         }
     }
@@ -129,7 +132,7 @@ impl SnackKind {
             SnackKind::Cheezie => 1,
             SnackKind::Choc => 2,
             SnackKind::Cookie => 5,
-            SnackKind::Soda | SnackKind::Lantern => 0,
+            SnackKind::Soda | SnackKind::Elixir => 0,
         }
     }
 }
@@ -213,8 +216,8 @@ pub struct World {
     pub ammo: u32,
     /// How many times Ben has died and respawned.
     pub deaths: u32,
-    /// Ben's lives, starting at [`START_LIVES`] and going up by one for each lantern. PROVISIONAL: nothing spends a life yet and a
-    /// death does not change it. Hashed only once it differs from the start (see [`hash`]).
+    /// Ben's lives, starting at [`START_LIVES`]: a death takes one (never below 0, with no game over) and each elixir gives one, up to
+    /// [`MAX_LIVES`]. PROVISIONAL, a demo of the number the HUD shows. It changes no rule of this slice, so it is not hashed (see [`hash`]).
     pub lives: u32,
     pub chickens: Vec<Chicken>,
     pub shots: Vec<Shot>,
@@ -569,8 +572,8 @@ impl World {
                 if sn.kind == SnackKind::Soda {
                     self.ammo += SODA_AMMO;
                     self.events.push(Event::Can { x, y });
-                } else if sn.kind == SnackKind::Lantern {
-                    self.lives += 1;
+                } else if sn.kind == SnackKind::Elixir {
+                    self.lives = (self.lives + 1).min(MAX_LIVES);
                     self.events.push(Event::Life { x, y });
                 } else {
                     self.events.push(Event::Snack { x, y });
@@ -674,6 +677,7 @@ impl World {
     /// re-arm here when they exist; the locks hold no state of their own.
     fn respawn(&mut self) {
         self.deaths += 1;
+        self.lives = self.lives.saturating_sub(1);
         self.ben = Ben::new(self.spawn.0, self.spawn.1);
         self.map.switches = self.start_switches;
         for bit in [
@@ -716,11 +720,11 @@ impl World {
 /// 7. the snack count (`u32`), then per snack one byte, 1 if it has been taken and 0 if not. The soda cans are in this list too, in the order the level
 ///    added them, so a taken can is hashed like a taken snack (the ammo it gave is in `ammo`, step 3). A snack's kind and position
 ///    are level data, and the score is worked out from what is taken, so neither is hashed. The blue key and door live in
-///    the [`WorldFlags`] word and in `map.switches` (bit 2). The lanterns ([`SnackKind::Lantern`]) are not in this count or this list;
-/// 8. PROVISIONAL, written only when it differs from the start state: `lives` (`u32`), then per lantern one byte, 1 if it has been taken
-///    and 0 if not. It is absent while `lives` is [`START_LIVES`] and no lantern is taken, which is every state of the golden replay, so
-///    the lives count and the lanterns in the level do not move a hash until a lantern is taken (the hash is still a function of the whole
-///    state: two states that differ in lives or in a taken lantern hash apart). The owner's lives design replaces this block.
+///    the [`WorldFlags`] word and in `map.switches` (bit 2). The elixirs ([`SnackKind::Elixir`]) are not in this count or this list;
+/// 8. PROVISIONAL, written only when an elixir has been taken: one byte per elixir, 1 if it has been taken and 0 if not. It is absent
+///    while no elixir is taken, which is every state of the golden replay, so the elixirs in the level do not move a hash until one is
+///    taken. `lives` is not hashed at all: it is a number the HUD shows and changes no rule of this slice, and it is worked out by the
+///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block.
 ///
 /// The camera and the [`Event`] list are not hashed.
 pub fn hash(w: &World) -> StateHash {
@@ -769,15 +773,14 @@ pub fn hash(w: &World) -> StateHash {
             h.write_f64(v);
         }
     }
-    let plain = |s: &&Snack| s.kind != SnackKind::Lantern;
+    let plain = |s: &&Snack| s.kind != SnackKind::Elixir;
     h.write_u32(w.snacks.iter().filter(plain).count() as u32);
     for s in w.snacks.iter().filter(plain) {
         h.write_u8(u8::from(s.taken));
     }
-    let lanterns = || w.snacks.iter().filter(|s| s.kind == SnackKind::Lantern);
-    if w.lives != START_LIVES || lanterns().any(|s| s.taken) {
-        h.write_u32(w.lives);
-        for s in lanterns() {
+    let elixirs = || w.snacks.iter().filter(|s| s.kind == SnackKind::Elixir);
+    if elixirs().any(|s| s.taken) {
+        for s in elixirs() {
             h.write_u8(u8::from(s.taken));
         }
     }
@@ -1640,10 +1643,10 @@ mod tests {
     }
 
     #[test]
-    fn a_lantern_is_a_new_life_worth_no_points_and_raises_life_only() {
-        // PROVISIONAL, with the lantern: one more life, an `Event::Life` half a tile above the lantern's centre, no points, no ammo.
+    fn an_elixir_is_a_new_life_worth_no_points_and_raises_life_only() {
+        // PROVISIONAL, with the elixir: one more life, an `Event::Life` half a tile above the elixir's centre, no points, no ammo.
         let mut w = arena(None);
-        w.add_snack(SnackKind::Lantern, 10.4, 2.7);
+        w.add_snack(SnackKind::Elixir, 10.4, 2.7);
         assert_eq!(w.lives, START_LIVES);
         assert_eq!(START_LIVES, 3);
         w.step(idle());
@@ -1661,20 +1664,40 @@ mod tests {
         w.step(idle());
         assert_eq!(w.lives, START_LIVES + 1);
         assert!(w.events().is_empty());
-        // Two lanterns are two lives.
+        // Two elixirs are two lives.
         let mut w = arena(None);
-        w.add_snack(SnackKind::Lantern, 10.4, 2.7);
-        w.add_snack(SnackKind::Lantern, 10.6, 2.7);
+        w.add_snack(SnackKind::Elixir, 10.4, 2.7);
+        w.add_snack(SnackKind::Elixir, 10.6, 2.7);
         w.step(idle());
         assert_eq!(w.lives, START_LIVES + 2);
+        // The elixir stops at 99, like the HUD's other counters.
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Elixir, 10.4, 2.7);
+        w.lives = MAX_LIVES;
+        w.step(idle());
+        assert_eq!(w.lives, MAX_LIVES);
     }
 
     #[test]
-    fn a_death_puts_the_lantern_back_and_keeps_the_lives() {
-        // Nothing spends a life yet (the owner is designing that), so a death changes neither the count nor what was gained; the
-        // lantern lies in the level again, as every snack does.
+    fn a_death_takes_a_life_never_below_zero_and_never_ends_the_game() {
+        // PROVISIONAL: lives are a demo of the number, not a rule. Each death takes one, the count stops at 0 and Ben goes on playing.
         let mut w = arena(None);
-        w.add_snack(SnackKind::Lantern, 20.4, 2.7);
+        for expect in [START_LIVES - 1, START_LIVES - 2, 0, 0, 0] {
+            w.ben.kill();
+            for _ in 0..100 {
+                w.step(idle());
+            }
+            assert_eq!(w.lives, expect);
+        }
+        assert_eq!(w.deaths, 5);
+        assert!(w.ben.dead == 0.0, "Ben is back, with no game over");
+    }
+
+    #[test]
+    fn a_death_puts_the_elixir_back_so_it_cannot_be_farmed() {
+        // The elixir lies in the level again, as every snack does, and the death that brought it back cost a life: no net gain.
+        let mut w = arena(None);
+        w.add_snack(SnackKind::Elixir, 20.4, 2.7);
         w.snacks[0].taken = true;
         w.lives += 1;
         w.ben.kill();
@@ -1682,35 +1705,33 @@ mod tests {
             w.step(idle());
         }
         assert_eq!(w.deaths, 1);
-        assert_eq!(w.lives, START_LIVES + 1);
+        assert_eq!(w.lives, START_LIVES);
         assert!(!w.snacks[0].taken);
     }
 
     #[test]
-    fn the_lantern_and_the_lives_move_the_hash_only_once_a_lantern_is_taken() {
-        // A level with a lantern in it hashes as the same level without it while it lies there and the lives are at their start, which
-        // is every state of the golden replay.
+    fn the_elixir_moves_the_hash_only_once_taken_and_the_lives_never_do() {
+        // A level with an elixir in it hashes as the same level without it while it lies there, which is every state of the golden replay.
         let plain = arena(None);
         let mut with = arena(None);
-        with.add_snack(SnackKind::Lantern, 20.4, 2.7);
-        assert_eq!(
-            plain.hash(),
-            with.hash(),
-            "an untaken lantern is level data"
-        );
-        // The lantern is in the hash once it is taken (and so is the count of lives).
+        with.add_snack(SnackKind::Elixir, 20.4, 2.7);
+        assert_eq!(plain.hash(), with.hash(), "an untaken elixir is level data");
+        // A taken elixir is in the hash.
         let mut taken = with.clone();
         taken.snacks[0].taken = true;
-        taken.lives += 1;
         assert_ne!(with.hash(), taken.hash());
+        // The lives are not: they change no rule, and the deaths and elixirs that move them are hashed already.
         let mut more = taken.clone();
         more.lives += 1;
-        assert_ne!(taken.hash(), more.hash(), "the lives are hashed");
-        // The snack list the hash walks is the same with or without the lantern.
+        assert_eq!(taken.hash(), more.hash(), "the lives are not hashed");
+        let mut fewer = plain.clone();
+        fewer.lives = 0;
+        assert_eq!(plain.hash(), fewer.hash());
+        // The snack list the hash walks is the same with or without the elixir.
         let mut cheezie = plain.clone();
         cheezie.add_snack(SnackKind::Cheezie, 20.4, 2.7);
         let mut both = cheezie.clone();
-        both.add_snack(SnackKind::Lantern, 21.4, 2.7);
+        both.add_snack(SnackKind::Elixir, 21.4, 2.7);
         assert_eq!(cheezie.hash(), both.hash());
     }
 }

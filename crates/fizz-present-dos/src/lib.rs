@@ -57,7 +57,7 @@ pub fn frame_digest(frame: &Frame) -> u64 {
     h
 }
 
-/// Draws the slice: the shared picture from `fizz_slice_view`, then the HUD box in the top-left corner (Fizz, deaths and the
+/// Draws the slice: the shared picture from `fizz_slice_view`, then the HUD box in the top-left corner (Fizz, lives and the
 /// key chip; see [`hud`]; it is rendered again only when one of those changes), and a banner once Ben has reached the exit. The text is this
 /// presenter's own; the picture beneath it is the one the Web draws too. Captions are on and no puffs show; see
 /// [`render_slice_with`].
@@ -356,10 +356,10 @@ mod tests {
         world.tick.0 += 100;
         render_slice(&world, &mut frame);
         assert_eq!(frame.hud_renders(), 1, "the tick is not on the HUD");
-        world.deaths += 1;
+        world.lives += 1;
         render_slice(&world, &mut frame);
         assert_eq!(frame.hud_renders(), 2);
-        world.deaths -= 1;
+        world.lives -= 1;
         render_slice(&world, &mut frame);
         assert_eq!(frame.hud_renders(), 3);
     }
@@ -458,7 +458,7 @@ mod tests {
             fizz: 5,
             score: 0,
             pop: 0,
-            deaths: 0,
+            lives: 0,
             keys: [
                 key(true, 0, false),
                 key(true, 0, false),
@@ -475,7 +475,7 @@ mod tests {
         v.fizz = 0;
         v.score = 99_999;
         v.pop = 0;
-        v.deaths = 99;
+        v.lives = 99;
         v.keys = [
             key(true, 3, false),
             key(true, 2, false),
@@ -486,9 +486,9 @@ mod tests {
         assert_eq!(
             [start, pickup, stress],
             [
-                0x7506_01d8_0e12_3dba,
-                0x77b5_e6a4_bc4e_7891,
-                0x9a6a_8ecf_c05d_ef9c
+                0xb37d_2c63_5412_55d7,
+                0x1840_7ca6_76be_8930,
+                0xe44b_8ae0_c79c_92d2
             ]
         );
     }

@@ -3,15 +3,15 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
-// The rules keep no HUD state and this file adds none to them. Everything is read from the world (`ammo`, `deaths`, the snacks
+// The rules keep no HUD state and this file adds none to them. Everything is read from the world (`ammo`, `lives`, the snacks
 // taken, the key flags) or kept by the view in [`HudAnim`], which a presenter feeds with [`HudAnim::observe`] after each step, as
 // it feeds the puffs and captions. The hash never sees it.
 //
-// The layout is the Two-Row Stack: `Fizz` and `Score` on the top row, `Deaths` and the key tray on the bottom row.
+// The layout is the Two-Row Stack: `Fizz` and `Score` on the top row, `Lives` and the key tray on the bottom row.
 
 use fizz_ep2::{World, WorldFlags};
 
-/// The most a Fizz or Deaths count shows.
+/// The most a Fizz or Lives count shows.
 pub const COUNT_CAP: u32 = 99;
 /// How many digits the score field has, always drawn, with dim leading zeros.
 pub const SCORE_DIGITS: usize = 5;
@@ -118,7 +118,8 @@ pub struct HudModel {
     pub fizz: u32,
     /// The true score: Fizz 1's snack points (cheezie 1, chocolate 2, cookie 5) for the snacks taken, worked out from them.
     pub score: u32,
-    pub deaths: u32,
+    /// Ben's lives (provisional; they replace the deaths the box showed).
+    pub lives: u32,
     pub keys: [KeyState; KEY_SLOTS],
 }
 
@@ -127,7 +128,7 @@ impl HudModel {
         HudModel {
             fizz: world.ammo,
             score: world.score(),
-            deaths: world.deaths,
+            lives: world.lives,
             keys: KEY_KINDS.map(|k| key_state(world, k)),
         }
     }
@@ -193,7 +194,7 @@ pub struct HudView {
     pub score: u32,
     /// The points of the snack just taken, or 0: shown as `+N` in the place of the word `Score`.
     pub pop: u32,
-    pub deaths: u32,
+    pub lives: u32,
     pub keys: [KeySlot; KEY_SLOTS],
 }
 
@@ -297,7 +298,7 @@ impl HudAnim {
             fizz: count(m.fizz),
             score: score.min(SCORE_CAP),
             pop: if animated { self.pop } else { 0 },
-            deaths: count(m.deaths),
+            lives: count(m.lives),
             keys: core::array::from_fn(|i| KeySlot {
                 in_level: m.keys[i].in_level,
                 held: m.keys[i].held,

@@ -34,7 +34,7 @@ pub const EFFECT_DOOR: u8 = 19;
 /// Ben's long fall: a descending slide whistle. No `Event` plays it; the presenters play it from Ben's state (`fizz_slice_view::FallWatch`), so the
 /// rules, the replay transcript and the state hash do not know it. Its caption is `CAP_WHEEE`, which `FallWatch` raises with it.
 pub const EFFECT_WHISTLE: u8 = 20;
-/// Ben taking a lantern (`Event::Life`), a new life: a short rising arpeggio that ends on a swelling bell. PROVISIONAL, with the lantern.
+/// Ben drinking an elixir (`Event::Life`), a new life: a short rising arpeggio that ends on a swelling bell. PROVISIONAL, with the elixir.
 pub const EFFECT_LIFE: u8 = 21;
 /// The number of effect ids: valid ids are `0..EFFECT_COUNT`.
 pub const EFFECT_COUNT: u8 = 22;
@@ -56,7 +56,7 @@ pub const CAP_CRUNCH: u8 = 11;
 pub const CAP_FSSSHT: u8 = 12;
 /// "wheee!", the word of Ben's walk off a ledge (the slide whistle, which no event plays: `FallWatch` raises it).
 pub const CAP_WHEEE: u8 = 13;
-/// The word for a lantern (`Event::Life`). PROVISIONAL, with the lantern.
+/// The word for an elixir (`Event::Life`). PROVISIONAL, with the elixir.
 pub const CAP_LIFE: u8 = 14;
 /// The number of shared captions: valid ids are `0..CAP_COUNT`.
 pub const CAP_COUNT: u8 = 15;

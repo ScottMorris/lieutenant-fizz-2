@@ -7604,7 +7604,7 @@ exports[`the effects after the cluck (ids 4 to 18) 20 whistle (long fall) schedu
 ]
 `;
 
-exports[`the effects after the cluck (ids 4 to 18) 21 life (lantern) schedules these values, so a later Undertone that moves any shows up here 1`] = `
+exports[`the effects after the cluck (ids 4 to 18) 21 life (elixir) schedules these values, so a later Undertone that moves any shows up here 1`] = `
 [
   {
     "freq": undefined,

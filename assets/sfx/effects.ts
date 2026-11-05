@@ -7,7 +7,7 @@
 //   4 fzzt (a shot), 5 stun ("fizzled"), 6 bonk (a stomp), 7 hurt ("whoa!"), 8 win ("ta-da!"), 9 key (a gumdrop), 10 clunk (a
 //   door or a head-bump), 11 plink ("click - no fizz"), 12 boing, 13 jump (no caption), 14 crunch (a snack),
 //   15 boing (FM), 16 jump (FM) and 18 fzzt (FM): the FM-era voices that 12, 13 and 4 replaced, kept as alternates no event plays,
-//   17 soda (a fizz can), 19 door (a door opening with its key; a head-bump keeps 10), 20 whistle (a long fall) and 21 life (a lantern, a new life: provisional).
+//   17 soda (a fizz can), 19 door (a door opening with its key; a head-bump keeps 10), 20 whistle (a long fall) and 21 life (an elixir, a new life: provisional).
 //   `crates/fizz-slice-view/src/captions.rs` says which event plays which id; a new effect is appended at its index, with no gaps.
 //
 // (c) Copyright 2026 Liminal HQ, Scott Morris
@@ -259,8 +259,8 @@ const whistle: SfxVoice[] = [
 ];
 
 /**
- * Effect 21, life (a lantern: a new life; `Event::Life`; PROVISIONAL, a placeholder with the lantern item for the owner's lives design):
- * new for Fizz 2. Fizz 1 has lives and no sound for one. Intent: a small warm light coming on, "keeping the light on". A rising G major
+ * Effect 21, life (an elixir: a new life; `Event::Life`; PROVISIONAL, a placeholder with the elixir item for the owner's lives design):
+ * new for Fizz 2. Fizz 1 has lives and no sound for one. Intent: a small bottle being drunk and fizzing up. A rising G major
  * arpeggio of four triangle notes (g4 b4 d5 g5, 70 ms apart), each a touch brighter than the last, that lands on a long g6 sine which
  * swells up into its note from a fifth under (0.1 s of pitch steps) with a soft bell glint (FM ratio 2.76), and a
  * quiet g5 under it for body (Web only; the chip plays the voice that starts last, the swell). Distinct from the key (three notes, c e g)
@@ -301,7 +301,7 @@ export const EFFECT_NAMES: readonly string[] = [
   'fzzt (FM)',
   'door',
   'whistle (long fall)',
-  'life (lantern)',
+  'life (elixir)',
 ];
 
 /**

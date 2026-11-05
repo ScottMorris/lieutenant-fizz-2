@@ -178,10 +178,6 @@ pub fn palette_for(options: &DrawOptions) -> [[u8; 3]; 256] {
 /// would walk through the dark between the lanterns, lit only by his floor of level 9, and the ledges he lands on would be
 /// at the ambient; with it the floor around him reads, as in Fizz 1.
 const BEN_LANTERN: (f64, i32, i32, i32) = (1.1, 19, 88, 765);
-/// The light an untaken lantern gives (PROVISIONAL, with the lantern item): a warm lamp, 0.7 tiles above its centre, radius 3, a little
-/// dimmer than Ben's own lantern, so the item glows at night and shows where it lies.
-const LANTERN_LIGHT: (i32, i32, i32) = (10, 48, 760);
-
 /// The light every shot carries: Fizz 1's Fizz Blaster bubble, cyan `[0.3, 1.1, 1.2]` (brightness 0.87), 0.6 tiles high, radius 3.
 const SHOT_LIGHT: (i32, i32, i32) = (10, 48, 892);
 
@@ -215,23 +211,6 @@ pub fn night_lights(
         if let Some(i) = lights.add(centre, at) {
             lights.pin_first(i);
         }
-    }
-    for sn in world
-        .snacks
-        .iter()
-        .filter(|sn| sn.kind == SnackKind::Lantern && !sn.taken)
-    {
-        let (z, r, s) = LANTERN_LIGHT;
-        lights.add(
-            centre,
-            Light {
-                x: tile_px(sn.x).saturating_mul(SUB),
-                y: screen_y(sn.y, map_h).saturating_mul(SUB),
-                z: z * SUB,
-                r: r * SUB,
-                strength: s,
-            },
-        );
     }
     for shot in &world.shots {
         let (z, r, s) = SHOT_LIGHT;
@@ -644,12 +623,12 @@ fn draw_picture(
     // sprite above them.
     let bob = i32::from(phase / 16 % 2 == 1);
     if !world.snacks.is_empty()
-        && let (Some(cheezie), Some(choc), Some(cookie), Some(soda), Some(lantern)) = (
+        && let (Some(cheezie), Some(choc), Some(cookie), Some(soda), Some(elixir)) = (
             sprite("cheezie"),
             sprite("choc"),
             sprite("cookie"),
             sprite("soda"),
-            sprite("lantern"),
+            sprite("elixir"),
         )
     {
         for sn in world.snacks.iter().filter(|sn| !sn.taken) {
@@ -658,7 +637,7 @@ fn draw_picture(
                 SnackKind::Choc => choc,
                 SnackKind::Cookie => cookie,
                 SnackKind::Soda => soda,
-                SnackKind::Lantern => lantern,
+                SnackKind::Elixir => elixir,
             };
             let (sx, sy) = at(sn.x, sn.y);
             blit_sprite_banked(frame, w, h, art, sx, sy + 8 - bob, false, glow);
@@ -2189,8 +2168,8 @@ mod tests {
         ] {
             assert_eq!(door_front(&w, &full, 22, ty), piece.pixels, "row {ty}");
         }
-        // The lantern lies on the ground floor, out of the nook's view; its own test draws it.
-        for i in (0..w.snacks.len()).filter(|&i| w.snacks[i].kind != SnackKind::Lantern) {
+        // The elixir lies on the second ledge of the left shaft, out of the nook's view; its own test draws it.
+        for i in (0..w.snacks.len()).filter(|&i| w.snacks[i].kind != SnackKind::Elixir) {
             let mut one = w.clone();
             one.snacks[i].taken = true;
             assert_ne!(picture(&one, 0), full, "snack {i} is drawn");
@@ -2214,22 +2193,21 @@ mod tests {
     }
 
     #[test]
-    fn the_lantern_is_drawn_where_it_lies_and_leaves_the_picture_when_taken() {
-        // The lantern (provisional) lies on the ground floor beyond the spikes; Ben stands to its left and sees it.
+    fn the_elixir_is_drawn_where_it_lies_and_leaves_the_picture_when_taken() {
+        // The elixir (provisional) lies on the second ledge of the left shaft, in view from the start.
         let mut w = level::world();
-        let lantern = w
+        let elixir = w
             .snacks
             .iter()
-            .position(|s| s.kind == SnackKind::Lantern)
+            .position(|s| s.kind == SnackKind::Elixir)
             .unwrap();
         let shown = picture(&w, 0);
-        w.snacks[lantern].taken = true;
+        w.snacks[elixir].taken = true;
         let taken = picture(&w, 0);
-        assert_ne!(shown, taken, "the lantern is drawn");
-        // Some of its brass and light-yellow pane are on screen, and the same picture a bobbing pixel later still shows it.
-        let brass = sprite("lantern").unwrap();
-        assert!(brass.pixels.contains(&14), "a lit yellow pane");
-        assert_ne!(picture(&level::world(), 16), taken);
+        assert_ne!(shown, taken, "the elixir is drawn");
+        // Its light magenta glass is on screen.
+        let bottle = sprite("elixir").unwrap();
+        assert!(bottle.pixels.contains(&13), "light magenta fizz");
     }
 
     #[test]

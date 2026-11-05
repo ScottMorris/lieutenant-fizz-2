@@ -31,11 +31,11 @@ const empty: KeyReading = { inLevel: false, held: 0, ring: false };
 const socket = (held = 0, ring = false): KeyReading => ({ inLevel: true, held, ring });
 
 /** A reading with the red and blue sockets in the level, as the slice has them. */
-const at = (ammo: number, red = 0, deaths = 0, extra: Partial<HudValues> = {}): HudValues => ({
+const at = (ammo: number, red = 0, lives = 3, extra: Partial<HudValues> = {}): HudValues => ({
   ammo,
   score: 0,
   pop: 0,
-  deaths,
+  lives,
   keys: [socket(red), socket(0), empty, empty],
   ...extra,
 });
@@ -59,9 +59,9 @@ describe('the numbers', () => {
     expect(hudView(at(0))).toMatchObject({ fizz: '0', fizzOut: true });
   });
 
-  test('the deaths show in the lives slot and cap at 99', () => {
-    expect(hudView(at(5, 0, 3)).deaths).toBe('3');
-    expect(hudView(at(5, 0, 250)).deaths).toBe('99');
+  test('the lives show in the lives slot and cap at 99', () => {
+    expect(hudView(at(5, 0, 3)).lives).toBe('3');
+    expect(hudView(at(5, 0, 250)).lives).toBe('99');
   });
 });
 
@@ -81,9 +81,9 @@ describe('the score field', () => {
     expect(scoreText(Number.NaN)).toEqual({ lead: '0000', rest: '0' });
   });
   test('the view shows the digits it is given and the pop in place of the word', () => {
-    expect(hudView(at(5, 0, 0, { score: 7 }))).toMatchObject({ scoreLead: '0000', scoreRest: '7', pop: '' });
-    expect(hudView(at(5, 0, 0, { score: 7, pop: 5 })).pop).toBe('+5');
-    expect(hudView(at(5, 0, 0, { pop: 1234 })).pop).toBe('+99');
+    expect(hudView(at(5, 0, 3, { score: 7 }))).toMatchObject({ scoreLead: '0000', scoreRest: '7', pop: '' });
+    expect(hudView(at(5, 0, 3, { score: 7, pop: 5 })).pop).toBe('+5');
+    expect(hudView(at(5, 0, 3, { pop: 1234 })).pop).toBe('+99');
   });
 });
 
@@ -98,12 +98,12 @@ describe('the key tray', () => {
     ]);
   });
   test('a held key fills its socket, and the ring shows only on a held key', () => {
-    const v = hudView(at(5, 1, 0, { keys: [socket(1, true), socket(0, true), empty, empty] }));
+    const v = hudView(at(5, 1, 3, { keys: [socket(1, true), socket(0, true), empty, empty] }));
     expect(v.sockets[0]).toMatchObject({ held: true, ring: true, pips: 0, digit: '' });
     expect(v.sockets[1]).toMatchObject({ held: false, ring: false });
   });
   test('duplicates are pips up to four and a digit after', () => {
-    const pips = (held: number) => hudView(at(5, 0, 0, { keys: [socket(held), empty, empty, empty] })).sockets[0];
+    const pips = (held: number) => hudView(at(5, 0, 3, { keys: [socket(held), empty, empty, empty] })).sockets[0];
     expect(MAX_PIPS).toBe(4);
     expect([0, 1].map((n) => pips(n).pips)).toEqual([0, 0]);
     expect([2, 3, 4].map((n) => pips(n).pips)).toEqual([2, 3, 4]);
@@ -117,7 +117,7 @@ describe('the key tray', () => {
       ammo: 5,
       score: 12,
       pop: 5,
-      deaths: 1,
+      lives: 1,
       keys: [
         { inLevel: true, held: 1, ring: true },
         { inLevel: true, held: 0, ring: false },
@@ -145,14 +145,14 @@ describe('change detection', () => {
     expect(sameHud(at(5), at(4))).toBe(false);
     expect(sameHud(at(5), at(5, 1))).toBe(false);
     expect(sameHud(at(5), at(5, 0, 1))).toBe(false);
-    expect(sameHud(at(5), at(5, 0, 0, { score: 1 }))).toBe(false);
-    expect(sameHud(at(5), at(5, 0, 0, { pop: 1 }))).toBe(false);
-    expect(sameHud(at(5, 1), at(5, 1, 0, { keys: [socket(1, true), socket(0), empty, empty] }))).toBe(false);
+    expect(sameHud(at(5), at(5, 0, 3, { score: 1 }))).toBe(false);
+    expect(sameHud(at(5), at(5, 0, 3, { pop: 1 }))).toBe(false);
+    expect(sameHud(at(5, 1), at(5, 1, 3, { keys: [socket(1, true), socket(0), empty, empty] }))).toBe(false);
   });
   test('values past the cap show alike, so they do not touch the page', () => {
     expect(sameHud(at(120), at(130))).toBe(true);
     expect(sameHud(at(0, 0, 150), at(0, 0, 151))).toBe(true);
-    expect(sameHud(at(5, 0, 0, { score: 100_000 }), at(5, 0, 0, { score: 200_000 }))).toBe(true);
+    expect(sameHud(at(5, 0, 3, { score: 100_000 }), at(5, 0, 3, { score: 200_000 }))).toBe(true);
   });
 });
 
@@ -170,23 +170,25 @@ describe('announcements', () => {
     expect(announcement(at(3, 0), at(3, 1))).toBe('Red key picked up');
     expect(announcement(at(3, 1), at(3, 1))).toBeNull();
     expect(announcement(at(3, 1), at(3, 0))).toBeNull();
-    const blue = at(3, 0, 0, { keys: [socket(0), socket(1), empty, empty] });
+    const blue = at(3, 0, 3, { keys: [socket(0), socket(1), empty, empty] });
     expect(announcement(at(3), blue)).toBe('Blue key picked up');
-    const gold = at(3, 0, 0, { keys: [socket(0), socket(0), empty, socket(1)] });
+    const gold = at(3, 0, 3, { keys: [socket(0), socket(0), empty, socket(1)] });
     expect(announcement(at(3), gold)).toBe('Gold key picked up');
   });
   test('the score and the pop are not spoken', () => {
-    expect(announcement(at(3), at(3, 0, 0, { score: 5, pop: 5 }))).toBeNull();
+    expect(announcement(at(3), at(3, 0, 3, { score: 5, pop: 5 }))).toBeNull();
   });
-  test('a death is announced with the count', () => {
-    expect(announcement(at(3, 0, 0), at(3, 0, 1))).toBe('Deaths 1');
-    expect(announcement(at(3, 0, 1), at(3, 0, 2))).toBe('Deaths 2');
+  test('a change in the lives is announced with the count', () => {
+    expect(announcement(at(3, 0, 3), at(3, 0, 2))).toBe('Lives 2');
+    expect(announcement(at(3, 0, 2), at(3, 0, 3))).toBe('Lives 3');
+    expect(announcement(at(3, 0, 0), at(3, 0, 0))).toBeNull();
   });
-  test('a restart is silent', () => {
-    expect(announcement(at(0, 1, 3), at(5, 0, 0))).toBeNull();
+  test('a restart is silent unless it changes the lives', () => {
+    expect(announcement(at(0, 1, 3), at(5, 0, 3))).toBeNull();
+    expect(announcement(at(0, 1, 1), at(5, 0, 3))).toBe('Lives 3');
   });
   test('several things in one frame are joined in order', () => {
-    expect(announcement(at(1, 0, 0), at(0, 1, 1))).toBe('Out of Fizz. Red key picked up. Deaths 1');
+    expect(announcement(at(1, 0, 3), at(0, 1, 2))).toBe('Out of Fizz. Red key picked up. Lives 2');
   });
 });
 

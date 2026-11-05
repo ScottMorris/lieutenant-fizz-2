@@ -76,7 +76,7 @@ pub const EVENT_CAPTIONS: [EventCaption; CAP_COUNT as usize] = [
     cap("crunch", YELLOW, BROWN),
     cap("fsssht", LIGHT_CYAN, CYAN),
     cap("wheee!", YELLOW, BROWN),
-    cap("life!", YELLOW, BROWN),
+    cap("glug!", YELLOW, BROWN),
 ];
 
 /// What an event is to a presenter.
