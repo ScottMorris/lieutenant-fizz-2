@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-11-05T01:42:04-05:00",
+ "capturedAt": "2026-11-05T01:44:16-05:00",
  "data": {
   "prs": [
    {
@@ -6675,15 +6675,15 @@
     "changedFiles": 5,
     "checks": [
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "check",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],
@@ -6723,7 +6723,20 @@
     "additions": 3620,
     "baseRefName": "feat/script-spec",
     "changedFiles": 56,
-    "checks": [],
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "",
+      "name": "parity",
+      "status": "IN_PROGRESS",
+      "workflow": "CI"
+     }
+    ],
     "createdAt": "2026-11-05T06:37:55Z",
     "deletions": 6,
     "headRefName": "feat/fizz-script-parser",
@@ -6855,9 +6868,9 @@
       "workflow": "CI"
      },
      {
-      "conclusion": "",
+      "conclusion": "SUCCESS",
       "name": "parity",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "workflow": "CI"
      }
     ],

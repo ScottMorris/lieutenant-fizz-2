@@ -2,11 +2,11 @@
 id: pipeline
 n: 11
 title: The start of the content pipeline
-date: 2026-10-30
-summary: Milestone 2 begins with the formats: the Fizz Asset Pack (`.FAP`) specification, the `fizz-pack` reader with its deflate decoder, the OPX register-stream format that audio sections hold, and the CI change that lets a pull request run only the DOS checks its paths can affect. The baker and the loaders are not built.
-prs: [109, 111, 112, 113, 119, 123]
+date: 2026-11-05
+summary: Milestone 2 begins with the formats and the first consumer of one: the Fizz Asset Pack (`.FAP`) specification, the `fizz-pack` reader with its deflate decoder, the slice's world built from level data with rules and strings in the `LEVL` section, the key-to-door locks and the death reset as level data, the OPX register-stream format that audio sections hold, and the CI change that lets a pull request run only the DOS checks its paths can affect. The baker and the pack loaders are not built.
+prs: [109, 111, 112, 113, 119, 123, 137, 138, 140]
 ---
-Milestone 2 is the content pipeline: the host tool `fizz-bake` turns authored assets into packs, and the Web and DOS builds read them, so that DOS parses nothing at start-up that the baker could prepare. What has landed so far is the format, its reader and a stream format for audio, with the CI work that made the checks cheaper to run. No game code loads a pack yet and `fizz-bake` does not exist.
+Milestone 2 is the content pipeline: the host tool `fizz-bake` turns authored assets into packs, and the Web and DOS builds read them, so that DOS parses nothing at start-up that the baker could prepare. What has landed so far is the format, its reader, the slice's level as data that the world is built from, and a stream format for audio, with the CI work that made the checks cheaper to run. The game does not load a pack file yet and `fizz-bake` does not exist.
 
 ## The Fizz Asset Pack (#109)
 
@@ -24,6 +24,16 @@ The spec also lays out the baker, a proof that a baked level equals the `const` 
 ## The fizz-pack reader (#111, #112)
 
 `crates/fizz-pack` reads a `.FAP` from caller buffers. It is `no_std`, has no allocator and forbids `unsafe`. It checks the header, the directory and the checksums, decodes raw deflate into a buffer of the entry's decoded length, refuses each malformed case with its own error, and gives a `LevelView` over a decoded level section. The decoder is about 2.3 KB of machine code at opt-level `z` and 2.9 KB at `s`, measured on an i586 build, which is more than the 1 KB first guessed because Rust adds bounds and overflow checks. Its tests pin the schema hashes, so a change to the schema is a deliberate test edit. The second pull request (#112) reconciled the spec with the reader and applied the owner's decisions: the file names, the DOS search order, the stem in the header, tile property flags in the compatibility number, a separate number for music, and no speaker music.
+
+## The level as data (#137, #138, #140)
+
+The level source refactor was the first step toward the baker: the slice's level stops being Rust that builds a world and becomes data that a world is built from, with the pack's `LEVL` section as its stored form. The three pull requests landed as one merge commit, `{{pr140.merge}}`, and each leaves the replay golden as it was.
+
+- **The world from data (#137).** `fizz_ep2::level` gains `LevelSource` and `Object` (the pack's object kinds, with `to_rec` and `from_rec`), `SLICE_SOURCE`, `validate`, `world_from`, `world_from_view` and `digest`. `world_from_view` reads a `fizz-pack` `LevelView`; it refuses the object kinds 5 to 7, an unknown snack kind and a second key of one colour. `digest` is the FNV-1a 64 of `docs/FAP.md`, pinned in a test. `level::world()` now calls `world_from(&SLICE_SOURCE)`, and `fizz-ep2` depends on `fizz-pack`. A test shows that the slice encodes to a `LEVL` section of 1,904 bytes (ten objects; the earlier draft of the spec counted eight objects and 1,840 bytes) that reads back to the same digest, hash and transcript.
+- **Rules and strings in `LEVL` (#138).** The section is amended in place, still version 1 because no pack has shipped: header byte 28 is the rule count and byte 29 the string count (each at most 32), and the order is header, name, objects, 32-byte rule records, 32-byte string records, then tiles. A level with neither is byte for byte what it was, which a test pins against an independently computed FNV. `fizz-pack` gains `RuleRec` and `StringRec` with encode and decode, accessors on `LevelView`, writer support and the errors `BadRule` and `BadString`, with the reader checks listed in `docs/FAP.md`. `LEVEL_HASH` and `SCHEMA_HASH` moved on purpose, so every world and shared pack's compatibility number moved with them; the music numbers did not.
+- **Locks and the death reset (#140).** `fizz_ep2::cues` now holds the effect ids, the shared caption ids and the seven caption styles, moved out of `fizz-slice-view`. A new `rules.rs` holds `Rule`, `RuleTable` and the lock phase (trigger 1), which replaced the hard-wired red-then-blue loop in `tick_ben_contacts`: a lock works on any switched tile's channel, only while the door is closed and only for a held key of its colour. `world_from_view` refuses triggers 2 to 8 until their phase exists. The level's `switches` are the start state, and a death resets the level exactly as starting it does, so an opened door no longer survives a death. The slice's `LEVL` is 1,968 bytes with its two lock rules, and `level::digest` now covers the rules and strings. Packs baked before are refused, because `tiles::pack_content()` grew and the compatibility number moved.
+
+The checks are `cargo test --workspace` through `tools/check.sh`: the encode and read-back test, the pinned digests, tests for the reset equalling the old respawn at the replay's one death, a lock on a channel other than red or blue, a lock on an open door, two deaths in a row and the start switches coming from the level, and the Fizz 1 trace test, which adds the red lock and channel 1 itself (18 traces pass). `ci-scope.sh` has rules for `rules.rs` and `cues.rs`.
 
 ## OPX (#113)
 
@@ -45,16 +55,18 @@ On GitHub's runners, `gh run view` gives these durations for 30 October 2026. Th
 
 ## What comes next
 
-The planned order is the level source refactor (separating the slice's level text from the Rust that bakes it), the level script dialect, `fizz-bake` itself, the pack loaders on both platforms, then the audio and sprite sections and the tools for floppy images. The roadmap keeps `bake` as planned.
+The level source refactor is done. The planned order from here is the level script dialect, `fizz-bake` itself, the pack loaders on both platforms, then the audio and sprite sections and the tools for floppy images. The remaining rule triggers (2 to 8) wait for the phases that use them. The roadmap keeps `bake` as planned.
 
 ## The shelves
 
 ### Catalogued
+- The level source refactor (#137, #138, #140) is merged into `main` as `{{pr140.merge}}`: #137 with CI {{pr137.ci}}, #138 with CI {{pr138.ci}}, #140 with CI {{pr140.ci}}. The replay golden is the same through all three, and the `LEVL` encode and read-back test is in `cargo test -p fizz-ep2`.
 - `docs/FAP.md` (#109), the `fizz-pack` reader (#111, #112) and `docs/OPX.md` (#113) are merged into `main`: #109 landed on `{{pr109.merge}}` with CI {{pr109.ci}}, #111 on `{{pr111.merge}}` with CI {{pr111.ci}}, #112 on `{{pr112.merge}}` with CI {{pr112.ci}}, #113 on `{{pr113.merge}}` with CI {{pr113.ci}}.
 - The reader's behaviour is `cargo test -p fizz-pack`, which `tools/check.sh` runs through `cargo test --workspace`: the header, directory and checksum checks, each error, the decoder and the pinned schema hashes.
 - The check groups are `tools/check-dos.sh --list`, and `tools/ci-scope.sh` picks them from paths; the full gate printed `DOS CHECK ok` on this edition's tree, with `PARITY ok {{ms.parityHash}}`.
 
 ### Uncatalogued
+- The slice's `LEVL` section exists only inside tests and as `SLICE_SOURCE`: no `.FAP` file has been written or loaded, so the whole path from a pack on a disk to a world on either platform is unrun.
 - The decoder's size of 2.3 to 2.9 KB: measured once on an i586 build and recorded in `docs/FAP.md`; no check holds it.
 - The compression figures (11.5% of 1,274,402 bytes) come from an earlier layout and the planning notes, and are to be measured again on OPX once an encoder exists.
 - The CI durations above are single runs on GitHub's runners: the full gate's repeatability, and the failure on `main` for #127, are not understood beyond the log line.
@@ -62,7 +74,7 @@ The planned order is the level source refactor (separating the slice's level tex
 - OPX has no reader or writer, so its examples, opcodes and text twin have not been run.
 
 ### Wish list
-- `fizz-bake`, the level script dialect, the pack loaders, the audio and sprite sections and the floppy image tools, in the order above.
+- The level script dialect, `fizz-bake`, the pack loaders, the audio and sprite sections and the floppy image tools, in the order above.
 - The `oplstream` crate and OPX in the effects and the music (Milestone 4.5).
 
 > **From the workbench — DEFLATE.** Deflate combines LZ77, which replaces a repeat with a pointer to earlier bytes, with Huffman codes, which give frequent symbols short bit strings. Phil Katz designed it for PKZIP, and RFC 1951 defines the format that zip, gzip and PNG share. A decoder needs only the output buffer as its window, which is how `fizz-pack` reads it without a separate 32 KB history.
