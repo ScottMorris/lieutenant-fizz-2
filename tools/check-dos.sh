@@ -784,7 +784,10 @@ replay_case() {
   # A failure here prints what the run printed (its last lines), so an intermittent failure under load can be read from the log.
   rfail() { printf '%s\n' "${out:-}" | tail -30 | sed 's/^/  | /' >&2; fail "$@"; }
   shift 3
-  out="$(DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@")" || status=$?
+  # At a fixed CPU speed, not `max`: at `max` DOSBox keeps emulated time with the host's clock, so a stall on the host makes the game
+  # catch up two steps in one 560 Hz audio tick and one of their sounds is lost, which moved the exact counts below by a write or two in a
+  # case that changed from run to run. At a fixed speed the run is the same every time.
+  out="$(DOS_CYCLES="$CYCLES" DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@")" || status=$?
   [ "$status" = 0 ] || rfail "/REPLAY ($name) exited $status"
   out="$(printf '%s\n' "$out" | tr -d '\r')"
   got_lines="$(printf '%s\n' "$out" | grep -E '^(TICK|FINAL|EVENT) ' || true)"
@@ -888,7 +891,7 @@ cfg_none
 audio_count() {
   local name="$1" conf="$2" want="$3" out
   shift 3
-  out="$(DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@" | tr -d '\r')"
+  out="$(DOS_CYCLES="$CYCLES" DOS_CONF="$conf" tools/dosrun.sh "$cfgdir" FIZZ2.EXE /REPLAY "$@" | tr -d '\r')"
   printf '%s\n' "$out" | grep -qx "AUDIO WRITES $want" || fail "AUDIO count ($name): expected 'AUDIO WRITES $want', got '$(printf '%s\n' "$out" | grep '^AUDIO ')'"
   echo "AUDIO count $name ok (AUDIO WRITES $want)"
 }
