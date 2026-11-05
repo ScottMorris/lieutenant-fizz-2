@@ -929,6 +929,36 @@ mod tests {
     }
 
     #[test]
+    fn the_walk_off_whistle_hands_the_page_wheee() {
+        // The replay's first walk-off is at tick 308 (`fall.rs` pins it): the page is handed the whistle and the word with it.
+        let mut app = App::new();
+        let (mut prev, mut now_ms, mut tick) = (Buttons::NONE, 0.0, 0);
+        app.frame(now_ms);
+        let mut word = None;
+        'play: for &(n, held) in fizz_ep2::SLICE_SCRIPT {
+            for _ in 0..n {
+                set_keys(&mut app, prev, held);
+                now_ms += FRAME_MS;
+                app.frame(now_ms);
+                prev = held;
+                tick += 1;
+                app.render();
+                if let Some(i) = (0..app.caption_count()).find(|&i| app.caption_word(i) == "wheee!")
+                {
+                    word = Some((tick, app.caption_colour(i)));
+                    break 'play;
+                }
+                if tick > 400 {
+                    break 'play;
+                }
+            }
+        }
+        let (at, colour) = word.expect("a wheee! caption by tick 400");
+        assert!((308..=312).contains(&at), "raised at tick {at}");
+        assert_eq!(colour, "#ffff55");
+    }
+
+    #[test]
     fn the_hud_view_hands_the_page_the_shared_model() {
         let mut app = App::new();
         // Fizz 5, score 0, no pop, deaths 0; the red and blue sockets are in the level, empty, and green and gold are not.
