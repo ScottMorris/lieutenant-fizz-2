@@ -261,7 +261,7 @@ The text may use U+0020 to U+007E and the eight extras U+00B7 (middle dot), U+20
 
 **Tiles.** After the strings, `w * h` bytes, one tile id each, in `TileMap` order: row-major, row 0 (the bottom) first. A reader copies them into the map with `copy_from_slice`. The tile ids are those of `fizz-ep2::tiles`. A tile id outside the table is a corrupt level.
 
-**Length.** The decoded length is `32 + pad8(name_len) + 32 * (object_count + rule_count + string_count) + w * h`. The reader checks that the decoded length equals it exactly. For the slice today (32 by 48, eleven objects: the two keys, eight snacks, soda cans and lanterns, and the chicken; two rules, the red and the blue door's locks; no strings; a 16-byte name) that is 2,000 bytes; each rule or string adds 32 (1,936 without the locks).
+**Length.** The decoded length is `32 + pad8(name_len) + 32 * (object_count + rule_count + string_count) + w * h`. The reader checks that the decoded length equals it exactly. For the slice today (32 by 48, eleven objects: the two keys, eight snacks, soda cans and the elixir, and the chicken; two rules, the red and the blue door's locks; no strings; a 16-byte name) that is 2,000 bytes; each rule or string adds 32 (1,936 without the locks).
 
 **Construction order.** The baker writes objects in the order the world is built: red key, blue key, snacks in source order, then the chicken. The reader applies them in record order. Objects of the same kind keep their source order, because the state hash indexes snacks and chickens by position.
 
