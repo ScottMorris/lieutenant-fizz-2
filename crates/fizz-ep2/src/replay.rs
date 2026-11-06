@@ -416,10 +416,12 @@ mod tests {
         // The final hash moved when the playground's snacks, blue key and blue door joined the hashed state and the level, again when
         // the two soda cans joined the snack list and the script grew to refill the blaster, and once more (from 843736be6fdaeb76)
         // when `LEVL` version 2 made the states and bindings data and the wall kick's `wall_t` and `kick_side` joined the hash
-        // unconditionally (the hash order is in `world::hash`). Presentation state and events must never move it again.
+        // unconditionally (the hash order is in `world::hash`), and again (from 7f6a1a1248c4b0e8) when the rule phase made every
+        // world that declares a state hash its state block (`docs/RULES.md`, section 11; the slice declares its two doors' states).
+        // Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1800 HASH 7f6a1a1248c4b0e8\n"),
+            t.ends_with("FINAL TICK 1800 HASH ec9195c222b626f2\n"),
             "{t}"
         );
     }
@@ -438,13 +440,14 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 33);
-        assert_eq!(h, 0x8378_4fe3_70bc_5ffa);
+        assert_eq!(h, 0x138b_4ada_d64e_032e);
     }
 
     #[test]
     fn the_event_lines_are_pinned() {
         // The `LEVL` version 2 re-pin moved every hash line and not one event line. Fitting the chicken's body to its sprite then
-        // moved some of them (the shot that stuns it, the stomp and the jumps after it); the count stays 83. The digest is FNV-1a 64
+        // moved some of them (the shot that stuns it, the stomp and the jumps after it); the count stays 83. The rule phase moved the
+        // two `dooropen` lines to their door's centre cell (`docs/RULES.md`, section 3). The digest is FNV-1a 64
         // over each `EVENT` line and a newline.
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         let mut lines = 0;
@@ -456,7 +459,7 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 83);
-        assert_eq!(h, 0x4199_b6ac_91cf_99e4);
+        assert_eq!(h, 0x4a88_845d_7554_78b8);
     }
 
     /// The kind of every `EVENT` line, in order.
