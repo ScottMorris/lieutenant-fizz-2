@@ -6,7 +6,7 @@
 // Provenance: ported from Fizz 1 `episodes/episode-1/game/src/world.rs` at commit `4bce036`: `Player::level`,
 // `tick_ben` (the alive and dead branches), `tick_ben_move`, `tick_head_bump` and `fire`.
 // `fire`, and the wall kick from `tick_ben_move` with `wall_side` and the `kick_side` reset in `tick_ben`. Left out on
-// purpose: mantle (automatic and in progress), ladders and vines, moving platforms under Ben, jokes and counters, captions and
+// purpose: mantle (automatic and in progress), ladders and vines (the `climb` and `was_climbing` hooks are here, set by nothing), moving platforms under Ben, jokes and counters (the presenters' `JokeWatch`), captions and
 // sound, and the camera. What Fizz 1's `tick_ben_contacts` does with tiles, items
 // and enemies lives in `world.rs`. Departure: velocities below 2^-1000 snap to zero.
 
@@ -119,8 +119,15 @@ pub struct Ben {
     pub wall_t: f64,
     /// Which wall he last kicked off: -1 left, 1 right, 0 none yet. He cannot kick the same side twice running, so a single wall
     /// cannot be climbed and only two walls facing each other can. Landing puts it back to 0 (Fizz 1 also does so when he
-    /// grabs a ladder or vine, which Fizz 2 does not have yet).
+    /// grabs a ladder or vine, which Fizz 2 does not have yet; `climb` holds it at 0 as Fizz 1 does).
     pub kick_side: f64,
+    /// Whether Ben is on a ladder or a vine (Fizz 1's `Player::climb`). Nothing sets it yet: climbing arrives with ladders and vines,
+    /// and until then it is always false. While it is true a wall kick is refused and `kick_side` is held at 0.
+    pub climb: bool,
+    /// Whether `climb` was true when this tick began (Fizz 1's local `was_climbing`, taken before `tick_climb`). It keeps the kick
+    /// off the tick Ben lets go of a ladder or vine, so the jump that lets go is a hop and not a kick. Fizz 1 keeps it in a local;
+    /// here it is a field so the climb can be set up and read in tests and hashed with the rest of Ben. Always false until climbing exists.
+    pub was_climbing: bool,
     /// Seconds Up has been held alone while Ben is idle (Fizz 1's `Player::look_up`). Zero otherwise.
     pub look_up: f64,
     /// Seconds Down has been held alone while Ben is idle (Fizz 1's `Player::look_down`). Zero otherwise.
@@ -149,6 +156,8 @@ impl Ben {
             rise_y: 0.0,
             wall_t: 0.0,
             kick_side: 0.0,
+            climb: false,
+            was_climbing: false,
             look_up: 0.0,
             look_down: 0.0,
             aim: 0,
@@ -201,7 +210,7 @@ impl Ben {
         if self.wall_t > 0.0 {
             self.wall_t -= dt;
         }
-        if self.b.on_ground {
+        if self.b.on_ground || self.climb {
             self.kick_side = 0.0;
         }
         self.tick_move(map, plats, input, ammo, shots, dt)
@@ -236,6 +245,9 @@ impl Ben {
         let ax = f64::from(u8::from(h.contains(Buttons::RIGHT)))
             - f64::from(u8::from(h.contains(Buttons::LEFT)));
         let jump_held = h.contains(Buttons::JUMP);
+        // Fizz 1 takes `was_climbing` here and then runs `tick_climb`, which grabs and lets go of ladders and vines. Neither is built,
+        // so `climb` stays as it is; when climbing exists `tick_climb` goes between these two lines.
+        self.was_climbing = self.climb;
         {
             if ax != 0.0 {
                 self.face = ax;
@@ -296,9 +308,14 @@ impl Ben {
                 self.cut = true;
                 self.b.on_ground = false;
             }
-        } else if e.contains(Buttons::JUMP) && !self.pogo && self.wall_t <= 0.0 {
-            // In the air against a wall, Jump kicks off it: up and away. Fizz 1 also refuses the kick on the tick Ben lets go
-            // of a ladder or vine (`was_climbing`); Fizz 2 has neither yet.
+        } else if e.contains(Buttons::JUMP)
+            && !self.was_climbing
+            && !self.climb
+            && !self.pogo
+            && self.wall_t <= 0.0
+        {
+            // In the air against a wall, Jump kicks off it: up and away. Fizz 1 refuses the kick while Ben climbs and on the tick he
+            // lets go of a ladder or vine (`was_climbing`): that Jump is the hop off.
             if let Some(side) = self.wall_side(map).filter(|&s| s != self.kick_side) {
                 flags.kicked = Some((self.b.x + 0.35, self.b.y + 0.7));
                 self.b.vy = WALL_KICK_UP;
@@ -832,6 +849,49 @@ mod tests {
             kicks += run(&map, &mut ben, &mut prev, JR, 1);
         }
         assert_eq!(kicks, 0);
+    }
+
+    #[test]
+    fn climbing_refuses_the_kick_and_holds_the_side_at_zero() {
+        // Nothing sets `climb` yet, so the test sets it, as `tick_climb` will.
+        let (map, mut ben, mut prev) = airborne_at_right_wall();
+        ben.climb = true;
+        ben.kick_side = -1.0;
+        let f = step(&map, &mut ben, &mut prev, JR);
+        assert_eq!(f.kicked, None, "no kick while climbing");
+        assert_eq!(
+            ben.kick_side, 0.0,
+            "climbing resets the side, in the air too"
+        );
+        assert!(ben.was_climbing, "the tick began climbing");
+        // Clear of the ladder, with a fresh press, the same wall kicks.
+        ben.climb = false;
+        let mut prev = Buttons::RIGHT;
+        step(&map, &mut ben, &mut prev, Buttons::RIGHT);
+        assert!(!ben.was_climbing);
+        assert_eq!(
+            run(&map, &mut ben, &mut prev, JR, 1),
+            1,
+            "kicks once clear of it"
+        );
+        assert_eq!(ben.kick_side, 1.0);
+    }
+
+    #[test]
+    fn was_climbing_is_the_climb_the_tick_began_with() {
+        // Fizz 1 takes `was_climbing` before `tick_climb` can change `climb`, so on the tick Ben lets go of a ladder it is still true and
+        // the kick is refused. `tick_climb` is not built, so this proves the capture and the refusal on the ticks either side of it.
+        let (map, mut ben, mut prev) = airborne_at_right_wall();
+        assert!(!ben.climb && !ben.was_climbing);
+        ben.climb = true;
+        step(&map, &mut ben, &mut prev, Buttons::RIGHT);
+        assert!(ben.was_climbing);
+        ben.climb = false;
+        step(&map, &mut ben, &mut prev, Buttons::RIGHT);
+        assert!(
+            !ben.was_climbing,
+            "taken from `climb` at the start of this tick, which was false"
+        );
     }
 
     #[test]

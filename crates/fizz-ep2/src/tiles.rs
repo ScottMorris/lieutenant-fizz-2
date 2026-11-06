@@ -144,6 +144,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         cues::EFFECT_DOOR,
         cues::EFFECT_WHISTLE,
         cues::EFFECT_LIFE,
+        cues::EFFECT_KICK,
         cues::EFFECT_COUNT,
     ]);
     v.extend_from_slice(&[
@@ -162,6 +163,7 @@ pub fn pack_content() -> alloc::vec::Vec<u8> {
         cues::CAP_FSSSHT,
         cues::CAP_WHEEE,
         cues::CAP_LIFE,
+        cues::CAP_KICK,
         cues::CAP_COUNT,
     ]);
     v.extend_from_slice(&[cues::STYLE_COUNT, RULES_SEMANTICS]);
@@ -176,9 +178,9 @@ mod pack_content_tests {
     fn the_content_bytes_follow_the_property_table() {
         let a = pack_content();
         // Prefix, two tables, the tile ids, the snack kinds, then the rule layer's numbers: the three key colours and the four state
-        // limits (7), 19 effect ids and their count, 15 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
-        assert_eq!(a.len(), 16 + 2 * 256 + 16 + 5 + 7 + 20 + 16 + 2);
-        assert_eq!(a.len(), 594);
+        // limits (7), 20 effect ids and their count, 16 caption ids and their count, STYLE_COUNT and RULES_SEMANTICS.
+        assert_eq!(a.len(), 16 + 2 * 256 + 16 + 5 + 7 + 21 + 17 + 2);
+        assert_eq!(a.len(), 596);
         assert_eq!(a, pack_content());
         // The first flags byte after the prefix is tile 0's; FILL is solid, so its flags byte is not zero.
         assert_eq!(a[16], 0);
@@ -199,18 +201,19 @@ mod pack_content_tests {
             &[0, 1, 2, 32, 8, 64, 32],
             "key colours, then MAX_STATES, MAX_STATE_VALUES, MAX_BINDINGS and MAX_DOOR_BINDINGS"
         );
-        let fx = &a[at + 12..at + 32];
+        let fx = &a[at + 12..at + 33];
         assert_eq!(fx[0], 0);
         assert_eq!(fx[16], 19, "the door");
         assert_eq!(fx[17], 20, "the whistle");
-        assert_eq!(fx[18], 21, "the last named effect is the new life");
-        assert_eq!(fx[19], 22, "EFFECT_COUNT");
-        let caps = &a[at + 32..at + 48];
+        assert_eq!(fx[18], 21, "the new life");
+        assert_eq!(fx[19], 22, "the last named effect is the wall-kick");
+        assert_eq!(fx[20], 23, "EFFECT_COUNT");
+        let caps = &a[at + 33..at + 50];
         assert_eq!(
-            caps[..15],
-            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+            caps[..16],
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
         );
-        assert_eq!(caps[15], 15, "CAP_COUNT");
+        assert_eq!(caps[16], 16, "CAP_COUNT");
         assert_eq!(&a[a.len() - 2..], &[7, 2], "STYLE_COUNT, RULES_SEMANTICS");
     }
 
@@ -218,8 +221,8 @@ mod pack_content_tests {
     fn the_compatibility_number_is_pinned() {
         // Moved from 0xc7f3_982b on purpose (842 content bytes under the schema number 0x25e8_1944): the content lost the channel table
         // and `MAX_CHANNELS` and gained the state limits and `RULES_SEMANTICS` 2, under the schema number of `LEVL` version 2. The new
-        // value was also recomputed in Python from the dumped content bytes. The content is 594 bytes: the elixir's snack kind, the whistle and
-        // life effects and their captions are in it.
-        assert_eq!(fizz_pack::compatibility(&pack_content()), 0x9161_5aaf);
+        // value was also recomputed in Python from the dumped content bytes. The content is 596 bytes: the elixir's snack kind, the whistle, life and
+        // kick effects and their captions are in it. The kick (effect 22, caption 15) moved it from 0x9161_5aaf (594 bytes); the value was recomputed in Python from the dumped bytes under the schema number 0xa1bb_8460.
+        assert_eq!(fizz_pack::compatibility(&pack_content()), 0x6365_509c);
     }
 }

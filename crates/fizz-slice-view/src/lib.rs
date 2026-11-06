@@ -94,6 +94,10 @@ mod captions;
 pub use captions::*;
 mod fall;
 pub use fall::FallWatch;
+mod jokes;
+pub use jokes::{
+    IDLE_SECONDS, JOKE_TEXTS, Joke, JokeKind, JokeWatch, Jokes, KICKS, POGO_BOUNCES, STOMPS,
+};
 #[cfg(test)]
 extern crate std;
 pub mod light;

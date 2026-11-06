@@ -237,7 +237,8 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
                 break;
             }
             let t0 = sw.now();
-            fizz_ep2::step(&mut world, InputFrame::from_transition(prev, now));
+            let input = InputFrame::from_transition(prev, now);
+            fizz_ep2::step(&mut world, input);
             puffs.observe(&world, VIEW_W, VIEW_H, options);
             let t1 = sw.now();
             render_slice_with(&world, &mut frame, options, &puffs);
@@ -246,7 +247,7 @@ pub fn run(display: &mut DosDisplay, limit: u64, options: &DrawOptions, audio: b
             let t3 = sw.now();
             prev = now;
             if audio {
-                crate::play_events(&world, options, &mut puffs);
+                let _ = crate::play_events(&world, options, &mut puffs, input);
             }
             // Outside the timed sections: the digest only proves what was drawn.
             if DIGEST_TICKS.contains(&world.tick.0) {

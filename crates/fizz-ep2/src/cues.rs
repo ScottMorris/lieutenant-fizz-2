@@ -36,8 +36,10 @@ pub const EFFECT_DOOR: u8 = 19;
 pub const EFFECT_WHISTLE: u8 = 20;
 /// Ben drinking an elixir (`Event::Life`), a new life: a short rising arpeggio that ends on a swelling bell. PROVISIONAL, with the elixir.
 pub const EFFECT_LIFE: u8 = 21;
+/// Ben kicking off a wall (`Event::Kick`): a short, sharp push-off chirp. Its caption is `CAP_KICK`.
+pub const EFFECT_KICK: u8 = 22;
 /// The number of effect ids: valid ids are `0..EFFECT_COUNT`.
-pub const EFFECT_COUNT: u8 = 22;
+pub const EFFECT_COUNT: u8 = 23;
 
 /// The shared captions, as indices into the presenter's table of words; the index is the caption's id for dedupe, and the byte
 /// a rule's caption code holds below `fizz_pack::level::CAP_LEVEL_BASE`.
@@ -58,8 +60,10 @@ pub const CAP_FSSSHT: u8 = 12;
 pub const CAP_WHEEE: u8 = 13;
 /// The word for an elixir (`Event::Life`). PROVISIONAL, with the elixir.
 pub const CAP_LIFE: u8 = 14;
+/// "kick", the word of a wall-kick (`Event::Kick`).
+pub const CAP_KICK: u8 = 15;
 /// The number of shared captions: valid ids are `0..CAP_COUNT`.
-pub const CAP_COUNT: u8 = 15;
+pub const CAP_COUNT: u8 = 16;
 
 /// The caption styles a level's own strings choose from, in the order of a string record's style byte. A presenter maps each to
 /// a bright and a dark colour.
@@ -79,9 +83,11 @@ mod tests {
 
     #[test]
     fn the_counts_cover_the_last_id_and_the_style_count_is_the_readers() {
-        assert_eq!(EFFECT_COUNT, EFFECT_LIFE + 1);
+        assert_eq!(EFFECT_COUNT, EFFECT_KICK + 1);
+        assert_eq!(EFFECT_KICK, EFFECT_LIFE + 1);
         assert_eq!(EFFECT_LIFE, EFFECT_WHISTLE + 1);
-        assert_eq!(CAP_COUNT, CAP_LIFE + 1);
+        assert_eq!(CAP_COUNT, CAP_KICK + 1);
+        assert_eq!(CAP_KICK, CAP_LIFE + 1);
         assert_eq!(CAP_LIFE, CAP_WHEEE + 1);
         assert_eq!(STYLE_COUNT, STYLE_GREY + 1);
         assert_eq!(STYLE_COUNT, fizz_pack::level::STYLE_COUNT);
