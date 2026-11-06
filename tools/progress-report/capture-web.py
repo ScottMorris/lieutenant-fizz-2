@@ -69,7 +69,7 @@ SCENES = [
     ("web-cluck.png", 960, 540, "replay", 201),
     ("web-stars.png", 960, 540, "replay", 300),
     ("web-nook.png", 1280, 720, "replay", 1195),
-    ("web-nook-boing.png", 1280, 720, "replay", 1354),
+    ("web-nook-boing.png", 1280, 720, "replay", 1430),
     ("web-can.png", 1280, 720, "replay", 1183),
     ("web-hud-snack.png", 1280, 720, "replay", 1530),
     ("web-hud-key.png", 1280, 720, "replay", 1583),
