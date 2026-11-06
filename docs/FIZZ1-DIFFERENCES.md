@@ -15,7 +15,7 @@ Each entry says what Fizz 1 does, what Fizz 2 does, why, and what to look at in 
   - The slice level never kicks: it is two shafts climbed by ledges, so its replay and hash are unchanged by the kick.
   - A level whose walls are within three tiles of each other, or a wall with a ledge a kick can reach, now has routes the author may not intend. The authoring tools should say so; the check that a Fizz 1 export does not need the kick belongs to the Fizz 1 export, which targets levels made with the kick turned off.
   - The `Kick` caption, its sound and the twelve-kick joke are not built, and stay out until the sound and caption work takes them. The kick raises an event in the transcript, so presenters can add them later without a rules change.
-  - Ladders, vines and the mantle are not in Fizz 2 yet. Fizz 1 does not kick on the tick Ben leaves a ladder or vine (he hops instead); that rule has nothing to apply to until they exist.
+  - Ladders, vines and the mantle are not in Fizz 2 yet. Fizz 1 does not kick on the tick Ben leaves a ladder or vine (he hops instead); that rule has nothing to apply to until they exist. Ladders and vines are specified for the owner's review in [`CLIMBING.md`](CLIMBING.md), which also says how a grab refills the kick.
 
 ### The exit takes an Up press
 
