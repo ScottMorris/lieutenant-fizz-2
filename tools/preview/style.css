@@ -62,3 +62,19 @@ header button:disabled { color: var(--dark-grey); cursor: default; }
 @media (max-width: 30rem) {
   #stage { margin: .75rem 20px 20px 12px; box-shadow: 0 0 0 4px var(--black), 8px 8px 0 4px var(--black); }
 }
+
+/* js-dos's own side bar and Settings are themed by [data-theme] blocks of HSL variables (daisyUI's); this one is the 16 EGA colours, with
+   square corners and no animation. player.js asks for it with the `theme` option. */
+[data-theme=fizz] {
+  color-scheme: dark;
+  font-family: var(--mono);
+  --p: 240 100% 33%; --pf: 240 100% 28%; --pc: 0 0% 100%;           /* blue, the check screen's selection bar */
+  --s: 300 100% 33%; --sf: 300 100% 28%; --sc: 0 0% 100%;           /* magenta */
+  --a: 60 100% 67%; --af: 60 100% 67%; --ac: 0 0% 0%;               /* yellow */
+  --n: 0 0% 33%; --nf: 0 0% 27%; --nc: 0 0% 100%;                   /* dark grey */
+  --b1: 0 0% 0%; --b2: 0 0% 0%; --b3: 0 0% 0%; --bc: 0 0% 67%;       /* black, light grey text */
+  --in: 180 100% 67%; --inc: 0 0% 0%; --su: 120 100% 67%; --suc: 0 0% 0%;
+  --wa: 60 100% 67%; --wac: 0 0% 0%; --er: 0 100% 67%; --erc: 0 0% 0%;
+  --rounded-box: 0; --rounded-btn: 0; --rounded-badge: 0; --tab-radius: 0;
+  --animation-btn: 0s; --animation-input: 0s; --btn-text-case: uppercase; --btn-focus-scale: 1; --border-btn: 2px; --tab-border: 2px;
+}

@@ -51,6 +51,7 @@
       // js-dos's own side bar (saves, keyboard, fullscreen, turbo and the CPU load, settings) shows unless ?kiosk hides it, as Fizz 1's page does.
       kiosk: params.has('kiosk'),
       noCloud: true,
+      theme: 'fizz',
       onEvent: function (event, instance) {
         if (event === 'ci-ready') {
           ci = instance;
