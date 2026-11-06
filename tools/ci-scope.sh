@@ -54,6 +54,10 @@ RULES=(
   'tools/check-web-*;base;tools/check-web-hud.py'
   'tools/build-web.sh;base;tools/build-web.sh'
   'tools/web-replay.mjs;base;tools/web-replay.mjs'
+  # The 486 estimate and the instruction counts: tools that measure the drawing and change nothing that runs.
+  'tools/bench-draw.sh;base;tools/bench-draw.sh'
+  'tools/cyc486.py;base;tools/cyc486.py'
+  'tools/bench486/*;base;tools/bench486/src/main.rs'
   'crates/fizz-present-web/*;base;crates/fizz-present-web/src/lib.rs'
   'web/*;base;web/sound.ts'
   'package.json;base;package.json'
@@ -190,6 +194,7 @@ self_test() {
   expect all dos/rt/src/pit.rs docs/PLATFORM.md
   expect all .github/workflows/ci.yml
   expect all tools/check-dos.sh
+  expect base tools/cyc486.py tools/bench486/Cargo.toml tools/bench-draw.sh
   # --files reads standard input, so a path with a space stays one path.
   expect all 'docs/a b.md' 'x y'
   [ "$bad" = 0 ] || fail "the self-test found problems (above)"
