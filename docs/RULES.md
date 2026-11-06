@@ -2,9 +2,9 @@
 
 This document specifies what a level's rules mean to the simulation: the state table, the bindings that make states visible in the world, the inputs rules react to, their conditions and actions, the order everything runs in each tick, the death reset, raised events and the preview API that native hosts use. It owns the semantics only. The byte layout of the records is [`FAP.md`](FAP.md) (the `LEVL` section), and the source dialect that authors write is `script fizz2 0`, specified in [`SCRIPT.md`](SCRIPT.md).
 
-The design is the owner's: locks are states with rules. A level declares named states, doors and other things bind to a state, and rules change states in answer to inputs. A key is one input among many, and `lock` is short sugar for the key-and-door case: one state, one door binding and one plain rule. There are no switch channels. The sim today runs only locks, in a phase of their own; this document says where the rest goes and the order it runs in, so that every platform computes the same state hash.
+The design is the owner's: locks are states with rules. A level declares named states, doors and other things bind to a state, and rules change states in answer to inputs. A key is one input among many, and `lock` is short sugar for the key-and-door case: one state, one door binding and one plain rule. There are no switch channels. The sim today runs the state table, door bindings, the rule phase with `touch` and `enter` rows (a lock is a plain `touch` row in it) and the death reset; this document says where the rest goes and the order it runs in, so that every platform computes the same state hash.
 
-Status words used below: **built** means the code runs it today, **next** means it is the first thing the state table package builds, and **planned** means specified here and not yet built. The code arrives in steps (the `LEVL` 2 bytes, then the dialect and its lowering, then the full rule phase and the preview API), and until a step lands this document leads: the early state table still keeps the channel word and the dedicated lock phase that sections 2, 3, 7 and 9 retire.
+Status words used below: **built** means the code runs it today, and **planned** means specified here and not yet built. The code arrives in steps (the `LEVL` 2 bytes, the state table and the first rule inputs, then the dialect and its lowering, then the rest of the rule phase and the preview API), and until a step lands this document leads. A record that names an input, condition, action or delay that is not built is refused at load (`RuleError::Unbuilt`, `UnbuiltCondition`, `UnbuiltAction` or `Delay`), never ignored.
 
 ## 1. Contract with the other work
 
@@ -32,7 +32,7 @@ A binding attaches something in the world to a state, so that the state is what 
 
 | Binding | What it does | Status |
 | --- | --- | --- |
-| Door | The switched tiles in a rectangle are passable exactly when the state's value is in the active set, and solid otherwise | next |
+| Door | The switched tiles in a rectangle are passable exactly when the state's value is in the active set, and solid otherwise | built |
 | Light | A placed light is lit when the state's value is in the active set | planned (F12) |
 | Platform | A moving platform runs, or is held at an end, according to the state's value | planned |
 | Panel | A parallax panel layer is drawn when the state's value is in the active set | planned (F19) |
@@ -45,6 +45,8 @@ A rule never writes a door: it writes a state, and the binding follows. The cost
 
 **The door event.** When the recomputation makes a door binding passable (its state has just entered the active set), the sim raises the game's built-in door event, `Event::DoorOpen` (effect 19), at the centre cell of the binding's rectangle (the cell at the integer midpoint of its corners, drawn at that cell's centre). Events from several bindings follow binding order. Building and resetting the world raise no event. The door's sound and word are therefore not actions, and a lock keeps both of its action slots.
 
+Built. Moving the event from Fizz 1's place (the touched column, Ben's feet plus two tiles) to the centre cell moved the slice's two `dooropen` lines from `248 352` and `360 682` to `248 344` and `360 632` (open question 1).
+
 ## 4. Inputs
 
 An input is something that happened this tick. Phases that already exist raise inputs as they run; the rule phase (section 7) reads them. A rule has exactly one input, in its `trigger`.
@@ -52,9 +54,9 @@ An input is something that happened this tick. Phases that already exist raise i
 | Input | Raised when | Where it is raised | Status |
 | --- | --- | --- | --- |
 | `start` | The first rule phase of a life: tick 1 of the level and the first tick after each death | The rule phase | planned |
-| `enter` | Ben's body comes into a rectangle of cells (an edge: not inside last tick, inside this tick) | After the shots | **next** |
+| `enter` | Ben's body comes into a rectangle of cells (an edge: not inside last tick, inside this tick); not raised while Ben is dead | The rule phase | built |
 | `take` | Ben takes a key or snack object this tick | Ben's contacts | planned |
-| `touch` | Ben's **front probe** lands in a rectangle of cells, or his body overlaps it, or his body overlaps a named object this tick (a level, not an edge; a rule may repeat) | Ben's contacts | planned |
+| `touch` | Ben's **front probe** lands in a rectangle of cells, or his body overlaps it, or his body overlaps a named object this tick (a level, not an edge; a rule may repeat) | Ben's contacts | built for a rectangle (trigger 9); the object form (trigger 10) is planned |
 | `use` | Ben presses Up while overlapping a switch object (a cell is reserved) | Ben's contacts | planned |
 | `hit` | A switch object is struck by a shot or a stomp, as its flags allow | The shots, Ben's contacts | planned |
 | `stomp` | Ben stomps a named chicken or enemy, or any | Ben's contacts | planned |
@@ -86,7 +88,7 @@ A rule holds up to 2 conditions, and the rule fires only when all that are prese
 | Key held | Ben holds the key of a colour |
 | Key not held | Ben does not hold the key of a colour |
 
-Three more kinds are numbered and rejected until they are built: ammo at least, score at least and group cleared (a level, not an edge). A rule with no condition always passes.
+Three more kinds are numbered and rejected until they are built: ammo at least, score at least and group cleared (a level, not an edge). A rule with no condition always passes. The three kinds in the table are built.
 
 ## 6. Actions
 
@@ -103,6 +105,8 @@ A rule holds up to 2 actions, run in slot order after its conditions pass. Each 
 | `ammo` | Add shots to the blaster |
 | `word` | Raise a floating caption at a cell (section 10) |
 | `cue` | Raise a sound cue at a cell (section 10) |
+
+Built: `set`, `toggle`, `next` and `spend`. `give`, `score`, `ammo`, `word` and `cue` are refused at load until they are built, and so is a delay.
 
 `set`, `toggle` and `next` that leave the value unchanged do not count as a change. A change marks the state as changed for `becomes` and `changes` rules and for bindings.
 
@@ -128,6 +132,8 @@ This order is part of the parity contract: native, Web and DOS must agree on it,
 **The lock is a plain rule.** It runs in step 6 like any other row. Its `touch` is sampled in step 3, where Ben's contacts are read, and the row runs once the world has fully moved, so the door opens on the tick Ben presses against it (and the key he picked up on that same tick counts, which Fizz 1's earlier lock phase did not see until the next tick). All rule inputs wait for step 6 so a rule reads the world after it has fully moved. The events a rule queues are appended to the world's event list after the events of steps 2 to 5, in row order, and the door events of step 7 follow them.
 
 The input record is what makes the order independent of presentation: no rule reads a presenter, a clock or a random draw.
+
+Built as listed, for the inputs that exist: the `touch` sample sits where Fizz 1's lock test was, after the hazards and the exit and before a death ends the contacts, so a lock still fires on the tick Ben dies against the door; the rule phase runs every tick, even while Ben is dead, though no `enter` is raised then.
 
 ## 8. The death reset
 
@@ -164,7 +170,9 @@ On DOS a world sound with no speaker form plays nothing there, and a caption dra
 
 ## 11. The hash
 
-State enters the world hash only when it exists. A world with at least one declared state appends one block to the end of the hash after the snacks: the state count (`u32`), each state's current value (`u8`) in table order, the derived door word (`u32`, one bit per door binding), the fired memory (`u32`), the inside memory (`u32`) and the life's start tick (`u64`), and, when any rule has a delay, a `u16` countdown per rule in table order (0 when none is pending). A world with no state hashes as before. Whether the slice's golden (`FINAL TICK 1757 HASH a08501a57d509e8a`) survives the move to `LEVL` 2 depends on how the derived door word maps onto the channel bits it replaces; if the mapping moves them, the golden is re-pinned in the change that does it, with the reason. The input record and the queued events are not hashed: both are cleared every tick.
+State enters the world hash only when it exists. A world with at least one declared state appends one block to the end of the hash after the snacks: the state count (`u32`), each state's current value (`u8`) in table order, the derived door word (`u32`, one bit per door binding), the fired memory (`u32`), the inside memory (`u32`) and the life's start tick (`u64`), and, when any rule has a delay, a `u16` countdown per rule in table order (0 when none is pending). A world with no state hashes as before. The move to `LEVL` 2 re-pinned the slice's golden once, because the derived door word replaced the channel bits ([`FAP.md`](FAP.md), open point 7), to `FINAL TICK 1800 HASH 7f6a1a1248c4b0e8`. The rule phase re-pinned it again, because the slice declares its two doors' states and so appends this block, from tick 0 on: it is now `FINAL TICK 1800 HASH ec9195c222b626f2`. The input record and the queued events are not hashed: both are cleared every tick.
+
+Built as specified. No rule can have a delay yet, so no countdowns are written.
 
 ## 12. Mapping onto the existing records
 
@@ -174,7 +182,7 @@ State enters the world hash only when it exists. A world with at least one decla
 | --- | --- |
 | `TRIGGER_LOCK` (1) | Retired: a `touch` rule (trigger 9) over the door's rectangle, with a state condition and a key condition |
 | `TRIGGER_START` (2) | `start` |
-| `TRIGGER_ENTER` (3) | `enter`, the rect from the union |
+| `TRIGGER_ENTER` (3) | `enter`, the rect from the union (built) |
 | `TRIGGER_TAKE` (4) | `take`, `subject` is the object index |
 | `TRIGGER_SHOOT` (5) | `shoot` |
 | `TRIGGER_STOMP` (6) | `stomp` |
@@ -207,7 +215,7 @@ The state table is at most 32 bytes of values; the rule memory is 8 bytes plus t
 
 Decided by this document: channels are not in `LEVL` 2 (a door binding names a state and a mask, and the sim may keep a private derived bit for each of at most 32 door bindings); two conditions are an AND, and an OR is two rules; a delayed row drops its pending actions on death and ignores its input while pending; a group is a number from 1 to 16 in a chicken's `aux`, named in the source, and an input only for now; `RULES_SEMANTICS` becomes 2 with the `LEVL` 2 change. Each question below carries the default this page uses until the owner decides.
 
-1. **Lock timing.** Moving the lock from Ben's contacts (step 3) to the rule phase (step 6) can reorder the slice's events within a tick (the door event after the snack events) and moves the door event's position from the touched column and Ben's top to the centre cell of the door. Default: move it, prove the state hash unchanged, and re-pin the event transcript in the `LEVL` 2 change if it moves.
+1. **Lock timing.** Moving the lock from Ben's contacts (step 3) to the rule phase (step 6) can reorder the slice's events within a tick (the door event after the snack events) and moves the door event's position from the touched column and Ben's top to the centre cell of the door. Decided (owner decided, 2026-11-06): moved. The lock is a row of the rule phase and the door event is at the centre cell; the slice's two `dooropen` lines moved, re-pinned with the state block of section 11 in the change that built the rule phase. Nothing else moved: every other `EVENT` line kept its tick, order and place.
 2. **World-scoped states** (the studio's Q27). Default: level-only for now, so a death reset stays exact, with the state record's `WORLD` flag reserved. A world state would need saving with progress and a rule for what a death resets.
 3. **The world's sound library** (Q29). Proposed in section 10: `FXPK` sections in the world pack, code `0x40 + i`. The owner decides.
 4. **`use` and Up.** Up is also the look-up control. Which cells accept `use` and how a press is told from a look is the controls' question (Q25 in the studio's list).

@@ -416,10 +416,12 @@ mod tests {
         // The final hash moved when the playground's snacks, blue key and blue door joined the hashed state and the level, again when
         // the two soda cans joined the snack list and the script grew to refill the blaster, and once more (from 843736be6fdaeb76)
         // when `LEVL` version 2 made the states and bindings data and the wall kick's `wall_t` and `kick_side` joined the hash
-        // unconditionally (the hash order is in `world::hash`). Presentation state and events must never move it again.
+        // unconditionally (the hash order is in `world::hash`), and again (from 7f6a1a1248c4b0e8) when the rule phase made every
+        // world that declares a state hash its state block (`docs/RULES.md`, section 11; the slice declares its two doors' states).
+        // Presentation state and events must never move it again.
         let t = transcript();
         assert!(
-            t.ends_with("FINAL TICK 1800 HASH 7f6a1a1248c4b0e8\n"),
+            t.ends_with("FINAL TICK 1800 HASH ec9195c222b626f2\n"),
             "{t}"
         );
     }
@@ -438,13 +440,14 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 33);
-        assert_eq!(h, 0x8378_4fe3_70bc_5ffa);
+        assert_eq!(h, 0x138b_4ada_d64e_032e);
     }
 
     #[test]
     fn the_event_lines_are_pinned() {
         // The `LEVL` version 2 re-pin moved every hash line and not one event line. Fitting the chicken's body to its sprite then
-        // moved some of them (the shot that stuns it, the stomp and the jumps after it); the count stays 83. The digest is FNV-1a 64
+        // moved some of them (the shot that stuns it, the stomp and the jumps after it); the count stays 83. The rule phase moved the
+        // two `dooropen` lines to their door's centre cell (`docs/RULES.md`, section 3). The digest is FNV-1a 64
         // over each `EVENT` line and a newline.
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
         let mut lines = 0;
@@ -456,7 +459,7 @@ mod tests {
             lines += 1;
         }
         assert_eq!(lines, 83);
-        assert_eq!(h, 0x4199_b6ac_91cf_99e4);
+        assert_eq!(h, 0x4a88_845d_7554_78b8);
     }
 
     /// The kind of every `EVENT` line, in order.
@@ -747,14 +750,39 @@ mod tests {
         w.map.set_switch(crate::tiles::DOOR_RED_CHANNEL, true);
         die_and_respawn(&mut w);
         assert_eq!(w.map.switches, crate::tiles::DOOR_BLUE_BIT);
+        assert_eq!(w.states().values(), &[1, 0]);
         assert!(w.lock_open(crate::rules::KEY_RED));
         // A bare world has the switches of its map, no more and no fewer.
         let bare = World::new(level::map(), level::SPAWN);
         assert_eq!(bare.map.switches, 0);
     }
 
-    /// A one-door world: a lock for the red key on an arbitrary switched tile channel (7), standing in front of Ben.
-    fn custom_channel_world(start: u32) -> World {
+    /// A lock for key `colour` on state 0 over `rect`, as `lock` lowers it: while the state is closed (value 0) and Ben holds the
+    /// key, set it open (1) and spend the key.
+    fn lock(colour: u8, rect: (u16, u16, u16, u16)) -> fizz_pack::RuleRec {
+        let (u0, u1) = fizz_pack::RuleRec::union_rect(rect.0, rect.1, rect.2, rect.3);
+        fizz_pack::RuleRec {
+            trigger: fizz_pack::level::TRIGGER_TOUCH,
+            u0,
+            u1,
+            cond: [
+                fizz_pack::CondRec::state_in(0, 0b01),
+                fizz_pack::CondRec::holds(colour),
+            ],
+            act: [
+                fizz_pack::ActionRec::set(0, 1),
+                fizz_pack::ActionRec::spend_key(colour),
+            ],
+            ..fizz_pack::RuleRec::EMPTY
+        }
+    }
+
+    /// The door of [`one_door_world`]: column 5, rows 1 to 3.
+    const DOOR5: (u16, u16, u16, u16) = (5, 1, 5, 3);
+
+    /// A one-door world: a switched tile (40) in a column at x 5 bound to state 0 (closed 0, open 1, starting at `start`), the
+    /// `rules` given, and Ben holding the red key to the left of the door.
+    fn one_door_world(start: u8, rules: &[fizz_pack::RuleRec]) -> World {
         use fizz_phys::tilemap::SWITCHED;
         let mut props = crate::tiles::props();
         props.set_flags(40, SWITCHED);
@@ -764,13 +792,14 @@ mod tests {
         }
         for y in 1..4 {
             map.set(5, y, 40);
-            map.bind_switch(5, y, 7);
         }
         let mut w = World::new(map, (2.0, 1.0));
-        w.set_switches(start);
-        let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7));
-        w.set_rules(rules);
+        w.set_level(
+            &[fizz_pack::StateRec::new(2, start)],
+            &[fizz_pack::BindingRec::door(0, 0b10, DOOR5)],
+            rules,
+        )
+        .unwrap();
         w.flags.set(WorldFlags::KEY_RED);
         w
     }
@@ -784,22 +813,27 @@ mod tests {
     }
 
     #[test]
-    fn a_lock_on_any_switched_tiles_channel_opens_its_door() {
-        let mut w = custom_channel_world(1 << 7);
+    fn a_lock_on_any_switched_tiles_opens_its_door() {
+        let mut w = one_door_world(0, &[lock(crate::rules::KEY_RED, DOOR5)]);
         assert!(w.map.solid(5, 1, false, 0.0));
         walk_right(&mut w, 120);
-        assert!(!w.map.switch(7), "the door opened");
+        assert!(!w.map.switch(0), "the door opened");
+        assert!(w.lock_open(crate::rules::KEY_RED));
+        assert!(
+            !w.lock_open(crate::rules::KEY_BLUE),
+            "no lock takes the blue key"
+        );
+        assert_eq!(w.states().values(), &[1]);
         assert!(w.flags.contains(WorldFlags::KEY_RED_USED));
         assert!(!w.flags.contains(WorldFlags::KEY_RED));
-        assert!(w.lock_open(crate::rules::KEY_RED));
         assert!(w.ben.b.x > 5.0, "Ben walked through where the door was");
     }
 
     #[test]
-    fn a_lock_does_nothing_while_its_channel_is_already_off() {
-        let mut w = custom_channel_world(0);
+    fn a_lock_does_nothing_while_its_door_is_already_open() {
+        let mut w = one_door_world(1, &[lock(crate::rules::KEY_RED, DOOR5)]);
         walk_right(&mut w, 120);
-        assert!(!w.map.switch(7));
+        assert!(!w.map.switch(0));
         assert!(
             w.flags.contains(WorldFlags::KEY_RED),
             "the key is not spent"
@@ -809,34 +843,31 @@ mod tests {
     }
 
     #[test]
-    fn a_lock_for_another_colour_or_channel_leaves_the_door_shut() {
+    fn a_lock_for_another_colour_or_rectangle_leaves_the_door_shut() {
         // The lock takes the blue key; Ben holds the red one.
-        let mut w = custom_channel_world(1 << 7);
-        let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7));
-        w.set_rules(rules);
+        let mut w = one_door_world(0, &[lock(crate::rules::KEY_BLUE, DOOR5)]);
         walk_right(&mut w, 120);
-        assert!(w.map.switch(7));
+        assert!(w.map.switch(0));
         assert!(w.ben.b.x < 5.0);
-        // The lock reads channel 8; the tiles read 7.
-        let mut w = custom_channel_world(1 << 7 | 1 << 8);
-        let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 8));
-        w.set_rules(rules);
+        // The lock's rectangle is a column Ben never reaches, beyond the door.
+        let mut w = one_door_world(0, &[lock(crate::rules::KEY_RED, (7, 1, 7, 3))]);
         walk_right(&mut w, 120);
-        assert!(w.map.switch(7) && w.map.switch(8));
+        assert!(w.map.switch(0));
         assert!(w.flags.contains(WorldFlags::KEY_RED));
     }
 
     #[test]
     fn locks_run_in_table_order() {
-        // Two locks on one channel for different colours, Ben holding both keys: the first in the table spends its key.
-        let mut w = custom_channel_world(1 << 7);
+        // Two locks on one door for different colours, Ben holding both keys: the first in the table spends its key, and the
+        // second reads the state the first has set.
+        let mut w = one_door_world(
+            0,
+            &[
+                lock(crate::rules::KEY_BLUE, DOOR5),
+                lock(crate::rules::KEY_RED, DOOR5),
+            ],
+        );
         w.flags.set(WorldFlags::KEY_BLUE);
-        let mut rules = crate::rules::RuleTable::new();
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_BLUE, 7));
-        rules.push(crate::rules::Rule::lock(crate::rules::KEY_RED, 7));
-        w.set_rules(rules);
         walk_right(&mut w, 120);
         assert!(w.flags.contains(WorldFlags::KEY_BLUE_USED));
         assert!(!w.flags.contains(WorldFlags::KEY_RED_USED));

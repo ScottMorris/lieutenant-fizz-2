@@ -316,7 +316,7 @@ fn a_rule_that_opens_a_locked_door_is_w123() {
 
 #[test]
 fn a_valid_rule_the_simulation_cannot_run_yet_is_unbuilt_and_not_an_error() {
-    let src = ruled("when enter x=0 y=3 then next lift\n");
+    let src = ruled("when start then next lift\n");
     let r = check(&src);
     assert!(!r.has_errors(), "{:?}", r.diagnostics);
     assert!(r.lowered.is_none());

@@ -7,22 +7,28 @@
 // `step`, `tick_ben`, `tick_ben_contacts` (hazards, the exit, the doors, the keys, the snacks and the soda cans, and the enemy contact rules),
 // `kill_by`, `on_death`, `tick_ents` and `tick_shots`. Left out on purpose: rooms, platforms, the green door and key,
 // the USB stick, switches and mirrors, targets, bosses, captions, sound, the camera, extra lives and the HUD's score.
-// Departures: the red and blue doors are switched tiles (see `tiles.rs`) and the key that opens each is a lock rule of the level
-// (see `rules.rs`), the keys and the spent-key marks live in [`WorldFlags`], and a death respawns Ben in place instead of
-// reloading the level. The respawn is nevertheless a reload in effect: it restores the level's start switches and puts the keys
-// and the snacks back, as Fizz 1's reload does. The exit is a second departure: Fizz 1 ends the level when Ben touches the
+// Departures: the red and blue doors are switched tiles bound to the level's states (see `doors.rs`), and the key that opens each
+// is a lock, a plain rule of the level that runs in the rule phase after the shots (see `rules.rs` and `docs/RULES.md`); the keys
+// and the spent-key marks live in [`WorldFlags`], and a death respawns Ben in place instead of reloading the level. The respawn is
+// nevertheless a reload in effect: it restores every state to its start value and puts the keys and the snacks back, as Fizz 1's
+// reload does. The exit is a second departure: Fizz 1 ends the level when Ben touches the
 // exit tile, but here the exit is a doorway and Ben goes through it on a fresh Up press while standing on the ground
 // (see `tick_ben_contacts` and `docs/FIZZ1-DIFFERENCES.md`).
 
 use crate::ben::{Ben, FALL_DEATH_Y};
 use crate::chicken::{CLUCK_VARIANTS, Chicken, SHOT_STUN, STOMP_STUN, Shape};
-use crate::rules::{KEY_BLUE as KEY_BLUE_COLOUR, KEY_RED as KEY_RED_COLOUR, RuleTable};
+use crate::doors::Doors;
+use crate::level::SourceError;
+use crate::rules::{
+    Act, Cond, Input, KEY_BLUE as KEY_BLUE_COLOUR, KEY_RED as KEY_RED_COLOUR, Rect, RuleTable,
+};
 use crate::shot::Shot;
+use crate::states::StateTable;
 use crate::tiles::{EXIT, SPIKE, is_liquid};
 use alloc::vec::Vec;
+use fizz_pack::{BindingRec, RuleRec, StateRec};
 #[cfg_attr(test, allow(unused_imports))]
 use fizz_phys::fmath::FloatMath;
-use fizz_phys::tilemap::SWITCHED;
 use fizz_phys::{STEP, TileMap};
 use fizz_sim::{Buttons, InputFrame, StateHash, Tick};
 
@@ -57,7 +63,10 @@ pub enum Event {
     /// Ben picked up a key (Fizz 1's gumdrops). `colour` is Fizz 1's key order: 0 red, 1 blue, 2 green; the slice has the
     /// red and the blue one.
     Key { colour: u8, x: i32, y: i32 },
-    /// A door opened with the matching key (Fizz 1's "clunk"), above the door's tile.
+    /// A door binding became passable (Fizz 1's "clunk"): the built-in door event, raised after the rule phase when its state
+    /// has just entered the door's active set, in binding order after the rules' own events, at the centre cell of the door's rectangle
+    /// (the cell at the integer midpoint of its corners, at that cell's centre). Fizz 1 raised it above the probed tile at Ben's
+    /// feet plus two; `docs/RULES.md` (open question 1) moved it. Building and resetting the world raise none.
     DoorOpen { x: i32, y: i32 },
     /// Ben touched the exit (Fizz 1's "ta-da!"). Raised once; the world freezes Ben afterwards.
     Exit { x: i32, y: i32 },
@@ -231,10 +240,19 @@ pub struct World {
     events: Vec<Event>,
     /// Where Ben starts and respawns.
     spawn: (f64, f64),
-    /// The switch bits that are on when the level starts, and again after every death.
-    start_switches: u32,
-    /// The level's rules; only locks so far.
+    /// The level's states and door bindings (none for a bare world).
+    doors: Doors,
+    /// The current value of each state.
+    states: StateTable,
+    /// The level's rules, in rule order.
     rules: RuleTable,
+    /// Rule memory, one bit per rule: the rows that have fired this life, and the `enter` rows Ben was inside last tick.
+    fired: u32,
+    inside: u32,
+    /// The tick the current life began on: 0, then the tick of each respawn.
+    life_start: u64,
+    /// The input record of this tick, cleared at its start: the `touch` rows whose rectangle Ben's contacts touched.
+    touched: u32,
     /// Where the red key lies, as its centre, while it is in the world.
     key: Option<(f64, f64)>,
     /// Where the blue key lies, as its centre, while it is in the world. A world with a blue key has a blue door.
@@ -244,12 +262,17 @@ pub struct World {
 }
 
 impl World {
-    /// A world on `map` with Ben at rest at `spawn`, the lower-left corner of his body, and no rules. The map's switch word is
-    /// the level's start state (a death restores it); [`World::set_switches`] changes it.
+    /// A world on `map` with Ben at rest at `spawn`, the lower-left corner of his body, and no states, doors or rules;
+    /// [`World::set_level`] gives it those.
     pub fn new(map: TileMap, spawn: (f64, f64)) -> Self {
         World {
-            start_switches: map.switches,
+            doors: Doors::none(),
+            states: StateTable::none(),
             rules: RuleTable::new(),
+            fired: 0,
+            inside: 0,
+            life_start: 0,
+            touched: 0,
             tick: Tick::ZERO,
             map,
             ben: Ben::new(spawn.0, spawn.1),
@@ -273,21 +296,33 @@ impl World {
         self.spawn
     }
 
-    /// Sets the start state of the switch bits, now and after every death: a set bit is a channel that starts on (for a
-    /// door, closed).
-    pub fn set_switches(&mut self, bits: u32) {
-        self.start_switches = bits;
-        self.map.switches = bits;
-    }
-
-    /// The switch bits that were on when the level started.
-    pub fn start_switches(&self) -> u32 {
-        self.start_switches
-    }
-
-    /// Gives the world its rules, replacing any it had.
-    pub fn set_rules(&mut self, rules: RuleTable) {
+    /// Gives the world its states, door bindings and rules, replacing any it had, read against the world's own map as a level's
+    /// are (see [`Doors::from_recs`] and [`RuleTable::from_recs`]): every state at its start value, each door's cells bound to its
+    /// derived bit and the bits set from the states, and the rule memory clear. Refused as the level loader refuses them.
+    pub fn set_level(
+        &mut self,
+        states: &[StateRec],
+        bindings: &[BindingRec],
+        rules: &[RuleRec],
+    ) -> Result<(), SourceError> {
+        let (w, h) = (self.map.w as u16, self.map.h as u16);
+        let doors = Doors::from_recs(states, bindings, &self.map.data, w, h, &self.map.props)
+            .map_err(SourceError::Door)?;
+        let rules = RuleTable::from_recs(rules, &doors).map_err(SourceError::Rule)?;
+        doors.bind(&mut self.map);
+        self.states = StateTable::new(doors.states());
+        self.map.switches = doors.apply(self.map.switches, self.states.values());
+        self.doors = doors;
         self.rules = rules;
+        self.fired = 0;
+        self.inside = 0;
+        Ok(())
+    }
+
+    /// The door bits the level starts with, and a death restores: one for each door binding whose state starts outside its active
+    /// set.
+    pub fn start_switches(&self) -> u32 {
+        self.doors.start_switches()
     }
 
     /// The level's rules.
@@ -295,12 +330,31 @@ impl World {
         &self.rules
     }
 
-    /// Whether the door that the lock for key `colour` opens is open now: the lock's door bit is off. `false` for a level with no
-    /// such lock.
+    /// The level's states and door bindings.
+    pub fn doors(&self) -> &Doors {
+        &self.doors
+    }
+
+    /// The current value of each state.
+    pub fn states(&self) -> &StateTable {
+        &self.states
+    }
+
+    /// Whether the door that the first lock for key `colour` opens is open now (its derived bit is off). A lock is a rule of the
+    /// `lock` sugar's shape ([`crate::rules::Rule::lock_state`]); `false` for a level with no lock for that key.
     pub fn lock_open(&self, colour: u8) -> bool {
         self.rules
-            .lock_bit(colour)
-            .is_some_and(|c| !self.map.switch(c))
+            .rules()
+            .iter()
+            .filter(|r| r.cond[1] == Some(Cond::Holds(colour)))
+            .find_map(|r| r.lock_state(&self.doors))
+            .and_then(|s| self.doors.door_of(s))
+            .is_some_and(|d| !self.map.switch(d.bit))
+    }
+
+    /// The rows that have fired this life (bit `i` for rule `i`).
+    pub fn fired(&self) -> u32 {
+        self.fired
     }
 
     /// Adds a chicken at Fizz 1's spawn point `(x, y)`, walking in direction `dir` (1 or -1).
@@ -408,6 +462,7 @@ impl World {
     /// Advances the world by one tick (the level branch of Fizz 1's `step`).
     pub fn step(&mut self, input: InputFrame) {
         self.events.clear();
+        self.touched = 0;
         self.tick = self.tick.next();
         self.ben.b.px = self.ben.b.x;
         self.ben.b.py = self.ben.b.y;
@@ -425,8 +480,117 @@ impl World {
             }
         }
         self.tick_shots();
+        self.tick_rules();
         if self.ben.dead > RESPAWN_AFTER {
             self.respawn();
+        }
+    }
+
+    /// The rule phase and the bindings (`docs/RULES.md`, section 7, steps 6 and 7). Rows run in table order. A row runs when its
+    /// input was raised this tick (a `touch` sampled in Ben's contacts, an `enter` edge measured here from Ben's body), its
+    /// once-per-life memory allows it (it has not fired this life, or it repeats), and all its conditions hold, read before its
+    /// actions; then its actions run in slot order and its fired bit is set. A later row sees an earlier row's changes. While Ben
+    /// is dead no `enter` is raised and the inside memory is left alone (the respawn clears it). If a state changed, each door's
+    /// bit is recomputed and a door that became passable raises [`Event::DoorOpen`].
+    fn tick_rules(&mut self) {
+        if self.rules.is_empty() {
+            return;
+        }
+        let alive = self.ben.dead <= 0.0;
+        let mut changed = false;
+        for i in 0..self.rules.len() {
+            let rule = self.rules.rules()[i];
+            let bit = 1u32 << i;
+            let raised = match rule.input {
+                Input::Touch(_) => self.touched & bit != 0,
+                Input::Enter(rect) if alive => {
+                    let now = self.ben_overlaps(rect);
+                    let was = self.inside & bit != 0;
+                    if now {
+                        self.inside |= bit;
+                    } else {
+                        self.inside &= !bit;
+                    }
+                    now && !was
+                }
+                Input::Enter(_) => false,
+            };
+            if !raised || (self.fired & bit != 0 && !rule.repeat) {
+                continue;
+            }
+            if !rule.cond.iter().flatten().all(|c| self.cond_holds(*c)) {
+                continue;
+            }
+            self.fired |= bit;
+            for a in rule.act.iter().flatten() {
+                changed |= self.act(*a);
+            }
+        }
+        if changed {
+            self.tick_bindings();
+        }
+    }
+
+    /// Step 7: the door bits recomputed from the states, and the door event for each door binding that became passable, in
+    /// binding order.
+    fn tick_bindings(&mut self) {
+        let old = self.map.switches;
+        self.map.switches = self.doors.apply(old, self.states.values());
+        for i in 0..self.doors.doors().len() {
+            let d = self.doors.doors()[i];
+            let b = 1u32 << d.bit;
+            if old & b == 0 || self.map.switches & b != 0 {
+                continue;
+            }
+            let (x0, y0, x1, y1) = d.rect;
+            let (x, y) = sixteenths((
+                f64::from((x0 + x1) / 2) + 0.5,
+                f64::from((y0 + y1) / 2) + 0.5,
+            ));
+            self.events.push(Event::DoorOpen { x, y });
+        }
+    }
+
+    /// Whether Ben's body overlaps the box of the cells of `rect`.
+    fn ben_overlaps(&self, (x0, y0, x1, y1): Rect) -> bool {
+        self.ben.b.overlaps(
+            f64::from(x0),
+            f64::from(y0),
+            f64::from(x1 - x0 + 1),
+            f64::from(y1 - y0 + 1),
+        )
+    }
+
+    fn cond_holds(&self, c: Cond) -> bool {
+        match c {
+            Cond::StateIn { state, set } => self
+                .states
+                .value(state)
+                .is_some_and(|v| set & (1 << v) != 0),
+            Cond::Holds(k) => {
+                WorldFlags::key_bits(k).is_some_and(|(held, _)| self.flags.contains(held))
+            }
+            Cond::NotHolds(k) => {
+                WorldFlags::key_bits(k).is_some_and(|(held, _)| !self.flags.contains(held))
+            }
+        }
+    }
+
+    /// Runs one action; true if it changed a state.
+    fn act(&mut self, a: Act) -> bool {
+        match a {
+            Act::Set { state, value } => self.states.set(state, value),
+            Act::Toggle(state) => self.states.toggle(state),
+            Act::Next(state) => self.states.next(state),
+            Act::Spend(k) => {
+                if let Some((held, used)) = WorldFlags::key_bits(k)
+                    && self.flags.contains(held)
+                {
+                    self.flags.clear(held);
+                    self.flags.set(used);
+                }
+                false
+            }
         }
     }
 
@@ -479,43 +643,33 @@ impl World {
         self.events.push(Event::Death { x, y });
     }
 
-    /// The lock phase. Fizz 1 tries each door colour in turn (red, then blue) with the key that colour needs; here the level's
-    /// locks run in rule order. A lock fires when Ben holds its key, the tile in front of him at `py + 0.2` is a switched tile
-    /// in the lock's door (its cell is bound to the lock's derived bit) and that bit is set (the door is closed): the bit is
-    /// cleared, the key is spent and the door opens. The state a lock sets is not held by the world yet; the bit is the whole of it.
-    fn tick_locks(&mut self) {
+    /// Samples the `touch` input where Fizz 1 runs its lock test, from Ben's final position of the tick: a `touch` row is raised
+    /// when his **front probe** (the tile in front of him at `py + 0.2`: column `floor(px + w + 0.1)` facing right or
+    /// `floor(px - 0.1)` facing left, row `floor(py + 0.2)`) lies in its rectangle, or his body overlaps the rectangle's cells. The
+    /// rows themselves run in the rule phase.
+    fn sample_touch(&mut self) {
         let (px, py, pw) = (self.ben.b.x, self.ben.b.y, self.ben.b.w);
+        let cx = if self.ben.face > 0.0 {
+            (px + pw + 0.1).floor() as i32
+        } else {
+            (px - 0.1).floor() as i32
+        };
+        let cy = (py + 0.2).floor() as i32;
         for i in 0..self.rules.len() {
-            let Some(lock) = self.rules.lock_at(i) else {
+            let Input::Touch(rect) = self.rules.rules()[i].input else {
                 continue;
             };
-            let Some((key, used)) = WorldFlags::key_bits(lock.colour) else {
-                continue;
-            };
-            if !self.flags.contains(key) {
-                continue;
-            }
-            let cx = if self.ben.face > 0.0 {
-                (px + pw + 0.1).floor() as i32
-            } else {
-                (px - 0.1).floor() as i32
-            };
-            let cy = (py + 0.2).floor() as i32;
-            let switched = self.map.props.flags(self.map.get(cx, cy)) & SWITCHED != 0;
-            if switched
-                && self.map.switch_bit(cx, cy) == Some(lock.bit)
-                && self.map.switch(lock.bit)
-            {
-                self.map.set_switch(lock.bit, false);
-                self.flags.clear(key);
-                self.flags.set(used);
-                let (x, y) = sixteenths((f64::from(cx) + 0.5, py + 2.0));
-                self.events.push(Event::DoorOpen { x, y });
+            let (x0, y0, x1, y1) = rect;
+            let probed = (i32::from(x0)..=i32::from(x1)).contains(&cx)
+                && (i32::from(y0)..=i32::from(y1)).contains(&cy);
+            if probed || self.ben_overlaps(rect) {
+                self.touched |= 1 << i;
             }
         }
     }
 
-    /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the locks (the doors), the keys, then the snacks and the chickens.
+    /// Fizz 1's `tick_ben_contacts`: hazards and the exit, the `touch` sample where Fizz 1 tries the locks, the keys, then the
+    /// snacks and the chickens.
     ///
     /// Departure from Fizz 1, which ends the level on touching an exit tile: Ben goes through the exit only when Up is newly
     /// pressed (`input.pressed`, so a held Up does not count until it is released and pressed again) on a tick where his body
@@ -554,7 +708,7 @@ impl World {
                 }
             }
         }
-        self.tick_locks();
+        self.sample_touch();
         if die {
             self.kill();
             return;
@@ -685,15 +839,19 @@ impl World {
     }
 
     /// Puts Ben back at the spawn after a death (Fizz 1's `on_death`, which hands the reload to the shell) and resets the level
-    /// exactly as starting it the first time would: the switch bits go back to the level's start state (a door that was
-    /// opened closes), the keys leave Ben's hands and the spent marks are cleared (every key lies where it began), the snacks
-    /// come back, and the chickens and the ammo start over. Rules that act on the start of a level (timers, start rules) will
-    /// re-arm here when they exist; the locks hold no state of their own.
+    /// exactly as starting it the first time would (`docs/RULES.md`, section 8): the keys leave Ben's hands and the spent marks are
+    /// cleared (every key lies where it began), the snacks come back, and the chickens and the ammo start over; every state goes back
+    /// to its start value; the rule memory is cleared and the life's start tick becomes this tick; and the door bits are recomputed
+    /// from the states, with no door event (a door that was opened closes).
     fn respawn(&mut self) {
         self.deaths += 1;
         self.lives = self.lives.saturating_sub(1);
         self.ben = Ben::new(self.spawn.0, self.spawn.1);
-        self.map.switches = self.start_switches;
+        self.states.reset();
+        self.fired = 0;
+        self.inside = 0;
+        self.life_start = self.tick.0;
+        self.map.switches = self.doors.apply(self.map.switches, self.states.values());
         for bit in [
             WorldFlags::KEY_RED,
             WorldFlags::KEY_BLUE,
@@ -743,8 +901,11 @@ impl World {
 ///    while no elixir is taken, which is every state of the golden replay, so the elixirs in the level do not move a hash until one is
 ///    taken. `lives` is not hashed at all: it is a number the HUD shows and changes no rule of this slice, and it is worked out by the
 ///    deaths and the elixirs (the deaths are in step 3). The owner's lives design replaces this block.
+/// 9. only for a world with at least one declared state (`docs/RULES.md`, section 11): the state count (`u32`), each state's value
+///    (`u8`) in table order, the door word again (`u32`), the fired memory (`u32`), the inside memory (`u32`) and the life's start
+///    tick (`u64`). No rule has a delay yet, so no countdowns follow. The slice declares two states, so its hash has the block.
 ///
-/// The camera and the [`Event`] list are not hashed.
+/// The camera, the [`Event`] list and the input record are not hashed.
 pub fn hash(w: &World) -> StateHash {
     let mut h = StateHash::new();
     h.write_u64(w.tick.0);
@@ -803,6 +964,16 @@ pub fn hash(w: &World) -> StateHash {
         for s in elixirs() {
             h.write_u8(u8::from(s.taken));
         }
+    }
+    if !w.states.is_empty() {
+        h.write_u32(w.states.len() as u32);
+        for &v in w.states.values() {
+            h.write_u8(v);
+        }
+        h.write_u32(w.map.switches);
+        h.write_u32(w.fired);
+        h.write_u32(w.inside);
+        h.write_u64(w.life_start);
     }
     h
 }

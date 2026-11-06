@@ -72,7 +72,7 @@
    "prs": [
     5
    ],
-   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the slice's golden transcript (`FINAL TICK 1800 HASH 7f6a1a1248c4b0e8`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, `/BENCH` (run at a fixed 26,800 cycles) must print positive step and drawing averages, the slice's final hash and `EXIT yes`, `/PROBE` must print the `PROBE` lines each of 21 DOSBox configurations expects and a `CELLS` hash equal to the host's, `/CHECKCELLS` must print the 4,000 bytes read back from video memory equal to the host builder's for six machines (colour, EGA, CGA, Hercules), a host test fails if any script runs the interactive `/CHECK`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
+   "evidence": "`tools/check-dos.sh` runs the modes: `/REPLAY` must print the slice's golden transcript (`FINAL TICK 1800 HASH ec9195c222b626f2`) and `EXIT yes`, `/LIVE` must print `MOVED yes` and `VECTORS RESTORED yes`, `/BENCH` (run at a fixed 26,800 cycles) must print positive step and drawing averages, the slice's final hash and `EXIT yes`, `/PROBE` must print the `PROBE` lines each of 21 DOSBox configurations expects and a `CELLS` hash equal to the host's, `/CHECKCELLS` must print the 4,000 bytes read back from video memory equal to the host builder's for six machines (colour, EGA, CGA, Hercules), a host test fails if any script runs the interactive `/CHECK`, and `/PANIC` must exit with status 3 ([chapter 4](chapter:m0-presenters#fizz2-exe-5)).",
    "gaps": "the 30-second limit of `/LIVE` and its final-tick line: a capture run printed `LIVE TICKS 1800` (30 seconds at 60 a second), and no committed check asserts it; and that `/REPLAY` takes about 21 seconds, which the BIOS tick bound of 383 to 387 covers only as a count. The `/BENCH` figures are DOSBox's and say nothing certain about a real 486. The `/CHECK` screen itself (keys, Enter on to `/LIVE`) is never run by a check and was not driven by hand here. The `/PROBE` results are DOSBox's too: no real machine, and no monochrome VGA or missing maths chip, has been probed."
   },
   {
@@ -143,7 +143,7 @@
     122,
     127
    ],
-   "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok 7f6a1a1248c4b0e8`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
+   "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok ec9195c222b626f2`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
    "gaps": "that the nook is pleasant to play, and that the pogo route onto the shelf is possible for a person: the replay climbs it with scripted keys; how fsssht sounds; and the score's count-up, which a still cannot show."
   },
   {

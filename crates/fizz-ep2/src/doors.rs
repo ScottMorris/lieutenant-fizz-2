@@ -9,13 +9,13 @@
 //! not in the active set), and binds each switched cell of the rectangle to that bit (`TileMap::bind_switch`). Door binding `i`
 //! owns bit `i`. Neither the source nor the bytes name a bit.
 //!
-//! Until the rule phase exists (`docs/RULES.md`), the world holds no state values: a door's start bit follows from its state's start
-//! value, and the lock phase (see `rules.rs`) clears the bit when a lock fires. The loader checks what the pack cannot, because it
-//! knows the tile table: every cell of a door rectangle is a switched tile, and every switched tile in the map is covered by a
-//! door binding.
+//! The world holds the state values (see `states.rs`) and the rule phase changes them; the bits are recomputed from the values by
+//! [`Doors::apply`] after a rule phase in which a state changed, and when the world is built or reset (`docs/RULES.md`, section 3).
+//! The loader checks what the pack cannot, because it knows the tile table: every cell of a door rectangle is a switched tile, and
+//! every switched tile in the map is covered by a door binding.
 
 use alloc::vec::Vec;
-use fizz_pack::level::{BIND_DOOR, MAX_DOOR_BINDINGS, MAX_STATE_VALUES};
+use fizz_pack::level::{BIND_DOOR, MAX_DOOR_BINDINGS, MAX_STATE_VALUES, MAX_STATES};
 use fizz_pack::{BindingRec, StateRec};
 use fizz_phys::tilemap::SWITCHED;
 use fizz_phys::{TileMap, TileProps};
@@ -26,6 +26,8 @@ pub const MAX_DOORS: usize = MAX_DOOR_BINDINGS;
 /// Why a level's states and bindings were refused.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DoorError {
+    /// More than 32 states.
+    TooManyStates,
     /// A state with fewer than 2 or more than 8 values, or a start value out of range.
     State(usize),
     /// A binding that is not a door binding (the other kinds have no consumer yet), or that breaks the binding rules: a state that
@@ -58,6 +60,8 @@ pub struct Door {
 pub struct Doors {
     states: Vec<StateRec>,
     doors: Vec<Door>,
+    /// The map's width and height, which bound every rule's rectangle.
+    size: (u16, u16),
 }
 
 impl Doors {
@@ -75,6 +79,9 @@ impl Doors {
         h: u16,
         props: &TileProps,
     ) -> Result<Doors, DoorError> {
+        if states.len() > MAX_STATES {
+            return Err(DoorError::TooManyStates);
+        }
         for (i, s) in states.iter().enumerate() {
             if !(2..=MAX_STATE_VALUES as u8).contains(&s.values) || s.start >= s.values {
                 return Err(DoorError::State(i));
@@ -131,6 +138,7 @@ impl Doors {
         Ok(Doors {
             states: states.to_vec(),
             doors,
+            size: (w, h),
         })
     }
 
@@ -144,17 +152,30 @@ impl Doors {
         &self.states
     }
 
+    /// The map's width and height.
+    pub fn size(&self) -> (u16, u16) {
+        self.size
+    }
+
     /// The switch word a level starts with, and a death restores: a bit is set for each door whose state starts at a value outside
     /// its active set (the door is closed).
     pub fn start_switches(&self) -> u32 {
-        let mut bits = 0;
+        let starts: Vec<u8> = self.states.iter().map(|s| s.start).collect();
+        self.apply(0, &starts)
+    }
+
+    /// `switches` with each door's derived bit recomputed from the state `values` (in table order): set while the state's value is
+    /// outside the door's active set (the door is closed), clear while it is inside. Bits no door owns are left as they are.
+    pub fn apply(&self, mut switches: u32, values: &[u8]) -> u32 {
         for d in &self.doors {
-            let start = self.states[usize::from(d.state)].start;
-            if d.mask & (1 << start) == 0 {
-                bits |= 1 << d.bit;
+            let v = values[usize::from(d.state)];
+            if d.mask & (1 << v) == 0 {
+                switches |= 1 << d.bit;
+            } else {
+                switches &= !(1 << d.bit);
             }
         }
-        bits
+        switches
     }
 
     /// Binds every cell of every door rectangle to its door's bit in `map`.
