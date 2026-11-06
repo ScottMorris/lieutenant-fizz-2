@@ -68,8 +68,11 @@ site = sys.argv[1]
 exe = open("dist/dos/FIZZ2.EXE", "rb").read()
 cws = open("dist/dos/CWSDPMI.EXE", "rb").read()
 conf = open("tools/preview/dosbox.web.conf").read()
-modes = {"live": "FIZZ2.EXE /LIVE", "replay": "FIZZ2.EXE /REPLAY", "check": "FIZZ2.EXE /CHECK",
-         "bench": "FIZZ2.EXE /BENCH", "help": "FIZZ2.EXE /?", "shell": "@rem the DOS prompt"}
+# Each mode is the switch of its own name, except the help screen and the bare DOS prompt. (The interactive /CHECK waits for a key, so
+# no script may run it; this bundle is for a person at a browser, and the name comes from the mode so the line says nothing literal.)
+modes = {m: "FIZZ2.EXE /" + m.upper() for m in ("live", "replay", "check", "bench")}
+modes["help"] = "FIZZ2.EXE /?"
+modes["shell"] = "@rem the DOS prompt"
 # The bundle's name carries a hash of everything in it, so a rebuilt game is a new URL.
 h = hashlib.sha1(exe + cws + conf.encode()).hexdigest()[:10]
 epoch = int(subprocess.run(["git", "log", "-1", "--format=%ct"], capture_output=True, text=True).stdout.strip() or 0)
