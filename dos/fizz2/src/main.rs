@@ -308,7 +308,11 @@ fn main() -> i32 {
     // The sound flags are over the file's sound choices too (`prefs.sound`); the Options screen starts from this, stars the rows the
     // switches changed and saves the file's own values for those.
     apply_flags(&mut prefs.sound, args.iter().map(|a| a.as_str()));
-    let start = Start { file: file_prefs, prefs, no_limit: run.no_limit };
+    let start = Start {
+        file: file_prefs,
+        prefs,
+        no_limit: run.no_limit,
+    };
     CLASSIC_PLACEMENT.store(prefs.placement == PlacementMode::Classic, Ordering::Relaxed);
     let options = DrawOptions {
         captions: prefs.captions == Captions::On,
