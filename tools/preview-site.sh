@@ -71,6 +71,8 @@ conf = open("tools/preview/dosbox.web.conf").read()
 # Each mode is the switch of its own name, except the help screen and the bare DOS prompt. (The interactive /CHECK waits for a key, so
 # no script may run it; this bundle is for a person at a browser, and the name comes from the mode so the line says nothing literal.)
 modes = {m: "FIZZ2.EXE /" + m.upper() for m in ("live", "replay", "check", "bench")}
+# A person at a browser plays without /LIVE's 30-second limit (it is there so a headless run cannot hang).
+modes["live"] += " /NOLIMIT"
 modes["help"] = "FIZZ2.EXE /?"
 modes["shell"] = "@rem the DOS prompt"
 # The bundle's name carries a hash of everything in it, so a rebuilt game is a new URL.
