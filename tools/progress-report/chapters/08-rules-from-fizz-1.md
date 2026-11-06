@@ -3,8 +3,8 @@ id: rules
 n: 8
 title: The rules from Fizz 1
 date: 2026-10-27
-summary: Fizz 1's physics as an owned crate, eighteen golden traces from Fizz 1's own simulation that Ben and the chicken reproduce bit for bit, the numeric model, the state hash and the one place the rules depart from Fizz 1.
-prs: [22, 23, 27, 29, 35, 36]
+summary: Fizz 1's physics as an owned crate, twenty-two golden traces from Fizz 1's own simulation that Ben and the chicken reproduce bit for bit (four of them the wall-kick), the numeric model, the state hash and the places the rules depart from Fizz 1.
+prs: [22, 23, 27, 29, 35, 36, 150, 168]
 ---
 The rules of the slice are Fizz 1's. `fizz-phys` holds Fizz 1's tile map, body, platform and random-number code; `fizz-ep2` ports Ben's movement, the chicken (Fizz 1's Gloop), the Fizz Blaster shots, the red key and door, and the spikes on top of it. Fizz 1 itself is not a dependency: its simulation wrote a set of traces once, and Fizz 2's rules are compared with them on every `cargo test`. The state hash of chapter 5 then compares the platforms with each other.
 
@@ -36,19 +36,21 @@ The scenario files, `crates/fizz-ep2/tests/fizz1/<name>.scn`, are shared: Fizz 1
 
 State is `f64` and the rules use basic IEEE operations: addition, subtraction, multiplication, division and comparison. `fsin` and `fsqrt` are never used, `libm` is pinned at `={{sc.libm}}` with default features off, and the `exp` family is banned in the rules crates. On the DOS build the program sets the x87 control word to `0x{{sc.controlWord}}` (53-bit precision, every exception masked) before the first tick. The numeric decisions are listed in `docs/PLATFORM.md`; chapter 5 explains why each one is there.
 
-Fizz 1's idle pogo has a horizontal drag that decays for ever. The velocity reaches subnormal values, which the x87 at 53 bits, SSE2 and WebAssembly round differently, and the golden traces never get that far. The port snaps any velocity whose magnitude is below 2^-1000 (about 9.3e-302, the constant `SNAP` in `crates/fizz-ep2/src/ben.rs`) to zero at the end of Ben's move. Milestone 0's marker used a threshold of 1/1024; the slice's is far below any velocity the traces reach, so none of the eighteen changes. Unit tests pin the threshold and run an idle pogo for 30,000 ticks, checking that every velocity is zero or at least the threshold.
+Fizz 1's idle pogo has a horizontal drag that decays for ever. The velocity reaches subnormal values, which the x87 at 53 bits, SSE2 and WebAssembly round differently, and the golden traces never get that far. The port snaps any velocity whose magnitude is below 2^-1000 (about 9.3e-302, the constant `SNAP` in `crates/fizz-ep2/src/ben.rs`) to zero at the end of Ben's move. Milestone 0's marker used a threshold of 1/1024; the slice's is far below any velocity the traces reach, so none of the traces changes. Unit tests pin the threshold and run an idle pogo for 30,000 ticks, checking that every velocity is zero or at least the threshold.
 
 ## The state hash
 
-After every tick the rules hash, in a fixed order, the tick; Ben's `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv` and `shoot_t`, a flags byte, the look timers, the look offset and the aim; the world flags, the ammo and the death count; the map's switch word; for each chicken its body, direction, stun, a flags byte, its cluck timer and its draw count; and for each shot its body and life. The function is 64-bit FNV-1a over the little-endian bytes of those fields, with each `f64` as its bit pattern, so a change of one unit in the last place changes the digest. Three tests in `crates/fizz-ep2/src/world.rs` lock it: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
+After every tick the rules hash, in a fixed order, the tick; Ben's `x`, `y`, `vx`, `vy`, `face`, `squash`, `dead`, `inv` and `shoot_t`, a flags byte, the look timers, the look offset, the aim and the wall-kick's `wall_t` and `kick_side`; the world flags, the ammo and the death count; the door word, one bit for each door binding; for each chicken its body, direction, stun, a flags byte, its cluck timer and its draw count; for each shot its body and life; a byte for each snack and can taken; and, in a level that declares states, the state block of `docs/RULES.md` (the state values, the door word, the rule memory and the life's start tick). The order is written out above `hash` in `crates/fizz-ep2/src/world.rs`. The function is 64-bit FNV-1a over the little-endian bytes of those fields, with each `f64` as its bit pattern, so a change of one unit in the last place changes the digest. Three tests in `crates/fizz-ep2/src/world.rs` lock it: an independent byte-by-byte FNV-1a over a hand-built sequence, a pinned digest of a world with every field set, and a check that changing any one field changes the digest.
 
-The event list, the camera and the presentation fields (the chicken's `cluck_age` and `cluck_variant`) are not hashed, so a presenter's own state cannot split the platforms. The golden transcript's final hash has changed whenever a hashed field was added: `d1a225bf14ab4828` for the first slice script, `2145503c0d3b625f` once the chicken's cluck timer and draw count joined it, and `{{golden.final}}` with the look timers, the look offset and the aim. A hash that moves with no field added is a bug until shown otherwise. The final hash after {{golden.finalTick}} ticks is the same on native x86_64, WebAssembly and DOS (`PARITY ok {{ms.parityHash}}`).
+The event list, the camera and the presentation fields (the chicken's `cluck_age` and `cluck_variant`) are not hashed, so a presenter's own state cannot split the platforms. The golden transcript's final hash has changed whenever a hashed field was added: `d1a225bf14ab4828` for the first slice script, `2145503c0d3b625f` once the chicken's cluck timer and draw count joined it, and later finals with the look timers, the look offset and the aim, with the wall-kick's fields and the doors indexed by binding (`eda8a62f036aeab6`), and with the state block (`{{golden.final}}`, [chapter 15](chapter:scripts)). The replay script itself changed too: it grew to 1,800 ticks for the exit's Up press (chapter 13), and it fires 20 ticks earlier since the chicken's body grew (`7f6a1a1248c4b0e8`, chapter 12). A hash that moves with no field added and no script changed is a bug until shown otherwise. The final hash after {{golden.finalTick}} ticks is the same on native x86_64, WebAssembly and DOS (`PARITY ok {{ms.parityHash}}`).
 
 ## Where the rules depart from Fizz 1
 
 - The 2^-1000 snap above.
-- The red door is a switched tile on channel 1, solid while its bit is set, where Fizz 1 rewrites the tile. Opening follows Fizz 1's rule: with the key, touching the door's tile in front of Ben opens it and spends the key.
-- A death respawns Ben in place after Fizz 1's 1.4 seconds instead of reloading the level, so an open door stays open. The key is dropped and lies where it began unless the door is already open.
+- The doors are switched tiles, solid while their door binding's bit is set, where Fizz 1 rewrites the tile. Opening follows Fizz 1's rule as a plain rule of the level (chapter 15): with the key, touching any cell of the door in front of Ben opens it and spends the key, on the tick he reaches it even if he took the key on that tick.
+- A death respawns Ben after Fizz 1's 1.4 seconds and resets the level as starting it does, as Fizz 1's reload does: the doors shut, the keys, snacks and cans return and every state goes back to its start value (#140, #156).
+- The wall-kick is a core move in every level, with Fizz 1's numbers; Fizz 1 could turn it off per level (`docs/FIZZ1-DIFFERENCES.md`).
+- The chicken's body is 1.75 by 1.5 tiles, the size of its drawn sprite plus a 4 px margin, where Fizz 1's Gloop is 0.9 by 0.6 (#168, chapter 12). The traces build their chickens at Fizz 1's size, so they test the movement port unchanged.
 - The Gloop's reset after three seconds more than four tiles off its floor is not ported; the slice's chicken cannot leave its floor, and the reset would need a hashed timer.
 - The chicken's cluck timer and its stream of random numbers are new; Fizz 1's Gloop is silent. Each draw is Fizz 1's `hashf` over the tick, the chicken's index and the number of draws so far, a pure function of integers, so the traces, which compare only Fizz 1's fields, are untouched.
 - The look offset is new: Fizz 1 keeps the same memory in its camera position, and Fizz 2's camera is a function of Ben's state.
@@ -56,15 +58,15 @@ The event list, the camera and the presentation fields (the chicken's `cluck_age
 ## The shelves
 
 ### Catalogued
-- #22, #23, #27, #29, #35 and #36 are merged into `main`; the last of them, #36, landed on `{{pr36.merge}}` with CI {{pr36.ci}}.
-- Ben, the chicken, the shots, the key and the door reproduce all eighteen Fizz 1 traces bit for bit: `cargo test -p fizz-ep2 --test fizz1_traces` ran 18 tests, 18 passed (`snapshots/measured.json`), and `tools/check.sh` runs the same tests through `cargo test --workspace`.
+- #22, #23, #27, #29, #35 and #36 are merged into `main`; the last of them, #36, landed on `{{pr36.merge}}` with CI {{pr36.ci}}. The wall-kick traces came with #150 ({{pr150.state}}, CI {{pr150.ci}}) and the chicken's own size with #168 ({{pr168.state}}, CI {{pr168.ci}}).
+- Ben, the chicken, the shots, the key and the door reproduce all twenty-two Fizz 1 traces bit for bit: `cargo test -p fizz-ep2 --test fizz1_traces` printed {{ms.fizz1Traces}} (`snapshots/measured.json`), and `tools/check.sh` runs the same tests through `cargo test --workspace`.
 - `fizz-phys` equals Fizz 1's `lf-sim` at `4bce036` apart from its recorded mechanical changes: `tools/lf-sim-drift.sh` printed `{{ms.lfSimDrift}}` (`snapshots/measured.json`; a Fizz 1 checkout is needed).
 - The hash's field order, its FNV-1a bytes and the fact that every field matters are locked by three tests in `crates/fizz-ep2/src/world.rs`; the snap threshold by two in `crates/fizz-ep2/src/ben.rs`.
 - Native, Web and DOS print the golden transcript, which ends `FINAL TICK {{golden.finalTick}} HASH {{golden.final}}`: `tools/check-parity.sh` printed `PARITY ok {{ms.parityHash}}` (`snapshots/measured.json`).
 
 ### Uncatalogued
-- Whether Fizz 1 at `4bce036` still writes the committed traces. CI never runs `tools/fizz1-trace`, and regenerating or checking the files (`cargo run --release -- --check --all`) needs a Fizz 1 checkout.
-- What the scenarios do not reach: ladders, vines, moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. The tool fails loudly if a script triggers a mantle.
+- Whether Fizz 1 at `4bce036` still writes the committed traces. The four wall-kick traces were written from Fizz 1 at `9729c07` with the pinned-commit check bypassed; the pull request records that the directories the tool builds from are identical at the two commits. CI never runs `tools/fizz1-trace`, and regenerating or checking the files (`cargo run --release -- --check --all`) needs a Fizz 1 checkout.
+- What the scenarios do not reach: ladders, vines (specified in `docs/CLIMBING.md`, not built), moving platforms, conveyors, the bridge switch and gates, rooms and automatic mantle. The tool fails loudly if a script triggers a mantle.
 - The `f64` rules on a real 486 FPU, and what they cost there. DOSBox emulates the x87 and runs at a fixed cycle count that does not model its latency.
 - WebAssembly in a browser other than Chromium: the module was replayed under Node and Bun and in headless Chromium.
 
@@ -81,7 +83,7 @@ id: crate-graph
 kind: diagram
 track: shared
 title: The crates and what they use
-alt: Dependency matrix of the thirteen Rust packages, one row for each and a mark in the column of each package it uses. The rules crates fizz-sim and fizz-phys, the HAL, the machine model, fizz-view and fizz-sfx use nothing in the workspace; fizz-ep2 uses fizz-sim and fizz-phys; fizz-slice-view uses fizz-ep2 and fizz-view; the two presenters build on those; fizz-dos-rt uses fizz-sfx and fizz-machine; and FIZZ2.EXE uses the runtime, the rules and the DOS presenter.
+alt: Dependency matrix of the seventeen Rust packages, one row for each and a mark in the column of each package it uses. The rules crates fizz-sim and fizz-phys, the pack reader fizz-pack, the HAL, the machine model, fizz-view, fizz-sfx and fizz-music use nothing in the workspace; fizz-ep2 uses fizz-sim, fizz-phys and fizz-pack; the script parser fizz-script uses fizz-ep2, fizz-pack and fizz-phys; fizz-slice-view uses fizz-ep2, fizz-view and fizz-sfx; the two presenters build on those; fizz-dos-rt uses fizz-sfx, fizz-machine and fizz-music; and FIZZ2.EXE uses the runtime, the rules, the pack reader and the DOS presenter.
 caption: Which package uses which, from the Cargo.toml files.
 at: figure crate-graph
 thumb: svg

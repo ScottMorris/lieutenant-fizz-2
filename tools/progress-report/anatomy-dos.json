@@ -1,6 +1,6 @@
 {
  "title": "Anatomy of FIZZ2.EXE",
- "updated": "2026-10-29",
+ "updated": "2026-11-06",
  "statuses": ["verified", "unverified", "planned", "external"],
  "layers": ["Program", "Rules", "Presenter", "HAL and models", "DOS runtime", "Start and clean-up", "Packaging", "Host and machine"],
  "boxes": [
@@ -8,7 +8,7 @@
   {"id": "game", "layer": 0, "col": 6, "span": 6, "label": "Episode 2 game", "sub": "levels, gadgets, enemies", "status": "planned", "evidence": ["repo:docs/POC-1-FINDINGS.md"], "text": "The program plays one small slice level. The rest of the game, with its levels, gadgets, enemies and menus, is planned."},
   {"id": "sim", "layer": 1, "col": 0, "span": 4, "label": "fizz-sim", "sub": "Tick, StateHash, InputFrame", "status": "verified", "evidence": ["pr:1", "repo:crates/fizz-sim"], "text": "`no_std`, no `unsafe`, no platform types. Host tests, and the same hash on native, Web and DOS."},
   {"id": "phys", "layer": 1, "col": 4, "span": 4, "label": "fizz-phys", "sub": "Fizz 1's tile map and bodies", "status": "verified", "evidence": ["pr:22", "repo:crates/fizz-phys"], "text": "Fizz 1's physics as an owned `no_std` crate. `tools/lf-sim-drift.sh` compares it with Fizz 1's source."},
-  {"id": "hello", "layer": 1, "col": 8, "span": 4, "label": "fizz-ep2", "sub": "Ben, the chicken, the slice level", "status": "verified", "evidence": ["pr:27", "repo:crates/fizz-ep2/slice-replay.txt"], "text": "The slice's rules on `fizz-phys`, proved bit for bit against eighteen Fizz 1 traces, with a golden replay that native, Web and DOS reproduce. It replaced the Milestone 0 marker rules, `fizz-hello`, which are deleted."},
+  {"id": "hello", "layer": 1, "col": 8, "span": 4, "label": "fizz-ep2", "sub": "Ben, the chicken, the slice level", "status": "verified", "evidence": ["pr:27", "pr:156", "repo:crates/fizz-ep2/slice-replay.txt"], "text": "The slice's rules on `fizz-phys`, proved bit for bit against twenty-two Fizz 1 traces, with the level read from `LEVL` version 2 and its locks run as rules in a rule phase (#156), and a golden replay that native, Web and DOS reproduce. It replaced the Milestone 0 marker rules, `fizz-hello`, which are deleted."},
   {"id": "present", "layer": 2, "col": 0, "span": 4, "label": "fizz-present-dos", "sub": "320x200 frame, palette, HUD", "status": "verified", "evidence": ["pr:4", "repo:crates/fizz-present-dos"], "text": "Integer only (`clippy::float_arithmetic` denied). Host tests of the slice HUD and banner."},
   {"id": "sliceview", "layer": 2, "col": 4, "span": 4, "label": "fizz-slice-view, fizz-view", "sub": "the one slice drawing", "status": "verified", "evidence": ["pr:31", "repo:crates/fizz-slice-view"], "text": "`draw_slice` draws the slice for both presenters, including the captions, stars and puff; pinned frame digests in its tests, and `/BENCH` compares DOS frames with the host's."},
   {"id": "intent", "layer": 2, "col": 8, "span": 4, "label": "Scene intent projection", "sub": "M3", "status": "planned", "evidence": ["repo:docs/SCENE-CONTRACT.md"], "text": "Lowering tiles, sprites and lights to mode 13h. A sketch only."},

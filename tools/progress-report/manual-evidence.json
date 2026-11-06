@@ -57,7 +57,7 @@
   {
    "section": "Sound effects",
    "shelf": "catalogued",
-   "evidence": "`fizz-slice-view` tests play the replay through `event_sound`: one effect for each of its 70 sounding events (every `EVENT` line but `shotend`), in order, with the counts the manual's table implies, the same with the Captions setting on or off, and placed against the camera. `web/sfx.test.ts` schedules each effect on a stand-in `AudioContext` (a carrier and a modulator for an FM voice, a pitch step for each frame, Fizz 1's high-pass and slide for the fzzt) and checks that whoa! and ta-da! bypass the cap. `tools/check-web-sfx.py` drives the audition list in headless Chromium: nineteen entries in id order, silence before a key, each choice scheduling exactly that effect, Play repeating it and a muted page staying quiet. `tools/check-dos.sh` requires `AUDIO WRITES` of 7,224 (channel 5), 7,245 (the OR rule) and 14,380 (the pair) and 1,358 speaker steps for the 69 effects the replay starts, with the golden transcript unchanged; the jump, the pogo and the fizz shot on DOS are Fizz 1 DOS's own records, kept equal to the converter's output by `bun tools/sfx/downmix.ts --check`. The rules Fizz 1 follows for overlap, dedupe, the click and the music are in [chapter 10](chapter:effects).",
+   "evidence": "`fizz-slice-view` tests play the replay through `event_sound`: one effect for each of its 70 sounding events (every `EVENT` line but `shotend`), in order, with the counts the manual's table implies, the same with the Captions setting on or off, and placed against the camera. `web/sfx.test.ts` schedules each effect on a stand-in `AudioContext` (a carrier and a modulator for an FM voice, a pitch step for each frame, Fizz 1's high-pass and slide for the fzzt) and checks that whoa! and ta-da! bypass the cap. `tools/check-web-sfx.py` drives the audition list in headless Chromium: twenty-two entries in id order, silence before a key, each choice scheduling exactly that effect, Play repeating it and a muted page staying quiet. `tools/check-dos.sh` requires `AUDIO WRITES` of 7,224 (channel 5), 7,245 (the OR rule) and 14,380 (the pair) and 1,358 speaker steps for the 69 effects the replay starts, with the golden transcript unchanged; the jump, the pogo and the fizz shot on DOS are Fizz 1 DOS's own records, kept equal to the converter's output by `bun tools/sfx/downmix.ts --check`. The rules Fizz 1 follows for overlap, dedupe, the click and the music are in [chapter 10](chapter:effects).",
    "gaps": "how any of the new effects, the soda can's fsssht or the music under Paused and Options sounds on DOS or on real hardware (the owner listened to the first effects on the Web on 29 October 2026 and found them good, and chose Fizz 1's jump, pogo and fizz shot after listening on both platforms; nobody has reported the menu mix or the can's sound; a stand-in cannot hear); the audition list was driven by script, not by a person with the arrow keys; and a real OPL2, OPL3, Sound Blaster or PC speaker."
   },
   {
@@ -126,14 +126,18 @@
   {
    "section": "Moves",
    "shelf": "catalogued",
-   "evidence": "Walking, jumping with a cut, the pogo and its held high bounce and the stun shots are proved bit for bit against Fizz 1's golden traces (`tests/fizz1`), and the slice replay uses them. The key mapping of both layouts is tested in `fizz-present-dos`. Look and aim are proved against Fizz 1 by the `look` and `aim` traces ([chapter 8](chapter:rules)), which hold the look timers and the aim bit for bit; the manual's 0.2 second wait and 3.6 tile reach are the constants those rules use. The DOS look and aim screenshots were typed into DOSBox through the X server ([chapter 9](chapter:slice)).",
+   "evidence": "Walking, jumping with a cut, the pogo and its held high bounce and the stun shots are proved bit for bit against Fizz 1's golden traces (`tests/fizz1`), and the slice replay uses them. The key mapping of both layouts is tested in `fizz-present-dos`. The wall-kick is proved by the four `wall_kick_*` traces (#150, [chapter 15](chapter:scripts)). Look and aim are proved against Fizz 1 by the `look` and `aim` traces ([chapter 8](chapter:rules)), which hold the look timers and the aim bit for bit; the manual's 0.2 second wait and 3.6 tile reach are the constants those rules use. The DOS look and aim screenshots were typed into DOSBox through the X server ([chapter 9](chapter:slice)).",
    "gaps": "the Alt key on DOS, which the keyboard smoke does not type, and the pogo and Fizz keys in a live DOSBox session (the replay feeds them as buttons, not as key presses); the feel of the look's slide, and the first shaft's floor, where the manual says the view cannot slide, which no test names"
   },
   {
    "section": "The red key and the door",
    "shelf": "catalogued",
-   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `an_open_door_survives_a_death_and_the_key_does_not` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, and the `key_door` trace against Fizz 1. The replay on DOS opens the door. The key tray's sockets fill and ring in `fizz-slice-view` tests and in the screenshots of the replay at the red key (tick 295) and the blue key (tick 1579).",
-   "gaps": "how the tray looks on a real display; the blue key's door is in the snack nook section."
+   "evidence": "`the_script_exercises_every_rule_of_the_slice`, `the_door_stays_shut_without_the_key`, `a_death_closes_an_opened_door_and_puts_its_key_back` and `a_lost_key_comes_back_with_the_respawn` in `fizz-ep2`, the lock as a rule in `crates/fizz-ep2/tests/state_rules.rs` ([chapter 15](chapter:scripts)), and the `key_door` trace against Fizz 1. The replay on DOS opens the door. The key tray's sockets fill and ring in `fizz-slice-view` tests and in the screenshots of the replay at the red key (tick 295) and the blue key (tick 1579).",
+   "gaps": "how the tray looks on a real display; the blue key's door is in the snack nook section.",
+   "prs": [
+    140,
+    156
+   ]
   },
   {
    "section": "The snack nook",
@@ -145,6 +149,15 @@
    ],
    "evidence": "The replay walks the nook: `the_script_exercises_every_rule_of_the_slice` and the golden's `EVENT` lines (`snack`, `headbump`, `bounce`, `dud`, two `can` lines and a `key` and `dooropen` for the blue door) are printed by native, Web and DOS and compared line for line (`PARITY ok ec9195c222b626f2`). A soda can gives five shots and no points, and the score is worked out from the events (`World::score`) and is not hashed. The HUD's `+N` and the cans are in the screenshots of [chapter 9](chapter:slice), grabbed from DOSBox and headless Chromium.",
    "gaps": "that the nook is pleasant to play, and that the pogo route onto the shelf is possible for a person: the replay climbs it with scripted keys; how fsssht sounds; and the score's count-up, which a still cannot show."
+  },
+  {
+   "section": "The Fizz elixir (provisional)",
+   "shelf": "catalogued",
+   "prs": [
+    164
+   ],
+   "evidence": "`an_elixir_is_a_new_life_worth_no_points_and_raises_life_only`, `a_death_puts_the_elixir_back_so_it_cannot_be_farmed` and `the_elixir_moves_the_hash_only_once_taken_and_the_lives_never_do` in `fizz-ep2`, `the_elixir_lies_on_the_second_ledge_off_the_route_and_a_walk_takes_it` for its place, `the_elixir_is_drawn_where_it_lies_and_leaves_the_picture_when_taken` in `fizz-slice-view`, and `taking_the_elixir_hands_the_page_the_life_sound_and_a_life` in `fizz-present-web`; `bun test web/hud.test.ts` and `tools/check-web-hud.py` for the Lives count ([chapter 9](chapter:slice)).",
+   "gaps": "the replay never drinks the elixir, so no transcript or DOS run covers it; the chime has not been listened to, and the elixir, the count of three and the chime are placeholders."
   },
   {
    "section": "The chicken",
