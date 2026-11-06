@@ -1,8 +1,8 @@
 script fizz2 0
 level "T" 4x3 id=t
 start 1,1
-channel 1 on
-lock gate key=red at=2,1 channel=2
+lock gate key=red at=2,1
+when enter x=0 y=1 then set gate open
 map
   |....|  2
   |..D.|  1

@@ -56,30 +56,33 @@ codes! {
     E006, Error, "a statement that may appear once appears again";
     E007, Error, "missing script line, or a statement before the level header";
     E008, Error, "a statement in the wrong place";
-    E009, Error, "unknown field, stray word or repeated field";
+    E009, Error, "unknown field, stray word, repeated field or a fractional cell";
     E010, Error, "no start statement";
     E101, Error, "unsupported dialect or version";
-    E102, Error, "a word reserved for a later stage";
+    E102, Error, "a word reserved for a later stage, or a Fizz 1 word the dialect does not have";
     E103, Error, "map rows or widths differ from the level size, or a row label is wrong";
     E104, Error, "a map letter the legend does not hold";
     E105, Error, "a name used twice";
     E107, Error, "a second key of one colour";
     E108, Error, "the start or an object centre is outside the map";
     E109, Error, "a value the record cannot hold";
-    E110, Error, "a lock whose cell is not a door tile on its channel";
-    E111, Error, "more than 32 locks";
+    E110, Error, "a door meaning that does not hold";
+    E111, Error, "a table over its limit";
     E112, Error, "a string the level cannot carry";
-    E117, Error, "a lock cell is outside the map";
+    E117, Error, "a cell or rectangle outside the map";
     E199, Error, "internal: the validator and the rules disagree";
     W101, Warning, "a door starts open";
-    W108, Warning, "a channel nothing uses";
+    W108, Warning, "a state nothing binds, reads or sets";
     W109, Warning, "a reserved word that is accepted but not baked";
     W112, Warning, "a Fizz 1 field that is ignored";
+    W114, Warning, "a repeating touch rule that toggles or advances a state";
     W120, Warning, "a lock whose key colour no object provides";
-    W121, Warning, "a door tile that no lock opens";
-    W122, Warning, "a provisional channel alias on a lock";
-    W123, Warning, "two locks on one door channel";
+    W123, Warning, "two rules that open one door";
 }
+
+/// Codes the catalogue has retired. They are never produced and never reused: W121 (a switched tile no binding covers) is E110,
+/// and W122 (the provisional `channel=` alias) went with the channels.
+pub const RETIRED: [&str; 2] = ["W121", "W122"];
 
 impl fmt::Display for Code {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

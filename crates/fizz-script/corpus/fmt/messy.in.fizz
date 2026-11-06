@@ -7,13 +7,17 @@ level "Messy" 4x3 id=messy   // header
 		start  1.0, 1
 floor open
 
-channel 2, 1, 2  on
-lock gate  key=red  channel=1  at=2,1
+lock gate  key=red    at=2,1
+// the blue door, written out
+state  blue-gate values=closed, open start=closed
+door y=0  x=1 state=blue-gate  open=open,open
+when touch y=0 x=1 if state blue-gate is closed and holding key-blue then set blue-gate open,spend key-blue
+state lamp values=off,on start=off
 string hi   "Hi there"
 map
 |....|
    |..D.|  1   // the door
-|####|
+|#b##|
 
 
 objects
@@ -22,5 +26,5 @@ objects
  cheezie id=treat at=3.5,0.25
  // keys first
  key-red  id=red-key  at=0.5,0.5
- key-blue id=blue-key x=1 y=0
+ key-blue id=blue-key x=1 y=1
 

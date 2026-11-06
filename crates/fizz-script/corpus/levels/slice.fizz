@@ -5,8 +5,7 @@ level "Lighthouse Point" 32x48 id=light-1
 start 2,2  // the lower-left corner of Ben's body
 floor open
 
-// Channels 1 and 2 are the red and blue doors; on is closed.
-channel 1,2 on
+// The red and blue doors: each lock is a state, a door binding over the door's run and a touch rule.
 lock red-door key=red at=15,21
 lock blue-door key=blue at=22,39
 

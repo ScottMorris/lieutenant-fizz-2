@@ -36,7 +36,7 @@ impl Lcg {
     }
 }
 
-const PIECES: [&str; 47] = [
+const PIECES: [&str; 58] = [
     "script",
     "fizz2",
     "0",
@@ -59,9 +59,23 @@ const PIECES: [&str; 47] = [
     "channel=1",
     "at=2,1",
     "channel",
-    "1,2",
-    "on",
-    "off",
+    "state",
+    "values=a,b,c",
+    "start=b",
+    "door",
+    "x=2",
+    "y=1..2",
+    "open=on",
+    "when",
+    "touch",
+    "then",
+    "if",
+    "and",
+    "set",
+    "toggle",
+    "repeat",
+    "after=5",
+    "holding",
     "key-red",
     "cheezie",
     "chicken",
@@ -73,22 +87,19 @@ const PIECES: [&str; 47] = [
     "\"hi // there\"",
     "style=cyan",
     "// note",
-    "state",
     "theme",
     "ground=4",
     "\t",
     "  ",
     "\"",
     ",",
-    "-",
     "e5",
-    ".5",
     "id=a",
 ];
 
 /// A file's slots in order, each with the lines that can fill it. The soup picks one line for most slots, so a good share of
 /// the files parse; the rest get a loose piece, a repeated line or a missing one.
-const SLOTS: [&[&str]; 18] = [
+const SLOTS: [&[&str]; 19] = [
     &["script fizz2 0", "script   fizz2 0 // dialect"],
     &[
         "level \"T\" 4x3 id=t",
@@ -96,10 +107,24 @@ const SLOTS: [&[&str]; 18] = [
     ],
     &["start 1,1", "start 2.50, 0.7", "start 0,0"],
     &["floor open", "floor solid", ""],
-    &["channel 2, 1 on", "channel 1 off", "// a comment", ""],
     &[
-        "lock gate key=red channel=1 at=2,1",
-        "lock g2 key=blue channel=2 at=1,1",
+        "state lift values=down, up, top start=up",
+        "state lift values=down,up,top",
+        "// a comment",
+    ],
+    &[
+        "lock gate key=red at=2,1",
+        "lock g2 key=blue at=2,1",
+        "door x=2 y=1 state=lift open=top,up,up",
+        "door y=1 x=2 state=lift open=up",
+    ],
+    &[
+        "when touch x=0..1 y=1 if state lift is not down and holding key-red then set lift up, spend key-red",
+        "when enter x=3 y=2 after=30 then next lift repeat",
+        "when time every=60 at=1 then next lift repeat",
+        "when state lift becomes up then word hi style=red at=1,2",
+        "when stomp id=hen then score 100,  ammo 5",
+        "when touch id=k then cue door at=2,1",
         "",
     ],
     &[
@@ -110,7 +135,7 @@ const SLOTS: [&[&str]; 18] = [
     &["theme night", "", "// about"],
     &["map"],
     &["  |....|", "|....|  2"],
-    &["\t|..D.|  1", "|..D.|"],
+    &["\t|..D.|  1", "|..D.|", "  |..D.|  1 // door"],
     &["  |####|  0 // base", "|####|"],
     &["", "// a comment"],
     &["objects"],
@@ -210,23 +235,36 @@ fn canonical_text_keeps_the_meaning() {
         let codes =
             |r: &fizz_script::Report| r.diagnostics.iter().map(|d| d.code).collect::<Vec<_>>();
         let mut a = codes(&before);
-        // The printer drops the provisional alias, so its lint goes with it.
-        a.retain(|c| *c != fizz_script::Code::W122);
+        // Formatting writes the right row labels, so a wrong label is the one finding it can remove (the code stays if another
+        // row is wrong).
+        let only_labels = before
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == fizz_script::Code::E103)
+            .all(|d| d.message.starts_with("this row is y"));
+        if only_labels {
+            a.retain(|c| *c != fizz_script::Code::E103);
+        }
         let mut b = codes(&after);
         a.sort();
         a.dedup();
         b.sort();
         b.dedup();
-        // Formatting writes the right row labels, so a wrong label is the one finding it can remove (the code stays if another row is wrong).
         assert_eq!(a, b, "diagnostics changed for {t:?}");
         assert_eq!(
             before.lowered.as_ref().map(|l| l.digest()),
             after.lowered.as_ref().map(|l| l.digest()),
             "digest changed for {t:?}"
         );
-        lowered += usize::from(after.lowered.is_some());
+        assert_eq!(
+            before.unbuilt.as_ref().map(|u| &u.reason),
+            after.unbuilt.as_ref().map(|u| &u.reason),
+            "lowering changed for {t:?}"
+        );
+        // A valid script either lowers or is a valid script the game cannot build yet; both went through the lowering.
+        lowered += usize::from(!after.has_errors());
     }
-    assert!(lowered > 20, "only {lowered} inputs lowered");
+    assert!(lowered > 20, "only {lowered} inputs reached the lowering");
 }
 
 #[test]

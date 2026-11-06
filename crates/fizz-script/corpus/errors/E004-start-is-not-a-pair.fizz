@@ -1,7 +1,6 @@
 script fizz2 0
 level "T" 4x3 id=t
-start 1,1
-channel 5 on
+start 2
 map
   |....|  2
   |....|  1

@@ -8,5 +8,6 @@ authors.workspace = true
 
 [dependencies]
 fizz-ep2 = { path = "../fizz-ep2" }
-fizz-pack = { path = "../fizz-pack" }
+# The writer and reader prove that the lowered records are a `LEVL` section the game accepts.
+fizz-pack = { path = "../fizz-pack", features = ["write"] }
 fizz-phys = { path = "../fizz-phys" }

@@ -1,7 +1,8 @@
 script fizz2 0
 level "T" 4x3 id=t
 start 1,1
-state alarm off
+state lamp
+when touch x=1 y=1 then toggle lamp repeat
 map
   |....|  2
   |....|  1

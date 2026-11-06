@@ -191,7 +191,7 @@ Lowering takes a tree with no errors and produces the content of a `LevelSource`
 6. `rules`: each `when` (and each lock's rule) as a rule record in file order, names resolved to indices, `is not` to the complement mask, a cell to a rectangle with equal corners. This crate builds records through the types `fizz-pack` publishes and never lays out a rule record itself.
 7. `strings`: each `string` as `StringRec::new(style, text)` in file order.
 
-The result is then passed to `level::validate`, which must agree with the tree's own checks; a disagreement is E199. A lowered level is the same level as the `const` one when `level::digest` agrees, and the slice's script is the proof (see below).
+The result is then passed to `level::validate`, which must agree with the tree's own checks; a disagreement is E199. Until the simulation runs every rule (the rule phase of `RULES.md`), `level::validate` refuses a rule that has no phase yet, which is not a disagreement: lowering reports that rule's line as not built yet, with no diagnostic, and so does a `word` or `cue` whose name has no table to resolve through yet (a shared caption, a world string, quoted text, a sound). Such a file parses, prints, validates and expands. A lowered level is the same level as the `const` one when `level::digest` agrees, and the slice's script is the proof (see below).
 
 ## Errors and lints
 
@@ -248,9 +248,9 @@ The fix, where present, is a short instruction. Codes E005 and E011 to E016 of t
 - **The position rule.** A position is written `x=I y=J` exactly when both coordinates are cell centres (`I + 0.5` and `J + 0.5` with `I` and `J` non-negative integers), and `at=X,Y` for everything else, so one position has one spelling.
 - Map rows and objects indented two spaces; every map row inside the level's height carries its label, counted down from `h - 1`, right-aligned to the width of the top row's label and separated from the closing bar by two spaces. A row below the bottom of the level has no `y` and no label.
 - Objects grouped by kind in lowering order, each with the comment lines directly above it; blank lines between objects are dropped.
-- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it, and also a file with E110, because dropping a `channel=` alias that disagrees with its door would hide the error. Any other file that parses is formatted, whatever the validator says.
+- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it. Any other file that parses is formatted, whatever the validator says.
 
-Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions, W122 (the alias is dropped) and a wrong row label, which formatting corrects).
+Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions and a wrong row label, which formatting corrects).
 
 ## The conformance corpus
 

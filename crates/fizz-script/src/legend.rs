@@ -70,18 +70,31 @@ pub fn tile_of(letter: char) -> Option<u8> {
     LEGEND.iter().find(|l| l.letter == letter).map(|l| l.tile)
 }
 
-/// The switch channel of a door tile, or `None` for a tile that is not switched.
-pub fn door_channel(tile: u8) -> Option<u8> {
-    let p = tiles::props();
-    (p.flags(tile) & SWITCHED != 0).then(|| p.channel(tile))
+/// Whether a tile is switched: a door tile, which a `door` binding or a `lock` makes passable by a state's value.
+pub fn is_switched(tile: u8) -> bool {
+    tiles::props().flags(tile) & SWITCHED != 0
 }
 
-/// The key colour a word names, as `fizz_ep2::rules` numbers it.
+/// The key colour a `lock`'s `key=` word names, as `fizz_ep2::rules` numbers it.
 pub fn key_colour(word: &str) -> Option<u8> {
     match word {
         "red" => Some(KEY_RED),
         "blue" => Some(KEY_BLUE),
         _ => None,
+    }
+}
+
+/// The key colour a key's object word names (`key-red`), as a `holding`, `spend` or `give` writes it.
+pub fn key_object_colour(word: &str) -> Option<u8> {
+    word.strip_prefix("key-").and_then(key_colour)
+}
+
+/// The colour word of a key colour number, for the dump.
+pub fn colour_word(colour: u8) -> &'static str {
+    match colour {
+        KEY_RED => "red",
+        KEY_BLUE => "blue",
+        _ => "?",
     }
 }
 
@@ -131,13 +144,18 @@ mod tests {
 
     #[test]
     fn doors_are_the_switched_tiles() {
-        assert_eq!(door_channel(DOOR_R), Some(tiles::DOOR_RED_CHANNEL));
-        assert_eq!(door_channel(DOOR_B), Some(tiles::DOOR_BLUE_CHANNEL));
-        assert_eq!(door_channel(FILL), None);
         for l in LEGEND {
             let door = l.tile == DOOR_R || l.tile == DOOR_B;
-            assert_eq!(door_channel(l.tile).is_some(), door, "{}", l.name);
+            assert_eq!(is_switched(l.tile), door, "{}", l.name);
         }
+    }
+
+    #[test]
+    fn key_words_name_the_two_colours() {
+        assert_eq!(key_object_colour("key-red"), Some(KEY_RED));
+        assert_eq!(key_object_colour("key-blue"), Some(KEY_BLUE));
+        assert_eq!(key_object_colour("key-green"), None);
+        assert_eq!(key_object_colour("red"), None);
     }
 
     #[test]

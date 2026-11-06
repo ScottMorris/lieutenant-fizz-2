@@ -3,7 +3,9 @@
 // (c) Copyright 2026 Liminal HQ, Scott Morris
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::ast::{Ast, Body, Line, ObjectKind, Pos, Stmt};
+use crate::ast::{
+    Action, Ast, Body, Cond, Input, Line, ObjectKind, Pos, Stmt, Subject, When, WordText,
+};
 
 /// The text exactly as it was read, for every input.
 pub fn print_lossless(ast: &Ast) -> String {
@@ -37,7 +39,116 @@ fn digits(n: usize) -> usize {
     n.to_string().len()
 }
 
-fn statement(stmt: &Stmt, row: Option<(usize, usize)>) -> (usize, String) {
+fn cell(c: (i64, i64)) -> String {
+    format!("at={},{}", c.0, c.1)
+}
+
+fn subject(s: &Subject) -> String {
+    match s {
+        Subject::Id(id) => format!("id={id}"),
+        Subject::Any => "any".to_string(),
+    }
+}
+
+fn input(i: &Input) -> String {
+    match i {
+        Input::Start => "start".into(),
+        Input::Enter(r) => format!("enter {}", r.text()),
+        Input::Take(id) => format!("take id={id}"),
+        Input::Shoot(r) => format!("shoot {}", r.text()),
+        Input::Stomp(s) => format!("stomp {}", subject(s)),
+        Input::Stun(s) => format!("stun {}", subject(s)),
+        Input::Defeat(s) => format!("defeat {}", subject(s)),
+        Input::Time { at, every } => match every {
+            Some(e) => format!("time at={at} every={e}"),
+            None => format!("time at={at}"),
+        },
+        Input::Touch(r) => format!("touch {}", r.text()),
+        Input::TouchCell(i, j) => format!("touch {}", cell((*i, *j))),
+        Input::TouchId(id) => format!("touch id={id}"),
+        Input::Use(id) => format!("use id={id}"),
+        Input::Hit(id) => format!("hit id={id}"),
+        Input::Cleared(g) => format!("cleared group={g}"),
+        Input::Becomes { state, value } => format!("state {state} becomes {value}"),
+        Input::Changes { state } => format!("state {state} changes"),
+    }
+}
+
+fn cond(c: &Cond) -> String {
+    match c {
+        Cond::StateIs { state, not, values } => format!(
+            "state {state} is {}{}",
+            if *not { "not " } else { "" },
+            values.join(",")
+        ),
+        Cond::Holding { not, key } => format!("{}holding {key}", if *not { "not " } else { "" }),
+    }
+}
+
+fn action(a: &Action) -> String {
+    match a {
+        Action::Set { state, value } => format!("set {state} {value}"),
+        Action::Toggle(s) => format!("toggle {s}"),
+        Action::Next(s) => format!("next {s}"),
+        Action::Spend(k) => format!("spend {k}"),
+        Action::Give(k) => format!("give {k}"),
+        Action::Score(n) => format!("score {n}"),
+        Action::Ammo(n) => format!("ammo {n}"),
+        Action::Word {
+            text,
+            style,
+            cell: c,
+        } => {
+            let t = match text {
+                WordText::Name(n) => n.clone(),
+                WordText::Text(t) => format!("\"{t}\""),
+            };
+            let s = style
+                .as_ref()
+                .map(|s| format!(" style={s}"))
+                .unwrap_or_default();
+            format!("word {t}{s} {}", cell(*c))
+        }
+        Action::Cue { name, cell: c } => format!("cue {name} {}", cell(*c)),
+    }
+}
+
+/// `when INPUT [if COND [and COND]] [after=TICKS] then ACTION[, ACTION] [repeat]`.
+pub(crate) fn when(w: &When) -> String {
+    let mut s = format!("when {}", input(&w.input));
+    for (i, c) in w.conds.iter().enumerate() {
+        s.push_str(if i == 0 { " if " } else { " and " });
+        s.push_str(&cond(c));
+    }
+    if let Some(a) = w.after {
+        s.push_str(&format!(" after={a}"));
+    }
+    s.push_str(" then ");
+    s.push_str(&w.actions.iter().map(action).collect::<Vec<_>>().join(", "));
+    if w.repeat {
+        s.push_str(" repeat");
+    }
+    s
+}
+
+/// A `door`'s open values in the order of the state's values, without repeats. When the state, or one of the values, is not
+/// declared, the list keeps the order it was written in, without repeats.
+fn open_values(ast: &Ast, state: &str, open: &[String]) -> Vec<String> {
+    let mut seen: Vec<String> = Vec::new();
+    for v in open {
+        if !seen.contains(v) {
+            seen.push(v.clone());
+        }
+    }
+    if let Some(values) = ast.state_values(state)
+        && seen.iter().all(|v| values.contains(v))
+    {
+        seen.sort_by_key(|v| values.iter().position(|x| x == v));
+    }
+    seen
+}
+
+fn statement(ast: &Ast, stmt: &Stmt, row: Option<(usize, usize)>) -> (usize, String) {
     match stmt {
         Stmt::Script { dialect, version } => (0, format!("script {dialect} {version}")),
         Stmt::Level {
@@ -53,23 +164,36 @@ fn statement(stmt: &Stmt, row: Option<(usize, usize)>) -> (usize, String) {
         Stmt::Theme { name } => (0, format!("theme {name}")),
         Stmt::Start { x, y } => (0, format!("start {},{}", number(*x), number(*y))),
         Stmt::Floor { word } => (0, format!("floor {word}")),
-        Stmt::Channel { channels, on } => {
-            let mut c = channels.clone();
-            c.sort_unstable();
-            c.dedup();
-            let list: Vec<String> = c.iter().map(u32::to_string).collect();
-            (
-                0,
-                format!(
-                    "channel {} {}",
-                    list.join(","),
-                    if *on { "on" } else { "off" }
-                ),
-            )
+        Stmt::State {
+            name,
+            values,
+            start,
+        } => {
+            // The common state, `values=off,on` starting at its first value, is one short line.
+            let list = values
+                .clone()
+                .unwrap_or_else(|| vec!["off".to_string(), "on".to_string()]);
+            let mut s = format!("state {name}");
+            if list != ["off", "on"] {
+                s.push_str(&format!(" values={}", list.join(",")));
+            }
+            if let Some(st) = start
+                && list.first() != Some(st)
+            {
+                s.push_str(&format!(" start={st}"));
+            }
+            (0, s)
         }
-        Stmt::Lock {
-            name, key, cell, ..
-        } => (0, format!("lock {name} key={key} at={},{}", cell.0, cell.1)),
+        Stmt::Door { rect, state, open } => (
+            0,
+            format!(
+                "door {} state={state} open={}",
+                rect.text(),
+                open_values(ast, state, open).join(",")
+            ),
+        ),
+        Stmt::When(w) => (0, when(w)),
+        Stmt::Lock { name, key, cell: c } => (0, format!("lock {name} key={key} {}", cell(*c))),
         Stmt::Str { name, text, style } => {
             let s = style
                 .as_ref()
@@ -141,7 +265,7 @@ pub fn print_canonical(ast: &Ast) -> String {
                     row_idx += 1;
                     (row_idx - 1, height)
                 });
-                let (indent, text) = statement(stmt, place);
+                let (indent, text) = statement(ast, stmt, place);
                 let item = Item::Line {
                     indent,
                     text: with_comment(text, &line.comment),
