@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lieutenant Fizz 2 Local Preview</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Crect x='5' y='2' width='6' height='1' fill='%23aaa'/%3E%3Crect x='5' y='3' width='6' height='11' fill='%23f5f'/%3E%3Crect x='5' y='6' width='6' height='3' fill='%23fff'/%3E%3Crect x='5' y='3' width='1' height='11' fill='%23a0a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="fizz.css">
+<style>
+  main { max-width: 54rem; margin: 0 auto; padding: 2rem 16px 3rem; }
+  .title { padding: 1.25rem 1.25rem 1.5rem; text-align: center; }
+  .hero { display: block; width: 100%; height: auto; margin: 0 0 1.25rem; aspect-ratio: 10 / 3; }
+  h1.logo { font-size: clamp(1.6rem, 6vw, 3rem); }
+  .cards { display: grid; gap: 2rem 1.75rem; margin-top: 2.5rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .card { display: flex; flex-direction: column; gap: .75rem; color: inherit; text-decoration: none; }
+  .card p { margin: 0; }
+  .go { margin-top: auto; padding: 0 .5rem; color: var(--yellow); font-weight: 700; }
+  .go::before { content: "\25B6\00a0"; }
+  .card:hover, .card:focus-visible {
+    box-shadow:
+      inset 0 0 0 4px var(--black), inset 0 0 0 7px var(--white), inset 0 0 0 10px var(--black), inset 0 0 0 13px var(--white),
+      12px 12px 0 var(--black);
+  }
+  .card:hover .go, .card:focus-visible .go { background: var(--blue); color: var(--white); }
+  .card:hover .tab, .card:focus-visible .tab { background: var(--yellow); color: var(--black); }
+  .box { margin-top: 2.5rem; }
+  .modes { display: grid; gap: .1rem 1rem; padding: 0; margin: 0; list-style: none; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+  .modes a { display: block; padding: .05rem .5rem; color: var(--white); text-decoration: none; }
+  .modes a::before { content: "\00a0\00a0"; }
+  .modes a:hover, .modes a:focus-visible { background: var(--blue); outline-offset: 0; }
+  .modes a:hover::before, .modes a:focus-visible::before { content: "\25B6\00a0"; }
+  .note p { margin: 0; }
+  #build { margin: 2.5rem 0 0; padding: .2rem .75rem; background: var(--black); color: var(--grey); font-size: .9rem; }
+  #build:empty { display: none; }
+  @media (max-width: 30rem) {
+    .panel { box-shadow: inset 0 0 0 4px var(--black), inset 0 0 0 7px var(--yellow), inset 0 0 0 10px var(--black), inset 0 0 0 13px var(--yellow), 8px 8px 0 var(--black); }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="panel title">
+    <img class="hero" src="hero.svg" width="160" height="48" alt="A pixel-art night: a lighthouse sweeps its beam over the sea while Ben, in his green helmet, stands on a wooden ledge between a can of Fizz and a chicken.">
+    <h1 class="logo">Lieutenant Fizz 2</h1>
+    <p class="sub tagline">Local preview. Pick a build to try.</p>
+  </header>
+
+  <div class="cards">
+    <a class="card panel" href="web/">
+      <h2 class="tab">Web version</h2>
+      <p>The WebAssembly build: the richer one, with the wide view, music and effects. Esc opens Paused and Options.</p>
+      <span class="go">Open the Web build</span>
+    </a>
+    <a class="card panel" href="dos/">
+      <h2 class="tab">DOS version (js-dos)</h2>
+      <p>FIZZ2.EXE running in a browser DOS emulator, for quick DOS checks without a native DOSBox. Sound Blaster 16 and AdLib.</p>
+      <span class="go">Play the DOS build</span>
+    </a>
+  </div>
+
+  <section class="panel box" aria-labelledby="modes-title">
+    <h3 class="tab" id="modes-title">DOS modes</h3>
+    <ul class="modes">
+      <li><a href="dos/?mode=live">Play (/LIVE)</a></li>
+      <li><a href="dos/?mode=replay">Replay (/REPLAY)</a></li>
+      <li><a href="dos/?mode=check">Check screen (/CHECK)</a></li>
+      <li><a href="dos/?mode=bench">Bench (/BENCH)</a></li>
+      <li><a href="dos/?mode=help">Help (/?)</a></li>
+      <li><a href="dos/?mode=shell">DOS prompt</a></li>
+    </ul>
+  </section>
+
+  <div class="panel box note">
+    <p class="tab">Note</p>
+    <p>The browser emulator is a different DOSBox from the one in the checks, and its speed depends on this machine, so its timing and any counts it prints are for looking, not for pinning. The pinned numbers come from <code>tools/check-dos.sh</code>.</p>
+  </div>
+
+  <p id="build"></p>
+</main>
+<script>
+  fetch("build-info.json").then(r => r.ok ? r.json() : null).then(b => {
+    if (!b) return;
+    document.getElementById("build").textContent = "Built " + b.built + " from " + b.source + ".";
+  }).catch(() => {});
+</script>
+</body>
+</html>

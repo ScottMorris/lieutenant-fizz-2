@@ -122,6 +122,8 @@ impl Write for Transcript {
 struct Start {
     file: Prefs,
     prefs: Prefs,
+    /// `/NOLIMIT`: no `LIVE_SERVICE_CAP`.
+    no_limit: bool,
 }
 
 type Vector = Option<(u16, u32)>;
@@ -306,7 +308,11 @@ fn main() -> i32 {
     // The sound flags are over the file's sound choices too (`prefs.sound`); the Options screen starts from this, stars the rows the
     // switches changed and saves the file's own values for those.
     apply_flags(&mut prefs.sound, args.iter().map(|a| a.as_str()));
-    let start = Start { file: file_prefs, prefs };
+    let start = Start {
+        file: file_prefs,
+        prefs,
+        no_limit: run.no_limit,
+    };
     CLASSIC_PLACEMENT.store(prefs.placement == PlacementMode::Classic, Ordering::Relaxed);
     let options = DrawOptions {
         captions: prefs.captions == Captions::On,
@@ -646,7 +652,7 @@ fn live(start: &Start, options_only: bool) -> i32 {
     if options_only {
         menus.open_options(&frame);
     }
-    while !quit && timer::ticks().wrapping_sub(began) < LIVE_SERVICE_CAP {
+    while !quit && (start.no_limit || timer::ticks().wrapping_sub(began) < LIVE_SERVICE_CAP) {
         if menus.is_open() {
             // The world is held: only keys are read, and the screen is drawn when something on it changed.
             while let Some(event) = input.poll_key() {

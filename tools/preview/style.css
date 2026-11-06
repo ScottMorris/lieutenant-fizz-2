@@ -1,0 +1,80 @@
+/* The DOS player page: a DOS menu bar, the emulator in a double yellow bezel, and a title-screen cover. fizz.css has the colours. */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow-x: hidden; }
+
+/* The menu bar: grey with black text, the current mode and the hovered item in the check screen's blue selection bar. */
+header {
+  display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center;
+  padding: .3rem 16px; background: var(--grey); color: var(--black);
+  border-bottom: 4px solid var(--black);
+}
+header a { padding: 0 .5rem; color: var(--black); text-decoration: none; }
+header a:hover, header a:focus-visible, nav a[aria-current="page"] { background: var(--blue); color: var(--white); }
+header :focus-visible { outline: 3px solid var(--black); outline-offset: 1px; }
+nav { display: flex; flex-wrap: wrap; gap: .1rem .25rem; }
+nav a[aria-current="page"]::before { content: "\25B6\00a0"; }
+.actions { display: flex; flex-wrap: wrap; gap: .25rem; margin-left: auto; }
+header button { padding: 0 .4rem; border: 0; background: transparent; color: var(--black); font: inherit; cursor: pointer; }
+header button::before { content: "[\00a0"; }
+header button::after { content: "\00a0]"; }
+header button:hover:not(:disabled), header button:focus-visible { background: var(--blue); color: var(--white); }
+header button[aria-pressed="true"] { background: var(--black); color: var(--yellow); }
+header button:disabled { color: var(--dark-grey); cursor: default; }
+
+/* The bezel: a black rim, two yellow lines and a hard shadow, as the game's own boxes. */
+#stage {
+  position: relative; flex: 1; min-height: 0;
+  margin: 1rem 28px 28px 16px;
+  background: var(--black);
+  border: 9px double var(--yellow);
+  box-shadow: 0 0 0 4px var(--black), 12px 12px 0 4px var(--black);
+}
+#stage:fullscreen { margin: 0; border: 0; box-shadow: none; }
+#dos { position: absolute; inset: 0; }
+
+/* The cover: a title screen over a purple dither, with Play as the selected menu item. */
+#cover {
+  position: absolute; inset: 0; z-index: 5; overflow: auto;
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem 1rem;
+  background: var(--black);
+  background: repeating-conic-gradient(var(--magenta) 0 25%, var(--black) 0 50%) 0 0 / 4px 4px;
+}
+.title-card { width: min(40rem, 100%); margin: auto; text-align: center; }
+.title-card .hero { display: block; width: 100%; height: auto; aspect-ratio: 10 / 3; margin: 0 0 1rem; }
+.title-card .logo { font-size: clamp(1.4rem, 5vw, 2.4rem); }
+#blurb { margin: 1rem 0 1.25rem; color: var(--grey); }
+#play {
+  display: inline-block; max-width: 100%; padding: .2rem 1.5rem .2rem 1rem;
+  border: 0; background: var(--yellow); color: var(--black);
+  font: 700 1.5rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .1em; cursor: pointer;
+  box-shadow: 6px 6px 0 var(--brown);
+  overflow-wrap: anywhere;
+}
+#play::before { content: "\25B6\00a0"; }
+#play::after { content: "_"; animation: fizz-blink 1s steps(1) infinite; }
+#play:hover:not(:disabled), #play:focus-visible { background: var(--white); }
+#play:disabled { background: var(--grey); cursor: default; font-size: 1rem; text-transform: none; letter-spacing: 0; }
+#play:disabled::after { content: none; }
+/* The cursor after Play blinks, and stays still when motion is reduced. */
+@keyframes fizz-blink { 50% { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { #play::after { animation: none; } }
+
+@media (max-width: 30rem) {
+  #stage { margin: .75rem 20px 20px 12px; box-shadow: 0 0 0 4px var(--black), 8px 8px 0 4px var(--black); }
+}
+
+/* js-dos's own side bar and Settings are themed by [data-theme] blocks of HSL variables (daisyUI's); this one is the 16 EGA colours, with
+   square corners and no animation. player.js asks for it with the `theme` option. */
+[data-theme=fizz] {
+  color-scheme: dark;
+  font-family: var(--mono);
+  --p: 240 100% 33%; --pf: 240 100% 28%; --pc: 0 0% 100%;           /* blue, the check screen's selection bar */
+  --s: 300 100% 33%; --sf: 300 100% 28%; --sc: 0 0% 100%;           /* magenta */
+  --a: 60 100% 67%; --af: 60 100% 67%; --ac: 0 0% 0%;               /* yellow */
+  --n: 0 0% 33%; --nf: 0 0% 27%; --nc: 0 0% 100%;                   /* dark grey */
+  --b1: 0 0% 0%; --b2: 0 0% 0%; --b3: 0 0% 0%; --bc: 0 0% 67%;       /* black, light grey text */
+  --in: 180 100% 67%; --inc: 0 0% 0%; --su: 120 100% 67%; --suc: 0 0% 0%;
+  --wa: 60 100% 67%; --wac: 0 0% 0%; --er: 0 100% 67%; --erc: 0 0% 0%;
+  --rounded-box: 0; --rounded-btn: 0; --rounded-badge: 0; --tab-radius: 0;
+  --animation-btn: 0s; --animation-input: 0s; --btn-text-case: uppercase; --btn-focus-scale: 1; --border-btn: 2px; --tab-border: 2px;
+}

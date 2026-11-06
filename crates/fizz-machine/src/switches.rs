@@ -42,6 +42,8 @@ pub enum Kind {
     Captions(Captions),
     /// `/BENCH` also runs the 560 Hz audio service and the music (a developer switch).
     BenchAudio,
+    /// `/LIVE` runs without its 30-second wall-clock limit (a developer switch, for a person at an emulator).
+    NoLimit,
     /// The frame rate for this run, over `FIZZ2.CFG`'s; the last one given wins.
     FrameRate(FrameRate),
     /// The sky for this run, `/SKY:AUTO`, `/SKY:FULL` or `/SKY:LIGHT`, over `FIZZ2.CFG`'s; the last one given wins. The value is read by
@@ -350,6 +352,13 @@ pub const SWITCHES: &[Switch] = &[
         "Open the Options screen at once; Esc leaves",
     ),
     sw(
+        "/NOLIMIT",
+        Arg::None,
+        Group::Developer,
+        Kind::NoLimit,
+        "With /LIVE: do not end the run after 30 seconds",
+    ),
+    sw(
         "/AUDIO",
         Arg::None,
         Group::Developer,
@@ -414,6 +423,8 @@ pub struct Invocation {
     pub bench_ticks: Option<u64>,
     /// `/AUDIO`: `/BENCH` runs with the 560 Hz service and the music.
     pub bench_audio: bool,
+    /// `/NOLIMIT`: `/LIVE` runs until Quit to DOS, not for 30 seconds at most.
+    pub no_limit: bool,
 }
 
 impl Invocation {
@@ -470,6 +481,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
         night: None,
         bench_ticks: None,
         bench_audio: false,
+        no_limit: false,
     };
     let mut mode_seen = false;
     let mut number: Option<(&str, u64)> = None;
@@ -488,6 +500,7 @@ pub fn parse<'a>(args: impl IntoIterator<Item = &'a str> + Clone) -> Parsed<'a> 
             }
             Kind::Mode(_) | Kind::Help => {}
             Kind::BenchAudio => run.bench_audio = true,
+            Kind::NoLimit => run.no_limit = true,
             Kind::Keys(k) => run.keys = Some(k),
             Kind::Captions(c) => run.captions = Some(c),
             Kind::FrameRate(r) => run.frame_rate = Some(r),
@@ -711,6 +724,7 @@ mod tests {
             night: None,
             bench_ticks: None,
             bench_audio: false,
+            no_limit: false,
         };
         let bench = Invocation {
             mode: Mode::Bench,
@@ -805,6 +819,13 @@ mod tests {
             })
         );
         assert_eq!(run(&["/BENCH"]), Parsed::Run(bench));
+        assert_eq!(
+            run(&["/LIVE", "/NOLIMIT"]),
+            Parsed::Run(Invocation {
+                no_limit: true,
+                ..live
+            })
+        );
         assert_eq!(
             run(&["/BENCH", "/AUDIO"]),
             Parsed::Run(Invocation {

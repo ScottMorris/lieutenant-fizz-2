@@ -40,6 +40,7 @@ tools/check-dos.sh                               # build FIZZ2.EXE and check it 
 tools/ci-scope.sh                                # which check groups this branch's paths need (CI runs these on a PR, everything on main)
 tools/build-web.sh                               # build dist/web (needs the pinned wasm-bindgen CLI)
 tools/check-parity.sh                            # native, Web and DOS transcripts must match: PARITY ok <hash>
+tools/preview-site.sh --serve                    # local preview: landing page, Web build and js-dos DOS modes on http://127.0.0.1:8080/ (for looking, not pinning)
 python3 tools/progress-report/build.py --check   # build and check the progress archive in dist/progress-report (--offline: gh snapshot)
 python3 tools/progress-report/gather.py --update-snapshot   # refresh the archive's committed gh snapshot
 python3 tools/progress-report/capture.py         # refresh the archive's DOSBox and Chromium screenshots

@@ -1,0 +1,45 @@
+/* The preview site's shared look: the 16 EGA colours, a monospace face, and the black, double-bordered boxes of the game's /CHECK
+   screen over its dithered brown backdrop. No fonts or images come from the network. */
+:root {
+  --black: #000000; --blue: #0000aa; --green: #00aa00; --cyan: #00aaaa;
+  --red: #aa0000; --magenta: #aa00aa; --brown: #aa5500; --grey: #aaaaaa;
+  --dark-grey: #555555; --light-blue: #5555ff; --light-green: #55ff55; --light-cyan: #55ffff;
+  --light-red: #ff5555; --light-magenta: #ff55ff; --yellow: #ffff55; --white: #ffffff;
+  --mono: "Perfect DOS VGA 437", "Px437 IBM VGA 8x16", "IBM VGA 8x16", ui-monospace, "DejaVu Sans Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  /* A 50% checker of brown and black, two screen pixels a cell, as the check screen fills its backdrop. */
+  --dither: repeating-conic-gradient(var(--brown) 0 25%, var(--black) 0 50%) 0 0 / 4px 4px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--black); background: var(--dither); color: var(--grey); font: 16px/1.5 var(--mono); }
+img { image-rendering: pixelated; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 3px solid var(--light-cyan); outline-offset: 3px; }
+
+/* A dialogue box: black, a black rim, two yellow lines, and a hard shadow with no blur. */
+.panel {
+  position: relative;
+  background: var(--black);
+  padding: 1.6rem 1.5rem 1.25rem;
+  box-shadow:
+    inset 0 0 0 4px var(--black), inset 0 0 0 7px var(--yellow), inset 0 0 0 10px var(--black), inset 0 0 0 13px var(--yellow),
+    12px 12px 0 var(--black);
+}
+/* The brown name tab that sits on a box's top line. */
+.tab {
+  position: absolute; top: -.55rem; left: 1.25rem; margin: 0;
+  padding: 0 .5rem; background: var(--brown); color: var(--white);
+  font-size: 1rem; font-weight: 700; line-height: 1.6;
+}
+
+/* The title: white over light magenta, Fizz 2's accent, with a hard blue shadow, after the README hero. */
+.logo {
+  margin: 0; font-weight: 700; line-height: 1.05; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--white);
+  background: linear-gradient(var(--white) 0 54%, var(--light-magenta) 54% 100%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(3px 3px 0 var(--blue));
+}
+.tagline { margin: .4rem 0 0; color: var(--yellow); text-transform: uppercase; letter-spacing: .08em; text-shadow: 2px 2px 0 var(--red); }
+
+code { font: inherit; color: var(--white); }
