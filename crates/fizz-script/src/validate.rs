@@ -1074,7 +1074,7 @@ pub fn analyse(ast: &Ast) -> Analysis {
                 .map_or(1, |r| r.origin.line);
             out.unbuilt = Some(Unbuilt {
                 line,
-                reason: "the simulation runs only locks so far (a touch rule of a lock's shape); this rule has no phase in fizz-ep2 yet".into(),
+                reason: "the simulation runs only touch and enter rules with the set, toggle, next and spend actions so far; this rule has no phase in fizz-ep2 yet".into(),
             });
         }
         Err(e) => internal(&mut out, format!("fizz-ep2 refused the level ({e:?})")),
