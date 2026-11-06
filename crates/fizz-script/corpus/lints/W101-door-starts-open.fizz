@@ -1,0 +1,9 @@
+script fizz2 0
+level "T" 4x3 id=t
+start 1,1
+state gate values=closed,open start=open
+door x=2 y=1 state=gate open=open
+map
+  |....|  2
+  |..D.|  1
+  |####|  0

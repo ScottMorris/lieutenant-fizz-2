@@ -21,7 +21,7 @@ This document specifies `script fizz2 0`, the text format in which Fizz 2 levels
 
 The dialect descends from Fizz 1's level script language, which rebuilt all sixteen Fizz 1 levels exactly. It keeps that language's lexical habits (one statement to a line, `key=value` fields, `//` comments, stable error codes, a lossless tree) and replaces its Fizz 1 builder vocabulary with what a Fizz 2 level holds. A Fizz 2 file starts with `script fizz2 0` and the version never changes under a file; a Fizz 1 script has no `script` line and is not read by this parser (it gets E007, which says so).
 
-Version 0 covers what `LEVL` version 2 carries: the level's size and name, the start, the floor, the tile map, the objects (keys, snacks, soda cans and the chicken, each with a name), **states**, the **door bindings** that make tiles passable by a state's value, the **rules** that change states (`when`), `lock` as a short way to write the key-and-door case, and the level's strings. It lowers to a `LevelSource` and so to the `LEVL` bytes, and the slice level written in it has the same `level::digest` as `level::SLICE_SOURCE`.
+Version 0 covers what `LEVL` version 2 carries: the level's size and name, the start, the floor, the tile map, the objects (keys, snacks, soda cans, the provisional elixir and the chicken, each with a name), **states**, the **door bindings** that make tiles passable by a state's value, the **rules** that change states (`when`), `lock` as a short way to write the key-and-door case, and the level's strings. It lowers to a `LevelSource` and so to the `LEVL` bytes, and the slice level written in it has the same `level::digest` as `level::SLICE_SOURCE`.
 
 One model is written three ways. `state` declares values by name; `door` binds switched tiles to a set of a state's values; `when` changes states in answer to inputs; and `lock` is sugar that expands to exactly one state, one door binding and one rule (see [`lock`, the sugar](#lock-the-sugar)). There are **no channels** in the dialect: a Fizz 1 channel is a two-valued state with a door wired to it, and every case it covers is written with a state.
 
@@ -63,7 +63,7 @@ map       = "map" ;                    (* then rows *)
 row       = "|" TILES "|" [ INT ] ;
 objects   = "objects" ;                (* then object lines *)
 object    = OBJWORD "id=" NAME ( "at=" PAIR | "x=" INT "y=" INT ) [ "dir=" ( "1" | "-1" ) ] ;
-OBJWORD   = "key-red" | "key-blue" | "cheezie" | "choc" | "cookie" | "soda" | "chicken" ;
+OBJWORD   = "key-red" | "key-blue" | "cheezie" | "choc" | "cookie" | "soda" | "elixir" | "chicken" ;
 STYLE     = "white" | "cyan" | "red" | "green" | "blue" | "yellow" | "grey" ;
 INPUT     = "start" | "enter" RECT | "take" ID | "shoot" RECT | ( "stomp" | "stun" | "defeat" ) ( ID | "any" )
           | "time" "at=" INT [ "every=" INT ] | "touch" ( RECT | CELL | ID ) | "use" ID | "hit" ID
@@ -191,7 +191,7 @@ Lowering takes a tree with no errors and produces the content of a `LevelSource`
 6. `rules`: each `when` (and each lock's rule) as a rule record in file order, names resolved to indices, `is not` to the complement mask, a cell to a rectangle with equal corners. This crate builds records through the types `fizz-pack` publishes and never lays out a rule record itself.
 7. `strings`: each `string` as `StringRec::new(style, text)` in file order.
 
-The result is then passed to `level::validate`, which must agree with the tree's own checks; a disagreement is E199. A lowered level is the same level as the `const` one when `level::digest` agrees, and the slice's script is the proof (see below).
+The result is then passed to `level::validate`, which must agree with the tree's own checks; a disagreement is E199. Until the simulation runs every rule (the rule phase of `RULES.md`), `level::validate` refuses a rule that has no phase yet, which is not a disagreement: lowering reports that rule's line as not built yet, with no diagnostic, and so does a `word` or `cue` whose name has no table to resolve through yet (a shared caption, a world string, quoted text, a sound). Such a file parses, prints, validates and expands. A lowered level is the same level as the `const` one when `level::digest` agrees, and the slice's script is the proof (see below).
 
 ## Errors and lints
 
@@ -246,11 +246,11 @@ The fix, where present, is a short instruction. Codes E005 and E011 to E016 of t
 - Tokens separated by single spaces; two spaces before a trailing comment, written `// text` with the text trimmed; a comment line takes the indent of the statement after it.
 - Statement fields in the order of the grammar above (`id=` then the position then `dir=`); a `state` omits `values=off,on` and a `start=` that names its first value, so the common state is one short line; a value list keeps its order (the order is the numbering) and a `door`'s `open=` list is written in value order without repeats; a `lock` stays one line and is never printed as its expansion; numbers in the shortest form that reads back to the same `f64`, with no `+` and no trailing `.0`.
 - **The position rule.** A position is written `x=I y=J` exactly when both coordinates are cell centres (`I + 0.5` and `J + 0.5` with `I` and `J` non-negative integers), and `at=X,Y` for everything else, so one position has one spelling.
-- Map rows and objects indented two spaces; every map row carries its label, right-aligned to the width of the top row's label and separated from the closing bar by two spaces.
+- Map rows and objects indented two spaces; every map row inside the level's height carries its label, counted down from `h - 1`, right-aligned to the width of the top row's label and separated from the closing bar by two spaces. A row below the bottom of the level has no `y` and no label.
 - Objects grouped by kind in lowering order, each with the comment lines directly above it; blank lines between objects are dropped.
-- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with errors is not formatted by `fmt`, which refuses it.
+- A bad line is written as its text with the outer white space trimmed and is otherwise not changed. A file with syntax errors is not formatted: `fmt` refuses it. Any other file that parses is formatted, whatever the validator says.
 
-Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same diagnostics apart from their positions).
+Two properties are required and tested: **stable** (printing the canonical text again gives the same text, and parsing canonical text and printing it canonically gives it back) and **meaning-preserving** (the canonical text lowers to the same digest as the input, and gives the same set of diagnostic codes, apart from positions and a wrong row label, which formatting corrects).
 
 ## The conformance corpus
 

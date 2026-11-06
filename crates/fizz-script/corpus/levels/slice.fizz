@@ -1,0 +1,73 @@
+script fizz2 0
+// The slice level, Lighthouse Point, as a script. It lowers to the same LevelSource as `SLICE_SOURCE` in
+// `crates/fizz-ep2/src/level.rs`, and the conformance test proves it by digest. Keep the two in step by hand.
+level "Lighthouse Point" 32x48 id=light-1
+start 2,2  // the lower-left corner of Ben's body
+floor open
+
+// The red and blue doors: each lock is a state, a door binding over the door's run and a touch rule.
+lock red-door key=red at=15,21
+lock blue-door key=blue at=22,39
+
+map
+  |......................B........B|  47
+  |......................B........B|  46
+  |......................B........B|  45
+  |......................B........B|  44
+  |......................B........B|  43
+  |......................B........B|  42
+  |......................B.BBBBB..B|  41
+  |......................b........B|  40
+  |....................E.b........B|  39
+  |....................E.b........B|  38
+  |#..............B===============#|  37
+  |###############Bwwwwwwwwwwwwwww#|  36
+  |###############Bwwwwwwwwwwwwwww#|  35
+  |###############Bwwwwwwww=======#|  34
+  |###############Bwwwwwwwwwwwwwww#|  33
+  |###############Bwwwwwwwwwwwwwww#|  32
+  |###############B=======wwwwwwww#|  31
+  |###############Bwwwwwwwwwwwwwww#|  30
+  |###############Bwwwwwwwwwwwwwww#|  29
+  |###############Bwwwwwwww=======#|  28
+  |###############Bwwwwwwwwwwwwwww#|  27
+  |###############Bwwwwwwwwwwwwwww#|  26
+  |###############B=======wwwwwwww#|  25
+  |###############Bwwwwwwwwwwwwwww#|  24
+  |###############Bwwwwwwwwwwwwwww#|  23
+  |#wwwwwwwwwwwwwwDwwwwwwww=======#|  22
+  |#wwwwwwwwwwwwwwDwwwwwwwwwwwwwww#|  21
+  |#wwwwwwwwwwwwwwDwwwwwwwwwwwwwww#|  20
+  |#wwwwwww=======BBBBBBBBBBBBBBBB#|  19
+  |#wwwwwwwwwwwwwwB################|  18
+  |#wwwwwwwwwwwwwwB################|  17
+  |#=======wwwwwwwB################|  16
+  |#wwwwwwwwwwwwwwB################|  15
+  |#wwwwwwwwwwwwwwB################|  14
+  |#wwwwwww=======B################|  13
+  |#wwwwwwwwwwwwwwB################|  12
+  |#wwwwwwwwwwwwwwB################|  11
+  |#w=============B################|  10
+  |#wwwwwwwwwwwwwwB################|   9
+  |#wwwwwwwwwwwwwwB################|   8
+  |#wwwwwww=======B################|   7
+  |#wwwwwwwwwwwwwwB################|   6
+  |#wwwwwwwwwwwwwwB################|   5
+  |#=======wwwwwwwB################|   4
+  |#wwwwwwwwwwwwwwB################|   3
+  |#wwwwwwwww^^^wwB################|   2
+  |################################|   1
+  |################################|   0
+
+objects
+  key-red id=red-key at=2.5,11.7  // the far left end of the chicken's ledge
+  key-blue id=blue-key at=24.5,42.7  // the left end of the shelf
+  cheezie id=hang-1 at=25.5,40.2  // two hang under the shelf
+  cheezie id=hang-2 at=27.5,40.2
+  cheezie id=shelf-cheezie at=27.5,42.7
+  choc id=shelf-choc at=26.5,42.7
+  cookie id=shelf-cookie at=25.5,42.7
+  soda id=floor-can at=28.5,38.7  // in the shooting stretch by the right-hand wall
+  soda id=shelf-can at=28.5,42.7
+  elixir id=elixir at=13.5,8.7  // the provisional new-life drink, at the right end of the second ledge of the left shaft
+  chicken id=hen at=8,11 dir=-1  // on the long ledge

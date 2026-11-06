@@ -1,0 +1,30 @@
+
+script   fizz2 0
+
+// a tiny level, written untidily
+
+level "Messy" 4x3 id=messy   // header
+		start  1.0, 1
+floor open
+
+lock gate  key=red    at=2,1
+// the blue door, written out
+state  blue-gate values=closed, open start=closed
+door y=0  x=1 state=blue-gate  open=open,open
+when touch y=0 x=1 if state blue-gate is closed and holding key-blue then set blue-gate open,spend key-blue
+state lamp values=off,on start=off
+string hi   "Hi there"
+map
+|....|
+   |..D.|  1   // the door
+|#b##|
+
+
+objects
+ // the hen
+ chicken   id=hen  at=3.5,2.5   dir=1
+ cheezie id=treat at=3.5,0.25
+ // keys first
+ key-red  id=red-key  at=0.5,0.5
+ key-blue id=blue-key x=1 y=1
+

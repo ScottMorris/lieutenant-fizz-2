@@ -86,6 +86,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fizz-script"
+version = "0.1.0"
+dependencies = [
+ "fizz-ep2",
+ "fizz-pack",
+ "fizz-phys",
+]
+
+[[package]]
 name = "fizz-sfx"
 version = "0.1.0"
 dependencies = [

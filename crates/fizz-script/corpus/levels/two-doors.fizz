@@ -1,0 +1,16 @@
+script fizz2 0
+// Two doors: the red one with `lock`, the blue one written out as the three lines a lock stands for.
+level "Two Doors" 6x3 id=two-doors
+start 0,1
+lock red-door key=red at=2,1
+state blue-door values=closed,open
+door x=4 y=1..2 state=blue-door open=open
+when touch x=4 y=1..2 if state blue-door is closed and holding key-blue then set blue-door open, spend key-blue
+string welcome "Two doors" style=yellow
+map
+  |....b.|  2
+  |..D.b.|  1
+  |######|  0
+objects
+  key-red id=red-key x=1 y=1
+  key-blue id=blue-key x=3 y=1
