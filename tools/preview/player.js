@@ -15,7 +15,6 @@
   var muteButton = document.getElementById('mute');
   var fullButton = document.getElementById('full');
   var restartButton = document.getElementById('restart');
-  var player = null;
   var ci = null;
   var muted = params.has('mute');
   var manifest = null;
@@ -44,7 +43,7 @@
     host.hidden = false;
     ci = null;
     document.title = 'Lieutenant Fizz 2 DOS (js-dos, build ' + manifest.hash + ')';
-    player = window.Dos(host, {
+    window.Dos(host, {
       url: manifest.bundles[mode],
       pathPrefix: 'js-dos/emulators/',
       autoStart: true,
@@ -76,15 +75,12 @@
       });
   }
 
-  // Leaving the game and typing `exit` at the DOS prompt stops the emulator; this starts a fresh one.
+  // Leaving the game and typing `exit` at the DOS prompt stops the emulator. Restart loads the page again, back to the Play cover: a
+  // fresh emulator every time, and the click on Play is the gesture that lets the sound start. (Tearing js-dos down and building a second
+  // one on the same element sometimes left a black screen in a real browser.)
   function restart() {
     restartButton.disabled = true;
-    ci = null;
-    var stopped = player && player.stop ? Promise.resolve(player.stop()).catch(function () {}) : Promise.resolve();
-    stopped.then(function () {
-      host.replaceChildren();
-      start();
-    });
+    window.location.reload();
   }
 
   muteButton.addEventListener('click', function () {
