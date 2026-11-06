@@ -105,6 +105,7 @@ pub use hud::{HudAnim, HudModel, HudView, KeyKind, KeySlot};
 
 use fizz_ep2::SnackKind;
 use fizz_ep2::World;
+use fizz_ep2::chicken::CHICKEN_ANCHOR_X;
 use fizz_ep2::tiles::{DOOR_BLUE_CHANNEL, DOOR_RED_CHANNEL};
 use fizz_view::sprites_data::sprite;
 use fizz_view::{
@@ -744,7 +745,7 @@ pub fn cluck_placement(
         return fizz_sfx::place::Placement::CENTRE;
     };
     let (cam_x, cam_y) = camera_shaken(world, w, h, options);
-    let x = tile_px(c.b.x + c.b.w * 0.5);
+    let x = tile_px(c.b.x) + CHICKEN_ANCHOR_X;
     let y = screen_y(c.b.y + c.b.h * 0.5, world.map.h);
     fizz_sfx::place::place(
         x,
@@ -807,6 +808,15 @@ pub const fn star_frame(phase: usize) -> usize {
 
 type At<'a> = &'a dyn Fn(f64, f64) -> (i32, i32);
 
+/// Where a chicken's sprite anchor (the feet, at the middle of the 24 columns) lies in the view. The body's left edge is the
+/// sprite's left edge and the anchor is a constant [`CHICKEN_ANCHOR_X`] pixels right of it, whichever frame and facing show, so a
+/// chicken stopped at a wall draws the same picture every tick and the margin the body keeps on its right is the same 4 pixels.
+/// Nothing here corrects the drawing to the collision: the body is the sprite's size (see `fizz_ep2::chicken`).
+fn chicken_anchor(c: &fizz_ep2::Chicken, at: At) -> (i32, i32) {
+    let (x, y) = at(c.b.x, c.b.y);
+    (x + CHICKEN_ANCHOR_X, y)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_chicken(
     frame: &mut [u8],
@@ -839,7 +849,7 @@ fn draw_chicken(
     let Some(s) = sprite(name) else {
         return;
     };
-    let (sx, sy) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    let (sx, sy) = chicken_anchor(c, at);
     let flip = c.dir < 0.0;
     // Enemies are drawn where their bodies are: an enemy's collision body contains its sprite and the 4 px near-plane margin on
     // its right, so it needs no correction at a wall (docs/OBLIQUE.md).
@@ -924,7 +934,7 @@ fn caption_at(c: &fizz_ep2::Chicken, w: usize, h: usize, at: At) -> Option<Capti
         return None;
     }
     let &(text, bright, dark) = CAPTIONS.get(usize::from(c.cluck_variant))?;
-    let (x, y) = at(c.b.x + c.b.w * 0.5, c.b.y);
+    let (x, y) = chicken_anchor(c, at);
     if x < -CAPTION_REACH
         || x > w as i32 + CAPTION_REACH
         || y < -CAPTION_REACH
@@ -1200,11 +1210,11 @@ mod tests {
     use std::vec::Vec;
 
     const PINNED_CLUCKS: [(u64, u64, u64); 5] = [
-        (197, 0xddca7c426061eb84, 0x61da018cd5f6a1dc),
-        (217, 0x46ecb6410b9475b9, 0xd9b4b305a619a2e7),
-        (853, 0xd975ed46e10b710f, 0xd975ed46e10b710f),
-        (873, 0x992f23fd749b0115, 0x992f23fd749b0115),
-        (1094, 0x58f794bd4e37e929, 0x58f794bd4e37e929),
+        (197, 0x8bec255fcd35235a, 0xe469b65814c9872),
+        (217, 0xf0322b50c9c9f5af, 0x1f5b6250e649f7dd),
+        (853, 0x88cd877a501dfcbe, 0x88cd877a501dfcbe),
+        (873, 0xe2db2f645467c4a7, 0xe2db2f645467c4a7),
+        (1094, 0x8fe66a94d557032c, 0x8fe66a94d557032c),
     ];
     const PINNED_SYNTHETIC: [u64; 6] = [
         0xe4462e5f73dd3da3,
@@ -1214,6 +1224,195 @@ mod tests {
         0x4bbf033e689cffb1,
         0xa015adcb56a50c15,
     ];
+
+    // The chicken's body fits its sprite (`fizz_ep2::chicken`): the drawing is never corrected to the collision.
+
+    const BLANK: u8 = 0xee;
+
+    /// Draws chicken `c` alone into a blank 160 by 64 frame whose pixel column of tile `x` is `tile_px(x)` and returns the
+    /// frame with the first and last columns that carry an opaque pixel, `None` when the chicken drew nothing.
+    fn chicken_columns(c: &fizz_ep2::Chicken, phase: usize) -> (Vec<u8>, Option<(i32, i32)>) {
+        let (w, h) = (160usize, 64usize);
+        let mut frame = vec![BLANK; w * h];
+        let at = |x: f64, y: f64| (tile_px(x), 56 - tile_px(y));
+        draw_chicken(&mut frame, w, h, c, phase, &at, 0);
+        let cols: Vec<i32> = (0..w)
+            .filter(|&x| (0..h).any(|y| frame[y * w + x] != BLANK))
+            .map(|x| x as i32)
+            .collect();
+        let span = cols.first().copied().zip(cols.last().copied());
+        (frame, span)
+    }
+
+    /// The four body frames, as chicken states: stunned, touching Ben, and the walk's two leg positions and its legs-together
+    /// frame, which `draw_chicken` takes from the body's x (four pixels to a step).
+    fn chicken_states(x: f64, y: f64, dir: f64) -> Vec<fizz_ep2::Chicken> {
+        let base = {
+            let mut c = fizz_ep2::Chicken::new(0.0, y, dir, 0, 0);
+            c.b.x = x;
+            c.b.on_ground = true;
+            c
+        };
+        let mut stunned = base.clone();
+        stunned.stun = 3.0;
+        let mut touching = base.clone();
+        touching.touch = true;
+        // Eight x positions a step (4 px) apart walk through all three ground frames; the callers add the quarter-tile steps.
+        vec![base, stunned, touching]
+    }
+
+    #[test]
+    fn a_chicken_at_a_wall_on_its_right_is_drawn_4_px_clear_of_it_in_every_frame_and_both_facings()
+    {
+        use fizz_ep2::chicken::CHICKEN_W;
+        let wall = 8.0; // a wall tile's left edge, in tiles
+        let wall_px = tile_px(wall);
+        let mut seen = std::collections::BTreeSet::new();
+        // Walk the body back from the wall a quarter tile at a time (a step of four pixels, so each ground frame shows),
+        // starting pressed against it: the body's right edge is on the wall's collision edge.
+        for k in 0..4 {
+            for dir in [1.0, -1.0] {
+                for c in chicken_states(wall - CHICKEN_W - f64::from(k) * 0.25, 2.0, dir) {
+                    let (_, span) = chicken_columns(&c, 0);
+                    let (_, last) = span.expect("drawn");
+                    // A wall on the body's right edge is drawn with its front face 4 px left of that edge.
+                    let face = tile_px(c.b.x + CHICKEN_W) - 4;
+                    assert!(
+                        last < face,
+                        "k {k} dir {dir} stun {} touch {}: sprite ends at {last}, face at {face}",
+                        c.stun,
+                        c.touch
+                    );
+                    if k == 0 {
+                        assert_eq!(tile_px(c.b.x + CHICKEN_W), wall_px);
+                    }
+                    seen.insert((k, c.stun > 0.0, c.touch));
+                }
+            }
+        }
+        assert_eq!(seen.len(), 12);
+        // Pressed against the wall (k = 0) the margin is exactly the 4 px, or one more for the tile_px floor of the
+        // physics' 1e-6 gap.
+        let c = fizz_ep2::Chicken::new(0.0, 2.0, 1.0, 0, 0);
+        let mut c = c;
+        c.b.x = wall - CHICKEN_W - 1e-6;
+        c.touch = true;
+        let (_, span) = chicken_columns(&c, 0);
+        assert_eq!(span.unwrap().1 + 1, wall_px - 4 - 1);
+    }
+
+    #[test]
+    fn a_chicken_at_a_wall_on_its_left_never_crosses_the_wall_in_any_frame_or_facing() {
+        let wall = 3.0; // the wall tile's right edge, in tiles: a body pressed against it has its left edge here
+        let wall_px = tile_px(wall);
+        for k in 0..4 {
+            for dir in [1.0, -1.0] {
+                for c in chicken_states(wall + f64::from(k) * 0.25, 2.0, dir) {
+                    let (_, span) = chicken_columns(&c, 0);
+                    let (first, _) = span.expect("drawn");
+                    assert!(
+                        first >= wall_px,
+                        "k {k} dir {dir} stun {} touch {}: sprite starts at {first}, wall edge at {wall_px}",
+                        c.stun,
+                        c.touch
+                    );
+                    if k == 0 {
+                        assert_eq!(first, wall_px, "and touches it, with no margin");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_beak_overlay_stays_inside_the_sprite_box() {
+        // Drawn: a chicken with an open beak covers no column the closed one does not, at either facing.
+        for dir in [1.0, -1.0] {
+            let mut closed = fizz_ep2::Chicken::new(0.0, 2.0, dir, 0, 0);
+            closed.b.x = 5.0;
+            closed.b.on_ground = true;
+            let mut open = closed.clone();
+            open.cluck_age = 1;
+            open.cluck_variant = 0;
+            let (_, a) = chicken_columns(&closed, 0);
+            let (_, b) = chicken_columns(&open, 0);
+            assert_eq!(a, b);
+        }
+    }
+
+    #[test]
+    fn a_chicken_pressed_into_a_wall_draws_the_same_picture_every_tick() {
+        // On the long ledge: the wall is column 15, so the body stops with its right edge on x = 15. The chicken is held
+        // walking into it (its turn is undone each tick) for ten seconds.
+        let mut w = level::world();
+        w.ben.b.x = 1.0;
+        w.ben.b.y = 2.0;
+        let mut first: Option<Vec<u8>> = None;
+        for t in 0..800 {
+            w.chickens[0].dir = 1.0;
+            w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            w.chickens[0].cluck_timer = 10_000;
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            if t < 400 {
+                continue;
+            }
+            let c = &w.chickens[0];
+            assert!(c.b.x + c.b.w > 15.0 - 1e-5, "pressed against the wall");
+            let (frame, _) = chicken_columns(c, 0);
+            match &first {
+                None => first = Some(frame),
+                Some(f) => assert_eq!(&frame, f, "tick {t}"),
+            }
+        }
+    }
+
+    #[test]
+    fn a_chicken_pressed_into_the_left_wall_draws_the_same_picture_every_tick() {
+        // The ground floor's left shaft wall is column 0, so a body held walking left stops with its left edge on x = 1.
+        let mut w = level::world();
+        w.ben.b.x = 12.0;
+        w.ben.b.y = 11.0;
+        w.chickens[0].b.x = 3.0;
+        w.chickens[0].b.y = 2.0;
+        w.chickens[0].b.px = 3.0;
+        w.chickens[0].b.py = 2.0;
+        let mut first: Option<Vec<u8>> = None;
+        for t in 0..400 {
+            w.chickens[0].dir = -1.0;
+            w.chickens[0].cluck_age = fizz_ep2::chicken::CLUCK_NEVER;
+            w.chickens[0].cluck_timer = 10_000;
+            step(
+                &mut w,
+                InputFrame::from_transition(Buttons::NONE, Buttons::NONE),
+            );
+            if t < 200 {
+                continue;
+            }
+            let c = &w.chickens[0];
+            assert_eq!(c.b.x, 1.0, "pressed against the wall");
+            let (frame, span) = chicken_columns(c, 0);
+            assert_eq!(span.unwrap().0, tile_px(1.0), "and drawn from its edge");
+            match &first {
+                None => first = Some(frame),
+                Some(f) => assert_eq!(&frame, f, "tick {t}"),
+            }
+        }
+    }
+
+    #[test]
+    fn the_anchor_is_a_constant_12_px_from_the_bodys_left_edge() {
+        let mut c = fizz_ep2::Chicken::new(0.0, 11.0, 1.0, 0, 0);
+        for x in [1.0, 2.25, 7.5, 13.25] {
+            c.b.x = x;
+            let at = |x: f64, y: f64| (tile_px(x), tile_px(y));
+            assert_eq!(chicken_anchor(&c, &at).0 - tile_px(x), 12);
+            c.dir = -c.dir;
+            assert_eq!(chicken_anchor(&c, &at).0 - tile_px(x), 12);
+        }
+    }
 
     fn fnv(bytes: &[u8]) -> u64 {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
@@ -1271,31 +1470,31 @@ mod tests {
         assert_eq!(
             reduced,
             [
-                (394, 0x2495b833d9c7ba40),
-                (395, 0xbb9f2635d3eb65c1),
-                (396, 0x4dd10fab2f08fca7),
-                (400, 0xff757a752581dde0),
-                (410, 0x270d62fdb304b786),
-                (420, 0xc92c13b69aecec19),
-                (440, 0xb18d02cc98e184b0),
-                (460, 0x9540e9d1e16d3923),
-                (470, 0x8bf566c91b7e2573),
-                (477, 0xf8b3c12c3257a269),
+                (394, 0xfa89b4760dfbe97a),
+                (395, 0x52c3676a92385323),
+                (396, 0x3c9ae591f170fb25),
+                (400, 0x10afafacaf916602),
+                (410, 0x1bd666ea8b9d4a78),
+                (420, 0x3c1b7b18e42dd3bf),
+                (440, 0x1f6a7002d478e9a6),
+                (460, 0x620d3d3051694c5),
+                (470, 0x75443f1d6b378cfb),
+                (477, 0x2fea04419580f7c5),
             ]
         );
         assert_eq!(
             full,
             [
-                (394, 0xd7ebf1c08a2006f1),
-                (395, 0x1069558a5cd7a228),
-                (396, 0x90d111e51bedea79),
-                (400, 0x79072cadc5aa728c),
-                (410, 0x38efc272af65a13b),
-                (420, 0x984e5049b4d8c178),
-                (440, 0x6c470d8bc4e84234),
-                (460, 0xfa36066a0cda1671),
-                (470, 0x8bf566c91b7e2573),
-                (477, 0xf8b3c12c3257a269),
+                (394, 0x7a27e875e8e78443),
+                (395, 0x154f658c6c7cf2a2),
+                (396, 0x2243e9155374702b),
+                (400, 0xc18db9f1fc5d5102),
+                (410, 0xdf219c7092717141),
+                (420, 0x181f3618f31f1f0a),
+                (440, 0x3a2651adec0f08f2),
+                (460, 0xf9b8ee8c0a246a97),
+                (470, 0x75443f1d6b378cfb),
+                (477, 0x2fea04419580f7c5),
             ]
         );
     }
@@ -1318,8 +1517,8 @@ mod tests {
         // These digests lock the picture, so any change to the art, the colours or the camera is a deliberate edit here.
         //
         // Tick 400 is 6 ticks into a death shake (Ben has just died), so the camera is a pixel to the right. The digest was
-        // 0xff757a752581dde0 before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
-        // 0x79072cadc5aa728c. The other ticks are not death frames and kept theirs.
+        // 0x10afafacaf916602 before the shake and 0x2f5e4ba6e0a6569b with it; the spin (Ben turned 0.8 rad) made it
+        // 0xc18db9f1fc5d5102. The other ticks are not death frames and kept theirs.
         //
         // Tick 700 has a stunned chicken in view, so its digest includes the stun stars (it was 0xdda9c10396315bd2 before them).
         //
@@ -1339,13 +1538,13 @@ mod tests {
             [
                 (0, 0x32a4dce95d509d4b),
                 (150, 0x5a05a73197825328),
-                (270, 0x7189a94f1f0fd8df),
-                (400, 0x79072cadc5aa728c),
-                (602, 0xa3e990761ab5f049),
-                (700, 0x646317677adc3be9),
-                (865, 0x0364355a21d6a202),
-                (1000, 0x7ef3a65746089bbc),
-                (1268, 0xf41efb06e7f6764b),
+                (270, 0x25e1735e972bab36),
+                (400, 0xc18db9f1fc5d5102),
+                (602, 0xe3588db829caaae7),
+                (700, 0x3de81c7c9c5bf0f5),
+                (865, 0xa39e6308de9b593d),
+                (1000, 0xf14de65e964fdd25),
+                (1268, 0xb47adc5afbeed03a),
                 (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
@@ -1356,13 +1555,13 @@ mod tests {
                 (0, 0x32a4dce95d509d4b),
                 (150, 0x5a05a73197825328),
                 // Ben is running on the ground at 270, 602 and 865, so these lock the run-frame rule.
-                (270, 0x7189a94f1f0fd8df),
-                (400, 0x79072cadc5aa728c),
-                (602, 0xa3e990761ab5f049),
-                (700, 0x646317677adc3be9),
-                (865, 0x0364355a21d6a202),
-                (1000, 0x7ef3a65746089bbc),
-                (1268, 0xf41efb06e7f6764b),
+                (270, 0x25e1735e972bab36),
+                (400, 0xc18db9f1fc5d5102),
+                (602, 0xe3588db829caaae7),
+                (700, 0x3de81c7c9c5bf0f5),
+                (865, 0xa39e6308de9b593d),
+                (1000, 0xf14de65e964fdd25),
+                (1268, 0xb47adc5afbeed03a),
                 (1450, 0xf49aaad3a6e0110b),
                 (1681, 0xda9c59c9720ad45d),
             ]
@@ -1417,7 +1616,7 @@ mod tests {
     fn a_puff_lives_from_the_event_for_eighteen_ticks_and_only_changes_its_own_pixels() {
         // Each of the script's thirteen shot ends gives a puff for ticks e..e+17 and no other tick.
         let ends = [
-            96u32, 106, 281, 1132, 1142, 1152, 1162, 1172, 1203, 1213, 1223, 1233, 1243,
+            96u32, 106, 267, 1132, 1142, 1152, 1162, 1172, 1203, 1213, 1223, 1233, 1243,
         ];
         let mut seen = [0u32; 13];
         let mut blank = Vec::new();
@@ -1452,11 +1651,10 @@ mod tests {
             }
         });
         assert_eq!(seen, [PUFF_TICKS; 13]);
-        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen, and the third
-        // ends where its first three ticks leave no puff pixel in the frame (the picture is identical with and without the puff).
-        let off_screen = 96..106;
-        let hidden = 285..288;
-        let expect: Vec<u32> = off_screen.chain(hidden).collect();
+        // The puffs that draw nothing: the first (a shot fired straight up, ending above the frame) is off screen. The third ends
+        // over the chicken's head and shows from its first tick (before the chicken's body fitted its sprite its first three
+        // ticks left no puff pixel in the frame).
+        let expect: Vec<u32> = (96..106).collect();
         assert_eq!(blank, expect);
     }
 
@@ -1492,22 +1690,22 @@ mod tests {
     fn frames_with_puffs_are_pinned() {
         // Re-pinned for the shot-end puff: the ticks the DOS bench samples with a puff on screen, one for each baked frame. The
         // second shot ends at 106, so 110 is its `puff0` (age 4), 118 its `puff2` (age 12) and 122 its dither `puff3` (age 16); the
-        // third ends at 281, so 290 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
+        // third ends at 267, so 276 is its `puff1` (age 9). The first shot ends above the frame, so nothing of it shows. The
         // pictures at the other pinned ticks (and tick 100) are unchanged, because no visible puff is alive there.
         let mut seen = Vec::new();
         play_puffs(|w, puffs| {
-            if [100, 110, 118, 122, 290].contains(&w.tick.0) {
+            if [100, 110, 118, 122, 276].contains(&w.tick.0) {
                 seen.push((w.tick.0, fnv(&puff_picture(w, puffs))));
             }
         });
         assert_eq!(
             seen,
             [
-                (100, 0xb20abba89791b70b),
+                (100, 0x71d589228da13997),
                 (110, 0x758b240a7750f5f0),
-                (118, 0x30535764506f911c),
-                (122, 0x43bb44fceecd4c38),
-                (290, 0x1bfc10d54f9847ea)
+                (118, 0x37d04b080fe28744),
+                (122, 0xf3d82f80553ae240),
+                (276, 0xbfaa1bf70a984e9c)
             ]
         );
     }
@@ -2757,7 +2955,7 @@ mod tests {
         let tiles = |px: i32| f64::from(cam_x + px) / TILE_PX as f64;
         let o = DrawOptions::default();
         for (px, side) in [(20, -1), (160, 0), (300, 1)] {
-            w.chickens[0].b.x = tiles(px) - w.chickens[0].b.w * 0.5;
+            w.chickens[0].b.x = tiles(px) - f64::from(CHICKEN_ANCHOR_X) / 16.0;
             let p = cluck_placement(&w, 0, VIEW_W, VIEW_H, &o);
             assert_eq!(p.pan.signum(), side, "{px}: {p:?}");
             assert_eq!(side == 0, p.left == p.right, "{px}: {p:?}");

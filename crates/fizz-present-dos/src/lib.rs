@@ -31,9 +31,9 @@ pub const HEIGHT: usize = 200;
 pub const FRAME_BYTES: usize = WIDTH * HEIGHT;
 
 /// The ticks at which `frame_digest` is taken by `FIZZ2.EXE /BENCH` and by the `frames` example. The last is before the exit
-/// banner, which would add text over the picture. Ticks 110, 118, 122 and 290 show a shot-end puff each, in its four baked frames (the shots end at 106 and 281).
+/// banner, which would add text over the picture. Ticks 110, 118, 122 and 276 show a shot-end puff each, in its four baked frames (the shots end at 106 and 267).
 /// Tick 1190 is on the gallery, with open air over most of the top of the picture, so the sky's pixels are compared too.
-pub const DIGEST_TICKS: [u64; 12] = [110, 118, 122, 150, 270, 290, 400, 602, 700, 865, 1000, 1190];
+pub const DIGEST_TICKS: [u64; 12] = [110, 118, 122, 150, 270, 276, 400, 602, 700, 865, 1000, 1190];
 
 /// The shared picture's options for `FIZZ2.EXE /BENCH` with a `FIZZ2.CFG` of defaults: captions on, Full motion, and the Light
 /// sky (the stars and the sea), where the default Auto sky starts, because the whole parallax night does not fit a 60 Hz frame on

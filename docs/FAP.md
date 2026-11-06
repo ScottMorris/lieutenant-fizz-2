@@ -423,7 +423,7 @@ Rule order is the order the sim evaluates them: the red lock first, then the blu
 4. **World-scoped states** that span levels are not in a level's table. The default is level-only; the `WORLD` bit of a state's `flags` is reserved so that a world table can give it meaning without a new section version.
 5. **Objects that raise events** by themselves have no field yet; today a rule raises them.
 6. **Whether the pack's `FORMAT_VERSION` should move** with the section version. This page keeps it at 1.
-7. **The derived switch word and the golden (closed).** The simulation hashes one derived bit for each door binding in place of version 1's channel bits: door binding `i` owns bit `i`, so the slice's red door is bit 0 and its blue door bit 1 (they were the channels 1 and 2). That moved the slice's switch word (0b110 became 0b11), and the wall kick's `wall_t` and `kick_side` now enter the hash unconditionally, so the golden was re-pinned once, in the change that landed the layout: `FINAL TICK 1800 HASH 843736be6fdaeb76` became `eda8a62f036aeab6`, and not one `EVENT` line moved.
+7. **The derived switch word and the golden (closed).** The simulation hashes one derived bit for each door binding in place of version 1's channel bits: door binding `i` owns bit `i`, so the slice's red door is bit 0 and its blue door bit 1 (they were the channels 1 and 2). That moved the slice's switch word (0b110 became 0b11), and the wall kick's `wall_t` and `kick_side` now enter the hash unconditionally, so the golden was re-pinned once, in the change that landed the layout: `FINAL TICK 1800 HASH 843736be6fdaeb76` became `7f6a1a1248c4b0e8`, and not one `EVENT` line moved.
 
 ### Audio sections
 
