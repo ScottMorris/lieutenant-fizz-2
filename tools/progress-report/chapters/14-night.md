@@ -3,7 +3,7 @@ id: night
 n: 14
 title: Night
 date: 2026-11-04
-summary: The Night setting and the light model behind it. A Night byte in FIZZ2.CFG and a pair of switches, a 256-entry palette of brightness banks, integer point lights in 8 by 8 cells, the slice's lanterns, lamps, beam and Ben's lantern, the Light and Full detail that decide whether the lights are cast, what each cost in DOSBox, and the PC speaker count that depended on how long start-up took. One pull request, stacked on the exit; it is in review.
+summary: The Night setting and the light model behind it. A Night byte in FIZZ2.CFG and a pair of switches, a 256-entry palette of brightness banks, integer point lights in 8 by 8 cells, the slice's lanterns, lamps, beam and Ben's lantern, the Light and Full detail that decide whether the lights are cast, what each cost in DOSBox, and the PC speaker count that depended on how long start-up took. One pull request, stacked on the exit and merged with it.
 prs: [146]
 ---
 Chapter 12 drew the slice in oblique projection and gave it a night sky. This chapter is the other meaning of night: the level after dark, lit by lanterns, with Ben carrying one. It is one pull request, #146 ({{pr146.state}}), the last of the stack that began with the exit that takes an Up press (#145, {{pr145.state}}). The setting is Off by default and the day picture is byte for byte what it was, so the state hash and the golden transcript are untouched. The design is `docs/LIGHTS.md`; the DOS side of it is the "Night on DOS" section of `docs/PLATFORM.md`; the player's side is the Night section of `docs/MANUAL.md`.
