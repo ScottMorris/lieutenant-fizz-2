@@ -148,3 +148,4 @@ P5 m4/pair-label: print the OPL3 effects pair as ch5+14 in the SOUND line (FxPla
 - Add `tools/preview-site.sh` and `tools/preview-serve.py`: a local preview site (landing page, Web build, FIZZ2.EXE in js-dos by mode) with Fizz 1 DOS's browser settings plus an SB16 for the OPL3 pair, and cache-busted bundles so js-dos cannot show an old build.
 - Add the unlisted `/NOLIMIT` switch, which lifts `/LIVE`'s 30-second wall-clock limit, and use it in the local preview's `/LIVE` bundle.
 - Theme the local preview's pages after the game's `/CHECK` screen: the 16-colour EGA palette, double yellow boxes, a DOS menu bar, a title-screen cover and a small pixel-art hero, with nothing fetched from the network.
+- Remove the manual's stale lantern chime bullet: it duplicated the Fizz elixir's chime in the sound list and linked to a heading that no longer exists.
