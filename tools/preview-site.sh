@@ -72,12 +72,13 @@ conf = open("tools/preview/dosbox.web.conf").read()
 # Each mode is the switch of its own name, except the help screen and the bare DOS prompt. (The interactive /CHECK waits for a key, so
 # no script may run it; this bundle is for a person at a browser, and the name comes from the mode so the line says nothing literal.)
 modes = {m: "FIZZ2.EXE /" + m.upper() for m in ("live", "replay", "check", "bench")}
-# A person at a browser plays without /LIVE's 30-second limit (it is there so a headless run cannot hang).
-modes["live"] += " /NOLIMIT"
+# A person at a browser plays without /LIVE's 30-second limit (it is there so a headless run cannot hang) and with the Full sky: on
+# the default Auto sky the game flips between Full and Light by how long its frames take, and js-dos's timing follows the host's load.
+modes["live"] += " /NOLIMIT /SKY:FULL"
 modes["help"] = "FIZZ2.EXE /?"
 modes["shell"] = "@rem the DOS prompt"
 # The bundle's name carries a hash of everything in it, so a rebuilt game is a new URL.
-h = hashlib.sha1(exe + cws + conf.encode()).hexdigest()[:10]
+h = hashlib.sha1(exe + cws + "".join(conf.replace("@COMMAND@", c) for c in modes.values()).encode()).hexdigest()[:10]
 epoch = int(subprocess.run(["git", "log", "-1", "--format=%ct"], capture_output=True, text=True).stdout.strip() or 0)
 stamp = datetime.datetime.fromtimestamp(epoch, datetime.timezone.utc).timetuple()[:6]
 stamp = max(stamp, (1980, 1, 1, 0, 0, 0))  # zip times start in 1980
