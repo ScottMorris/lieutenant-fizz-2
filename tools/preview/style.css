@@ -1,19 +1,64 @@
-:root { --bg: #14111f; --panel: #1f1a33; --line: #3a3160; --text: #f1ecff; --muted: #a79fc8; --accent: #ffd34d; }
-* { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
-body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-header { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .5rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
-a { color: var(--accent); text-decoration: none; font-weight: 600; }
-nav { display: flex; flex-wrap: wrap; gap: .4rem; }
-nav a { padding: .2rem .7rem; border: 1px solid var(--line); border-radius: 2rem; color: var(--text); font-weight: 400; font-size: .9rem; }
-nav a[aria-current="page"] { background: var(--line); }
-.actions { display: flex; gap: .4rem; margin-left: auto; }
-button { padding: .25rem .8rem; border: 1px solid var(--line); border-radius: .4rem; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
-button:disabled { opacity: .5; cursor: default; }
-button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-#stage { position: relative; flex: 1; min-height: 0; width: 100%; }
+/* The DOS player page: a DOS menu bar, the emulator in a double yellow bezel, and a title-screen cover. fizz.css has the colours. */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; overflow-x: hidden; }
+
+/* The menu bar: grey with black text, the current mode and the hovered item in the check screen's blue selection bar. */
+header {
+  display: flex; flex-wrap: wrap; gap: .25rem 1rem; align-items: center;
+  padding: .3rem 16px; background: var(--grey); color: var(--black);
+  border-bottom: 4px solid var(--black);
+}
+header a { padding: 0 .5rem; color: var(--black); text-decoration: none; }
+header a:hover, header a:focus-visible, nav a[aria-current="page"] { background: var(--blue); color: var(--white); }
+header :focus-visible { outline: 3px solid var(--black); outline-offset: 1px; }
+nav { display: flex; flex-wrap: wrap; gap: .1rem .25rem; }
+nav a[aria-current="page"]::before { content: "\25B6\00a0"; }
+.actions { display: flex; flex-wrap: wrap; gap: .25rem; margin-left: auto; }
+header button { padding: 0 .4rem; border: 0; background: transparent; color: var(--black); font: inherit; cursor: pointer; }
+header button::before { content: "[\00a0"; }
+header button::after { content: "\00a0]"; }
+header button:hover:not(:disabled), header button:focus-visible { background: var(--blue); color: var(--white); }
+header button[aria-pressed="true"] { background: var(--black); color: var(--yellow); }
+header button:disabled { color: var(--dark-grey); cursor: default; }
+
+/* The bezel: a black rim, two yellow lines and a hard shadow, as the game's own boxes. */
+#stage {
+  position: relative; flex: 1; min-height: 0;
+  margin: 1rem 28px 28px 16px;
+  background: var(--black);
+  border: 9px double var(--yellow);
+  box-shadow: 0 0 0 4px var(--black), 12px 12px 0 4px var(--black);
+}
+#stage:fullscreen { margin: 0; border: 0; box-shadow: none; }
 #dos { position: absolute; inset: 0; }
-#cover { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; background: var(--bg); text-align: center; padding: 1rem; }
-#cover p { margin: 0; max-width: 34rem; color: var(--muted); }
-#play { padding: .6rem 2.4rem; font-size: 1.2rem; background: var(--accent); color: #14111f; border-color: var(--accent); font-weight: 700; }
-[hidden] { display: none !important; }
+
+/* The cover: a title screen over a purple dither, with Play as the selected menu item. */
+#cover {
+  position: absolute; inset: 0; z-index: 5; overflow: auto;
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem 1rem;
+  background: var(--black);
+  background: repeating-conic-gradient(var(--magenta) 0 25%, var(--black) 0 50%) 0 0 / 4px 4px;
+}
+.title-card { width: min(40rem, 100%); margin: auto; text-align: center; }
+.title-card .hero { display: block; width: 100%; height: auto; aspect-ratio: 10 / 3; margin: 0 0 1rem; }
+.title-card .logo { font-size: clamp(1.4rem, 5vw, 2.4rem); }
+#blurb { margin: 1rem 0 1.25rem; color: var(--grey); }
+#play {
+  display: inline-block; max-width: 100%; padding: .2rem 1.5rem .2rem 1rem;
+  border: 0; background: var(--yellow); color: var(--black);
+  font: 700 1.5rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .1em; cursor: pointer;
+  box-shadow: 6px 6px 0 var(--brown);
+  overflow-wrap: anywhere;
+}
+#play::before { content: "\25B6\00a0"; }
+#play::after { content: "_"; animation: fizz-blink 1s steps(1) infinite; }
+#play:hover:not(:disabled), #play:focus-visible { background: var(--white); }
+#play:disabled { background: var(--grey); cursor: default; font-size: 1rem; text-transform: none; letter-spacing: 0; }
+#play:disabled::after { content: none; }
+/* The cursor after Play blinks, and stays still when motion is reduced. */
+@keyframes fizz-blink { 50% { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { #play::after { animation: none; } }
+
+@media (max-width: 30rem) {
+  #stage { margin: .75rem 20px 20px 12px; box-shadow: 0 0 0 4px var(--black), 8px 8px 0 4px var(--black); }
+}

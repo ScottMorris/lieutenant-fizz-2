@@ -1,0 +1,74 @@
+<!-- The preview site's small hero: a lighthouse night, Ben in his green helmet, a can of Fizz and the chicken, in the 16 EGA colours. -->
+<!-- -->
+<!-- (c) Copyright 2026 Liminal HQ, Scott Morris -->
+<!-- SPDX-License-Identifier: Apache-2.0 OR MIT -->
+<svg width="160" height="48" viewBox="0 0 160 48" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+  <defs>
+    <pattern id="dy" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#ffff55"/><rect x="1" y="1" width="1" height="1" fill="#ffff55"/></pattern>
+    <pattern id="db" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#0000aa"/><rect x="1" y="1" width="1" height="1" fill="#0000aa"/></pattern>
+    <pattern id="dc" width="4" height="2" patternUnits="userSpaceOnUse"><rect width="1" height="1" fill="#00aaaa"/></pattern>
+  </defs>
+  <rect width="160" height="48" fill="#000000"/>
+  <!-- Stars -->
+  <g fill="#ffffff"><rect x="40" y="4" width="1" height="1"/><rect x="88" y="3" width="1" height="1"/><rect x="132" y="6" width="1" height="1"/><rect x="151" y="15" width="1" height="1"/><rect x="112" y="13" width="1" height="1"/></g>
+  <g fill="#aaaaaa"><rect x="56" y="17" width="1" height="1"/><rect x="74" y="20" width="1" height="1"/><rect x="146" y="2" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="122" y="21" width="1" height="1"/></g>
+  <!-- Horizon haze and the sea -->
+  <rect y="25" width="160" height="5" fill="url(#db)"/>
+  <rect y="30" width="160" height="18" fill="#0000aa"/>
+  <rect y="32" width="160" height="16" fill="url(#dc)"/>
+  <!-- The lighthouse beam, a 50% dither -->
+  <polygon points="20,7 78,1 78,14" fill="url(#dy)"/>
+  <!-- Headland -->
+  <rect y="31" width="38" height="17" fill="#555555"/>
+  <rect x="4" y="29" width="28" height="3" fill="#555555"/>
+  <rect x="4" y="29" width="28" height="1" fill="#aaaaaa"/>
+  <rect x="0" y="31" width="4" height="1" fill="#aaaaaa"/>
+  <rect x="32" y="31" width="6" height="1" fill="#aaaaaa"/>
+  <!-- Lighthouse -->
+  <rect x="16" y="3" width="2" height="1" fill="#aa0000"/>
+  <rect x="15" y="4" width="4" height="2" fill="#aa0000"/>
+  <rect x="15" y="6" width="4" height="3" fill="#ffff55"/>
+  <rect x="13" y="9" width="8" height="2" fill="#aaaaaa"/>
+  <rect x="14" y="11" width="6" height="18" fill="#ffffff"/>
+  <rect x="14" y="13" width="6" height="3" fill="#aa0000"/>
+  <rect x="14" y="19" width="6" height="3" fill="#aa0000"/>
+  <rect x="14" y="25" width="6" height="3" fill="#aa0000"/>
+  <rect x="16" y="26" width="2" height="3" fill="#aa5500"/>
+  <!-- Wooden ledge, lit along the top -->
+  <rect x="58" y="38" width="102" height="10" fill="#aa5500"/>
+  <rect x="58" y="38" width="102" height="1" fill="#ffff55"/>
+  <rect x="58" y="43" width="102" height="1" fill="#000000"/>
+  <g fill="#000000"><rect x="76" y="39" width="1" height="4"/><rect x="104" y="39" width="1" height="4"/><rect x="138" y="39" width="1" height="4"/><rect x="66" y="44" width="1" height="4"/><rect x="92" y="44" width="1" height="4"/><rect x="120" y="44" width="1" height="4"/><rect x="150" y="44" width="1" height="4"/></g>
+  <!-- A can of Fizz -->
+  <rect x="80" y="26" width="5" height="1" fill="#aaaaaa"/>
+  <rect x="80" y="27" width="5" height="7" fill="#ff5555"/>
+  <rect x="80" y="29" width="5" height="2" fill="#ffffff"/>
+  <rect x="80" y="27" width="1" height="7" fill="#aa0000"/>
+  <!-- Ben -->
+  <rect x="99" y="24" width="6" height="1" fill="#55ff55"/>
+  <rect x="98" y="25" width="8" height="2" fill="#00aa00"/>
+  <rect x="99" y="25" width="3" height="1" fill="#55ff55"/>
+  <rect x="104" y="27" width="4" height="1" fill="#00aa00"/>
+  <rect x="99" y="27" width="5" height="3" fill="#ffffff"/>
+  <rect x="102" y="28" width="1" height="1" fill="#000000"/>
+  <rect x="98" y="30" width="8" height="4" fill="#aa0000"/>
+  <rect x="99" y="30" width="1" height="4" fill="#ff5555"/>
+  <rect x="106" y="31" width="1" height="2" fill="#ffffff"/>
+  <rect x="99" y="34" width="6" height="2" fill="#0000aa"/>
+  <rect x="99" y="36" width="2" height="1" fill="#0000aa"/>
+  <rect x="103" y="36" width="2" height="1" fill="#0000aa"/>
+  <rect x="98" y="37" width="3" height="1" fill="#aaaaaa"/>
+  <rect x="103" y="37" width="3" height="1" fill="#aaaaaa"/>
+  <!-- The chicken -->
+  <rect x="129" y="25" width="2" height="1" fill="#ff5555"/>
+  <rect x="128" y="26" width="3" height="1" fill="#aa0000"/>
+  <rect x="127" y="27" width="5" height="4" fill="#ffffff"/>
+  <rect x="130" y="28" width="1" height="1" fill="#000000"/>
+  <rect x="132" y="29" width="2" height="1" fill="#ffff55"/>
+  <rect x="131" y="30" width="1" height="2" fill="#aa0000"/>
+  <rect x="119" y="29" width="3" height="3" fill="#ffffff"/>
+  <rect x="120" y="31" width="10" height="5" fill="#ffffff"/>
+  <rect x="122" y="32" width="5" height="2" fill="#aaaaaa"/>
+  <rect x="123" y="36" width="1" height="2" fill="#ffff55"/>
+  <rect x="126" y="36" width="1" height="2" fill="#ffff55"/>
+</svg>
