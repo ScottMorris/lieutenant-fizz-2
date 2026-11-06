@@ -14,6 +14,7 @@ Milestone 0 built the platform skeleton: a fixed 60 Hz loop that runs on Web and
 - [The DOS menu screens](#the-dos-menu-screens)
 - [The Web build](#the-web-build)
 - [Running the checks](#running-the-checks)
+- [The local preview site](#the-local-preview-site)
 - [Toolchain](#toolchain)
 - [Performance](#performance)
 - [Size budget](#size-budget)
@@ -297,6 +298,14 @@ While a screen is up `App::frame` drops the pacer and returns 0, so no tick runs
 CI has two jobs in `.github/workflows/ci.yml`. `check` runs `tools/check.sh` on `ubuntu-latest`. `parity` runs in the pinned `ci-dos` image and runs the DOS, Web and parity checks, the Web sound player's unit test and the generated-data checks. Its Web build installs Undertone with `bun install --frozen-lockfile`, so the runner needs access to the npm registry and nothing else.
 
 On a pull request the `parity` job runs only the groups of `tools/check-dos.sh` that the changed paths can affect (`base` always: the build, the default `/REPLAY` against the golden, a plain panic, two `/PROBE` cases and the size), as chosen by `tools/ci-scope.sh`; native and Web parity run every time. Pushes to `main`, a nightly schedule and a manual run (`workflow_dispatch`) run the whole gate, and a new push to a pull request cancels that pull request's earlier run but nothing on `main` is ever cancelled. The groups, the path rules and how to run a group locally are in [`DOS-CHECK.md`](DOS-CHECK.md#check-groups-and-what-a-pull-request-runs).
+
+## The local preview site
+
+`tools/preview-site.sh` builds `dist/preview`: a landing page, the Web build (`web/`) and `FIZZ2.EXE` in js-dos (`dos/`), with one bundle per DOS mode (`/LIVE`, `/REPLAY`, `/CHECK`, `/BENCH`, `/?` and a bare DOS prompt). `--serve [port]` then serves it with `tools/preview-serve.py` (127.0.0.1 unless `--bind` says otherwise). It is for trying the game, not for pinning anything: the browser emulator is a different DOSBox from the one in `tools/check-dos.sh`, it runs at `cycles = max`, and its timing is the host's.
+
+The js-dos settings are Fizz 1 DOS's browser settings (`site/dosbox.web.conf` and `site/player.js` in `lieutenant-fizz-dos`): js-dos 8.5.3 unmodified (fetched once into the git-ignored `vendor/js-dos` and checked against its tarball's sha256), the `fast` OPL emulator, a 44,100 Hz mixer with `prebuffer = 0` (Fizz 1 found js-dos 8's mixer speeds the stream up by three times the prebuffer, which a time-stretcher cannot absorb), `kiosk` mode and a Play click that starts the sound. The one difference is the sound card: `sbtype = sb16` with `oplmode = auto`, because the OPL3 pair needs an OPL3 (Fizz 1 uses an SB2 and OPL2). `/CHECK` in the browser reads "Sound Blaster (OPL3)", so the pair is available there; nobody has listened to it.
+
+js-dos caches a bundle by its address and hard, so each bundle's file name carries a hash of its contents and the DOS page reads the current name from `bundles.json`, which is fetched with `no-store`. The server sends `no-cache` for pages and manifests and `immutable` for the hashed bundles and js-dos itself. A rebuilt game is a new address, so a plain reload shows it.
 
 ## Toolchain
 

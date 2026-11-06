@@ -1,0 +1,19 @@
+:root { --bg: #14111f; --panel: #1f1a33; --line: #3a3160; --text: #f1ecff; --muted: #a79fc8; --accent: #ffd34d; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; padding: .5rem 1rem; background: var(--panel); border-bottom: 1px solid var(--line); }
+a { color: var(--accent); text-decoration: none; font-weight: 600; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem; }
+nav a { padding: .2rem .7rem; border: 1px solid var(--line); border-radius: 2rem; color: var(--text); font-weight: 400; font-size: .9rem; }
+nav a[aria-current="page"] { background: var(--line); }
+.actions { display: flex; gap: .4rem; margin-left: auto; }
+button { padding: .25rem .8rem; border: 1px solid var(--line); border-radius: .4rem; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#stage { position: relative; flex: 1; min-height: 0; width: 100%; }
+#dos { position: absolute; inset: 0; }
+#cover { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; gap: 1rem; align-items: center; justify-content: center; background: var(--bg); text-align: center; padding: 1rem; }
+#cover p { margin: 0; max-width: 34rem; color: var(--muted); }
+#play { padding: .6rem 2.4rem; font-size: 1.2rem; background: var(--accent); color: #14111f; border-color: var(--accent); font-weight: 700; }
+[hidden] { display: none !important; }

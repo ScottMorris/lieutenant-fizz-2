@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lieutenant Fizz 2 Local Preview</title>
+<style>
+  :root {
+    --bg: #14111f; --panel: #1f1a33; --line: #3a3160; --text: #f1ecff; --muted: #a79fc8;
+    --grape: #b36bff; --grape-hi: #d9a8ff; --accent: #ffd34d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1rem 3rem; }
+  h1 { margin: 0 0 .25rem; font-size: 1.9rem; }
+  .sub { margin: 0 0 2rem; color: var(--muted); }
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
+  .card { display: flex; flex-direction: column; gap: .5rem; padding: 1.25rem; background: var(--panel); border: 1px solid var(--line); border-radius: .75rem; color: inherit; text-decoration: none; }
+  .card:hover, .card:focus-visible { border-color: var(--grape); outline: none; }
+  .card h2 { margin: 0; font-size: 1.3rem; color: var(--grape-hi); }
+  .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .go { margin-top: auto; font-weight: 600; color: var(--accent); }
+  h3 { margin: 2rem 0 .5rem; font-size: 1.05rem; }
+  .modes { display: flex; flex-wrap: wrap; gap: .5rem; padding: 0; margin: 0; list-style: none; }
+  .modes a { display: inline-block; padding: .35rem .8rem; border: 1px solid var(--line); border-radius: 2rem; color: var(--text); text-decoration: none; background: var(--panel); font-size: .92rem; }
+  .modes a:hover, .modes a:focus-visible { border-color: var(--grape); outline: none; }
+  .note { margin-top: 2rem; padding: 1rem 1.25rem; background: var(--panel); border-left: 4px solid var(--grape); border-radius: .25rem; color: var(--muted); font-size: .92rem; }
+  code { font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
+  #build { margin-top: 2rem; color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Lieutenant Fizz 2</h1>
+  <p class="sub">Local preview. Pick a build to try.</p>
+
+  <div class="cards">
+    <a class="card" href="web/">
+      <h2>Web version</h2>
+      <p>The WebAssembly build: the richer one, with the wide view, music and effects. Esc opens Paused and Options.</p>
+      <span class="go">Open the Web build &rarr;</span>
+    </a>
+    <a class="card" href="dos/">
+      <h2>DOS version (js-dos)</h2>
+      <p>FIZZ2.EXE running in a browser DOS emulator, for quick DOS checks without a native DOSBox. Sound Blaster 16 and AdLib.</p>
+      <span class="go">Play the DOS build &rarr;</span>
+    </a>
+  </div>
+
+  <h3>DOS modes</h3>
+  <ul class="modes">
+    <li><a href="dos/?mode=live">Play (/LIVE)</a></li>
+    <li><a href="dos/?mode=replay">Replay (/REPLAY)</a></li>
+    <li><a href="dos/?mode=check">Check screen (/CHECK)</a></li>
+    <li><a href="dos/?mode=bench">Bench (/BENCH)</a></li>
+    <li><a href="dos/?mode=help">Help (/?)</a></li>
+    <li><a href="dos/?mode=shell">DOS prompt</a></li>
+  </ul>
+
+  <div class="note">
+    The browser emulator is a different DOSBox from the one in the checks, and its speed depends on this machine, so its timing and any counts it prints are for looking, not for pinning. The pinned numbers come from <code>tools/check-dos.sh</code>.
+  </div>
+
+  <p id="build"></p>
+</main>
+<script>
+  fetch("build-info.json").then(r => r.ok ? r.json() : null).then(b => {
+    if (!b) return;
+    document.getElementById("build").textContent = "Built " + b.built + " from " + b.source + ".";
+  }).catch(() => {});
+</script>
+</body>
+</html>

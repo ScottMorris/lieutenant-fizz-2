@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lieutenant Fizz 2 DOS (js-dos)</title>
+<link rel="stylesheet" href="js-dos/js-dos.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <a href="../">&larr; Preview home</a>
+  <nav id="modes" aria-label="DOS modes"></nav>
+  <span class="actions">
+    <button id="mute" type="button" aria-pressed="false">Sound on</button>
+    <button id="full" type="button">Fullscreen</button>
+    <button id="restart" type="button" disabled>Restart</button>
+  </span>
+</header>
+<div id="stage">
+  <div id="dos"></div>
+  <div id="cover">
+    <p id="blurb">A click starts the game and the sound. Click the screen after it loads so the keys reach it.</p>
+    <button id="play" type="button">Play</button>
+  </div>
+</div>
+<script src="js-dos/js-dos.js"></script>
+<script src="player.js"></script>
+</body>
+</html>
