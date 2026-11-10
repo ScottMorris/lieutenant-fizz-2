@@ -1,5 +1,5 @@
 {
- "capturedAt": "2026-11-06T03:13:36-05:00",
+ "capturedAt": "2026-11-10T00:49:00-05:00",
  "data": {
   "prs": [
    {
@@ -7499,9 +7499,9 @@
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/170"
    },
    {
-    "additions": 6,
+    "additions": 1644,
     "baseRefName": "main",
-    "changedFiles": 5,
+    "changedFiles": 59,
     "checks": [
      {
       "conclusion": "SUCCESS",
@@ -7517,9 +7517,9 @@
      }
     ],
     "createdAt": "2026-11-05T15:27:15Z",
-    "deletions": 5,
+    "deletions": 334,
     "headRefName": "docs/progress-report-oblique-night",
-    "headRefOid": "86d8a1e8d0b45b501f776bed9c6f33be410f975b",
+    "headRefOid": "2c41e07c0107565e4002f56852cc6c71da274a28",
     "isDraft": false,
     "labels": [
      {
@@ -7541,11 +7541,13 @@
       "name": "skip-changelog"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "e71b022c8946acd69c66e81d88d6cb6d4f327c7b"
+    },
+    "mergedAt": "2026-11-06T08:19:15Z",
     "number": 171,
-    "state": "OPEN",
-    "title": "Finish bringing the oblique and night chapters to the merged state",
+    "state": "MERGED",
+    "title": "Bring the progress archive to the merged state",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/171"
    },
    {
@@ -7829,14 +7831,27 @@
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/177"
    },
    {
-    "additions": 1373,
+    "additions": 1374,
     "baseRefName": "main",
-    "changedFiles": 29,
-    "checks": [],
+    "changedFiles": 30,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
     "createdAt": "2026-11-06T08:12:51Z",
-    "deletions": 86,
+    "deletions": 87,
     "headRefName": "feat/kick-word-sound-jokes",
-    "headRefOid": "c03b49ecc10bc4954c0d0cb439089aa8b1c21243",
+    "headRefOid": "7c1c4e7e3cfa54e38aae67afa33fe02ad3f0cf08",
     "isDraft": false,
     "labels": [
      {
@@ -7870,15 +7885,108 @@
       "name": "parity"
      }
     ],
-    "mergeCommit": null,
-    "mergedAt": null,
+    "mergeCommit": {
+     "oid": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd"
+    },
+    "mergedAt": "2026-11-06T08:41:19Z",
     "number": 178,
-    "state": "OPEN",
+    "state": "MERGED",
     "title": "Give the wall kick a word and a sound, count Fizz 1's jokes, add climb hooks",
     "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/178"
+   },
+   {
+    "additions": 1,
+    "baseRefName": "main",
+    "changedFiles": 2,
+    "checks": [
+     {
+      "conclusion": "SUCCESS",
+      "name": "check",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     },
+     {
+      "conclusion": "SUCCESS",
+      "name": "parity",
+      "status": "COMPLETED",
+      "workflow": "CI"
+     }
+    ],
+    "createdAt": "2026-11-10T05:16:52Z",
+    "deletions": 4,
+    "headRefName": "docs/sound-manual-fixes",
+    "headRefOid": "66c5c8ebac03647623e3bee98f33a5dd3dc41424",
+    "isDraft": false,
+    "labels": [],
+    "mergeCommit": null,
+    "mergedAt": null,
+    "number": 179,
+    "state": "OPEN",
+    "title": "Fix SOUND's stale replay totals and life row, and MANUAL's whistle bullets",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/pull/179"
    }
   ],
   "runs": [
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-09T13:54:08Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42629543255",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-08T11:55:50Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42477881639",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-07T11:43:26Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42369370691",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-06T12:56:48Z",
+    "displayTitle": "CI",
+    "event": "schedule",
+    "headSha": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42221545771",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-06T08:41:22Z",
+    "displayTitle": "Give the wall kick a word and a sound, count Fizz 1's jokes, add clim\u2026",
+    "event": "push",
+    "headSha": "46afd6c5ae756e8397b0a52f60ae9f93aaa863dd",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42189472686",
+    "workflowName": "CI"
+   },
+   {
+    "conclusion": "success",
+    "createdAt": "2026-11-06T08:19:17Z",
+    "displayTitle": "Bring the progress archive to the merged state (#171)",
+    "event": "push",
+    "headSha": "e71b022c8946acd69c66e81d88d6cb6d4f327c7b",
+    "status": "completed",
+    "url": "https://github.com/ScottMorris/lieutenant-fizz-2/actions/runs/42186828586",
+    "workflowName": "CI"
+   },
    {
     "conclusion": "success",
     "createdAt": "2026-11-06T07:41:38Z",
