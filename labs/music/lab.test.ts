@@ -12,6 +12,7 @@ import { LabPlayer, beatOnsets, firstBass, turnPattern, type Step } from './play
 import { degreeMidi, degrees, keyOf, noteName } from './scale.ts';
 import { SURROUND_TUNE, TUNES, tuneById } from './tunes.ts';
 import { validateTune } from './validate.ts';
+import { EGA, VIZ_HEIGHT, VIZ_WIDTH, makeVisualizers, type Pen, type VizFrame } from './viz.ts';
 import { panOf, ringGains, sectionPattern, songPattern } from './voices.ts';
 
 describe('patterns', () => {
@@ -246,6 +247,53 @@ describe('the live player', () => {
     player.stop();
     expect(player.playing).toBe(false);
     expect(player.queued).toBeNull();
+  });
+});
+
+describe('visualizers', () => {
+  /** A pen that records what it is asked to fill. */
+  function recorder() {
+    const fills: { colour: string; x: number; y: number; w: number; h: number }[] = [];
+    const pen = { fillStyle: '#000000', fillRect: (x: number, y: number, w: number, h: number) => void fills.push({ colour: String(pen.fillStyle), x, y, w, h }) };
+    return { pen: pen as unknown as Pen, fills };
+  }
+  const frameAt = (time: number, playing: boolean): VizFrame => {
+    const left = Float32Array.from({ length: 1024 }, (_, i) => (playing ? Math.sin(i / 9 + time) * 0.5 : 0));
+    const right = Float32Array.from({ length: 1024 }, (_, i) => (playing ? Math.sin(i / 5 + time) * 0.3 : 0));
+    const spectrum = Uint8Array.from({ length: 512 }, (_, i) => (playing ? Math.max(0, 220 - i) : 0));
+    return { time, left, right, spectrum, playing, beat: Math.floor(time * 2) % 4, phase: (time * 2) % 1, bar: Math.floor(time / 2), turning: false, ink: EGA.yellow };
+  };
+
+  test('there are five, each drawing only EGA colours, at rest and while playing', () => {
+    const set = makeVisualizers();
+    expect(set.map((v) => v.id)).toEqual(['lighthouse', 'fizz', 'vats', 'field', 'scope']);
+    const colours = new Set<string>(Object.values(EGA));
+    expect(colours.size).toBe(16);
+    for (const viz of set) {
+      const { pen, fills } = recorder();
+      viz.draw(pen, frameAt(0, false));
+      const atRest = fills.length;
+      expect(atRest).toBeGreaterThan(0);
+      for (let i = 1; i <= 90; i++) viz.draw(pen, frameAt(i / 30, true));
+      expect(fills.length).toBeGreaterThan(atRest + 90);
+      for (const fill of fills) {
+        expect(colours.has(fill.colour)).toBe(true);
+        expect(Number.isFinite(fill.x + fill.y + fill.w + fill.h)).toBe(true);
+      }
+      expect(fills.every((fill) => fill.x < VIZ_WIDTH + 8 && fill.y < VIZ_HEIGHT + 24)).toBe(true);
+    }
+  });
+
+  test('the fizz picture pours bubbles on each beat and keeps a bounded number', () => {
+    const fizz = makeVisualizers().find((v) => v.id === 'fizz')!;
+    const { pen, fills } = recorder();
+    fizz.draw(pen, frameAt(0, false));
+    const still = fills.length;
+    fills.length = 0;
+    for (let i = 1; i <= 600; i++) fizz.draw(pen, frameAt(i / 30, true));
+    const perFrame = fills.length / 600;
+    expect(perFrame).toBeGreaterThan(still);
+    expect(perFrame).toBeLessThan(140 * 5 + 20);
   });
 });
 

@@ -55,6 +55,18 @@ Undertone's `loop` plays one fixed pattern. `labs/music/player.ts` instead asks 
 
 Left alone the song plays its sections in order and loops. Hold keeps the current section going round. Tapping the called section again cancels the call. Keys 1 to 9 tap a section.
 
+## The visualizers
+
+The player has a small screen above the section strip, 320 by 120 pixels scaled up with hard edges and drawn in the sixteen EGA colours only (`labs/music/viz.ts`). Five pictures can be chosen, or none:
+
+- **Lighthouse.** The night coast: the beam sweeps out and back once a bar and reaches further when the music is louder, the sea swells with the bass, and the stars twinkle with the high end.
+- **Fizz.** Soda bubbles pour on every beat, more of them on the louder side of the stereo field, and rise faster as the level rises; the can hops on the beat.
+- **Vats.** A spectrum as twenty cocoa vats that fill, each with a froth line that falls slowly.
+- **Stereo field.** Left against right: a centred sound draws a vertical line, a sound to one side leans, and width spreads the cloud. This is the one to watch for the pans.
+- **Scope.** The left and right waveforms.
+
+They read the left and right outputs through analyser nodes and the player's position in the bar, and they make no sound. Scope and Stereo field follow the level so a quiet tune still fills the picture. A magenta line along the top marks a turn. The page starts with the picture off for anyone whose system asks for reduced motion.
+
 ## The checks
 
 `labs/music/validate.ts` runs fourteen checks on a tune, and the page shows each with what it measured. `bun test labs/music` fails if any tune fails any of them.
@@ -87,7 +99,7 @@ Served from a web server the page saves with an ordinary download link. Publishe
 
 ## What is and is not verified
 
-- `bun test labs/music` covers the patterns and riffs, the degree notation, all fourteen checks on all eight tunes, the pans and the 7.1 placement, and the live player's three ways of changing section on a clock stepped by hand.
+- `bun test labs/music` covers the patterns and riffs, the degree notation, all fourteen checks on all eight tunes, the pans and the 7.1 placement, the live player's three ways of changing section on a clock stepped by hand, and that every visualizer draws in EGA colours only.
 - The built page was driven in headless Chromium: every tune was played, a section was called, and every tune's stereo WAV and the 7.1 WAV were rendered and saved with no console error. The 7.1 file was read back: eight channels, mask `0x63F`, signal on every channel.
 - Nobody has listened to any of it. Headless Chromium has no speakers, the 7.1 file has not been played on a 7.1 system, and the live 7.1 path to eight real speakers has not run at all; on stereo hardware the page folds the 7.1 mix down with Undertone's own gains.
 - The lab is not part of the game, has no DOS path and is lowered to no OPL data. A tune chosen for the game would move to `assets/music/` and go through the pipeline in [MUSIC.md](MUSIC.md).

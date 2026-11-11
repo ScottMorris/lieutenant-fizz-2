@@ -89,6 +89,8 @@ code { font: inherit; color: var(--white); overflow-wrap: anywhere; }
 .choice label { display: flex; gap: .35rem; align-items: center; min-height: 32px; color: var(--white); cursor: pointer; }
 .choice input { accent-color: var(--light-green); margin: 0; }
 
+.viz { display: flex; flex-direction: column; gap: .6rem; }
+.screen { display: block; width: 100%; height: auto; aspect-ratio: 8 / 3; image-rendering: pixelated; background: var(--black); outline: 2px solid var(--dark-grey); }
 .strip { display: flex; flex-wrap: wrap; gap: 6px; }
 .section { position: relative; flex: 1 1 0; min-width: 4.6rem; min-height: 64px; padding: .3rem .45rem; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; overflow: hidden; background: #101010; border: 2px solid var(--dark-grey); color: var(--white); text-align: left; }
 .section .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--blue); }

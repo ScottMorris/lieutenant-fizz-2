@@ -11,11 +11,12 @@ import { noteEvents, tickSeconds } from '../../assets/music/events.ts';
 import { HUMAN, buildTune, type BuiltTune } from './build.ts';
 import { saveFile } from './files.ts';
 import { COLUMNS, ROWS, patternById, riffOf } from './patterns.ts';
-import { LabPlayer, type Quantise } from './player.ts';
+import { LabPlayer, type Quantise, type Step } from './player.ts';
 import { SURROUND_CHANNELS, renderTune } from './render.ts';
 import { degreeMidi, noteName } from './scale.ts';
 import { SURROUND_TUNE, TUNES, type LabTune } from './tunes.ts';
 import { validateTune, type Check } from './validate.ts';
+import { EGA, VIZ_HEIGHT, VIZ_WIDTH, makeVisualizers, type VizFrame } from './viz.ts';
 import type { Mix } from './voices.ts';
 
 type Child = Node | string | null | undefined | false;
@@ -42,6 +43,18 @@ const COLOUR: Record<string, string> = {
   plan: 'var(--light-magenta)',
 };
 
+/** The same colours as hex, for the canvas. */
+const EGA_INK: Record<string, string> = {
+  beam: EGA.yellow,
+  press: EGA.lightRed,
+  keys: EGA.lightGreen,
+  crystal: EGA.lightCyan,
+  tanker: EGA.brown,
+  rooms: EGA.lightBlue,
+  'night-map': EGA.white,
+  plan: EGA.lightMagenta,
+};
+
 const built = new Map<string, BuiltTune>();
 const builtOf = (tune: LabTune): BuiltTune => {
   let b = built.get(tune.id);
@@ -63,7 +76,11 @@ const state = {
   human: true,
   quantise: 'bar' as Quantise,
   hold: false,
+  /** The visualizer showing, or 'off'. People who ask for less motion start with none. */
+  viz: globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'off' : 'lighthouse',
 };
+
+const visualizers = makeVisualizers();
 
 // ---------- Audio ----------
 
@@ -88,6 +105,10 @@ function makeRig(): Rig {
   const meter = (source: AudioNode, channel: number): AnalyserNode => {
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
+    // A range that suits music at this level, for the pictures that read the spectrum.
+    analyser.minDecibels = -78;
+    analyser.maxDecibels = -18;
+    analyser.smoothingTimeConstant = 0.6;
     source.connect(analyser, channel);
     return analyser;
   };
@@ -237,6 +258,8 @@ let strip: HTMLButtonElement[] = [];
 let meters: HTMLElement[] = [];
 let liveGrids: HTMLElement[] = [];
 let playButton: HTMLButtonElement;
+const screen = h('canvas', { class: 'screen', width: VIZ_WIDTH, height: VIZ_HEIGHT, 'aria-hidden': 'true' });
+const pen = screen.getContext('2d');
 
 /** Where each 7.1 speaker sits round the listener, as a percentage of the ring's box. */
 const RING_AT: [number, number][] = [
@@ -393,6 +416,7 @@ function drawDeck(): void {
 
   const surround = tune.id === SURROUND_TUNE;
   status.textContent = '';
+  screen.hidden = state.viz === 'off';
   const parts: Child[] = [
     h('h2', { class: 'tab' }, 'Now on the deck'),
     h(
@@ -433,6 +457,15 @@ function drawDeck(): void {
         (next) => (state.quantise = next),
       ),
     ),
+    h(
+      'div',
+      { class: 'viz' },
+      screen,
+      choice<string>('viz', 'Picture', [...visualizers.map((v): [string, string] => [v.id, v.name]), ['off', 'Off']], state.viz, (next) => {
+        state.viz = next;
+        screen.hidden = next === 'off';
+      }),
+    ),
     h('div', { class: 'strip', role: 'group', 'aria-label': 'Sections. Tap one to send the song there.' }, ...strip),
     h('p', { class: 'hint' }, 'Tap a section to send the song there. At the bar, the drums and bass turn into a roll and a walk-up that lands on the new section’s first note. Tap the same section again to cancel.'),
     h('div', { class: 'motifs' }, ...motifGrids),
@@ -469,9 +502,48 @@ function levelOf(analyser: AnalyserNode): number {
   return peak;
 }
 
+const wave = { left: new Float32Array(1024), right: new Float32Array(1024), spectrum: new Uint8Array(512), other: new Uint8Array(512) };
+
+/** Draws the chosen visualizer. Before the first Play there is no audio yet, so it draws the picture at rest. */
+function drawViz(step: Step | null, now: number): void {
+  const viz = visualizers.find((v) => v.id === state.viz);
+  if (!viz || !pen) return;
+  if (rig && player) {
+    // The two sides of what is heard: the stereo output, or the front pair when eight real speakers are in use.
+    const direct = state.mix === 'surround' && rig.speakers >= 8;
+    const [l, r] = direct ? rig.surroundMeters : rig.stereoMeters;
+    l!.getFloatTimeDomainData(wave.left);
+    r!.getFloatTimeDomainData(wave.right);
+    l!.getByteFrequencyData(wave.spectrum);
+    r!.getByteFrequencyData(wave.other);
+    for (let i = 0; i < wave.spectrum.length; i++) wave.spectrum[i] = Math.max(wave.spectrum[i]!, wave.other[i]!);
+  } else {
+    wave.left.fill(0);
+    wave.right.fill(0);
+    wave.spectrum.fill(0);
+  }
+  const beatSeconds = player ? player.barSeconds / 4 : 1;
+  const frameData: VizFrame = {
+    time: performance.now() / 1000,
+    left: wave.left,
+    right: wave.right,
+    spectrum: wave.spectrum,
+    playing: player !== null && step !== null,
+    beat: step?.beat ?? 0,
+    phase: step ? Math.min(1, Math.max(0, (now - step.time) / beatSeconds)) : 0,
+    bar: step?.bar ?? 0,
+    turning: step?.turning ?? false,
+    ink: EGA_INK[state.tune.id]!,
+  };
+  viz.draw(pen, frameData);
+}
+
 function frame(): void {
   requestAnimationFrame(frame);
-  if (!rig) return;
+  if (!rig) {
+    drawViz(null, 0);
+    return;
+  }
   const now = rig.ctx.currentTime;
   const step = player?.stepAt(now) ?? null;
   const queued = player?.queued ?? null;
@@ -494,6 +566,7 @@ function frame(): void {
     g.dataset.at = String(column);
     for (const cell of g.children) cell.classList.toggle('now', (cell as HTMLElement).dataset.column === String(column));
   }
+  drawViz(step, now);
   const analysers = state.mix === 'surround' ? rig.surroundMeters : rig.stereoMeters;
   meters.forEach((speaker, i) => {
     const level = player ? levelOf(analysers[i]!) : 0;
