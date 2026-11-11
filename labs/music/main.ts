@@ -10,6 +10,7 @@ import { createMasterBus, enableMultichannel, foldToStereo } from '@liminal-hq/u
 import { noteEvents, tickSeconds } from '../../assets/music/events.ts';
 import { HUMAN, buildTune, type BuiltTune } from './build.ts';
 import { saveFile } from './files.ts';
+import { pathById } from './paths.ts';
 import { COLUMNS, ROWS, patternById, riffOf } from './patterns.ts';
 import { LabPlayer, type Quantise, type Step } from './player.ts';
 import { SURROUND_CHANNELS, renderTune } from './render.ts';
@@ -41,6 +42,12 @@ const COLOUR: Record<string, string> = {
   rooms: 'var(--light-blue)',
   'night-map': 'var(--white)',
   plan: 'var(--light-magenta)',
+  chimes: 'var(--light-cyan)',
+  lift: 'var(--light-blue)',
+  valves: 'var(--yellow)',
+  painting: 'var(--light-magenta)',
+  'quick-way': 'var(--light-green)',
+  spans: 'var(--light-red)',
 };
 
 /** The same colours as hex, for the canvas. */
@@ -53,6 +60,12 @@ const EGA_INK: Record<string, string> = {
   rooms: EGA.lightBlue,
   'night-map': EGA.white,
   plan: EGA.lightMagenta,
+  chimes: EGA.lightCyan,
+  lift: EGA.lightBlue,
+  valves: EGA.yellow,
+  painting: EGA.lightMagenta,
+  'quick-way': EGA.lightGreen,
+  spans: EGA.lightRed,
 };
 
 const built = new Map<string, BuiltTune>();
@@ -309,6 +322,7 @@ function drawChecks(tune: LabTune): HTMLElement {
     { class: 'checkgrid' },
     list('theory', 'Music theory', 'Read from the notes: the key, how the tune meets the bass, how it moves, and whether it really starts from its pattern.'),
     list('feel', 'Played by a person, quietly', 'Measured on the humanised notes the lab plays: how far each one is moved in time, level, pitch and place, and whether the moves have any pattern.'),
+    tune.flow ? list('flow', 'Flowing and polyphonic', 'For the Pathfinder tunes: legato rather than staccato, three lines that are really three, a hook that returns changed, and stillness where the tension holds.') : null,
   );
 }
 
@@ -347,6 +361,7 @@ function drawDeck(): void {
     const riff = riffOf(pattern, motif.base)[motif.line];
     const notes = riff.map((cell) => (cell === null ? '·' : noteName(degreeMidi(tune.key, motif.octave, cell)))).join(' ');
     const g = grid(motif.pattern, motif.base, colour, true);
+    const path = pathById(motif.pattern);
     return h(
       'figure',
       { class: 'motif' },
@@ -357,6 +372,7 @@ function drawDeck(): void {
         h('strong', {}, pattern.concept),
         ` (${pattern.mood}). The ${motif.line === 'top' ? 'highest' : 'lowest'} cells are the ${motif.role}${motif.tie ? ', with runs held as one note' : ''}:`,
         h('code', {}, notes),
+        path ? h('span', { class: 'walk' }, h('b', {}, `${path.players}. `), path.place, ' ', h('em', {}, path.story)) : null,
       ),
     );
   });
@@ -578,7 +594,7 @@ function frame(): void {
 // ---------- Start ----------
 
 root.replaceChildren(
-  h('section', { class: 'panel' }, h('h2', { class: 'tab' }, 'Eight tunes'), h('p', { class: 'lede' }, 'Six pictures of the game, each read as a riff and grown into a song of about a minute; then two more that braid three pictures each. Pick one.'), cartridges),
+  h('section', { class: 'panel' }, h('h2', { class: 'tab' }, 'Fourteen tunes'), h('p', { class: 'lede' }, 'One to six are pictures of the game, each read as a riff and grown into a song. Seven and eight braid three pictures each. Nine to fourteen come from Pathfinder, a game in which four players walked Ben through six rooms: smooth, three-voiced tunes that open on the path as a hook. Pick one.'), cartridges),
   deck,
 );
 drawCartridges();

@@ -19,7 +19,7 @@ import { partVoice } from './voices.ts';
 
 export interface Check {
   id: string;
-  group: 'theory' | 'feel';
+  group: 'theory' | 'feel' | 'flow';
   /** What the check asks, as a short statement that is true when it passes. */
   label: string;
   pass: boolean;
@@ -80,7 +80,8 @@ function theory(tune: LabTune, built: BuiltTune): Check[] {
     const want: number[] = [];
     riff.forEach((cell, column) => {
       if (cell === null) return;
-      if (motif.tie && column > 0 && riff[column - 1] === cell) return;
+      const barline = motif.barColumns !== undefined && column % motif.barColumns === 0;
+      if (motif.tie && column > 0 && !barline && riff[column - 1] === cell) return;
       want.push(degreeMidi(tune.key, motif.octave, cell));
     });
     const part = partOf(tune, motif.role);
@@ -351,8 +352,112 @@ function feel(built: BuiltTune): Check[] {
   return checks;
 }
 
+// ---------- Flow ----------
+
+interface Held {
+  t0: number;
+  t1: number;
+  midi: number;
+}
+
+/** The single line of a part with each note's length: the highest note of each onset. */
+function heldLine(part: LabPart, bars: number): Held[] {
+  const line: Held[] = [];
+  const notes = queryPart(part, 0, bars)
+    .filter((e) => e.midi !== undefined)
+    .sort((a, b) => a.t0 - b.t0 || b.midi! - a.midi!);
+  for (const e of notes) if (!line.length || e.t0 - line[line.length - 1]!.t0 > EPS) line.push({ t0: e.t0, t1: e.t1, midi: e.midi! });
+  return line;
+}
+
+const soundingAt = (line: Held[], t: number): number | undefined => line.find((n) => n.t0 <= t + EPS && t < n.t1 - EPS)?.midi;
+
+/**
+ * The checks only the flowing tunes are held to: that they are legato, that their three lines are really three lines, that the
+ * hook comes back changed, and that the tune can hold still while something else moves.
+ */
+function flow(tune: LabTune): Check[] {
+  const checks: Check[] = [];
+  const add = (id: string, label: string, pass: boolean, detail: string) => checks.push({ id, group: 'flow', label, pass, detail });
+  const bars = loopCycles(tune.track);
+  const lead = heldLine(partOf(tune, 'lead')!, bars);
+  const counter = heldLine(partOf(tune, 'counter')!, bars);
+  const bass = heldLine(partOf(tune, 'bass')!, bars);
+
+  // Smooth: the tune is never silent for long, no note is shorter than an eighth, the voices sustain, and nothing ticks.
+  const covered = lead.reduce((sum, n) => sum + (n.t1 - n.t0), 0) / bars;
+  const shortest = Math.min(...[...lead, ...counter, ...bass].map((n) => n.t1 - n.t0));
+  const clipped = tune.track.parts.filter((p) => !p.noise && p.role !== 'kick' && (p.s ?? 0.3) < 0.5 && (p.d ?? 0.1) < 0.5).map((p) => p.role);
+  const busiest = Math.max(0, ...tune.track.parts.filter((p) => p.noise).map((p) => queryPart(p, 0, 1).length));
+  add(
+    'smooth',
+    'It is legato: no gaps in the tune, no clipped notes, nothing faster than an eighth',
+    covered >= 0.9 && shortest >= 1 / 8 - EPS && clipped.length === 0 && busiest <= 8,
+    `the tune sounds for ${pct(covered)} of the loop; the shortest note of the three lines is 1/${Math.round(1 / shortest)} of a bar; ${clipped.length} pitched voices are clipped short; the busiest drum plays ${busiest} times a bar`,
+  );
+
+  // Polyphony: sampled every eighth, the counter-melody keeps its own rhythm and mostly moves against or apart from the tune.
+  const leadOn = new Set(lead.map((n) => Math.round(n.t0 * 96)));
+  const counterOn = new Set(counter.map((n) => Math.round(n.t0 * 96)));
+  const union = new Set([...leadOn, ...counterOn]);
+  const alone = [...union].filter((t) => leadOn.has(t) !== counterOn.has(t)).length / union.size;
+  let similar = 0;
+  let contrary = 0;
+  let oblique = 0;
+  let three = 0;
+  const points = bars * 8;
+  for (let i = 0; i < points; i++) {
+    const [a, b] = [i / 8, ((i + 1) % points) / 8];
+    const voices = [soundingAt(lead, a), soundingAt(counter, a), soundingAt(bass, a)];
+    if (new Set(voices.filter((v) => v !== undefined).map((v) => mod12(v!))).size >= 2 && voices.every((v) => v !== undefined)) three++;
+    const dl = Math.sign((soundingAt(lead, b) ?? 0) - (soundingAt(lead, a) ?? 0));
+    const dc = Math.sign((soundingAt(counter, b) ?? 0) - (soundingAt(counter, a) ?? 0));
+    if (dl !== 0 && dc !== 0) dl === dc ? similar++ : contrary++;
+    else if (dl !== 0 || dc !== 0) oblique++;
+  }
+  const moving = similar + contrary + oblique;
+  add(
+    'polyphony',
+    'Three lines sound together, and the counter-melody goes its own way',
+    three / points >= 0.9 && alone >= 0.3 && similar / moving <= 0.4,
+    `tune, counter-melody and bass sound together on ${pct(three / points)} of eighths; ${pct(alone)} of note starts belong to one of the two melodies alone; of their moves ${pct(contrary / moving)} are contrary, ${pct(oblique / moving)} are one voice against a held note and ${pct(similar / moving)} are in the same direction`,
+  );
+
+  // The hook: bars one and two never come back as they were, but their opening shape does.
+  const bar = (n: number): number[] => lead.filter((note) => note.t0 >= n - EPS && note.t0 < n + 1 - EPS).map((note) => note.midi);
+  const shape = (pitches: number[]): string =>
+    pitches
+      .slice(1)
+      .map((p, i) => Math.sign(p - pitches[i]!))
+      .filter((move) => move !== 0)
+      .slice(0, 3)
+      .join();
+  const hook = [bar(0), bar(1)];
+  const later = Array.from({ length: bars - 2 }, (_, i) => bar(i + 2));
+  const repeats = later.filter((b) => b.join() === hook[0]!.join() || b.join() === hook[1]!.join()).length;
+  const echoes = later.filter((b) => shape(b) === shape(hook[0]!)).length;
+  add(
+    'hook',
+    'The hook opens the tune and comes back changed, never repeated',
+    repeats === 0 && echoes >= 1,
+    `${repeats} of the ${later.length} later bars repeat a bar of the hook note for note; ${echoes} of them open with the hook's shape on other notes`,
+  );
+
+  // Stillness and motion: somewhere the tune holds while the counter-melody moves, and somewhere the tune itself is busy.
+  const perBar = Array.from({ length: bars }, (_, n) => ({ lead: bar(n).length, counter: counter.filter((note) => note.t0 >= n - EPS && note.t0 < n + 1 - EPS).length }));
+  const stillest = perBar.reduce((a, b) => (b.lead < a.lead ? b : a));
+  const busy = Math.max(...perBar.map((b) => b.lead));
+  add(
+    'stillness',
+    'The tune holds still to keep tension while another voice moves, and is busy elsewhere',
+    stillest.lead <= 2 && stillest.counter >= 6 && busy >= 6,
+    `at its stillest the tune plays ${stillest.lead} note${stillest.lead === 1 ? '' : 's'} in a bar while the counter-melody plays ${stillest.counter}; at its busiest it plays ${busy}`,
+  );
+  return checks;
+}
+
 /** Every check for one tune. */
 export function validateTune(tune: LabTune): Check[] {
   const built = buildTune(tune);
-  return [...theory(tune, built), ...feel(built)];
+  return [...theory(tune, built), ...feel(built), ...(tune.flow ? flow(tune) : [])];
 }

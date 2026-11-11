@@ -10,6 +10,7 @@
 
 import type { SongDef } from '../../assets/music/song.ts';
 import type { MusicPart, MusicTrack } from '../../assets/music/types.ts';
+import { pathById, tensionAccent } from './paths.ts';
 import { patternById, riffLine, riffOf, riffSlice } from './patterns.ts';
 import { degrees, keyOf, type Key } from './scale.ts';
 
@@ -43,6 +44,8 @@ export interface Motif {
   tie: boolean;
   /** Which line of the riff: the highest cells or the lowest. */
   line: 'top' | 'low';
+  /** Columns to a bar when the riff is spread over more than one bar; a held note does not carry over a barline. */
+  barColumns?: number;
 }
 
 export interface LabTune {
@@ -64,6 +67,8 @@ export interface LabTune {
   /** Reverb size of the tune's room, and its echo time in beats. */
   roomSize: number;
   echoBeats: number;
+  /** Whether this is one of the flowing Pathfinder tunes, which are also held to the flow checks. */
+  flow?: boolean;
   /** Bars the lead takes to circle the speaker ring once in the 7.1 mix; only the 7.1 tune has it. */
   spinBars?: number;
 }
@@ -581,8 +586,228 @@ function plan(): LabTune {
   };
 }
 
-/** The eight tunes, in the order the lab lists them: the six pattern tunes, then the two combinations. */
-export const TUNES: readonly LabTune[] = [beam(), press(), keys(), crystal(), tanker(), rooms(), nightMap(), plan()];
+
+// ---------- The six flowing tunes, from the Pathfinder paths ----------
+//
+// Each of these opens with its path as a two-bar hook, sixteen steps as eighth notes with every hold a held note, and then builds
+// around it for six more bars without ever playing it again as it was: an answer, a stretch where the tune holds still while the
+// other voices move, and a varied return that ends on the dominant. Three lines carry it (the tune, a counter-melody that moves
+// against it, and a bass that walks), all sustained and legato, with the drums kept soft.
+
+/** A sustained, legato part: a soft attack, a high sustain and a release that lets one note lean into the next. */
+const L = (notes: string, o: Partial<LabPart> = {}): LabPart => P(notes, { a: 0.015, d: 0.2, s: 0.75, r: 0.2, ...o });
+
+interface FlowScore {
+  id: string;
+  keyName: string;
+  bpm: number;
+  /** The scale degree of the path's lowest floor. */
+  base: number;
+  /** Pins the song's form, for a slow tune whose shortest form would end away from home. */
+  form?: string;
+  kind: string;
+  story: string;
+  stereo: string;
+  roomSize: number;
+  echoBeats: number;
+  trim: number;
+  contrast: number;
+  /** The tune after its hook: bars three to eight, eight eighths a bar. */
+  lead: [string, string, string, string, string, string];
+  leadVoice: Partial<LabPart>;
+  /** The counter-melody, eight bars, and the octave its degree 0 sits in. */
+  counter: string[];
+  counterOctave: number;
+  counterVoice: Partial<LabPart>;
+  /** The bass, eight bars: plain notes of equal length in each. */
+  bass: string[];
+  pad: string[];
+  extras: (d: (octave: number, pattern: string) => string) => LabPart[];
+}
+
+function flowTune(score: FlowScore): LabTune {
+  const path = pathById(score.id)!;
+  const key = keyOf(score.keyName.toLowerCase());
+  const d = (octave: number, s: string) => degrees(key, octave, s);
+  const r = riff(score.id, score.base);
+  const bars = (list: string[]): string => `<${list.map((bar) => `[${bar}]`).join(' ')}>`;
+  return {
+    id: score.id,
+    title: path.title,
+    level: path.mazeType,
+    kind: score.kind,
+    story: score.story,
+    stereo: score.stereo,
+    keyName: score.keyName,
+    key,
+    roomSize: score.roomSize,
+    echoBeats: score.echoBeats,
+    flow: true,
+    motifs: [{ pattern: score.id, role: 'lead', bar: 0, octave: 4, base: score.base, tie: true, line: 'top', barColumns: 8 }],
+    def: { trim: score.trim, contrast: score.contrast, lift: 0, arp: false, ...(score.form ? { form: score.form } : {}) },
+    track: {
+      bpm: score.bpm,
+      parts: [
+        L(d(4, bars([riffSlice(r.top, 0, 8, true), riffSlice(r.top, 8, 16, true), ...score.lead])), {
+          role: 'lead',
+          g: 0.15,
+          lpf: 2600,
+          accent: tensionAccent(path),
+          ...score.leadVoice,
+        }),
+        L(d(score.counterOctave, bars(score.counter)), { role: 'counter', g: 0.07, lpf: 1900, ...score.counterVoice }),
+        L(d(2, `<${score.bass.map((bar) => (bar.includes(' ') ? `[${bar}]` : bar)).join(' ')}>`), { role: 'bass', g: 0.27, a: 0.01, s: 0.8, r: 0.12 }),
+        L(d(3, `<${score.pad.map((chord) => `[${chord}]`).join(' ')}>`), { role: 'pad', w: 'triangle', a: 0.25, s: 0.8, r: 0.35, g: 0.04, lpf: 1100 }),
+        ...score.extras(d),
+      ],
+    },
+  };
+}
+
+const softKick = (pat: string, g = 0.4): LabPart => P(pat, { role: 'kick', w: 'sine', d: 0.16, s: 0, r: 0.1, g, slide: 0.09 });
+const brush = (pat: string, g = 0.035): LabPart => P(pat, { role: 'hats', noise: true, a: 0.01, d: 0.07, s: 0, r: 0.05, g, hpf: 5000, lpf: 9000, accent: EIGHTHS });
+const chime = (notes: string, o: Partial<LabPart> = {}): LabPart =>
+  P(notes, { role: 'bell', w: 'sine', g: 0.035, a: 0.004, d: 0.7, s: 0.1, r: 0.6, fm: 1.6, fmh: 3.01, fmdecay: 0.3, room: 0.6, cross: 0.5, ...o });
+
+const FLOW: FlowScore[] = [
+  {
+    id: 'chimes',
+    keyName: 'A minor',
+    bpm: 84,
+    base: 0,
+    form: "A B A'",
+    kind: 'A glimmering cavern nocturne',
+    story:
+      'The hook falls, climbs and then holds one long note, the Zarg lamp sweeping the pool, before the bubble ride up to the top and the long drop down. The answer is the same shape a third lower; then the tune holds two notes for two bars while the counter-melody keeps walking, and comes back reaching one step higher.',
+    stereo: 'The crystal chimes land on alternate sides with an echo that crosses over, and the counter-melody sits opposite the tune.',
+    roomSize: 9,
+    echoBeats: 1.5,
+    trim: 0.82,
+    contrast: 3,
+    lead: ['2 0 1 3@4 4', '5 4 3 1 0@2 -1@2', '4@4 5@4', '4@6 3 2', '4 2 3 6@4 5', '4 3 1 2 1@2 -1@2'],
+    leadVoice: { w: 'triangle', room: 0.45, delay: 0.18, pan: -0.2 },
+    counter: ['2@4 0@2 2@2', '0@2 2@2 3@2 5@2', '2@2 4@2 1@2 -1@2', '0@2 2@2 3@2 5@2', '2 1 2 4 3 2 1 0', '2 4 7 4 2 1 0 1', '4@4 2@2 4@2', '-1@2 1@2 4@4'],
+    counterOctave: 3,
+    counterVoice: { w: 'sine', g: 0.09, room: 0.4, pan: 0.35 },
+    bass: ['0 -2', '-2 3', '2 -1', '-2 3', '0', '0 0', '2 2', '4 4'],
+    pad: ['0,2,4', '-2,0,2', '2,4,6', '-2,0,2', '0,2,4', '0,2,4', '2,4,6', '4,6,8'],
+    extras: (d) => [chime(d(6, '<[~ ~ 4 ~] [~ 2 ~ ~] [~ ~ ~ 4] [~ 0 ~ ~]>'), { pan: '<.6 -.6>' }), softKick('c1 ~ ~ ~', 0.3)],
+  },
+  {
+    id: 'lift',
+    keyName: 'D lydian',
+    bpm: 80,
+    base: 0,
+    form: "A B A'",
+    kind: 'A weightless waiting piece',
+    story:
+      'Two steps and a spring onto the lift, and then the hook simply hangs on one note while the patrol goes by underneath. The middle of the tune holds a single note for a whole bar, the lift not coming, while the counter-melody drifts up and down the chord; the return rides higher than the hook did and steps off on the dominant.',
+    stereo: 'The tune floats just left of centre, the drifting counter-melody sweeps slowly from side to side beneath it, and a low drone sits under everything.',
+    roomSize: 10,
+    echoBeats: 2,
+    trim: 0.84,
+    contrast: 2,
+    lead: ['4 5 7@4 6 4', '3 2@3 1 0@3', '2@8', '3@4 1@4', '2 3 5@2 7 6 8@2', '8 6 4@2 4 3 1@2'],
+    leadVoice: { w: 'sine', g: 0.17, fm: 0.5, fmh: 2, room: 0.5, delay: 0.2, pan: -0.15 },
+    counter: ['0@2 2@2 4@2 2@2', '1@4 3@2 1@2', '2@2 4@2 6@2 4@2', '3@4 4@4', '0 2 4 6 7 6 4 2', '1 3 5 7 8 7 5 3', '4@4 2@4', '4@2 6@2 8@4'],
+    counterOctave: 3,
+    counterVoice: { w: 'triangle', g: 0.08, room: 0.45, pan: '<[-.5 -.35 -.2 0 .2 .35 .5 .35] [.5 .35 .2 0 -.2 -.35 -.5 -.35]>' },
+    bass: ['0 4', '1 1', '2 2', '1 4', '0', '1 1', '0 0', '4 4'],
+    pad: ['0,2,4', '1,3,5', '2,4,6', '1,3,5', '0,2,4', '1,3,5', '0,2,4', '4,6,8'],
+    extras: (d) => [L(d(1, '0'), { role: 'drone', w: 'sine', a: 0.5, s: 0.9, r: 0.6, g: 0.1 }), softKick('c1 ~ ~ ~ ~ ~ ~ ~', 0.28)],
+  },
+  {
+    id: 'valves',
+    keyName: 'C major',
+    bpm: 104,
+    base: 0,
+    kind: 'A proud walking theme that keeps coming home',
+    story:
+      'The hook climbs to the valve and holds it, the wheel groaning, then walks all the way down to the deep spoke and back. It is built like the hall: an excursion, the hook again but prouder and reaching higher, a second excursion downward, and the dominant that leads back into the hall.',
+    stereo: 'The tune stays in the hall, in the middle. The counter-melody goes out along the spokes, leaning left in one bar and right in the next.',
+    roomSize: 6,
+    echoBeats: 0.75,
+    trim: 0.78,
+    contrast: 5,
+    lead: ['4 5@2 7 9@4', '8 7 5 4 3@2 4 5', '2 3@2 5 7@2 8 9', '10@4 9@4', '7 5 4 2 1@2 2 4', '6@2 4 3 1@2 -1@2'],
+    leadVoice: { w: 'square', g: 0.06, lpf: 2200, s: 0.7, delay: 0.14 },
+    counter: ['7@2 6@2 5@4', '3@2 5@2 7@2 5@2', '4@2 6@2 7@2 4@2', '6@2 4@2 3@2 5@2', '4@4 5@2 7@2', '5 3 1 3 4 2 0 2', '5@2 7@2 6@2 4@2', '4@2 6@2 8@4'],
+    counterOctave: 3,
+    counterVoice: { w: 'triangle', g: 0.09, pan: '<-.45 .45>' },
+    bass: ['0 3', '3 5', '2 0', '4 1', '0 3', '1 0', '5 4', '4 4'],
+    pad: ['0,2,4', '3,5,7', '2,4,6', '4,6,8', '0,2,4', '1,3,5', '5,7,9', '4,6,8,10'],
+    extras: () => [softKick('c1 ~ c1 ~', 0.45), brush('white*8', 0.04), P('~ white ~ white', { role: 'snare', noise: true, a: 0.008, d: 0.1, s: 0, r: 0.06, g: 0.07, hpf: 1800, lpf: 6000 })],
+  },
+  {
+    id: 'painting',
+    keyName: 'A dorian',
+    bpm: 92,
+    base: -1,
+    kind: 'A hushed tiptoe that opens into delight',
+    story:
+      'The hook tiptoes up from the painting and holds its breath on one note at the false wall, then reaches the top and tumbles through. The answer peeks a third higher. Then a whole bar of one held note, fingers on the plaster, before the secret room: the busiest, brightest two bars of the tune, which tiptoe out again on the dominant.',
+    stereo: 'The tune is close and central. The counter-melody answers from behind the wall, off to the right with a longer room on it, and a soft brush ticks on the left.',
+    roomSize: 7,
+    echoBeats: 1,
+    trim: 0.82,
+    contrast: 5,
+    lead: ['2@2 3 4 6@4', '7 8@2 6 4 2 3 1', '4@8', '5@4 4@4', '7 6 4 6 7 8 9@2', '8 6 4@2 6 4 3 1'],
+    leadVoice: { w: 'triangle', g: 0.16, room: 0.3, delay: 0.16 },
+    counter: ['4@2 2@2 0@4', '3@2 5@2 4@2 2@2', '4@2 2@2 1@2 -1@2', '0@2 3@2 1@2 4@2', '2 4 6 4 7 6 4 2', '3 5 7 5 4 2 0 2', '4@2 2@2 4@4', '1@2 4@2 6@4'],
+    counterOctave: 3,
+    counterVoice: { w: 'sine', g: 0.09, room: 0.55, pan: 0.4 },
+    bass: ['0 0', '3 0', '2 4', '3 4', '2', '3 0', '2 2', '4 4'],
+    pad: ['0,2,4', '3,5,7', '2,4,6', '3,5,7', '2,4,6', '3,5,7', '2,4,6', '4,6,8'],
+    extras: (d) => [chime(d(6, '<~ ~ ~ ~ ~ ~ [4 ~ 7 ~] [~ 6 ~ ~]>'), { pan: '<-.5 .5>' }), brush('~ white ~ white ~ white ~ white', 0.03), softKick('c1 ~ ~ ~', 0.3)],
+  },
+  {
+    id: 'quick-way',
+    keyName: 'E minor',
+    bpm: 118,
+    base: 0,
+    kind: 'A restless journey out and a glad run home',
+    story:
+      'Two players wrote this hook between them: the first bar climbs out along the pipes, the second leaps down the shortcut. The tune keeps climbing after it, reaches the far switch and holds one high note for a bar and a half while the counter-melody winds underneath; then it runs for home down the relative major and ends a step below where it began.',
+    stereo: 'The tune travels: it sits left on the way out and crosses to the right for the run home, with the winding counter-melody on the other side each time.',
+    roomSize: 6,
+    echoBeats: 0.75,
+    trim: 0.78,
+    contrast: 3,
+    lead: ['4 5@2 6 8 6 7 8', '9@4 8@4', '8@8', '8@4 6@2 4@2', '9 8 6 4 6 4 3 2', '6 4 3 1 3@2 1@2'],
+    leadVoice: { w: 'square', g: 0.06, lpf: 2300, s: 0.7, delay: 0.16, pan: '<-.35 -.35 -.35 -.35 -.2 0 .35 .35>' },
+    counter: ['7@2 6@2 4@2 6@2', '4@2 2@2 3@2 5@2', '6@2 4@2 6@2 8@2', '7@2 4@2 6@2 4@2', '4 5 6 5 4 3 4 6', '8 6 4 6 8 6 4 1', '4@4 2@4', '3@2 6@2 8@4'],
+    counterOctave: 3,
+    counterVoice: { w: 'triangle', g: 0.09, pan: '<.35 .35 .35 .35 .2 0 -.35 -.35>' },
+    bass: ['0 4', '2 3', '4 4', '0 4', '4', '4 4', '2 2', '6 6'],
+    pad: ['0,2,4', '2,4,6', '4,6,8', '0,2,4', '4,6,8', '4,6,8', '2,4,6', '6,8,10'],
+    extras: () => [softKick('c1 ~ c1 ~', 0.45), brush('white*8', 0.04)],
+  },
+  {
+    id: 'spans',
+    keyName: 'D minor',
+    bpm: 96,
+    base: -1,
+    kind: 'An uneasy two-floor counterpoint',
+    story:
+      'Two players wrote this hook too: up to the broken span and down to the switch, then the same climb again and the sprint out. The answer is the hook turned upside down, the lower route. The counter-melody lives on the other floor: above the tune for two bars, below it for the next two, and they keep swapping until the tune holds one note while the spans groan.',
+    stereo: 'Two floors, two sides: the counter-melody is on the left when it is the upper floor and on the right when it is the lower, and the tune takes whichever side is free.',
+    roomSize: 8,
+    echoBeats: 1,
+    trim: 0.8,
+    contrast: 5,
+    lead: ['4 2 0 -1@2 2 3@2', '3 2 0 -1@2 3 4 5', '4@8', '5@4 4@4', '2 4 5 7@2 4 2@2', '8 6 4 2@2 1 -1@2'],
+    leadVoice: { w: 'triangle', g: 0.17, room: 0.4, delay: 0.14, pan: '<.3 .3 -.3 -.3 .3 -.3 .3 -.3>' },
+    counter: ['9@4 7@4', '8@4 6@2 8@2', '-5@2 -3@2 -5@2 -7@2', '-4@2 -2@2 -4@2 -3@2', '7 9 11 9 12 11 9 7', '-4 -2 0 -2 -3 -5 -7 -5', '11@4 9@4', '-3@2 -1@2 1@4'],
+    counterOctave: 4,
+    counterVoice: { w: 'sine', g: 0.085, room: 0.5, pan: '<-.45 -.45 .45 .45 -.45 .45 -.45 .45>' },
+    bass: ['0 0', '-1 -1', '2 2', '3 3', '0', '3 0', '0 0', '4 4'],
+    pad: ['0,2,4', '-1,1,3', '2,4,6', '3,5,7', '0,2,4', '3,5,7', '0,2,4', '4,6,8'],
+    extras: () => [softKick('c1 ~ ~ c1 ~ ~ ~ ~', 0.35), brush('~ white ~ white', 0.03)],
+  },
+];
+
+/** The fourteen tunes, in the order the lab lists them: the six pattern tunes, the two combinations, then the six Pathfinder tunes. */
+export const TUNES: readonly LabTune[] = [beam(), press(), keys(), crystal(), tanker(), rooms(), nightMap(), plan(), ...FLOW.map(flowTune)];
 
 export const tuneById = (id: string): LabTune => {
   const found = TUNES.find((tune) => tune.id === id);

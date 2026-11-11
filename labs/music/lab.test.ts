@@ -7,6 +7,7 @@ import { describe, expect, test } from 'bun:test';
 import type { ControlPatch, PlaybackHandle } from '@liminal-hq/undertone';
 import { HUMAN, buildTune } from './build.ts';
 import { crc32, zipOf } from './files.ts';
+import { PATHS, pathPattern, tensionAccent } from './paths.ts';
 import { COLUMNS, PATTERNS, ROWS, patternById, riffLine, riffOf } from './patterns.ts';
 import { LabPlayer, beatOnsets, firstBass, turnPattern, type Step } from './player.ts';
 import { degreeMidi, degrees, keyOf, noteName } from './scale.ts';
@@ -45,6 +46,46 @@ describe('patterns', () => {
   });
 });
 
+describe('the Pathfinder paths', () => {
+  test('there are six of sixteen steps, each obeying the rules of the game', () => {
+    expect(PATHS.length).toBe(6);
+    for (const path of PATHS) {
+      expect(path.steps.length).toBe(16);
+      path.steps.forEach((step, i) => {
+        expect(step.height).toBeGreaterThanOrEqual(0);
+        expect(step.height).toBeLessThanOrEqual(7);
+        expect(step.tension).toBeGreaterThanOrEqual(0);
+        expect(step.tension).toBeLessThanOrEqual(3);
+        if (i === 0) return;
+        const change = Math.abs(step.height - path.steps[i - 1]!.height);
+        if (step.action === 'hold') expect(change).toBe(0);
+        else expect(change).toBeLessThanOrEqual(step.action === 'drop' || step.action === 'leap' ? 4 : 2);
+      });
+      // The song loops, so the path ends within a step of where it began.
+      expect(Math.abs(path.steps[15]!.height - path.steps[0]!.height)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('the four solo paths each hold still for three steps running, and two paths are relays', () => {
+    const run = (path: (typeof PATHS)[number]) => {
+      let best = 0;
+      let now = 0;
+      for (const step of path.steps) best = Math.max(best, (now = step.action === 'hold' ? now + 1 : 0));
+      return best;
+    };
+    const relays = PATHS.filter((p) => /out|in,/.test(p.players) && p.players.includes(','));
+    expect(relays.map((p) => p.id)).toEqual(['quick-way', 'spans']);
+    for (const path of PATHS.filter((p) => !relays.includes(p))) expect(run(path)).toBeGreaterThanOrEqual(3);
+  });
+
+  test('a path is a pattern of one cell a column, and its tension is a swell', () => {
+    const chimes = PATHS[0]!;
+    expect(pathPattern(chimes).grid.map((row) => row.split('#').length - 1).reduce((a, b) => a + b)).toBe(16);
+    expect(riffLine(riffOf(patternById('chimes')).top.slice(0, 8), true)).toBe('4 2 3 5@4 6');
+    expect(tensionAccent(chimes)).toBe('<[0.78 0.85 0.85 0.85 0.93 1.00 1.00 0.93] [0.93 0.93 0.85 0.78 0.85 0.78 0.78 0.78]>');
+  });
+});
+
 describe('degrees', () => {
   const key = keyOf('e dorian');
   test('a degree is a note of the key, and counts are left alone', () => {
@@ -55,13 +96,16 @@ describe('degrees', () => {
 });
 
 describe('tunes', () => {
-  test('there are eight: six from one pattern each, two that combine three', () => {
-    expect(TUNES.length).toBe(8);
+  test('there are fourteen: six from one pattern each, two that combine three, six from the Pathfinder paths', () => {
+    expect(TUNES.length).toBe(14);
+    expect(TUNES.slice(8).map((t) => t.id)).toEqual(PATHS.map((p) => p.id));
+    expect(TUNES.filter((t) => t.flow).length).toBe(6);
     const patternsOf = (id: string) => new Set(tuneById(id).motifs.map((m) => m.pattern)).size;
     expect(TUNES.slice(0, 6).map((t) => patternsOf(t.id))).toEqual([1, 1, 1, 1, 1, 1]);
-    expect(TUNES.slice(6).map((t) => patternsOf(t.id))).toEqual([3, 3]);
+    expect(TUNES.slice(6, 8).map((t) => patternsOf(t.id))).toEqual([3, 3]);
     expect(new Set(TUNES.slice(0, 6).flatMap((t) => t.motifs.map((m) => m.pattern))).size).toBe(6);
-    expect(new Set(TUNES.map((t) => t.level)).size).toBe(8);
+    expect(new Set(TUNES.map((t) => t.level)).size).toBe(14);
+    expect(new Set(TUNES.map((t) => t.keyName)).size).toBeGreaterThanOrEqual(10);
   });
 
   for (const tune of TUNES) {
@@ -69,6 +113,7 @@ describe('tunes', () => {
       const checks = validateTune(tune);
       expect(checks.filter((c) => c.group === 'theory').length).toBe(8);
       expect(checks.filter((c) => c.group === 'feel').length).toBe(6);
+      expect(checks.filter((c) => c.group === 'flow').length).toBe(tune.flow ? 4 : 0);
       expect(checks.filter((c) => !c.pass).map((c) => `${c.id}: ${c.detail}`)).toEqual([]);
     });
   }

@@ -113,6 +113,9 @@ code { font: inherit; color: var(--white); overflow-wrap: anywhere; }
 .motif figcaption { font-size: 13px; }
 .motif strong { color: var(--white); }
 .motif code { display: block; margin-top: .2rem; color: var(--ink); }
+.motif .walk { display: block; margin-top: .4rem; }
+.motif .walk b { color: var(--white); }
+.motif .walk em { color: var(--grey); font-style: normal; opacity: .85; }
 .saves { display: flex; flex-wrap: wrap; gap: .6rem; }
 .status { min-height: 1.5em; color: var(--yellow); }
 

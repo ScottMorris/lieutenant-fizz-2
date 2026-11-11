@@ -119,8 +119,12 @@ export const PATTERNS: readonly ConceptPattern[] = [
   },
 ];
 
+/** Patterns that arrive from elsewhere: the Pathfinder paths register themselves here (paths.ts). */
+const added: ConceptPattern[] = [];
+export const addPatterns = (patterns: readonly ConceptPattern[]): void => void added.push(...patterns);
+
 export const patternById = (id: string): ConceptPattern => {
-  const found = PATTERNS.find((p) => p.id === id);
+  const found = PATTERNS.find((p) => p.id === id) ?? added.find((p) => p.id === id);
   if (!found) throw new Error(`labs/music/patterns.ts has no pattern "${id}"`);
   return found;
 };

@@ -1,6 +1,6 @@
 # Music Lab
 
-The Music Lab is a page of music sketches for Episode 2, in `labs/music/`. It holds eight tunes written and played entirely in Undertone, a live player whose sections can be tapped between, a set of checks on every tune, and downloads made in the browser. It is a tool for choosing and shaping music; nothing in the game loads it, and it changes no game data. The game's own level track is still the placeholder described in [MUSIC.md](MUSIC.md).
+The Music Lab is a page of music sketches for Episode 2, in `labs/music/`. It holds fourteen tunes written and played entirely in Undertone, a live player whose sections can be tapped between, a set of checks on every tune, and downloads made in the browser. It is a tool for choosing and shaping music; nothing in the game loads it, and it changes no game data. The game's own level track is still the placeholder described in [MUSIC.md](MUSIC.md).
 
 Nobody has listened to these tunes as Fizz 2's music. The checks below read notes and numbers; they cannot say whether a tune is good.
 
@@ -40,6 +40,23 @@ The loop becomes a song through `assets/music/song.ts`, the builder the game's l
 - **No fill.** The builder's closing one-bar fill is left out (`noFill`), and no tune lifts its last section to another key. The song therefore ends on the last bar of the tune in its home key, which sits on the dominant, and the intro that follows opens on the tonic: the end leads into the beginning and the loop has no seam.
 - **An orchestral build.** The builder's build bar is a snare roll over a held pad. The lab replaces everything in that bar with `symphonicBuild`: strings holding the dominant chord and opening up through the bar, two string lines climbing the scale an octave apart from opposite sides, the bass on the dominant, and a timpani on the same note rolling faster and louder. Every voice is pitched and in the key. Tunes whose form has no breakdown have no build either.
 
+## Pathfinder: six tunes from scenarios
+
+Tunes nine to fourteen come from a game. Six environments were dreamed up from maze types of the level design boards, and four players (Haiku agents) took turns at Pathfinder: given a place, walk Ben through one scenario there in sixteen steps, saying at each step how high he is in the room (0 to 7), what he is doing (walk, climb, drop, leap, hold or ride) and how tense the moment is (0 to 3). A hold keeps the height of the step before it; other steps move by one or two, a drop or leap by up to four; and the path ends within one of where it began, because the song loops. Four paths are one player's. Two are relays: one player wrote the first eight steps and a hand-over note, and another, given the story so far, wrote the last eight. `labs/music/paths.ts` keeps every path as written, and a test holds each to the rules of the game.
+
+| Path | Place and maze type | Players | Key and tempo |
+|---|---|---|---|
+| Chimes in the Cocoa | Dripstone Deep, a cavern of one-way drops | one | A minor, 84 bpm |
+| Patience in Lift Nine | Lift Nine, a vertical shaft with lifts | three | D lydian, 80 bpm |
+| Lamps for the Valves | The Valve Hall, hub and spoke | two | C major, 104 bpm |
+| Behind the Painting | A gallery with a false wall and a secret room | four | A dorian, 92 bpm |
+| The Quick Way Home | The Long Way Round, a loop with a shortcut | one out, two home | E minor, 118 bpm |
+| Swapping Spans | The Bridge Room, a two-floor swap with a switch | three in, four out | D minor, 96 bpm |
+
+A path is read as a pattern like the others, one cell a column at the step's height, and becomes the tune's hook: sixteen steps as eighth notes over two bars, every hold a held note. The path's tension becomes a velocity pattern on the tune (`tensionAccent`), so it leans in where the scenario tightens. The remaining six bars of each eight-bar loop are written around the hook and never repeat it: an answer (a sequence, or for Swapping Spans the hook upside down), a stretch where the tune holds one or two notes while the other voices move, and a varied return that ends on the dominant.
+
+These tunes are written to flow. Three lines carry each one: the tune, a counter-melody that moves against it, and a bass that walks in half notes. All of them sustain and release slowly (`L` in `tunes.ts`), no note is shorter than an eighth, and the drums are a soft kick and a brushed hat at most. Four further checks hold them to that (below).
+
 ## What the lab adds to a voice
 
 `labs/music/voices.ts` builds each part as the game's Web player does (`buildPartVoice` in `web/music.ts`) and adds:
@@ -74,7 +91,7 @@ They read the left and right outputs through analyser nodes and the player's pos
 
 ## The checks
 
-`labs/music/validate.ts` runs fourteen checks on a tune, and the page shows each with what it measured. `bun test labs/music` fails if any tune fails any of them.
+`labs/music/validate.ts` runs fourteen checks on every tune and four more on the Pathfinder tunes, and the page shows each with what it measured. `bun test labs/music` fails if any tune fails any of them.
 
 Music theory, read from the notes through Undertone's parser:
 
@@ -96,6 +113,13 @@ Feel, measured on the humanised patterns the lab plays:
 5. A second pass moves at least 90 percent of notes differently, and a rebuild from the same seed is identical.
 6. The kick is the steadiest role, no role leans more than 5 ms, the snare leans behind and the hats ahead.
 
+Flow, for the Pathfinder tunes only:
+
+1. Legato: the tune sounds for at least 90 percent of the loop, no note of the three lines is shorter than an eighth, no pitched voice is clipped short, and no drum plays more than eight times a bar.
+2. Polyphony: tune, counter-melody and bass sound together on at least 90 percent of eighths, at least 30 percent of note starts belong to one melody alone, and at most 40 percent of their moves are in the same direction.
+3. The hook: no later bar repeats a bar of the hook note for note, and at least one opens with the hook's shape on other notes.
+4. Stillness: somewhere the tune plays at most two notes in a bar while the counter-melody plays at least six, and somewhere it plays at least six itself.
+
 ## Downloads
 
 Each tune saves a stereo WAV (48 kHz, 16-bit), its note list and its source as JSON. A WAV is exactly one pass of the song: the three seconds of reverb and echo that ring past the last bar are folded onto the first (Undertone's `wrap`), so the file loops without a seam, as the song does. Beam Over the Point also saves a 7.1 WAV: eight channels in the order front left, front right, centre, subwoofer, side left, side right, rear left, rear right, with the WAVE extensible header and speaker mask `0x63F`. `labs/music/render.ts` renders with Undertone's offline `render` and encodes with its `encodeWav`. The stereo render passes through Undertone's master limiter as the live player does; a limiter cannot hold eight channels, so the 7.1 render is scaled as a whole if its peak passes 0.94.
@@ -104,7 +128,7 @@ Served from a web server the page saves with an ordinary download link. Publishe
 
 ## What is and is not verified
 
-- `bun test labs/music` covers the patterns and riffs, the degree notation, all fourteen checks on all eight tunes, the pans and the 7.1 placement, the live player's three ways of changing section on a clock stepped by hand, and that every visualizer draws in EGA colours only.
+- `bun test labs/music` covers the patterns and riffs, the Pathfinder paths against the rules of the game, the degree notation, every check on all fourteen tunes, the pans and the 7.1 placement, the live player's three ways of changing section on a clock stepped by hand, and that every visualizer draws in EGA colours only.
 - The built page was driven in headless Chromium: every tune was played, a section was called, and every tune's stereo WAV and the 7.1 WAV were rendered and saved with no console error. The 7.1 file was read back: eight channels, mask `0x63F`, signal on every channel.
 - Nobody has listened to any of it. Headless Chromium has no speakers, the 7.1 file has not been played on a 7.1 system, and the live 7.1 path to eight real speakers has not run at all; on stereo hardware the page folds the 7.1 mix down with Undertone's own gains.
 - The lab is not part of the game, has no DOS path and is lowered to no OPL data. A tune chosen for the game would move to `assets/music/` and go through the pipeline in [MUSIC.md](MUSIC.md).
