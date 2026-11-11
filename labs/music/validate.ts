@@ -188,11 +188,14 @@ function theory(tune: LabTune, built: BuiltTune): Check[] {
     `bass opens on ${first ? noteName(first.midi) : 'nothing'} and the last bar sits on ${last ? noteName(last.midi) : 'nothing'}, ${lastClass} semitones above the tonic`,
   );
 
-  // The form: about a minute, and every onset on the game's 96-tick grid (noteEvents throws if one is not).
+  // The form: about a minute, every onset on the game's 96-tick grid (noteEvents throws if one is not), and an end that is the
+  // tune in its home key with no fill after it and no snare roll anywhere, so the last bar (check 'home') leads into the intro.
+  const end = built.sections[built.sections.length - 1]!;
+  const rolls = built.sections.flatMap((s) => s.parts).filter(({ part }) => part.noise && /\*16/.test(part.notes) && part.role === 'snare').length;
   add(
     'form',
-    'The song is about a minute and every note is on the grid',
-    built.seconds >= 45 && built.seconds <= 80,
+    'The song is about a minute, on the grid, and loops with no fill or roll',
+    built.seconds >= 45 && built.seconds <= 80 && end.shift === 0 && !built.sections.some((s) => s.name === 'Fill') && rolls === 0,
     `${built.sections.map((s) => `${s.name} ${s.cycles}`).join(', ')}: ${built.bars} bars, ${built.seconds.toFixed(1)} s, ${events.length} notes on the 96-tick grid`,
   );
   return checks;

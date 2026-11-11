@@ -4,14 +4,15 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 //
 // Undertone books the whole song on an offline audio context and encodes the result, so the file is the same notes, voices and
-// humanising the lab plays, with nothing recorded from the speakers. The stereo render goes through Undertone's master limiter as
+// humanising the lab plays, with nothing recorded from the speakers. The file is exactly one pass of the song, and what rings on
+// past the last bar is folded onto the first, so it loops without a seam, as the song does. The stereo render goes through Undertone's master limiter as
 // the live player does. A limiter cannot hold eight channels, so the 7.1 render is scaled down as a whole if its peak is too hot.
 
 import { encodeWav } from '@liminal-hq/undertone';
 import type { BuiltTune } from './build.ts';
 import { songPattern, type VoiceOptions } from './voices.ts';
 
-/** Seconds rendered after the last bar so the reverb and echoes ring out. */
+/** Seconds rendered after the last bar and folded back onto the start, so the file loops with its reverb and echoes intact. */
 export const TAIL_SECONDS = 3;
 /** The highest sample a rendered file may hold. */
 export const CEILING = 0.94;
@@ -34,6 +35,7 @@ export async function renderTune(built: BuiltTune, options: VoiceOptions): Promi
     bpm: built.tune.track.bpm,
     channels: count,
     tail: TAIL_SECONDS,
+    wrap: true,
     seed: `fizz2-lab|${built.tune.id}`,
     master: count === 2,
   });

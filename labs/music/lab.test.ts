@@ -73,6 +73,22 @@ describe('tunes', () => {
     });
   }
 
+  test('no song has a fill or a snare roll, and each ends in its home key on the way back to the intro', () => {
+    for (const tune of TUNES) {
+      const b = buildTune(tune);
+      expect(b.sections.map((s) => s.name)).not.toContain('Fill');
+      expect(b.sections[b.sections.length - 1]!.shift).toBe(0);
+      expect(b.sections[0]!.name).toBe('Intro');
+      for (const section of b.sections) for (const { part } of section.parts) expect(part.role === 'snare' && part.notes === 'white*16').toBe(false);
+      const build = b.sections.find((s) => s.name === 'Build');
+      if (!build) continue;
+      // The build is the orchestral bar and nothing else: five pitched lines, on the dominant.
+      expect(build.parts.length).toBe(5);
+      expect(build.parts.every(({ part }) => !part.noise)).toBe(true);
+      expect(build.parts.map(({ part }) => part.role).sort()).toEqual(['bass', 'counter', 'counter', 'pad', 'perc']);
+    }
+  });
+
   test('the humanising is small: at most 9 ms, 12 percent and 4 cents', () => {
     for (const human of Object.values(HUMAN)) {
       expect(human.timing).toBeLessThanOrEqual(0.009);
@@ -231,11 +247,16 @@ describe('the live player', () => {
   test('the turn walks the bass from the dominant up two semitones into the target’s first note', () => {
     const target = built.sections[2]!;
     const home = firstBass(target)!.midi;
-    const last = beatOnsets(turnPattern(target, 'stereo'), 0, 3, 1).map((o) => o.patch);
-    const pitches = last.filter((p) => typeof p.pitch === 'string' && p.pitch !== 'c1').map((p) => p.pitch);
-    expect(pitches).toEqual([noteName(home - 2), noteName(home - 1)]);
-    const first = beatOnsets(turnPattern(target, 'stereo'), 0, 1, 1).map((o) => o.patch.pitch).filter((p) => typeof p === 'string');
-    expect(first).toEqual([noteName(home + 7)]);
+    const all = [0, 1, 2, 3].flatMap((beat) => beatOnsets(turnPattern(target, 'stereo'), 0, beat, 1).map((o) => o.patch));
+    // Orchestral, not a drum fill: every voice of the turn is pitched.
+    expect(all.length).toBeGreaterThan(10);
+    expect(all.every((p) => typeof p.pitch === 'string' && p.soundType !== 'white')).toBe(true);
+    const last = beatOnsets(turnPattern(target, 'stereo'), 0, 3, 1).map((o) => o.patch.pitch);
+    expect(last).toContain(noteName(home - 2));
+    expect(last.indexOf(noteName(home - 1))).toBeGreaterThan(last.indexOf(noteName(home - 2)));
+    const second = beatOnsets(turnPattern(target, 'stereo'), 0, 1, 1).map((o) => o.patch.pitch);
+    expect(second).toContain(noteName(home + 7));
+    expect(second).toContain(noteName(home - 5));
   });
 
   test('stopping cuts what is sounding and forgets the call', () => {

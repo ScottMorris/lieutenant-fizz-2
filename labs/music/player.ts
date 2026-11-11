@@ -7,9 +7,9 @@
 // beat at a time and books those notes through Undertone's `playParams`, a quarter of a second ahead of the audio clock. Because
 // nothing past that is booked, a tap can still change what the rest of the bar plays. Three ways to move:
 //
-// - bar: the rest of the current bar becomes a "turn". The drums and bass drop out for a snare roll that grows and a bass that
-//   walks, from the dominant of the section being called, up two leading notes into its first bass note. The tune and pads of the
-//   old section carry on over it, and the new section starts on the barline.
+// - bar: the rest of the current bar becomes a "turn". The drums and bass drop out for a timpani roll, a string swell and a bass
+//   that walks, from the dominant of the section being called, up two leading notes into its first bass note. The tune and pads
+//   of the old section carry on over it, and the new section starts on the barline.
 // - beat: the new section takes over on the very next beat, at the same beat of its first bar: a hop with no join.
 // - section: the current section finishes, with a turn over its last two beats, and the called one follows.
 //
@@ -17,7 +17,7 @@
 // comes round its notes are the same and its humanising is new (voices.ts).
 
 import * as U from '@liminal-hq/undertone';
-import { Fraction, playParams, type AudioContextLike, type ControlPatch, type PlaybackHandle, type SoundType } from '@liminal-hq/undertone';
+import { Fraction, playParams, type AudioContextLike, type ControlPatch, type PlaybackHandle } from '@liminal-hq/undertone';
 import { queryPart } from '../../assets/music/pattern.ts';
 import type { BuiltSection, BuiltTune } from './build.ts';
 import type { LabPart } from './tunes.ts';
@@ -60,44 +60,43 @@ export function firstBass(section: BuiltSection): { midi: number; part: LabPart 
 }
 
 /**
- * The turn into a section, as one bar of Undertone pattern: the player sounds only the beats that are left. The bass sits on the
- * dominant of the note it is heading for and climbs two semitones into it; the snare roll doubles its speed and grows; two kicks
- * push the last beat.
+ * The turn into a section, as one bar of Undertone pattern: the player sounds only the beats that are left. It is orchestral, not
+ * a drum fill. The bass sits on the dominant of the note it is heading for and climbs two semitones into it; a timpani on that
+ * dominant rolls faster and louder; and strings swell on the open fifth above it.
  */
 export function turnPattern(target: BuiltSection, mix: Mix): Voice {
-  const bed = (role: 'bass' | 'kick' | 'snare', v: Voice): Voice => (mix === 'surround' ? v.channels(BED[role]!) : v);
-  const voices: Voice[] = [
-    bed(
-      'snare',
-      U.sound('white*2 white*2 white*3 white*4' as SoundType)
-        .decay(0.05)
-        .sustain(0)
-        .release(0.03)
-        .hpf(1500)
-        .gain(0.2)
-        .velocity('.45 .6 .8 1'),
-    ),
-    bed('kick', U.note('~ ~ ~ [c1 c1]').sound('sine').decay(0.12).sustain(0).release(0.06).slide(0.09).gain(0.5)),
-  ];
   const home = firstBass(target);
-  if (home) {
-    const dominant = home.midi + 7 > 55 ? home.midi - 5 : home.midi + 7;
-    const walk = `${name(dominant)} ${name(dominant)} ${name(dominant)} [${name(home.midi - 2)} ${name(home.midi - 1)}]`;
-    voices.push(
-      bed(
-        'bass',
-        U.note(walk)
-          .sound(home.part.w ?? 'triangle')
-          .attack(0.005)
-          .decay(0.1)
-          .sustain(0.5)
-          .release(0.06)
-          .lpf(home.part.lpf ?? 2600)
-          .gain(home.part.g),
-      ),
-    );
-  }
-  return U.stack(...voices) as Voice;
+  if (!home) return U.silence as unknown as Voice;
+  const bed = (role: 'bass' | 'kick' | 'pad', v: Voice): Voice => (mix === 'surround' ? v.channels(BED[role]!) : v);
+  const dominant = home.midi + 7 > 55 ? home.midi - 5 : home.midi + 7;
+  const walk = `${name(dominant)} ${name(dominant)} ${name(dominant)} [${name(home.midi - 2)} ${name(home.midi - 1)}]`;
+  const drum = name(dominant - 12);
+  return U.stack(
+    bed(
+      'bass',
+      U.note(walk)
+        .sound(home.part.w ?? 'triangle')
+        .attack(0.005)
+        .decay(0.1)
+        .sustain(0.5)
+        .release(0.06)
+        .lpf(home.part.lpf ?? 2600)
+        .gain(home.part.g),
+    ),
+    bed('kick', U.note(`${drum}*2 ${drum}*2 ${drum}*3 ${drum}*4`).sound('sine').attack(0.004).decay(0.2).sustain(0).release(0.12).lpf(400).gain(home.part.g * 1.3).velocity('.45 .6 .8 1')),
+    bed(
+      'pad',
+      U.note(`[${name(dominant + 12)},${name(dominant + 19)}]*4`)
+        .sound('sawtooth')
+        .attack(0.12)
+        .decay(0.1)
+        .sustain(0.9)
+        .release(0.1)
+        .lpf(1400)
+        .gain(home.part.g * 0.16)
+        .velocity('.4 .55 .75 1'),
+    ),
+  ) as Voice;
 }
 
 /** The notes of `pattern` that start in one beat of bar `cycle`, each with the seconds after the bar's start it begins. */

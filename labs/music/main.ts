@@ -382,7 +382,7 @@ function drawDeck(): void {
     const name = `fizz2-${tune.id}${mix === 'surround' ? '-7.1' : ''}.wav`;
     const saved = await saveFile(name, rendered.wav, 'audio/wav');
     status.textContent = saved.ok
-      ? `Saved ${saved.filename}: ${rendered.channels} channels, ${rendered.seconds.toFixed(1)} s, ${(rendered.wav.length / 1048576).toFixed(1)} MB${saved.filename.endsWith('.zip') ? ' (the WAV is inside the zip)' : ''}.`
+      ? `Saved ${saved.filename}: ${rendered.channels} channels, ${rendered.seconds.toFixed(1)} s, loops, ${(rendered.wav.length / 1048576).toFixed(1)} MB${saved.filename.endsWith('.zip') ? ' (the WAV is inside the zip)' : ''}.`
       : saved.reason;
   };
   const notes = async () => {
@@ -467,7 +467,7 @@ function drawDeck(): void {
       }),
     ),
     h('div', { class: 'strip', role: 'group', 'aria-label': 'Sections. Tap one to send the song there.' }, ...strip),
-    h('p', { class: 'hint' }, 'Tap a section to send the song there. At the bar, the drums and bass turn into a roll and a walk-up that lands on the new section’s first note. Tap the same section again to cancel.'),
+    h('p', { class: 'hint' }, 'Tap a section to send the song there. At the bar, the drums and bass give way to a timpani roll, a string swell and a walk-up that lands on the new section’s first note. Tap the same section again to cancel.'),
     h('div', { class: 'motifs' }, ...motifGrids),
     h(
       'div',

@@ -33,7 +33,12 @@ The level types are the maze concepts of the Fizz 2 level design boards (towers,
 
 A pattern is read as a riff by one rule (`riffOf`): a column is a step in time, a row is a scale degree with the bottom row lowest, the highest filled cell of a column is the melody and the lowest filled cell, where it differs, is a second line. A tune may sit the bottom row on its tonic or one step under it, and may read a run of equal cells as one held note. A tune is then written around its riff in scale degrees (`labs/music/scale.ts` turns a degree string into note names, leaving the rhythm of the mini-notation alone), which is what lets the two combination tunes take three riffs each into a new key.
 
-The loop becomes a song through `assets/music/song.ts`, the builder the game's level track uses, unchanged: an intro, the tune, a contrast section in a related key, a breakdown and a build, the tune again lifted and doubled an octave up, and a one-bar fill; with a filter envelope on every voice and a quiet sine partner on the melodic ones. Each tune's `SongDef` chooses its contrast key, its lift and whether the pad is arpeggiated, and two tunes pin a form.
+The loop becomes a song through `assets/music/song.ts`, the builder the game's level track uses, unchanged: an intro, the tune, a contrast section in a related key, a breakdown and a build, and the tune again doubled an octave up; with a filter envelope on every voice and a quiet sine partner on the melodic ones. Each tune's `SongDef` chooses its contrast key and whether the pad is arpeggiated, and two tunes pin a form.
+
+`buildTune` in `labs/music/build.ts` then changes two things about that form:
+
+- **No fill.** The builder's closing one-bar fill is left out (`noFill`), and no tune lifts its last section to another key. The song therefore ends on the last bar of the tune in its home key, which sits on the dominant, and the intro that follows opens on the tonic: the end leads into the beginning and the loop has no seam.
+- **An orchestral build.** The builder's build bar is a snare roll over a held pad. The lab replaces everything in that bar with `symphonicBuild`: strings holding the dominant chord and opening up through the bar, two string lines climbing the scale an octave apart from opposite sides, the bass on the dominant, and a timpani on the same note rolling faster and louder. Every voice is pitched and in the key. Tunes whose form has no breakdown have no build either.
 
 ## What the lab adds to a voice
 
@@ -49,7 +54,7 @@ The loop becomes a song through `assets/music/song.ts`, the builder the game's l
 
 Undertone's `loop` plays one fixed pattern. `labs/music/player.ts` instead asks each section's pattern for one beat at a time and books those notes with `playParams`, a quarter of a second ahead of the audio clock, so a tap can still change the rest of the bar. Tapping a section calls it, in one of three ways:
 
-- **At the bar, with a turn** (the default). The rest of the current bar becomes a turn: the drums and bass drop out for a snare roll that doubles its speed and grows, two kicks on the last beat, and a bass that sits on the dominant of the note it is heading for and then climbs two semitones into it. The tune and pads of the old section carry on over the turn, and the new section starts on the barline. The turn is itself an Undertone pattern (`turnPattern`); the player sounds only the beats that are left.
+- **At the bar, with a turn** (the default). The rest of the current bar becomes a turn: the drums and bass drop out for a timpani roll that quickens and grows, strings swelling on an open fifth, and a bass that sits on the dominant of the note it is heading for and then climbs two semitones into it. Like the build, the turn has no drum fill in it. The tune and pads of the old section carry on over the turn, and the new section starts on the barline. The turn is itself an Undertone pattern (`turnPattern`); the player sounds only the beats that are left.
 - **On the beat.** The called section takes over on the next beat, at the same beat of its first bar.
 - **When this one ends.** The current section finishes, with a turn over its last two beats.
 
@@ -80,7 +85,7 @@ Music theory, read from the notes through Undertone's parser:
 5. No leap wider than an octave, and a leap over a fifth is followed by a step or a change of direction (at least 80 percent).
 6. The tune spans at most two octaves and the bass never crosses it.
 7. The loop's bass opens on the tonic and its last bar sits on a root that leads back (the dominant, the subtonic, the subdominant or a supertonic).
-8. The song is 45 to 80 seconds and every onset is on the game's 96-tick grid.
+8. The song is 45 to 80 seconds, every onset is on the game's 96-tick grid, there is no fill and no snare roll, and the last section is in the home key.
 
 Feel, measured on the humanised patterns the lab plays:
 
@@ -93,7 +98,7 @@ Feel, measured on the humanised patterns the lab plays:
 
 ## Downloads
 
-Each tune saves a stereo WAV (48 kHz, 16-bit, the whole song and a three-second tail), its note list and its source as JSON. Beam Over the Point also saves a 7.1 WAV: eight channels in the order front left, front right, centre, subwoofer, side left, side right, rear left, rear right, with the WAVE extensible header and speaker mask `0x63F`. `labs/music/render.ts` renders with Undertone's offline `render` and encodes with its `encodeWav`. The stereo render passes through Undertone's master limiter as the live player does; a limiter cannot hold eight channels, so the 7.1 render is scaled as a whole if its peak passes 0.94.
+Each tune saves a stereo WAV (48 kHz, 16-bit), its note list and its source as JSON. A WAV is exactly one pass of the song: the three seconds of reverb and echo that ring past the last bar are folded onto the first (Undertone's `wrap`), so the file loops without a seam, as the song does. Beam Over the Point also saves a 7.1 WAV: eight channels in the order front left, front right, centre, subwoofer, side left, side right, rear left, rear right, with the WAVE extensible header and speaker mask `0x63F`. `labs/music/render.ts` renders with Undertone's offline `render` and encodes with its `encodeWav`. The stereo render passes through Undertone's master limiter as the live player does; a limiter cannot hold eight channels, so the 7.1 render is scaled as a whole if its peak passes 0.94.
 
 Served from a web server the page saves with an ordinary download link. Published as a Claude artifact it saves through the host, which accepts a zip but not a WAV, so there a WAV is saved inside a zip (`labs/music/files.ts`).
 

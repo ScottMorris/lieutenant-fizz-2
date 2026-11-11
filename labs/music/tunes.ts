@@ -104,7 +104,7 @@ function beam(): LabTune {
     echoBeats: 0.75,
     spinBars: 2,
     motifs: [{ pattern: 'beam', role: 'lead', bar: 0, octave: 4, base: 0, tie: false, line: 'top' }],
-    def: { trim: 0.75, contrast: 5, lift: 2, arp: true },
+    def: { trim: 0.75, contrast: 5, lift: 0, arp: true },
     track: {
       bpm: 108,
       parts: [
@@ -170,7 +170,7 @@ function press(): LabTune {
       { pattern: 'press', role: 'lead', bar: 0, octave: 4, base: -1, tie: false, line: 'top' },
       { pattern: 'press', role: 'counter', bar: 0, octave: 4, base: -1, tie: false, line: 'low' },
     ],
-    def: { trim: 0.72, contrast: 3, lift: 1, arp: false },
+    def: { trim: 0.72, contrast: 3, lift: 0, arp: false },
     track: {
       bpm: 120,
       parts: [
@@ -220,7 +220,7 @@ function keys(): LabTune {
     roomSize: 5,
     echoBeats: 0.75,
     motifs: [{ pattern: 'keys', role: 'lead', bar: 0, octave: 4, base: 0, tie: true, line: 'top' }],
-    def: { trim: 0.78, contrast: 5, lift: 2, arp: true },
+    def: { trim: 0.78, contrast: 5, lift: 0, arp: true },
     track: {
       bpm: 100,
       parts: [
@@ -354,7 +354,7 @@ function tanker(): LabTune {
     roomSize: 5,
     echoBeats: 0.5,
     motifs: [{ pattern: 'tanker', role: 'lead', bar: 0, octave: 4, base: 0, tie: false, line: 'top' }],
-    def: { trim: 0.68, contrast: 5, lift: 1, arp: false },
+    def: { trim: 0.68, contrast: 5, lift: 0, arp: false },
     track: {
       bpm: 138,
       parts: [
@@ -462,7 +462,7 @@ function nightMap(): LabTune {
       { pattern: 'keys', role: 'lead', bar: 2, octave: 4, base: 1, tie: true, line: 'top' },
       { pattern: 'rooms', role: 'counter', bar: 0, octave: 4, base: 0, tie: false, line: 'top' },
     ],
-    def: { trim: 0.72, contrast: 5, lift: 2, arp: true },
+    def: { trim: 0.72, contrast: 5, lift: 0, arp: true },
     track: {
       bpm: 116,
       parts: [
@@ -538,7 +538,7 @@ function plan(): LabTune {
       { pattern: 'press', role: 'bass', bar: 0, octave: 2, base: -1, tie: false, line: 'top' },
       { pattern: 'crystal', role: 'bell', bar: 0, octave: 5, base: 0, tie: true, line: 'top' },
     ],
-    def: { trim: 0.66, contrast: 3, lift: 2, arp: false },
+    def: { trim: 0.66, contrast: 3, lift: 0, arp: false },
     track: {
       bpm: 132,
       parts: [
