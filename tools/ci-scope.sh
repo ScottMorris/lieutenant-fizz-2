@@ -60,6 +60,8 @@ RULES=(
   'tools/bench486/*;base;tools/bench486/src/main.rs'
   'crates/fizz-present-web/*;base;crates/fizz-present-web/src/lib.rs'
   'web/*;base;web/sound.ts'
+  # The Music Lab is a page of sketches: nothing in a DOS or Web program loads it, and its tests run with the host checks.
+  'labs/*;base;labs/music/tunes.ts'
   'package.json;base;package.json'
   'bun.lock;base;bun.lock'
   # The DOS programs. The runtime's audio and keyboard files have a group of their own; the rest of the runtime serves every group.

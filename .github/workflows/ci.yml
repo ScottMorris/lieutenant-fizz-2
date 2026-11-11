@@ -119,3 +119,5 @@ jobs:
         run: |
           bun test tools/music
           bun tools/music/generate.ts --check
+      - name: Test the Music Lab's tunes, checks and live player
+        run: bun test labs/music

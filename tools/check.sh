@@ -22,6 +22,7 @@ if command -v bun > /dev/null 2>&1 && [ -d node_modules/@liminal-hq/undertone ];
   bun tools/music/notes.ts --check
   bun test tools/music
   bun tools/music/generate.ts --check
+  bun test labs/music
 else
   printf 'skipped: the music source checks (need bun and node_modules)\n'
 fi

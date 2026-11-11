@@ -29,6 +29,7 @@ The first commit is titled `Initial Commit`; later commits use Conventional Comm
 - `docs/`: architecture, the platform skeleton reference, the proof-of-concept findings, the scene contract sketch
 - `assets/`: the animated README hero, hand-authored in the 16-colour EGA palette
 - `tools/`: `check.sh` (the pre-PR gate), the DOS and Web build scripts, `check-dos.sh` and `check-parity.sh`
+- `labs/music/`: the Music Lab, a page of Undertone music sketches with a live section player and checks (`docs/MUSIC-LAB.md`); not part of the game
 - `tools/progress-report/`: the generator of the progress archive (Gregory's chapters, the figure registry, captures in `media/`); its prose follows `tools/progress-report/VOICE.md`
 
 ## Commands
@@ -41,6 +42,7 @@ tools/check-dos.sh                               # build FIZZ2.EXE and check it 
 tools/ci-scope.sh                                # which check groups this branch's paths need (CI runs these on a PR, everything on main)
 tools/build-web.sh                               # build dist/web (needs the pinned wasm-bindgen CLI)
 tools/check-parity.sh                            # native, Web and DOS transcripts must match: PARITY ok <hash>
+labs/music/build.sh --serve                      # build the Music Lab into dist/music-lab and serve it on http://127.0.0.1:8090/
 tools/preview-site.sh --serve                    # local preview: landing page, Web build and js-dos DOS modes on http://127.0.0.1:8080/ (for looking, not pinning)
 python3 tools/progress-report/build.py --check   # build and check the progress archive in dist/progress-report (--offline: gh snapshot)
 python3 tools/progress-report/gather.py --update-snapshot   # refresh the archive's committed gh snapshot
