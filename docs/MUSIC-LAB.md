@@ -10,6 +10,7 @@ Nobody has listened to these tunes as Fizz 2's music. The checks below read note
 labs/music/build.sh            # builds dist/music-lab
 labs/music/build.sh --serve    # builds, then serves it on http://127.0.0.1:8090/
 bun test labs/music            # the lab's tests
+bun labs/music/write-history.ts   # rewrite docs/MUSIC-LAB-HISTORY.md (--check: fail if stale)
 ```
 
 The build needs Bun and the pinned `@liminal-hq/undertone` 0.3.0, as `tools/build-web.sh` does. It writes `index.html`, `lab.css`, `lab.js` (the page's script and Undertone in one file) and the Fizz fonts, and also `artifact.html`, the same lab as one self-contained file. The page fetches nothing and ships no audio: every sound and every saved file is made in the browser when asked for.
@@ -125,6 +126,10 @@ Flow, for the Pathfinder tunes only:
 Each tune saves a stereo WAV (48 kHz, 16-bit), its note list and its source as JSON. A WAV is exactly one pass of the song: the three seconds of reverb and echo that ring past the last bar are folded onto the first (Undertone's `wrap`), so the file loops without a seam, as the song does. Beam Over the Point also saves a 7.1 WAV: eight channels in the order front left, front right, centre, subwoofer, side left, side right, rear left, rear right, with the WAVE extensible header and speaker mask `0x63F`. `labs/music/render.ts` renders with Undertone's offline `render` and encodes with its `encodeWav`. The stereo render passes through Undertone's master limiter as the live player does; a limiter cannot hold eight channels, so the 7.1 render is scaled as a whole if its peak passes 0.94.
 
 Served from a web server the page saves with an ordinary download link. Published as a Claude artifact it saves through the host, which accepts a zip but not a WAV, so there a WAV is saved inside a zip (`labs/music/files.ts`).
+
+## History
+
+[MUSIC-LAB-HISTORY.md](MUSIC-LAB-HISTORY.md) is the conversation behind every tune: the briefs sent to the Haiku agents, their replies as written, and a note of each decision taken afterwards (the key, how the picture or path was read, what a check rejected and how it was fixed). The page shows the same history in each tune's deck, under "How this track came to be", and includes it in the tune's saved source. It lives in `labs/music/provenance.ts`, which reads the agents' pictures and paths from `patterns.ts` and `paths.ts` so the history cannot drift from the data. `bun labs/music/write-history.ts` rewrites the document and `--check` fails if it is stale; the check runs in `tools/check.sh` and CI.
 
 ## What is and is not verified
 

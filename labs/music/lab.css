@@ -119,6 +119,21 @@ code { font: inherit; color: var(--white); overflow-wrap: anywhere; }
 .saves { display: flex; flex-wrap: wrap; gap: .6rem; }
 .status { min-height: 1.5em; color: var(--yellow); }
 
+.history { border: 2px solid var(--dark-grey); padding: .5rem .8rem; }
+.history summary { cursor: pointer; color: var(--white); min-height: 32px; display: flex; align-items: center; gap: .5rem; }
+.history summary::before { content: "[+]"; color: var(--ink); }
+.history[open] summary::before { content: "[-]"; }
+.history summary::-webkit-details-marker { display: none; }
+.history ol { list-style: none; margin: .6rem 0 .2rem; padding: 0; display: flex; flex-direction: column; gap: .8rem; }
+.history li { display: flex; flex-direction: column; gap: .35rem; padding-left: .8rem; border-left: 4px solid var(--dark-grey); font-size: 13px; max-width: 62rem; min-width: 0; }
+.history li.reply { border-left-color: var(--ink); }
+.history li.note { border-left-color: var(--light-green); }
+.history li b { color: var(--white); }
+.history li.reply b { color: var(--ink); }
+.history li.note b { color: var(--light-green); }
+.history li.brief p { color: var(--grey); }
+.history li.reply p { color: var(--white); }
+.history pre { margin: 0; padding: .4rem .6rem; background: #101010; color: var(--light-cyan); font: 13px/1.35 var(--mono); overflow-x: auto; max-width: 100%; }
 .checkgrid { display: grid; gap: 1.2rem 2rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); border-top: 2px solid var(--dark-grey); padding-top: 1rem; }
 .checks { min-width: 0; display: flex; flex-direction: column; gap: .5rem; }
 .checks h3 { margin: 0; font: 22px/1.2 var(--display); font-synthesis: none; color: var(--white); }

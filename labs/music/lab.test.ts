@@ -9,6 +9,7 @@ import { HUMAN, buildTune } from './build.ts';
 import { crc32, zipOf } from './files.ts';
 import { PATHS, pathPattern, tensionAccent } from './paths.ts';
 import { COLUMNS, PATTERNS, ROWS, patternById, riffLine, riffOf } from './patterns.ts';
+import { PATHFINDER_RULES, PATTERN_BRIEF, historyOf } from './provenance.ts';
 import { LabPlayer, beatOnsets, firstBass, turnPattern, type Step } from './player.ts';
 import { degreeMidi, degrees, keyOf, noteName } from './scale.ts';
 import { SURROUND_TUNE, TUNES, tuneById } from './tunes.ts';
@@ -83,6 +84,34 @@ describe('the Pathfinder paths', () => {
     expect(pathPattern(chimes).grid.map((row) => row.split('#').length - 1).reduce((a, b) => a + b)).toBe(16);
     expect(riffLine(riffOf(patternById('chimes')).top.slice(0, 8), true)).toBe('4 2 3 5@4 6');
     expect(tensionAccent(chimes)).toBe('<[0.78 0.85 0.85 0.85 0.93 1.00 1.00 0.93] [0.93 0.93 0.85 0.78 0.85 0.78 0.78 0.78]>');
+  });
+});
+
+describe('the history of a tune', () => {
+  test('every tune has its brief, the agents’ replies as written, and at least one note of what was made of them', () => {
+    for (const tune of TUNES) {
+      const turns = historyOf(tune);
+      expect(turns[0]!.kind).toBe('brief');
+      expect(turns.filter((t) => t.kind === 'reply').length).toBeGreaterThanOrEqual(1);
+      expect(turns.filter((t) => t.kind === 'note').length).toBeGreaterThanOrEqual(2);
+      // Each picture or path the tune is built on appears in a reply, cell for cell or step for step.
+      const blocks = turns.filter((t) => t.kind === 'reply').map((t) => t.block ?? '').join('\n');
+      for (const id of new Set(tune.motifs.map((m) => m.pattern))) {
+        const path = PATHS.find((p) => p.id === id);
+        if (path) for (const step of path.steps) expect(blocks).toContain(`| ${step.tension} | ${step.note}`);
+        else expect(blocks).toContain(patternById(id).grid.join('\n'));
+      }
+    }
+  });
+
+  test('a pattern tune quotes the pattern brief, a path tune the rules of the game, and a relay has two players', () => {
+    expect(historyOf(TUNES[0]!)[0]!.text).toEqual(['To one Haiku agent:', ...PATTERN_BRIEF]);
+    expect(historyOf(TUNES[8]!)[0]!.text.slice(1)).toEqual(PATHFINDER_RULES);
+    const relay = historyOf(TUNES.find((t) => t.id === 'quick-way')!);
+    expect(relay.filter((t) => t.kind === 'reply').map((t) => t.speaker)).toEqual(['Player one', 'Player two']);
+    expect(relay.filter((t) => t.kind === 'reply').map((t) => t.block!.split('\n').length)).toEqual([8, 8]);
+    expect(relay.some((t) => t.text.some((p) => p.startsWith('HAND-OVER:')))).toBe(true);
+    expect(historyOf(TUNES.find((t) => t.id === 'night-map')!).filter((t) => t.kind === 'reply').length).toBe(3);
   });
 });
 

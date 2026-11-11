@@ -120,4 +120,6 @@ jobs:
           bun test tools/music
           bun tools/music/generate.ts --check
       - name: Test the Music Lab's tunes, checks and live player
-        run: bun test labs/music
+        run: |
+          bun test labs/music
+          bun labs/music/write-history.ts --check

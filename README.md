@@ -64,6 +64,7 @@ Episode 2 takes Ben through an overworld, an inner world and an underworld, with
 | `docs/OPX.md` | OPX, the open OPL2, OPL3 and PC speaker register-stream format (header, commands, text twin, profiles, conformance examples) that music and effects use, and how it relates to `OplStep`, IMF, DRO and VGM |
 | `docs/SOUND.md` | Sound: what plays where, the cluck and its downmixes, how a sound is placed, DOS playback, the Web path and how music fits in |
 | `docs/MUSIC-LAB.md` | The Music Lab: eight Undertone sketches grown from concept patterns, the live section player, the checks and the downloads |
+| `docs/MUSIC-LAB-HISTORY.md` | The conversation behind every Music Lab tune: the agents' briefs and replies and the decisions taken (generated) |
 | `docs/LORE.md` | Episode 2's setting and the proposed lore of its levels |
 | `docs/MANUAL.md` | How to play and run the slice |
 | `docs/POC-1-FINDINGS.md` | What the earlier proof of concept settled and what it did not |

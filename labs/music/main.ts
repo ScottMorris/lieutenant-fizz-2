@@ -11,6 +11,7 @@ import { noteEvents, tickSeconds } from '../../assets/music/events.ts';
 import { HUMAN, buildTune, type BuiltTune } from './build.ts';
 import { saveFile } from './files.ts';
 import { pathById } from './paths.ts';
+import { historyOf } from './provenance.ts';
 import { COLUMNS, ROWS, patternById, riffOf } from './patterns.ts';
 import { LabPlayer, type Quantise, type Step } from './player.ts';
 import { SURROUND_CHANNELS, renderTune } from './render.ts';
@@ -326,6 +327,30 @@ function drawChecks(tune: LabTune): HTMLElement {
   );
 }
 
+/** The conversation behind the tune: what the agents were asked and answered, and what was made of it. Closed until asked for. */
+function drawHistory(tune: LabTune): HTMLElement {
+  const turns = historyOf(tune);
+  const agents = new Set(turns.filter((t) => t.kind === 'reply').map((t) => t.speaker));
+  return h(
+    'details',
+    { class: 'history', id: 'history' },
+    h('summary', {}, `How this track came to be: ${turns.length} turns with ${agents.size === 1 ? 'one agent' : `${agents.size} agents`}`),
+    h(
+      'ol',
+      {},
+      ...turns.map((turn) =>
+        h(
+          'li',
+          { class: turn.kind },
+          h('b', {}, `${turn.speaker} ${turn.kind === 'brief' ? 'asked' : turn.kind === 'reply' ? 'answered' : 'noted'}`),
+          ...turn.text.map((paragraph) => h('p', {}, paragraph)),
+          turn.block ? h('pre', {}, turn.block) : null,
+        ),
+      ),
+    ),
+  );
+}
+
 function drawDeck(): void {
   const tune = state.tune;
   const b = builtOf(tune);
@@ -425,6 +450,7 @@ function drawDeck(): void {
       sections: b.sections.map(({ name, cycles, startBar, shift }) => ({ name, bars: cycles, startBar, shift })),
       humanising: HUMAN,
       checks: checksOf(tune),
+      history: historyOf(tune),
     };
     const saved = await saveFile(`fizz2-${tune.id}.json`, `${JSON.stringify(body, null, 2)}\n`, 'application/json');
     status.textContent = saved.ok ? `Saved ${saved.filename}.` : saved.reason;
@@ -495,6 +521,7 @@ function drawDeck(): void {
     ),
     surround ? h('p', { class: 'hint' }, `The 7.1 file has eight channels: ${SURROUND_CHANNELS.join(', ').toLowerCase()}. Played here on two speakers, the 7.1 mix is folded down to stereo; the ring above shows all eight.`) : null,
     status,
+    drawHistory(tune),
     drawChecks(tune),
   ];
   deck.replaceChildren(...parts.filter((part): part is Node => part instanceof Node));
